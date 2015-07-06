@@ -64,6 +64,26 @@ class test_CBF(unittest.TestCase):
         """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
         test_chan = 1500
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        fhosts = {}
+        xhosts = {}
+        dicts = {}
+        dicts['fhosts'] = {}
+        dicts['xhosts'] = {}
+        fengs = self.correlator.fhosts
+        xengs = self.correlator.xhosts
+
+        def check_fftoverflow_qdrstatus():
+            for fhost in fengs:
+                fhosts[fhost.host] = {}
+                fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+                for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
+                    fhosts[fhost.host][pfb] = value
+                for xhost in xengs:
+                    xhosts[xhost.host] = {}
+                    xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+            dicts['fhosts'] = fhosts
+            dicts['xhosts'] = xhosts
+            return dicts
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
@@ -88,11 +108,21 @@ class test_CBF(unittest.TestCase):
         # Channel magnitude responses for each frequency
         chan_responses = []
         last_source_freq = None
+        # check QDR error flags
+        QDR_status = check_fftoverflow_qdrstatus()
+        QDR_error_roaches = set()
+        #QDR_status['xhosts']['roach020937']['QDR_okay'] = False
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-                i+1, len(requested_test_freqs), freq/1e6))
+               i+1, len(requested_test_freqs), freq/1e6))
+            for hosts_status in QDR_status.values():
+                for host, hosts_status in hosts_status.items():
+                    if hosts_status['QDR_okay'] is False:
+                        QDR_error_roaches.add(host)
+            # Test QDR status
+            self.assertFalse(QDR_error_roaches)
             if freq == expected_fc:
                 # We've already done this one!
                 this_source_freq = source_fc
