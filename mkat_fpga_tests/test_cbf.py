@@ -16,6 +16,9 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
+import corr2.fxcorrelator_fengops as fengops
+import corr2.fxcorrelator_xengops as xengops
+
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources
@@ -51,7 +54,7 @@ class test_CBF(unittest.TestCase):
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
         # Increase the dump rate so tests can run faster
-        self.correlator.xeng_set_acc_time(0.2)
+        xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
