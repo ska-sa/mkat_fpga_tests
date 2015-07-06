@@ -118,7 +118,7 @@ class test_CBF(unittest.TestCase):
         actual_test_freqs = np.array(actual_test_freqs)
         chan_responses = np.array(chan_responses)
 
-        def plot_and_save(freqs, data, plot_filename):
+        def plot_and_save(freqs, data, plot_filename, show=False):
             df = self.corr_freqs.delta_f
             fig = plt.plot(freqs, data)[0]
             axes = fig.get_axes()
@@ -141,20 +141,27 @@ class test_CBF(unittest.TestCase):
             # TODO Normalise plot to frequency bins
             plt.xlabel('Frequency (Hz)')
             plt.savefig(plot_filename)
+            if show:
+                plt.show()
             plt.close()
 
-        graph_name = '{}.{}.channel_response.svg'.format(strclass(self.__class__),
+        graph_name_all = '{}.{}.channel_response.svg'.format(strclass(self.__class__),
                                                          self._testMethodName)
         plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
-        plot_and_save(actual_test_freqs, plot_data_all, graph_name)
+        plot_and_save(actual_test_freqs, plot_data_all, graph_name_all)
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
         central_indices = (
-            (actual_test_freqs <= expected_fc + 0.8*df) &
-            (actual_test_freqs >= expected_fc - 0.8*df))
+            (actual_test_freqs <= expected_fc + 0.4*df) &
+            (actual_test_freqs >= expected_fc - 0.4*df))
         central_chan_responses = chan_responses[central_indices]
         central_chan_test_freqs = actual_test_freqs[central_indices]
+
+        graph_name_central = '{}.{}.channel_response_central.svg'.format(strclass(self.__class__),
+                                                         self._testMethodName)
+        plot_data_central  = loggerise(central_chan_responses[:, test_chan], dynamic_range=90)
+        plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central)
 
         # Test responses in central 80% of channel
         for i, freq in enumerate(central_chan_test_freqs):
@@ -170,7 +177,7 @@ class test_CBF(unittest.TestCase):
             'something, somewhere, is probably overranging.')
         max_central_chan_response = np.max(10*np.log10(central_chan_responses[:, test_chan]))
         min_central_chan_response = np.min(10*np.log10(central_chan_responses[:, test_chan]))
-        chan_ripple = max_chan_response - min_chan_response
+        chan_ripple = max_central_chan_response - min_central_chan_response
         acceptable_ripple_lt = 0.3
 
 
