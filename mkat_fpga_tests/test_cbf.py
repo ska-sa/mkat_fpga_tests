@@ -239,15 +239,15 @@ class test_CBF(unittest.TestCase):
 
         # Save initial f-engine equalisations
         initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                                in self.correlator.feng_eq_get().items()}
+                                in fengops.feng_eq_get(self.correlator).items()}
         def restore_initial_equalisations():
             for input, eq in initial_equalisations.items():
-                self.correlator.feng_eq_set(source_name=input, new_eq=eq)
+                fengops.feng_eq_set(self.correlator, source_name=input, new_eq=eq)
         self.addCleanup(restore_initial_equalisations)
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
-            self.correlator.feng_eq_set(source_name=input, new_eq=0)
+            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         self.assertFalse(nonzero_baselines(test_data))
         #-----------------------------------
@@ -275,7 +275,7 @@ class test_CBF(unittest.TestCase):
         #print_baselines()
         for inp in input_labels:
             old_eqs = initial_equalisations[inp]
-            self.correlator.feng_eq_set(source_name=inp, new_eq=old_eqs)
+            fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eqs)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
             #zero_baseline, nonzero_baseline = calc_zero_and_nonzero_baselines(nonzero_inputs)
