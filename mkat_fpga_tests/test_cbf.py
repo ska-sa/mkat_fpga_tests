@@ -16,6 +16,9 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
+import corr2.fxcorrelator_fengops as fengops
+import corr2.fxcorrelator_xengops as xengops
+
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources
@@ -51,7 +54,7 @@ class test_CBF(unittest.TestCase):
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
         # Increase the dump rate so tests can run faster
-        self.correlator.xeng_set_acc_time(0.2)
+        xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
@@ -277,15 +280,15 @@ class test_CBF(unittest.TestCase):
 
         # Save initial f-engine equalisations
         initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                                in self.correlator.feng_eq_get().items()}
+                                in fengops.feng_eq_get(self.correlator).items()}
         def restore_initial_equalisations():
             for input, eq in initial_equalisations.items():
-                self.correlator.feng_eq_set(source_name=input, new_eq=eq)
+                fengops.feng_eq_set(self.correlator, source_name=input, new_eq=eq)
         self.addCleanup(restore_initial_equalisations)
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
-            self.correlator.feng_eq_set(source_name=input, new_eq=0)
+            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         self.assertFalse(nonzero_baselines(test_data))
         #-----------------------------------
@@ -303,3 +306,19 @@ class test_CBF(unittest.TestCase):
                     else:
                         zeros.add((inp_i, inp_j))
             return zeros, nonzeros
+
+        #zero_baseline, nonzero_baseline = calc_zero_and_nonzero_baselines(nonzero_inputs)
+        def print_baselines():
+            print ('zeros: {}\n\nnonzeros: {}\n\nnonzero-baselines: {}\n\n '
+                'zero-baselines: {}\n\n'.format(
+                    sorted(zero_inputs), sorted(nonzero_inputs),
+                    sorted(nonzero_baseline), sorted(zero_baseline)))
+        #print_baselines()
+        for inp in input_labels:
+            old_eqs = initial_equalisations[inp]
+            fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eqs)
+            zero_inputs.remove(inp)
+            nonzero_inputs.add(inp)
+            #zero_baseline, nonzero_baseline = calc_zero_and_nonzero_baselines(nonzero_inputs)
+            #print_baselines()
+        #print self.correlator.feng_eq_get().items()
