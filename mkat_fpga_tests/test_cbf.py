@@ -72,7 +72,7 @@ class test_CBF(unittest.TestCase):
         fengs = self.correlator.fhosts
         xengs = self.correlator.xhosts
 
-        def check_fftoverflow_qdrstatus():
+        def get_fftoverflow_qdrstatus():
             for fhost in fengs:
                 fhosts[fhost.host] = {}
                 fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
@@ -108,8 +108,6 @@ class test_CBF(unittest.TestCase):
         # Channel magnitude responses for each frequency
         chan_responses = []
         last_source_freq = None
-        # check QDR error flags
-        QDR_status = check_fftoverflow_qdrstatus()
         QDR_error_roaches = set()
         #QDR_status['xhosts']['roach020937']['QDR_okay'] = False
         for i, freq in enumerate(requested_test_freqs):
@@ -117,6 +115,8 @@ class test_CBF(unittest.TestCase):
             #     i+1, len(requested_test_freqs), freq/1e6))
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                i+1, len(requested_test_freqs), freq/1e6))
+            # Get/Check QDR error flags
+            QDR_status = get_fftoverflow_qdrstatus()
             for hosts_status in QDR_status.values():
                 for host, hosts_status in hosts_status.items():
                     if hosts_status['QDR_okay'] is False:
@@ -285,37 +285,3 @@ class test_CBF(unittest.TestCase):
                     else:
                         zeros.add((inp_i, inp_j))
             return zeros, nonzeros
-
-        zero_baselines, nonzero_baselines = calc_zero_and_nonzero_baselines(nonzero_inputs)
-        def print_baselines():
-            print ('zeros: {}\n\nnonzeros: {}\n\nnonzero-baselines: {}\n\n '
-                'zero-baselines: {}\n\n'.format(
-                    sorted(zero_inputs), sorted(nonzero_inputs),
-                    sorted(nonzero_baselines), sorted(zero_baselines)))
-
-        for inp in input_labels:
-            old_eq = initial_equalisations[inp]
-            self.correlator.feng_eq_set(source_name=inp, new_eq=old_eq)
-            zero_inputs.remove(inp)
-            nonzero_inputs.add(inp)
-            zero_baselines, nonzero_baselines = calc_zero_and_nonzero_baselines(nonzero_inputs)
-        #print self.correlator.feng_eq_get().items()
-        #-----------------------------------------------
-        #desired_nz_baselines = set(tuple(bl) for bl in test_dump['bls_ordering'])
-        ## Get new clean dump
-        #test_data = test_dump['xeng_raw']
-        #actual_nz_indices = nonzero_baselines(test_data)
-        #actual_nz_baselines = set()
-
-        #def blsindices_to_bls(desired_nz_baselines, actual_nz_indices, add_redundant = False):
-            #for ind in actual_nz_indices:
-                ##bls = tuple(test_dump['bls_ordering'][:,ind].flatten()) #include when using h5py
-                #bls = tuple(test_dump['bls_ordering'][ind].flatten())
-                #actual_nz_baselines.add(bls)
-                #actual_nz_baselines.add(bls[::-1])
-            #return actual_nz_baselines
-
-        #blsindices_to_bls(desired_nz_baselines, actual_nz_indices)
-        ## Expect all Non zero baselines to be non-zero
-        #self.assertEqual(actual_nz_baselines, nonzero_baseline)
-        ##import IPython ; IPython.embed()
