@@ -110,12 +110,23 @@ class test_CBF(unittest.TestCase):
         last_source_freq = None
         QDR_error_roaches = set()
         #QDR_status['xhosts']['roach020937']['QDR_okay'] = False
+
+        pfb_list1 = []
+        pfb_list2 = []
+        pfb_status = get_fftoverflow_qdrstatus()['fhosts'].items()
+
+        def test():
+            for host,pfb_value in pfb_status:
+                pfb_list.append((host, (pfb_value['pfb_of0_cnt'], pfb_value['pfb_of1_cnt'])))
+                pfb_dict = dict(pfb_list)
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                i+1, len(requested_test_freqs), freq/1e6))
             # Get/Check QDR error flags
+            test1 = test()
+            print test1
             QDR_status = get_fftoverflow_qdrstatus()
             for hosts_status in QDR_status.values():
                 for host, hosts_status in hosts_status.items():
