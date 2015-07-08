@@ -112,24 +112,27 @@ class test_CBF(unittest.TestCase):
         chan_responses = []
         last_source_freq = None
         QDR_error_roaches = set()
-        #QDR_status['xhosts']['roach020937']['QDR_okay'] = False
-
-        pfb_list1 = []
+        pfb_list = []
         pfb_list2 = []
-        pfb_status = get_fftoverflow_qdrstatus()['fhosts'].items()
-
-        def test():
-            for host,pfb_value in pfb_status:
-                pfb_list.append((host, (pfb_value['pfb_of0_cnt'], pfb_value['pfb_of1_cnt'])))
-                pfb_dict = dict(pfb_list)
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
-            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-               i+1, len(requested_test_freqs), freq/1e6))
+            #print ('Getting channel response for freq {}/{}: {} MHz.'.format(
+               #i+1, len(requested_test_freqs), freq/1e6))
+
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+            pfb_status = get_fftoverflow_qdrstatus()['fhosts'].items()
+            for host,pfb_value in pfb_status:
+                pfb_list.append((host, (pfb_value['pfb_of0_cnt'], pfb_value['pfb_of1_cnt'])))
+                pfb_dict = dict(pfb_list)
+
+            pfb_status2 = get_fftoverflow_qdrstatus()['fhosts'].items()
+            for host2,pfb_value2 in pfb_status2:
+                pfb_list2.append((host2, (pfb_value2['pfb_of0_cnt'], pfb_value2['pfb_of1_cnt'])))
+                pfb_dict2 = dict(pfb_list2)
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             # Get/Check QDR error flags
-            test1 = test()
-            print test1
             QDR_status = get_fftoverflow_qdrstatus()
             for hosts_status in QDR_status.values():
                 for host, hosts_status in hosts_status.items():
@@ -137,6 +140,7 @@ class test_CBF(unittest.TestCase):
                         QDR_error_roaches.add(host)
             # Test QDR status
             self.assertFalse(QDR_error_roaches)
+
             if freq == expected_fc:
                 # We've already done this one!
                 this_source_freq = source_fc
@@ -156,6 +160,11 @@ class test_CBF(unittest.TestCase):
                     this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            check_pfb_status = set(pfb_dict.iteritems()) - set(pfb_dict2.iteritems())
+            print 'pfb failed', check_pfb_status
+            self.assertFalse(check_pfb_status)
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         self.corr_fix.stop_x_data()
 
         # Convert the lists to numpy arrays for easier working
