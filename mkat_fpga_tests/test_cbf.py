@@ -67,15 +67,15 @@ class test_CBF(unittest.TestCase):
         """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
         test_chan = 1500
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
-        fhosts = {}
-        xhosts = {}
-        dicts = {}
-        dicts['fhosts'] = {}
-        dicts['xhosts'] = {}
-        fengs = self.correlator.fhosts
-        xengs = self.correlator.xhosts
 
         def get_fftoverflow_qdrstatus():
+            fhosts = {}
+            xhosts = {}
+            dicts = {}
+            dicts['fhosts'] = {}
+            dicts['xhosts'] = {}
+            fengs = self.correlator.fhosts
+            xengs = self.correlator.xhosts
             for fhost in fengs:
                 fhosts[fhost.host] = {}
                 fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
@@ -117,7 +117,7 @@ class test_CBF(unittest.TestCase):
             pfb_list = []
             for host, pfb_value in status_dict:
                 pfb_list.append((host, (pfb_value['pfb_of0_cnt'],
-                                 pfb_value['pfb_of1_cnt'])))
+                    pfb_value['pfb_of1_cnt'])))
             return dict(pfb_list)
 
         last_pfb_counts = get_pfb_counts(
