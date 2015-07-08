@@ -129,15 +129,14 @@ class test_CBF(unittest.TestCase):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
 
-            overflow_status = get_fftoverflow_qdrstatus()
-            qdr_status = overflow_status.values()
-            pfb_status = overflow_status['fhosts'].items()
+            fftoverflow_qdrstatus = get_fftoverflow_qdrstatus()
 
-            curr_pfb_counts = get_pfb_counts(pfb_status)
+            curr_pfb_counts = get_pfb_counts(
+                fftoverflow_qdrstatus['fhosts'].items())
             # Test FFT Overflow status
             self.assertEqual(last_pfb_counts, curr_pfb_counts)
             # Test QDR error flags
-            for hosts_status in qdr_status:
+            for hosts_status in fftoverflow_qdrstatus.values():
                 for host, hosts_status in hosts_status.items():
                     if hosts_status['QDR_okay'] is False:
                         QDR_error_roaches.add(host)
