@@ -114,11 +114,11 @@ class test_CBF(unittest.TestCase):
         QDR_error_roaches = set()
 
         def get_pfb_counts(status_dict):
-            pfb_list = []
+            pfb_list = {}
             for host, pfb_value in status_dict:
-                pfb_list.append((host, (pfb_value['pfb_of0_cnt'],
-                    pfb_value['pfb_of1_cnt'])))
-            return dict(pfb_list)
+                pfb_list[host] = (pfb_value['pfb_of0_cnt'],
+                    pfb_value['pfb_of1_cnt'])
+            return pfb_list
 
         last_pfb_counts = get_pfb_counts(
             get_fftoverflow_qdrstatus()['fhosts'].items())
@@ -129,13 +129,15 @@ class test_CBF(unittest.TestCase):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
 
-            pfb_status = get_fftoverflow_qdrstatus()['fhosts'].items()
+            overflow_status = get_fftoverflow_qdrstatus()
+            qdr_status = overflow_status.values()
+            pfb_status = overflow_status['fhosts'].items()
+
             curr_pfb_counts = get_pfb_counts(pfb_status)
             # Test FFT Overflow status
             self.assertEqual(last_pfb_counts, curr_pfb_counts)
-            # Get/Check QDR error flags
-            QDR_status = get_fftoverflow_qdrstatus()
-            for hosts_status in QDR_status.values():
+            # Test QDR error flags
+            for hosts_status in qdr_status:
                 for host, hosts_status in hosts_status.items():
                     if hosts_status['QDR_okay'] is False:
                         QDR_error_roaches.add(host)
