@@ -127,7 +127,7 @@ class test_CBF(unittest.TestCase):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-               i+1, len(requested_test_freqs), freq/1e6))
+                i+1, len(requested_test_freqs), freq/1e6))
 
             pfb_status = get_fftoverflow_qdrstatus()['fhosts'].items()
             curr_pfb_counts = get_pfb_counts(pfb_status)
