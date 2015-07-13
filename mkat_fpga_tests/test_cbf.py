@@ -111,7 +111,6 @@ class test_CBF(unittest.TestCase):
         # Channel magnitude responses for each frequency
         chan_responses = []
         last_source_freq = None
-        QDR_error_roaches = set()
 
         def get_pfb_counts(status_dict):
             pfb_list = {}
@@ -123,14 +122,9 @@ class test_CBF(unittest.TestCase):
         last_pfb_counts = get_pfb_counts(
             get_fftoverflow_qdrstatus()['fhosts'].items())
 
-        for i, freq in enumerate(requested_test_freqs):
-            # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
-            #     i+1, len(requested_test_freqs), freq/1e6))
-            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-                i+1, len(requested_test_freqs), freq/1e6))
-
+        QDR_error_roaches = set()
+        def test_fftoverflow_qdrstatus():
             fftoverflow_qdrstatus = get_fftoverflow_qdrstatus()
-
             curr_pfb_counts = get_pfb_counts(
                 fftoverflow_qdrstatus['fhosts'].items())
             # Test FFT Overflow status
@@ -142,6 +136,14 @@ class test_CBF(unittest.TestCase):
                         QDR_error_roaches.add(host)
             # Test QDR status
             self.assertFalse(QDR_error_roaches)
+
+        # Test fft overflow and qdr status before
+        test_fftoverflow_qdrstatus()
+        for i, freq in enumerate(requested_test_freqs):
+            # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+            #     i+1, len(requested_test_freqs), freq/1e6))
+            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
+                i+1, len(requested_test_freqs), freq/1e6))
 
             if freq == expected_fc:
                 # We've already done this one!
@@ -163,6 +165,8 @@ class test_CBF(unittest.TestCase):
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
 
+        # Test fft overflow and qdr status after
+        test_fftoverflow_qdrstatus()
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
