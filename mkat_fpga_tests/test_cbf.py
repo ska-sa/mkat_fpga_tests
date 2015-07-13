@@ -16,6 +16,9 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
+import corr2.fxcorrelator_fengops as fengops
+import corr2.fxcorrelator_xengops as xengops
+
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources
@@ -51,7 +54,7 @@ class test_CBF(unittest.TestCase):
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
         # Increase the dump rate so tests can run faster
-        self.correlator.xeng_set_acc_time(0.2)
+        xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
@@ -64,6 +67,26 @@ class test_CBF(unittest.TestCase):
         """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
         test_chan = 1500
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
+
+        def get_fftoverflow_qdrstatus():
+            fhosts = {}
+            xhosts = {}
+            dicts = {}
+            dicts['fhosts'] = {}
+            dicts['xhosts'] = {}
+            fengs = self.correlator.fhosts
+            xengs = self.correlator.xhosts
+            for fhost in fengs:
+                fhosts[fhost.host] = {}
+                fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+                for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
+                    fhosts[fhost.host][pfb] = value
+                for xhost in xengs:
+                    xhosts[xhost.host] = {}
+                    xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+            dicts['fhosts'] = fhosts
+            dicts['xhosts'] = xhosts
+            return dicts
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
@@ -88,11 +111,40 @@ class test_CBF(unittest.TestCase):
         # Channel magnitude responses for each frequency
         chan_responses = []
         last_source_freq = None
+
+        def get_pfb_counts(status_dict):
+            pfb_list = {}
+            for host, pfb_value in status_dict:
+                pfb_list[host] = (pfb_value['pfb_of0_cnt'],
+                    pfb_value['pfb_of1_cnt'])
+            return pfb_list
+
+        last_pfb_counts = get_pfb_counts(
+            get_fftoverflow_qdrstatus()['fhosts'].items())
+
+        QDR_error_roaches = set()
+        def test_fftoverflow_qdrstatus():
+            fftoverflow_qdrstatus = get_fftoverflow_qdrstatus()
+            curr_pfb_counts = get_pfb_counts(
+                fftoverflow_qdrstatus['fhosts'].items())
+            # Test FFT Overflow status
+            self.assertEqual(last_pfb_counts, curr_pfb_counts)
+            # Test QDR error flags
+            for hosts_status in fftoverflow_qdrstatus.values():
+                for host, hosts_status in hosts_status.items():
+                    if hosts_status['QDR_okay'] is False:
+                        QDR_error_roaches.add(host)
+            # Test QDR status
+            self.assertFalse(QDR_error_roaches)
+
+        # Test fft overflow and qdr status before
+        test_fftoverflow_qdrstatus()
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
+
             if freq == expected_fc:
                 # We've already done this one!
                 this_source_freq = source_fc
@@ -112,13 +164,15 @@ class test_CBF(unittest.TestCase):
                     this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
-        self.corr_fix.stop_x_data()
 
+        # Test fft overflow and qdr status after
+        test_fftoverflow_qdrstatus()
+        self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
         chan_responses = np.array(chan_responses)
 
-        def plot_and_save(freqs, data, plot_filename):
+        def plot_and_save(freqs, data, plot_filename, show=False):
             df = self.corr_freqs.delta_f
             fig = plt.plot(freqs, data)[0]
             axes = fig.get_axes()
@@ -141,20 +195,27 @@ class test_CBF(unittest.TestCase):
             # TODO Normalise plot to frequency bins
             plt.xlabel('Frequency (Hz)')
             plt.savefig(plot_filename)
+            if show:
+                plt.show()
             plt.close()
 
-        graph_name = '{}.{}.channel_response.svg'.format(strclass(self.__class__),
+        graph_name_all = '{}.{}.channel_response.svg'.format(strclass(self.__class__),
                                                          self._testMethodName)
         plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
-        plot_and_save(actual_test_freqs, plot_data_all, graph_name)
+        plot_and_save(actual_test_freqs, plot_data_all, graph_name_all)
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
         central_indices = (
-            (actual_test_freqs <= expected_fc + 0.8*df) &
-            (actual_test_freqs >= expected_fc - 0.8*df))
+            (actual_test_freqs <= expected_fc + 0.4*df) &
+            (actual_test_freqs >= expected_fc - 0.4*df))
         central_chan_responses = chan_responses[central_indices]
         central_chan_test_freqs = actual_test_freqs[central_indices]
+
+        graph_name_central = '{}.{}.channel_response_central.svg'.format(strclass(self.__class__),
+                                                         self._testMethodName)
+        plot_data_central  = loggerise(central_chan_responses[:, test_chan], dynamic_range=90)
+        plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central)
 
         # Test responses in central 80% of channel
         for i, freq in enumerate(central_chan_test_freqs):
@@ -170,7 +231,7 @@ class test_CBF(unittest.TestCase):
             'something, somewhere, is probably overranging.')
         max_central_chan_response = np.max(10*np.log10(central_chan_responses[:, test_chan]))
         min_central_chan_response = np.min(10*np.log10(central_chan_responses[:, test_chan]))
-        chan_ripple = max_chan_response - min_chan_response
+        chan_ripple = max_central_chan_response - min_central_chan_response
         acceptable_ripple_lt = 0.3
 
 
@@ -229,15 +290,15 @@ class test_CBF(unittest.TestCase):
 
         # Save initial f-engine equalisations
         initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                                in self.correlator.feng_eq_get().items()}
+                                in fengops.feng_eq_get(self.correlator).items()}
         def restore_initial_equalisations():
             for input, eq in initial_equalisations.items():
-                self.correlator.feng_eq_set(source_name=input, new_eq=eq)
+                fengops.feng_eq_set(self.correlator, source_name=input, new_eq=eq)
         self.addCleanup(restore_initial_equalisations)
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
-            self.correlator.feng_eq_set(source_name=input, new_eq=0)
+            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         self.assertFalse(nonzero_baselines(test_data))
         #-----------------------------------
@@ -265,7 +326,7 @@ class test_CBF(unittest.TestCase):
         #print_baselines()
         for inp in input_labels:
             old_eqs = initial_equalisations[inp]
-            self.correlator.feng_eq_set(source_name=inp, new_eq=old_eqs)
+            fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eqs)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
             #zero_baseline, nonzero_baseline = calc_zero_and_nonzero_baselines(nonzero_inputs)
