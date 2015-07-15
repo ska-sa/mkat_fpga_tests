@@ -24,6 +24,7 @@ from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
+from mkat_fpga_tests.utils import get_snapshots
 
 LOGGER = logging.getLogger(__name__)
 
@@ -152,9 +153,10 @@ class test_CBF(unittest.TestCase):
                 continue    # Already calculated this one
             else:
                 last_source_freq = this_source_freq
+
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            snapshots = get_snapshots(self.correlator)
             source_info = get_dsim_source_info(self.dhost)
-            snapshots = {}
             test_data_h5.add_result(this_freq_dump, source_info, snapshots)
             this_freq_data = this_freq_dump['xeng_raw']
             this_freq_response = normalised_magnitude(

@@ -2,6 +2,8 @@ import collections
 import h5py
 import numpy as np
 
+from casperfpga.utils import threaded_fpga_operation
+
 VACC_FULL_RANGE = float(2**31)      # Max range of the integers coming out of VACC
 
 def complexise(input_data):
@@ -189,6 +191,9 @@ class TestDataH5(object):
         self.h5.create_dataset(h5_name, h5_shape, maxshape=h5_maxshape, dtype=dtype)
 
     def create_dataset_from_value(self, value, h5_name):
+        if value is None:
+            # Can't store None's
+            return
         if isinstance(value, list):
             value = np.array(value)
         if hasattr(value, 'dtype'):
@@ -197,12 +202,15 @@ class TestDataH5(object):
             dtype = vstr
         else:
             dtype = np.dtype(type(value))
-        shape = getattr(value, 'shape', [])
+        shape = list(getattr(value, 'shape', []))
         if not self.results_idx:
             self.h5.create_dataset(
                 h5_name, shape=[1] + shape, maxshape=[None] + shape, dtype=dtype)
 
     def add_value_to_h5(self, value, h5_name):
+        if value is None:
+            # Can't store None's
+            return
         self.h5[h5_name].resize(self.results_idx + 1, axis=0)
         self.h5[h5_name][self.results_idx] = value
 
@@ -229,3 +237,15 @@ class TestDataH5(object):
             self.add_value_to_h5(value, h5_path)
 
         self.results_idx += 1
+
+
+def get_feng_snapshots(feng_fpga, timeout=5):
+    snaps = {}
+    for snap in feng_fpga.snapshots:
+        snaps[snap.name] = snap.read(
+            man_valid=False, man_trig=False, timeout=timeout)
+    return snaps
+
+def get_snapshots(instrument):
+    f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
+    return dict(feng=f_snaps)
