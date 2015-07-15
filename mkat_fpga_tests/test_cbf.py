@@ -21,9 +21,9 @@ import corr2.fxcorrelator_xengops as xengops
 
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
-from mkat_fpga_tests.utils import init_dsim_sources
+from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
-from mkat_fpga_tests.utils import CorrelatorFrequencyInfo
+from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,6 +67,9 @@ class test_CBF(unittest.TestCase):
         """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
         test_chan = 1500
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        test_data_h5 = TestDataH5(test_name + '.h5')
+        self.addCleanup(test_data_h5.close)
 
         def get_fftoverflow_qdrstatus():
             fhosts = {}
@@ -96,12 +99,6 @@ class test_CBF(unittest.TestCase):
 
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
-        test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
-        b_mag = normalised_magnitude(test_data[:, test_baseline, :])
-        # find channel with max power
-        max_chan = np.argmax(b_mag)
-        # self.assertEqual(max_chan, test_chan,
-        #                  'Channel with max power is not the test channel')
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=101, chans_around=5)
@@ -139,29 +136,29 @@ class test_CBF(unittest.TestCase):
 
         # Test fft overflow and qdr status before
         test_fftoverflow_qdrstatus()
+
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
 
-            if freq == expected_fc:
-                # We've already done this one!
-                this_source_freq = source_fc
-                this_freq_result = b_mag
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            if this_source_freq == last_source_freq:
+                LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
+                            'Digitiser frequency is same as previous.'.format(
+                                i+1, len(requested_test_freqs), freq/1e6))
+                continue    # Already calculated this one
             else:
-                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                this_source_freq = self.dhost.sine_sources.sin_0.frequency
-                if this_source_freq == last_source_freq:
-                    LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
-                                'Digitiser frequency is same as previous.'.format(
-                                    i+1, len(requested_test_freqs), freq/1e6))
-                    continue    # Already calculated this one
-                else:
-                    last_source_freq = this_source_freq
-                this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
-                this_freq_response = normalised_magnitude(
-                    this_freq_data[:, test_baseline, :])
+                last_source_freq = this_source_freq
+            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            source_info = get_dsim_source_info(self.dhost)
+            snapshots = {}
+            test_data_h5.add_result(this_freq_dump, source_info, snapshots)
+            this_freq_data = this_freq_dump['xeng_raw']
+            this_freq_response = normalised_magnitude(
+                this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
 
@@ -199,8 +196,7 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
-        graph_name_all = '{}.{}.channel_response.svg'.format(strclass(self.__class__),
-                                                         self._testMethodName)
+        graph_name_all = test_name + '.channel_response.svg'
         plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all)
 
@@ -212,8 +208,7 @@ class test_CBF(unittest.TestCase):
         central_chan_responses = chan_responses[central_indices]
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
-        graph_name_central = '{}.{}.channel_response_central.svg'.format(strclass(self.__class__),
-                                                         self._testMethodName)
+        graph_name_central = test_name + '.channel_response_central.svg'
         plot_data_central  = loggerise(central_chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central)
 
@@ -224,7 +219,6 @@ class test_CBF(unittest.TestCase):
                              '{} as expected but in {}.'
                              .format(freq, test_chan, max_chan))
 
-        # TODO Graph the central 80%  too.
         self.assertLess(
             np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
             'VACC output at > 99% of maximum value, indicates that '

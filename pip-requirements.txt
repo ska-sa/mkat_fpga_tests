@@ -17,3 +17,4 @@ dpkt
 bitstring
 nose
 nose-testconfig
+pexpect
