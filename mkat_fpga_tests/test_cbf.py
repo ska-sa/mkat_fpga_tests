@@ -26,6 +26,7 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
 
+from collections import Counter
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
@@ -155,7 +156,18 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            snapshots = get_snapshots(self.correlator)
+            try:
+                snapshots = get_snapshots(self.correlator)
+            except Exception:
+                print "Error retrieving snapshot"
+                LOGGER.exception("Error retrieving snapshot")
+                if i == 0:
+                    # The first snapshot must work properly to give us the data structure
+                    raise
+                else:
+                    snapshots['all_ok'] = False
+            else:
+                snapshots['all_ok'] = True
             source_info = get_dsim_source_info(self.dhost)
             test_data_h5.add_result(this_freq_dump, source_info, snapshots)
             this_freq_data = this_freq_dump['xeng_raw']
