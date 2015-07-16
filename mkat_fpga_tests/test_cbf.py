@@ -103,7 +103,7 @@ class test_CBF(unittest.TestCase):
         test_baseline = 0
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=10, chans_around=5)
+            test_chan, samples_per_chan=101, chans_around=5)
 
         # Placeholder of actual frequencies that the signal generator produces
         actual_test_freqs = []
