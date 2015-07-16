@@ -26,6 +26,7 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
 
+from collections import Counter
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
@@ -102,7 +103,7 @@ class test_CBF(unittest.TestCase):
         test_baseline = 0
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=101, chans_around=5)
+            test_chan, samples_per_chan=10, chans_around=5)
 
         # Placeholder of actual frequencies that the signal generator produces
         actual_test_freqs = []
@@ -137,6 +138,11 @@ class test_CBF(unittest.TestCase):
 
         # Test fft overflow and qdr status before
         test_fftoverflow_qdrstatus()
+        def is_consistent(cons_check_1, cons_check_2):
+            c1 = Counter(cons_check_1)
+            c2 = Counter(cons_check_2)
+            result = c1 - c2
+            return all(result[key] == 0 for key in c1)
 
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
@@ -155,15 +161,28 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            snapshots = get_snapshots(self.correlator)
+            try:
+                snapshots = get_snapshots(self.correlator)
+            except Exception:
+                print "Error retrieving snapshot"
+                LOGGER.exception("Error retrieving snapshot")
+                if i == 0:
+                    # The first snapshot must work properly to give us the data structure
+                    raise
+                else:
+                    snapshots['all_ok'] = False
+            else:
+                snapshots['all_ok'] = True
             source_info = get_dsim_source_info(self.dhost)
             test_data_h5.add_result(this_freq_dump, source_info, snapshots)
             this_freq_data = this_freq_dump['xeng_raw']
+            cons_check_1 = set(this_freq_data.flatten())
             this_freq_response = normalised_magnitude(
                 this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
-
+        cons_check_2 = set(this_freq_data.flatten())
+        print is_consistent(cons_check_1, cons_check_2)
         # Test fft overflow and qdr status after
         test_fftoverflow_qdrstatus()
         self.corr_fix.stop_x_data()
