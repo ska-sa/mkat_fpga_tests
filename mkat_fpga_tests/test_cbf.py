@@ -138,11 +138,6 @@ class test_CBF(unittest.TestCase):
 
         # Test fft overflow and qdr status before
         test_fftoverflow_qdrstatus()
-        def is_consistent(cons_check_1, cons_check_2):
-            c1 = Counter(cons_check_1)
-            c2 = Counter(cons_check_2)
-            result = c1 - c2
-            return all(result[key] == 0 for key in c1)
 
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
@@ -176,13 +171,11 @@ class test_CBF(unittest.TestCase):
             source_info = get_dsim_source_info(self.dhost)
             test_data_h5.add_result(this_freq_dump, source_info, snapshots)
             this_freq_data = this_freq_dump['xeng_raw']
-            cons_check_1 = set(this_freq_data.flatten())
             this_freq_response = normalised_magnitude(
                 this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
-        cons_check_2 = set(this_freq_data.flatten())
-        print is_consistent(cons_check_1, cons_check_2)
+
         # Test fft overflow and qdr status after
         test_fftoverflow_qdrstatus()
         self.corr_fix.stop_x_data()
