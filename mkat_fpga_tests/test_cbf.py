@@ -26,7 +26,6 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
 
-from collections import Counter
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
