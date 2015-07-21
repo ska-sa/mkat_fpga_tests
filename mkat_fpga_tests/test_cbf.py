@@ -337,8 +337,6 @@ class test_CBF(unittest.TestCase):
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        test_data_h5 = TestDataH5(test_name + '.h5')
-        self.addCleanup(test_data_h5.close)
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
@@ -357,9 +355,6 @@ class test_CBF(unittest.TestCase):
                 max_freq_init_data = np.max(this_freq_dump['xeng_raw'])
                 dumps_data.append(this_freq_data)
 
-            source_info = get_dsim_source_info(self.dhost)
-            test_data_h5.add_result(this_freq_dump, source_info, dumps_data)
-
             for comparison in range(1, len(dumps_data)):
                 d0 = dumps_data[comparison - 1]
                 d1 = dumps_data[comparison]
@@ -373,8 +368,6 @@ class test_CBF(unittest.TestCase):
         """2. Check that identical frequency scans produce equal results"""
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        test_data_h5 = TestDataH5(test_name + '.h5')
-        self.addCleanup(test_data_h5.close)
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
@@ -392,8 +385,6 @@ class test_CBF(unittest.TestCase):
                 max_freq_init_data = np.max(this_freq_dump['xeng_raw'])
                 scan_dumps.append(this_freq_data)
 
-        source_info = get_dsim_source_info(self.dhost)
-        test_data_h5.add_result(this_freq_dump, source_info, scan_dumps)
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
@@ -404,8 +395,6 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        test_data_h5 = TestDataH5(test_name + '.h5')
-        self.addCleanup(test_data_h5.close)
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
@@ -424,8 +413,6 @@ class test_CBF(unittest.TestCase):
                 this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
-        source_info = get_dsim_source_info(self.dhost)
-        test_data_h5.add_result(this_freq_dump, source_info, scan_dumps)
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
