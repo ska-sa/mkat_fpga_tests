@@ -62,6 +62,7 @@ class test_CBF(unittest.TestCase):
         self.test_chan=1500
         self.requested_test_freqs = self.corr_freqs.calc_freq_samples(
             self.test_chan, samples_per_chan=9, chans_around=1)
+        self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
 
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
@@ -69,7 +70,6 @@ class test_CBF(unittest.TestCase):
     # tests will be b0rked.
     def test_channelisation(self):
         """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
-        expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
@@ -95,7 +95,7 @@ class test_CBF(unittest.TestCase):
             return dicts
 
         init_dsim_sources(self.dhost)
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
         self.dhost.noise_sources.noise_0.set(scale=0.01)
         # The signal source is going to quantise the requested freqency, so see what we
         # actually got
@@ -189,16 +189,16 @@ class test_CBF(unittest.TestCase):
             ybound = axes.get_ybound()
             yb_diff = abs(ybound[1] - ybound[0])
             new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff * 1.1]
-            plt.vlines(expected_fc, *new_ybound, colors='r', label='chan fc')
-            plt.vlines(expected_fc - df / 2, *new_ybound, label='chan min/max')
-            plt.vlines(expected_fc - 0.8*df / 2, *new_ybound, label='chan +-40%',
+            plt.vlines(self.expected_fc, *new_ybound, colors='r', label='chan fc')
+            plt.vlines(self.expected_fc - df / 2, *new_ybound, label='chan min/max')
+            plt.vlines(self.expected_fc - 0.8*df / 2, *new_ybound, label='chan +-40%',
                        linestyles='dashed')
-            plt.vlines(expected_fc + df / 2, *new_ybound, label='_chan max')
-            plt.vlines(expected_fc + 0.8*df / 2, *new_ybound, label='_chan +40%',
+            plt.vlines(self.expected_fc + df / 2, *new_ybound, label='_chan max')
+            plt.vlines(self.expected_fc + 0.8*df / 2, *new_ybound, label='_chan +40%',
                        linestyles='dashed')
             plt.legend()
             plt.title('Channel {} ({} MHz) response'.format(
-                self.test_chan, expected_fc/1e6))
+                self.test_chan, self.expected_fc/1e6))
             axes.set_ybound(*new_ybound)
             plt.grid(True)
             plt.ylabel('dB relative to VACC max')
@@ -216,8 +216,8 @@ class test_CBF(unittest.TestCase):
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
         central_indices = (
-            (actual_test_freqs <= expected_fc + 0.4*df) &
-            (actual_test_freqs >= expected_fc - 0.4*df))
+            (actual_test_freqs <= self.expected_fc + 0.4*df) &
+            (actual_test_freqs >= self.expected_fc - 0.4*df))
         central_chan_responses = chan_responses[central_indices]
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
@@ -256,7 +256,6 @@ class test_CBF(unittest.TestCase):
         # pyplot.ion()
         # pyplot.show()
         # import IPython ; IPython.embed()
-    @unittest.skip('Correlator restarting is currently unreliable')
     def test_product_baselines(self):
         """CBF Baseline Correlation Products: VR.C.19, TP.C.1.3"""
         init_dsim_sources(self.dhost)
@@ -338,17 +337,14 @@ class test_CBF(unittest.TestCase):
 
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
-        expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
 
         init_dsim_sources(self.dhost)
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
         for i, freq in enumerate(self.requested_test_freqs):
-            print ('Testing back to back dump consistency for freq {}/{}: {} MHz.'.format(
-                i+1, len(self.requested_test_freqs), freq/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             dumps_data = []
             for dump_no in range(3):
@@ -362,25 +358,26 @@ class test_CBF(unittest.TestCase):
             for comparison in range(1, len(dumps_data)):
                 d0 = dumps_data[comparison - 1]
                 d1 = dumps_data[comparison]
-                self.assertTrue(np.all(d0 ==  d1))
+                self.assertTrue(np.all(d0 == d1),'back-to-back dumps are not equal!!')
+            source_info = get_dsim_source_info(self.dhost)
+            test_data_h5.add_result(this_freq_dump, dumps_data, source_info)
 
-    @unittest.skip('Correlator restarting is currently unreliable')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
         #self.test_chan = 1500
-        expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
+        self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        test_data_h5 = TestDataH5(test_name + '.h5')
+        self.addCleanup(test_data_h5.close)
 
         init_dsim_sources(self.dhost)
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
         scans = []
         for scan_i in range(3):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(self.requested_test_freqs):
-                print ('Checkin identical frequency scans produce equal results{}/{}: {} MHz.'
-                    .format(i+1, len(self.requested_test_freqs), freq/1e6))
                 self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 this_freq_data = this_freq_dump['xeng_raw']
@@ -389,16 +386,19 @@ class test_CBF(unittest.TestCase):
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
-            self.assertTrue(np.all(s0 == s1))
+            self.assertTrue(np.all(s0 == s1), 'frequencies not equal!!')
+        source_info = get_dsim_source_info(self.dhost)
+        test_data_h5.add_result(this_freq_dump, scan_dumps, source_info)
+
 
     @unittest.skip('Correlator restarting is currently unreliable')
     def test_restart_consistency(self):
         """Check that results are consequent on correlator restart"""
-        expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
+        self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         init_dsim_sources(self.dhost)
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
         scans = []
         for scan_i in range(3):
