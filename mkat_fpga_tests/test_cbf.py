@@ -61,7 +61,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         self.test_chan=1500
         self.requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            self.test_chan, samples_per_chan=9, chans_around=1)
+            self.test_chan, samples_per_chan=101, chans_around=5)
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
 
 
@@ -390,12 +390,13 @@ class test_CBF(unittest.TestCase):
         source_info = get_dsim_source_info(self.dhost)
         test_data_h5.add_result(this_freq_dump, scan_dumps, source_info)
 
-
-    @unittest.skip('Correlator restarting is currently unreliable')
+    @unittest.skip('Correlator is currently unreliable')
     def test_restart_consistency(self):
         """Check that results are consequent on correlator restart"""
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        test_data_h5 = TestDataH5(test_name + '.h5')
+        self.addCleanup(test_data_h5.close)
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
@@ -417,4 +418,6 @@ class test_CBF(unittest.TestCase):
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
-            self.assertTrue(np.all(s0 == s1))
+            self.assertTrue(np.all(s0 == s1), 'results are not consequent after correlator restart!!')
+        source_info = get_dsim_source_info(self.dhost)
+        test_data_h5.add_result(this_freq_dump, scan_dumps, source_info)
