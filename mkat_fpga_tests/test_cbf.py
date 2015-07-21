@@ -100,7 +100,6 @@ class test_CBF(unittest.TestCase):
         # The signal source is going to quantise the requested freqency, so see what we
         # actually got
         source_fc = self.dhost.sine_sources.sin_0.frequency
-
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
 
@@ -336,7 +335,7 @@ class test_CBF(unittest.TestCase):
             nonzero_inputs.add(inp)
 
     def test_back2back_consistency(self):
-        """Check that back-to-back dumps with same input are equal"""
+        """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
@@ -345,6 +344,8 @@ class test_CBF(unittest.TestCase):
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
         for i, freq in enumerate(self.requested_test_freqs):
+            print ('Testing dump consistancy {}/{} @ {} MHz.'.format(
+                i+1, len(self.requested_test_freqs), freq/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             dumps_data = []
             for dump_no in range(3):
@@ -353,18 +354,23 @@ class test_CBF(unittest.TestCase):
                 else:
                     this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
                 this_freq_data = this_freq_dump['xeng_raw']
+                max_freq_init_data = np.max(this_freq_dump['xeng_raw'])
                 dumps_data.append(this_freq_data)
+
+            source_info = get_dsim_source_info(self.dhost)
+            test_data_h5.add_result(this_freq_dump, source_info, dumps_data)
 
             for comparison in range(1, len(dumps_data)):
                 d0 = dumps_data[comparison - 1]
                 d1 = dumps_data[comparison]
-                self.assertTrue(np.all(d0 == d1),'back-to-back dumps are not equal!!')
-            source_info = get_dsim_source_info(self.dhost)
-            test_data_h5.add_result(this_freq_dump, dumps_data, source_info)
+                diff_dumps = np.max(d0 - d1)
+            threshold = 0.01
+            self.assertLess((diff_dumps/max_freq_init_data), threshold,
+                    'dump comparison({}) is >= {} threshold.'
+                        .format((diff_dumps/max_freq_init_data), threshold))
 
     def test_freq_scan_consistency(self):
-        """Check that identical frequency scans produce equal results"""
-        #self.test_chan = 1500
+        """2. Check that identical frequency scans produce equal results"""
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
@@ -378,21 +384,24 @@ class test_CBF(unittest.TestCase):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(self.requested_test_freqs):
+                print ('Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
+                i+1, len(self.requested_test_freqs), freq/1e6))
                 self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 this_freq_data = this_freq_dump['xeng_raw']
+                max_freq_init_data = np.max(this_freq_dump['xeng_raw'])
                 scan_dumps.append(this_freq_data)
 
+        source_info = get_dsim_source_info(self.dhost)
+        test_data_h5.add_result(this_freq_dump, source_info, scan_dumps)
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
             self.assertTrue(np.all(s0 == s1), 'frequencies not equal!!')
-        source_info = get_dsim_source_info(self.dhost)
-        test_data_h5.add_result(this_freq_dump, scan_dumps, source_info)
 
     @unittest.skip('Correlator is currently unreliable')
     def test_restart_consistency(self):
-        """Check that results are consequent on correlator restart"""
+        """3. Check that results are consequent on correlator restart"""
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
@@ -415,9 +424,9 @@ class test_CBF(unittest.TestCase):
                 this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
+        source_info = get_dsim_source_info(self.dhost)
+        test_data_h5.add_result(this_freq_dump, source_info, scan_dumps)
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
             self.assertTrue(np.all(s0 == s1), 'results are not consequent after correlator restart!!')
-        source_info = get_dsim_source_info(self.dhost)
-        test_data_h5.add_result(this_freq_dump, scan_dumps, source_info)
