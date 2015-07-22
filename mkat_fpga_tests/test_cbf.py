@@ -391,7 +391,6 @@ class test_CBF(unittest.TestCase):
                     'frequency scan comparison({}) is >= {} self.threshold.'
                         .format((diff_scans/max_freq_init_data), self.threshold))
 
-
     @unittest.skip('Correlator is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
