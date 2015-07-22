@@ -61,7 +61,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         self.test_chan=1500
         self.requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            self.test_chan, samples_per_chan=101, chans_around=1)
+            self.test_chan, samples_per_chan=101, chans_around=5)
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         # Consistency check threshold
         self.threshold=0.01
