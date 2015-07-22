@@ -61,9 +61,8 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         self.test_chan=1500
         self.requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            self.test_chan, samples_per_chan=101, chans_around=5)
+            self.test_chan, samples_per_chan=101, chans_around=1)
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
-
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
@@ -240,7 +239,6 @@ class test_CBF(unittest.TestCase):
         chan_ripple = max_central_chan_response - min_central_chan_response
         acceptable_ripple_lt = 0.3
 
-
         self.assertLess(chan_ripple, acceptable_ripple_lt,
                         'ripple {} dB within 80% of channel fc is >= {} dB'
                         .format(chan_ripple, acceptable_ripple_lt))
@@ -366,7 +364,6 @@ class test_CBF(unittest.TestCase):
 
     def test_freq_scan_consistency(self):
         """2. Check that identical frequency scans produce equal results"""
-        self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         init_dsim_sources(self.dhost)
@@ -388,12 +385,16 @@ class test_CBF(unittest.TestCase):
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
-            self.assertTrue(np.all(s0 == s1), 'frequencies not equal!!')
+            diff_scans = np.max(s0 - s1)
+        threshold = 0.01
+        self.assertLess((diff_scans/max_freq_init_data), threshold,
+                    'frequency scan comparison({}) is >= {} threshold.'
+                        .format((diff_scans/max_freq_init_data), threshold))
+
 
     @unittest.skip('Correlator is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
-        self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         init_dsim_sources(self.dhost)
