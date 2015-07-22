@@ -63,6 +63,8 @@ class test_CBF(unittest.TestCase):
         self.requested_test_freqs = self.corr_freqs.calc_freq_samples(
             self.test_chan, samples_per_chan=101, chans_around=1)
         self.expected_fc = self.corr_freqs.chan_freqs[self.test_chan]
+        # Consistency check threshold
+        self.threshold=0.01
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
@@ -335,7 +337,6 @@ class test_CBF(unittest.TestCase):
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
@@ -357,15 +358,14 @@ class test_CBF(unittest.TestCase):
                 d0 = dumps_data[comparison - 1]
                 d1 = dumps_data[comparison]
                 diff_dumps = np.max(d0 - d1)
-            threshold = 0.01
-            self.assertLess((diff_dumps/max_freq_init_data), threshold,
-                    'dump comparison({}) is >= {} threshold.'
-                        .format((diff_dumps/max_freq_init_data), threshold))
+
+            self.assertLess((diff_dumps/max_freq_init_data), self.threshold,
+                    'dump comparison({}) is >= {} self.threshold.'
+                        .format((diff_dumps/max_freq_init_data), self.threshold))
 
     def test_freq_scan_consistency(self):
         """2. Check that identical frequency scans produce equal results"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
@@ -386,17 +386,16 @@ class test_CBF(unittest.TestCase):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
             diff_scans = np.max(s0 - s1)
-        threshold = 0.01
-        self.assertLess((diff_scans/max_freq_init_data), threshold,
-                    'frequency scan comparison({}) is >= {} threshold.'
-                        .format((diff_scans/max_freq_init_data), threshold))
+
+        self.assertLess((diff_scans/max_freq_init_data), self.threshold,
+                    'frequency scan comparison({}) is >= {} self.threshold.'
+                        .format((diff_scans/max_freq_init_data), self.threshold))
 
 
     @unittest.skip('Correlator is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=self.expected_fc, scale=0.25)
 
@@ -412,9 +411,14 @@ class test_CBF(unittest.TestCase):
                 self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 this_freq_data = this_freq_dump['xeng_raw']
+                max_freq_init_data = np.max(this_freq_dump['xeng_raw'])
                 scan_dumps.append(this_freq_data)
 
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
-            self.assertTrue(np.all(s0 == s1), 'results are not consequent after correlator restart!!')
+            diff_scans_dumps = np.max(s0 - s1)
+
+        self.assertLess((diff_scans_dumps/max_freq_init_data), self.threshold,
+                'Results are not consequenct after correlator restart!!!'
+                    .format((diff_scans/max_freq_init_data), self.threshold))
