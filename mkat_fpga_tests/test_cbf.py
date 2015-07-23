@@ -367,7 +367,7 @@ class test_CBF(unittest.TestCase):
 
             diff_dumps = []
             for comparison in range(1, len(dumps_data)):
-                d0 = dumps_data[comparison - 1]
+                d0 = dumps_data[0]
                 d1 = dumps_data[comparison]
                 diff_dumps.append(np.max(d0 - d1))
 
