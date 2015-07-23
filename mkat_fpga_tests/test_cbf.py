@@ -61,7 +61,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         #test_chan=1500 # possibly make this a global.
         # Threshold: -70dB
-        self.threshold=1e-7
+        self.threshold = 1e-7
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
@@ -71,7 +71,7 @@ class test_CBF(unittest.TestCase):
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
-        test_chan=1500
+        test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=101, chans_around=5)
@@ -344,7 +344,7 @@ class test_CBF(unittest.TestCase):
         """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         init_dsim_sources(self.dhost)
-        test_chan=1500
+        test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
@@ -380,7 +380,7 @@ class test_CBF(unittest.TestCase):
         """2. Check that identical frequency scans produce equal results"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         init_dsim_sources(self.dhost)
-        test_chan=1500
+        test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
@@ -422,7 +422,7 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         init_dsim_sources(self.dhost)
-        test_chan=1500
+        test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
