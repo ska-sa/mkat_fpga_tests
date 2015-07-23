@@ -416,7 +416,7 @@ class test_CBF(unittest.TestCase):
 
         scans_comp = np.max(np.array(diff_scans)/init_freq_dump)
         self.assertLess(scans_comp, self.threshold,
-            'frequency scan comparison({}) is >= {} threshold.'
+            'frequency scan comparison({}) is >= {} threshold[dB].'
                 .format(scans_comp, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
@@ -459,5 +459,8 @@ class test_CBF(unittest.TestCase):
 
         diff_scans_comp = np.max(np.array(diff_scans_dumps)/init_freq_dump)
         self.assertLess(diff_scans_comp, self.threshold,
-            'Results are not consequenct after correlator restart!!!'
-                .format(diff_scans_comp, self.threshold))
+            'Results are not consequenct after correlator restart!!!\n\
+                scans comparison {} >= {} threshold[dB].'
+                    .format(diff_scans_comp, self.threshold))
+
+# EOF
