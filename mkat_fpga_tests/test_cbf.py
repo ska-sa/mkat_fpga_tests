@@ -102,6 +102,7 @@ class test_CBF(unittest.TestCase):
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        # Put some noise on output
         self.dhost.noise_sources.noise_0.set(scale=0.01)
         # The signal source is going to quantise the requested freqency, so see what we
         # actually got
@@ -163,8 +164,10 @@ class test_CBF(unittest.TestCase):
             try:
                 snapshots = get_snapshots(self.correlator)
             except Exception:
-                print "Error retrieving snapshot"
-                LOGGER.exception("Error retrieving snapshot")
+                print ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
+                    i+1, len(requested_test_freqs), freq/1e6))
+                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz.".format(
+                    i+1, len(requested_test_freqs), freq/1e6))
                 if i == 0:
                     # The first snapshot must work properly to give us the data structure
                     raise
@@ -372,12 +375,13 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps)/init_data_dump)
             self.assertLess(dumps_comp, self.threshold,
-                    'dump comparison( {}) is >= {} threshold[dB].'
-                        .format(dumps_comp, self.threshold))
+                'dump comparison ({}) is >= {} threshold[dB].'
+                    .format(dumps_comp, self.threshold))
 
     def test_freq_scan_consistency(self):
         """2. Check that identical frequency scans produce equal results"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        init_dsim_sources(self.dhost)
         test_chan=1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
@@ -391,8 +395,8 @@ class test_CBF(unittest.TestCase):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
-                #print ('Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
-                #i+1, len(requested_test_freqs), freq/1e6))
+                print ('{} of {}: Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
+                scan_i+1, len(range(3)), i+1, len(requested_test_freqs), freq/1e6))
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -403,21 +407,19 @@ class test_CBF(unittest.TestCase):
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                     this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
-        import IPython;IPython.embed()
-        #print np.max(scans[0])
-        #diff_scans = []
-        #for comparison in range(1, len(scans)):
-            #s0 = np.array(scans[comparison - 1])
-            #s1 = np.array(scans[comparison])
-            #print np.max(s0), np.max(s1)
-            #diff_scans.append(np.max(s0 - s1))
 
-        #scans_comp = np.max(np.array(diff_scans)/init_freq_dump)
-        #self.assertLess(scans_comp, self.threshold,
-                    #'frequency scan comparison({}) is >= {} threshold.'
-                        #.format(scans_comp, self.threshold))
+        diff_scans = []
+        for comparison in range(1, len(scans)):
+            s0 = np.array(scans[comparison - 1])
+            s1 = np.array(scans[comparison])
+            diff_scans.append(np.max(s0 - s1))
 
-    @unittest.skip('Correlator startup s currently unreliable')
+        scans_comp = np.max(np.array(diff_scans)/init_freq_dump)
+        self.assertLess(scans_comp, self.threshold,
+            'frequency scan comparison({}) is >= {} threshold.'
+                .format(scans_comp, self.threshold))
+
+    @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -438,17 +440,24 @@ class test_CBF(unittest.TestCase):
             for i, freq in enumerate(requested_test_freqs):
                 print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                     i+1, len(requested_test_freqs), freq/1e6))
-                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                this_freq_data = this_freq_dump['xeng_raw']
-                max_freq_init_data = np.max(this_freq_dump['xeng_raw'])
+                if scan_i == 0:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    init_freq_dump = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
+                else:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
+        diff_scans_dumps = []
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
             s1 = np.array(scans[comparison])
-            diff_scans_dumps = np.max(s0 - s1)
+            diff_scans_dumps.append(np.max(s0 - s1))
 
-        self.assertLess((diff_scans_dumps/max_freq_init_data), self.threshold,
-                'Results are not consequenct after correlator restart!!!'
-                    .format((diff_scans/max_freq_init_data), self.threshold))
+        diff_scans_comp = np.max(np.array(diff_scans_dumps)/init_freq_dump)
+        self.assertLess(diff_scans_comp, self.threshold,
+            'Results are not consequenct after correlator restart!!!'
+                .format(diff_scans_comp, self.threshold))
