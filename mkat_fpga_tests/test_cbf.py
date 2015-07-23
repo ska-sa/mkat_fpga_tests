@@ -59,10 +59,7 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
-        #test_chan=1500
-        #requested_test_freqs = self.corr_freqs.calc_freq_samples(
-        #    test_chan, samples_per_chan=101, chans_around=5)
-        #expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        #test_chan=1500 # possibly make this a global.
         # Threshold: -70dB
         self.threshold=1e-7
 
@@ -103,7 +100,7 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         # Put some noise on output
-        self.dhost.noise_sources.noise_0.set(scale=0.01)
+        #self.dhost.noise_sources.noise_0.set(scale=0.01)
         # The signal source is going to quantise the requested freqency, so see what we
         # actually got
         source_fc = self.dhost.sine_sources.sin_0.frequency
@@ -263,6 +260,7 @@ class test_CBF(unittest.TestCase):
         # pyplot.ion()
         # pyplot.show()
         # import IPython ; IPython.embed()
+
     def test_product_baselines(self):
         """CBF Baseline Correlation Products: VR.C.19, TP.C.1.3"""
         init_dsim_sources(self.dhost)
@@ -438,8 +436,6 @@ class test_CBF(unittest.TestCase):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
-                print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-                    i+1, len(requested_test_freqs), freq/1e6))
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
