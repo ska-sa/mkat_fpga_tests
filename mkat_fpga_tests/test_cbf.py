@@ -61,7 +61,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         #test_chan=1500 # possibly make this a global.
         # Threshold: -70dB
-        self.threshold=1e-7
+        self.threshold = 1e-7
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
