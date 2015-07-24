@@ -409,7 +409,6 @@ class test_CBF(unittest.TestCase):
                 scan_dumps.append(this_freq_data)
 
         diff_scans = []
-        #initial_max_freq_list = np.initial_max_freq_list)
         for scan_i in range(1, len(scans)):
             for freq_i in range(len(scans[0])):
                 s0 = scans[0][freq_i]
@@ -450,7 +449,7 @@ class test_CBF(unittest.TestCase):
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                     this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
-
+# still need to fix
         diff_scans_dumps = []
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
