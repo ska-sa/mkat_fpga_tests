@@ -359,7 +359,7 @@ class test_CBF(unittest.TestCase):
             for dump_no in range(3):
                 if dump_no == 0:
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    init_data_dump = np.max(this_freq_dump['xeng_raw'])
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                 else:
                     this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
                 this_freq_data = this_freq_dump['xeng_raw']
@@ -371,7 +371,7 @@ class test_CBF(unittest.TestCase):
                 d1 = dumps_data[comparison]
                 diff_dumps.append(np.max(d0 - d1))
 
-            dumps_comp = np.max(np.array(diff_dumps)/init_data_dump)
+            dumps_comp = np.max(np.array(diff_dumps)/initial_max_freq)
             self.assertLess(dumps_comp, self.threshold,
                 'dump comparison ({}) is >= {} threshold[dB].'
                     .format(dumps_comp, self.threshold))
@@ -389,17 +389,19 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
 
         scans = []
+        initial_max_freq_list = []
         for scan_i in range(3):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
-                print ('{} of {}: Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
-                scan_i+1, len(range(3)), i+1, len(requested_test_freqs), freq/1e6))
+                #print ('{} of {}: Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
+                #scan_i+1, len(range(3)), i+1, len(requested_test_freqs), freq/1e6))
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    init_freq_dump = np.max(this_freq_dump['xeng_raw'])
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     this_freq_data = this_freq_dump['xeng_raw']
+                    initial_max_freq_list.append(initial_max_freq)
                 else:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -412,7 +414,17 @@ class test_CBF(unittest.TestCase):
             s1 = np.array(scans[comparison])
             diff_scans.append(np.max(s0 - s1))
 
-        scans_comp = np.max(np.array(diff_scans)/init_freq_dump)
+        normalised_init_freq = np.array(initial_max_freq_list)
+        for comp in range(1, len(normalised_init_freq)):
+            v0 = np.array(normalised_init_freq[comp - 1])
+            v1 = np.array(normalised_init_freq[comp])
+
+        print v0
+        print v1
+        correct_init_freq = np.abs(np.max(v0 - v1))
+
+        #scans_comp = np.max(np.array(diff_scans)/initial_max_freq)
+        scans_comp = np.max(np.array(diff_scans)/correct_init_freq)
         self.assertLess(scans_comp, self.threshold,
             'frequency scan comparison({}) is >= {} threshold[dB].'
                 .format(scans_comp, self.threshold))
@@ -439,7 +451,7 @@ class test_CBF(unittest.TestCase):
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    init_freq_dump = np.max(this_freq_dump['xeng_raw'])
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     this_freq_data = this_freq_dump['xeng_raw']
                 else:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
@@ -453,7 +465,7 @@ class test_CBF(unittest.TestCase):
             s1 = np.array(scans[comparison])
             diff_scans_dumps.append(np.max(s0 - s1))
 
-        diff_scans_comp = np.max(np.array(diff_scans_dumps)/init_freq_dump)
+        diff_scans_comp = np.max(np.array(diff_scans_dumps)/initial_max_freq)
         self.assertLess(diff_scans_comp, self.threshold,
             'Results are not consequenct after correlator restart!!!\n\
                 scans comparison {} >= {} threshold[dB].'
