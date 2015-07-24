@@ -409,25 +409,15 @@ class test_CBF(unittest.TestCase):
                 scan_dumps.append(this_freq_data)
 
         diff_scans = []
-        for comparison in range(1, len(scans)):
-            s0 = np.array(scans[comparison - 1])
-            s1 = np.array(scans[comparison])
-            diff_scans.append(np.max(s0 - s1))
-
-        normalised_init_freq = np.array(initial_max_freq_list)
-        for comp in range(1, len(normalised_init_freq)):
-            v0 = np.array(normalised_init_freq[comp - 1])
-            v1 = np.array(normalised_init_freq[comp])
-
-        correct_init_freq = np.abs(np.max(v0 - v1))
-        print "correct_init_freq", correct_init_freq
-
-        #scans_comp = np.max(np.array(diff_scans)/initial_max_freq)
-        scans_comp = np.max(np.array(diff_scans)/correct_init_freq)
-        print "scan_comp", scan_comp
-        self.assertLess(scans_comp, self.threshold,
-            'frequency scan comparison({}) is >= {} threshold[dB].'
-                .format(scans_comp, self.threshold))
+        #initial_max_freq_list = np.initial_max_freq_list)
+        for scan_i in range(1, len(scans)):
+            for freq_i in range(len(scans[0])):
+                s0 = scans[0][freq_i]
+                s1 = scans[scan_i]
+                norm_fac = initial_max_freq_list[freq_i]
+                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
+                    'frequency scan comparison({}) is >= {} threshold[dB].'
+                    .format(scans_comp, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
@@ -441,6 +431,7 @@ class test_CBF(unittest.TestCase):
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
 
+        initial_max_freq_list = []
         scans = []
         for scan_i in range(3):
             if scan_i:
@@ -453,6 +444,7 @@ class test_CBF(unittest.TestCase):
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                     initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     this_freq_data = this_freq_dump['xeng_raw']
+                    initial_max_freq_list.append(initial_max_freq)
                 else:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -465,7 +457,13 @@ class test_CBF(unittest.TestCase):
             s1 = np.array(scans[comparison])
             diff_scans_dumps.append(np.max(s0 - s1))
 
-        diff_scans_comp = np.max(np.array(diff_scans_dumps)/initial_max_freq)
+        normalised_init_freq = np.array(initial_max_freq_list)
+        for comp in range(1, len(normalised_init_freq)):
+            v0 = np.array(normalised_init_freq[comp - 1])
+            v1 = np.array(normalised_init_freq[comp])
+
+        correct_init_freq = np.abs(np.max(v0 - v1))
+        diff_scans_comp = np.max(np.array(diff_scans_dumps)/correct_init_freq)
         self.assertLess(diff_scans_comp, self.threshold,
             'Results are not consequenct after correlator restart!!!\n\
                 scans comparison {} >= {} threshold[dB].'
