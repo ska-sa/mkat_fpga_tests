@@ -419,12 +419,12 @@ class test_CBF(unittest.TestCase):
             v0 = np.array(normalised_init_freq[comp - 1])
             v1 = np.array(normalised_init_freq[comp])
 
-        print v0
-        print v1
         correct_init_freq = np.abs(np.max(v0 - v1))
+        print "correct_init_freq", correct_init_freq
 
         #scans_comp = np.max(np.array(diff_scans)/initial_max_freq)
         scans_comp = np.max(np.array(diff_scans)/correct_init_freq)
+        print "scan_comp", scan_comp
         self.assertLess(scans_comp, self.threshold,
             'frequency scan comparison({}) is >= {} threshold[dB].'
                 .format(scans_comp, self.threshold))
