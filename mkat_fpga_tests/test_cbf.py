@@ -383,7 +383,7 @@ class test_CBF(unittest.TestCase):
         test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=9, chans_around=1)
+            test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         init_dsim_sources(self.dhost)
@@ -408,64 +408,20 @@ class test_CBF(unittest.TestCase):
                     this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
-        diff_scans = []
         for scan_i in range(1, len(scans)):
             for freq_i in range(len(scans[0])):
                 s0 = scans[0][freq_i]
-                s1 = scans[scan_i]
+                s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
-                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
-                    'frequency scan comparison({}) is >= {} threshold[dB].'
-                    .format(scans_comp, self.threshold))
+                norm_diff = np.abs(s1 - s0)/norm_fac
+                max_norm_difference = np.max(norm_diff)
+                self.assertLess(max_norm_difference, self.threshold,
+                    'frequency scan comparison({}) is >= {} threshold[dB]. '
+                    ' at frequency index: {}.'
+                    .format(max_norm_difference, freq_i, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
-        test_chan = 1500
-
-        requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=9, chans_around=1)
-        expected_fc = self.corr_freqs.chan_freqs[test_chan]
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
-
-        initial_max_freq_list = []
-        scans = []
-        for scan_i in range(3):
-            if scan_i:
-                correlator_fixture.start_correlator()
-            scan_dumps = []
-            scans.append(scan_dumps)
-            for i, freq in enumerate(requested_test_freqs):
-                if scan_i == 0:
-                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
-                    this_freq_data = this_freq_dump['xeng_raw']
-                    initial_max_freq_list.append(initial_max_freq)
-                else:
-                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    this_freq_data = this_freq_dump['xeng_raw']
-                scan_dumps.append(this_freq_data)
-# still need to fix
-        diff_scans_dumps = []
-        for comparison in range(1, len(scans)):
-            s0 = np.array(scans[comparison - 1])
-            s1 = np.array(scans[comparison])
-            diff_scans_dumps.append(np.max(s0 - s1))
-
-        normalised_init_freq = np.array(initial_max_freq_list)
-        for comp in range(1, len(normalised_init_freq)):
-            v0 = np.array(normalised_init_freq[comp - 1])
-            v1 = np.array(normalised_init_freq[comp])
-
-        correct_init_freq = np.abs(np.max(v0 - v1))
-        diff_scans_comp = np.max(np.array(diff_scans_dumps)/correct_init_freq)
-        self.assertLess(diff_scans_comp, self.threshold,
-            'Results are not consequenct after correlator restart!!!\n\
-                scans comparison {} >= {} threshold[dB].'
-                    .format(diff_scans_comp, self.threshold))
-
-# EOF
+        # Removed test as correlator startup is currently unreliable,
+        # will only add test method onces correlator startup is reliable.
