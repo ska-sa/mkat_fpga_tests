@@ -304,19 +304,16 @@ class test_CBF(unittest.TestCase):
         # Save initial f-engine equalisations
         initial_equalisations = {input: eq_info['eq'] for input, eq_info
                                 in fengops.feng_eq_get(self.correlator).items()}
-                                #self.correlator.feng_eq_get().items()}
         def restore_initial_equalisations():
             for input, eq in initial_equalisations.items():
                 fengops.feng_eq_set(self.correlator, source_name=input, new_eq=eq)
-                #self.correlator.feng_eq_set(source_name=input, new_eq=eq)
         self.addCleanup(restore_initial_equalisations)
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
-            #self.correlator.feng_eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
-        #self.assertFalse(nonzero_baselines(test_data))
+        self.assertFalse(nonzero_baselines(test_data))
         #-----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
@@ -345,7 +342,6 @@ class test_CBF(unittest.TestCase):
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=old_eq)
-            #self.correlator.feng_eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
             expected_zero_baselines, expected_nonzero_baselines = (
@@ -357,26 +353,6 @@ class test_CBF(unittest.TestCase):
             actual_z_baseline_indices = zero_baselines(test_data)
             actual_z_baselines = set(tuple(bls_ordering[i])
                 for i in actual_z_baseline_indices)
-       # print fengops.feng_eq_get(self.correlator).items()
-        #-----------------------------------------------
-        #desired_nz_baselines = set(tuple(bl) for bl in test_dump['bls_ordering'])
-        ## Get new clean dump
-        #test_data = test_dump['xeng_raw']
-        #actual_nz_indices = nonzero_baselines(test_data)
-        #actual_nz_baselines = set()
-
-        #def blsindices_to_bls(desired_nz_baselines, actual_nz_indices, add_redundant = False):
-            #for ind in actual_nz_indices:
-                ##bls = tuple(test_dump['bls_ordering'][:,ind].flatten()) #include when using h5py
-                #bls = tuple(test_dump['bls_ordering'][ind].flatten())
-                #actual_nz_baselines.add(bls)
-                #actual_nz_baselines.add(bls[::-1])
-            #return actual_nz_baselines
-
-        #blsindices_to_bls(desired_nz_baselines, actual_nz_indices)
-        ## Expect all Non zero baselines to be non-zero
-        #self.assertEqual(actual_nz_baselines, nonzero_baseline)
-        ##import IPython ; IPython.embed()
 
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
