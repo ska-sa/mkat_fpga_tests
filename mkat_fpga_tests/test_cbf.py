@@ -416,6 +416,7 @@ class test_CBF(unittest.TestCase):
                 self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].'
                         .format(np.abs(s1 - s0)/norm_fac, self.threshold))
+        import IPython; IPython.embed()
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
