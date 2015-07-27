@@ -420,42 +420,5 @@ class test_CBF(unittest.TestCase):
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
-        test_chan = 1500
-
-        requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=9, chans_around=1)
-        expected_fc = self.corr_freqs.chan_freqs[test_chan]
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
-
-        initial_max_freq_list = []
-        scans = []
-        for scan_i in range(3):
-            if scan_i:
-                correlator_fixture.start_correlator()
-            scan_dumps = []
-            scans.append(scan_dumps)
-            for i, freq in enumerate(requested_test_freqs):
-                if scan_i == 0:
-                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
-                    this_freq_data = this_freq_dump['xeng_raw']
-                    initial_max_freq_list.append(initial_max_freq)
-                else:
-                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    this_freq_data = this_freq_dump['xeng_raw']
-                scan_dumps.append(this_freq_data)
-
-        for scan_i in range(1, len(scans)):
-            for freq_i in range(len(scans[0])):
-                s0 = scans[0][freq_i]
-                s1 = scans[scan_i]
-                norm_fac = initial_max_freq_list[freq_i]
-                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
-                    'Results are consequenct after correlator restart!!!\n\
-                        scans comparison {} >= {} threshold[dB].'
-                            .format(np.abs(s1 - s0)/norm_fac, self.threshold))
-# EOF
+        # Removed test as correlator startup is currently unreliable,
+        # will only add test method onces correlator startup is reliable.
