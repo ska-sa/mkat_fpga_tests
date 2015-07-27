@@ -303,17 +303,20 @@ class test_CBF(unittest.TestCase):
 
         # Save initial f-engine equalisations
         initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                                in self.correlator.feng_eq_get().items()}
+                                in fengops.feng_eq_get(self.correlator).items()}
+                                #self.correlator.feng_eq_get().items()}
         def restore_initial_equalisations():
             for input, eq in initial_equalisations.items():
-                self.correlator.feng_eq_set(source_name=input, new_eq=eq)
+                fengops.feng_eq_set(self.correlator, source_name=input, new_eq=eq)
+                #self.correlator.feng_eq_set(source_name=input, new_eq=eq)
         self.addCleanup(restore_initial_equalisations)
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
-            self.correlator.feng_eq_set(source_name=input, new_eq=0)
+            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
+            #self.correlator.feng_eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
-        self.assertFalse(nonzero_baselines(test_data))
+        #self.assertFalse(nonzero_baselines(test_data))
         #-----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
@@ -332,16 +335,17 @@ class test_CBF(unittest.TestCase):
                         zeros.add((inp_i, inp_j))
             return zeros, nonzeros
 
-        zero_baselines, nonzero_baselines = calc_zero_and_nonzero_baselines(nonzero_inputs)
+        zero_baselines_indices, nonzero_baselines_indices = calc_zero_and_nonzero_baselines(nonzero_inputs)
         def print_baselines():
             print ('zeros: {}\n\nnonzeros: {}\n\nnonzero-baselines: {}\n\n '
                 'zero-baselines: {}\n\n'.format(
                     sorted(zero_inputs), sorted(nonzero_inputs),
-                    sorted(nonzero_baselines), sorted(zero_baselines)))
+                    sorted(nonzero_baselines_indices), sorted(zero_baselines_indices)))
 
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
-            self.correlator.feng_eq_set(source_name=inp, new_eq=old_eq)
+            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=old_eq)
+            #self.correlator.feng_eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
             expected_zero_baselines, expected_nonzero_baselines = (
@@ -353,7 +357,7 @@ class test_CBF(unittest.TestCase):
             actual_z_baseline_indices = zero_baselines(test_data)
             actual_z_baselines = set(tuple(bls_ordering[i])
                 for i in actual_z_baseline_indices)
-        print self.correlator.feng_eq_get().items()
+       # print fengops.feng_eq_get(self.correlator).items()
         #-----------------------------------------------
         #desired_nz_baselines = set(tuple(bl) for bl in test_dump['bls_ordering'])
         ## Get new clean dump
