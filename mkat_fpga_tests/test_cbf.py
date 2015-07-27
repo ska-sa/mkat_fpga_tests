@@ -59,18 +59,23 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
+        #test_chan=1500 # possibly make this a global.
+        # Threshold: -70dB
+        self.threshold = 1e-7
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
     # tests will be b0rked.
-
     def test_channelisation(self):
         """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
-        test_chan = 1500
-        expected_fc = self.corr_freqs.chan_freqs[test_chan]
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
+        test_chan = 1500
+
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=101, chans_around=5)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
 
         def get_fftoverflow_qdrstatus():
             fhosts = {}
@@ -94,15 +99,13 @@ class test_CBF(unittest.TestCase):
 
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        # Put some noise on output
+        #self.dhost.noise_sources.noise_0.set(scale=0.01)
         # The signal source is going to quantise the requested freqency, so see what we
         # actually got
         source_fc = self.dhost.sine_sources.sin_0.frequency
-
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
-
-        requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=101, chans_around=5)
 
         # Placeholder of actual frequencies that the signal generator produces
         actual_test_freqs = []
@@ -158,8 +161,10 @@ class test_CBF(unittest.TestCase):
             try:
                 snapshots = get_snapshots(self.correlator)
             except Exception:
-                print "Error retrieving snapshot"
-                LOGGER.exception("Error retrieving snapshot")
+                print ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
+                    i+1, len(requested_test_freqs), freq/1e6))
+                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz.".format(
+                    i+1, len(requested_test_freqs), freq/1e6))
                 if i == 0:
                     # The first snapshot must work properly to give us the data structure
                     raise
@@ -241,7 +246,6 @@ class test_CBF(unittest.TestCase):
         chan_ripple = max_central_chan_response - min_central_chan_response
         acceptable_ripple_lt = 0.3
 
-
         self.assertLess(chan_ripple, acceptable_ripple_lt,
                         'ripple {} dB within 80% of channel fc is >= {} dB'
                         .format(chan_ripple, acceptable_ripple_lt))
@@ -259,7 +263,6 @@ class test_CBF(unittest.TestCase):
 
     def test_product_baselines(self):
         """CBF Baseline Correlation Products: VR.C.19, TP.C.1.3"""
-
         init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
@@ -336,6 +339,133 @@ class test_CBF(unittest.TestCase):
             fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eqs)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
-            #zero_baseline, nonzero_baseline = calc_zero_and_nonzero_baselines(nonzero_inputs)
-            #print_baselines()
-        #print self.correlator.feng_eq_get().items()
+
+    def test_back2back_consistency(self):
+        """1. Check that back-to-back dumps with same input are equal"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        init_dsim_sources(self.dhost)
+        test_chan = 1500
+
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=9, chans_around=1)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+
+        for i, freq in enumerate(requested_test_freqs):
+            print ('Testing dump consistancy {}/{} @ {} MHz.'.format(
+                i+1, len(requested_test_freqs), freq/1e6))
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+            dumps_data = []
+            for dump_no in range(3):
+                if dump_no == 0:
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                else:
+                    this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+                this_freq_data = this_freq_dump['xeng_raw']
+                dumps_data.append(this_freq_data)
+
+            diff_dumps = []
+            for comparison in range(1, len(dumps_data)):
+                d0 = dumps_data[0]
+                d1 = dumps_data[comparison]
+                diff_dumps.append(np.max(d0 - d1))
+
+            dumps_comp = np.max(np.array(diff_dumps)/initial_max_freq)
+            self.assertLess(dumps_comp, self.threshold,
+                'dump comparison ({}) is >= {} threshold[dB].'
+                    .format(dumps_comp, self.threshold))
+
+    def test_freq_scan_consistency(self):
+        """2. Check that identical frequency scans produce equal results"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        init_dsim_sources(self.dhost)
+        test_chan = 1500
+
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=9, chans_around=1)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        init_dsim_sources(self.dhost)
+
+        scans = []
+        initial_max_freq_list = []
+        for scan_i in range(3):
+            scan_dumps = []
+            scans.append(scan_dumps)
+            for i, freq in enumerate(requested_test_freqs):
+                #print ('{} of {}: Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
+                #scan_i+1, len(range(3)), i+1, len(requested_test_freqs), freq/1e6))
+                if scan_i == 0:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
+                    initial_max_freq_list.append(initial_max_freq)
+                else:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    this_freq_data = this_freq_dump['xeng_raw']
+                scan_dumps.append(this_freq_data)
+
+        diff_scans = []
+        for scan_i in range(1, len(scans)):
+            for freq_i in range(len(scans[0])):
+                s0 = scans[0][freq_i]
+                s1 = scans[scan_i]
+                norm_fac = initial_max_freq_list[freq_i]
+                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
+                    'frequency scan comparison({}) is >= {} threshold[dB].'
+                    .format(scans_comp, self.threshold))
+
+    @unittest.skip('Correlator startup is currently unreliable')
+    def test_restart_consistency(self):
+        """3. Check that results are consequent on correlator restart"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        init_dsim_sources(self.dhost)
+        test_chan = 1500
+
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=9, chans_around=1)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+
+        initial_max_freq_list = []
+        scans = []
+        for scan_i in range(3):
+            if scan_i:
+                correlator_fixture.start_correlator()
+            scan_dumps = []
+            scans.append(scan_dumps)
+            for i, freq in enumerate(requested_test_freqs):
+                if scan_i == 0:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
+                    initial_max_freq_list.append(initial_max_freq)
+                else:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    this_freq_data = this_freq_dump['xeng_raw']
+                scan_dumps.append(this_freq_data)
+# still need to fix
+        diff_scans_dumps = []
+        for comparison in range(1, len(scans)):
+            s0 = np.array(scans[comparison - 1])
+            s1 = np.array(scans[comparison])
+            diff_scans_dumps.append(np.max(s0 - s1))
+
+        normalised_init_freq = np.array(initial_max_freq_list)
+        for comp in range(1, len(normalised_init_freq)):
+            v0 = np.array(normalised_init_freq[comp - 1])
+            v1 = np.array(normalised_init_freq[comp])
+
+        correct_init_freq = np.abs(np.max(v0 - v1))
+        diff_scans_comp = np.max(np.array(diff_scans_dumps)/correct_init_freq)
+        self.assertLess(diff_scans_comp, self.threshold,
+            'Results are not consequenct after correlator restart!!!\n\
+                scans comparison {} >= {} threshold[dB].'
+                    .format(diff_scans_comp, self.threshold))
+
+# EOF
