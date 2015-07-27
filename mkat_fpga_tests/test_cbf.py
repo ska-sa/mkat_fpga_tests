@@ -383,7 +383,7 @@ class test_CBF(unittest.TestCase):
         test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=9, chans_around=1)
+            test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         init_dsim_sources(self.dhost)
@@ -411,11 +411,14 @@ class test_CBF(unittest.TestCase):
         for scan_i in range(1, len(scans)):
             for freq_i in range(len(scans[0])):
                 s0 = scans[0][freq_i]
-                s1 = scans[scan_i]
+                s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
-                self.assertLess(np.max(np.abs(s1) - np.abs(s0))/norm_fac, self.threshold,
-                    'frequency scan comparison({}) is >= {} threshold[dB].'
-                        .format(np.abs(s1 - s0)/norm_fac, self.threshold))
+                norm_diff = np.abs(s1 - s0)/norm_fac
+                max_norm_difference = np.max(norm_diff)
+                self.assertLess(max_norm_difference, self.threshold,
+                    'frequency scan comparison({}) is >= {} threshold[dB]. '
+                    ' at frequency index: {}.'
+                    .format(max_norm_difference, freq_i, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
