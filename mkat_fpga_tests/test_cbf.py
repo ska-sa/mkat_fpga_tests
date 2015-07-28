@@ -100,7 +100,7 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         # Put some noise on output
-        #self.dhost.noise_sources.noise_0.set(scale=0.01)
+        self.dhost.noise_sources.noise_0.set(scale=1e-10)
         # The signal source is going to quantise the requested freqency, so see what we
         # actually got
         source_fc = self.dhost.sine_sources.sin_0.frequency
@@ -332,14 +332,14 @@ class test_CBF(unittest.TestCase):
                         zeros.add((inp_i, inp_j))
             return zeros, nonzeros
 
-        zero_bls_indices, nonzero_bls_indices = calc_zero_and_nonzero_baselines(nonzero_inputs)
+        zero_bls, nonzero_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
 
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=old_eq)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
-            expected_zero_bls, expected_nonzero_bls = (
+            expected_z_bls, expected_nz_bls = (
                 calc_zero_and_nonzero_baselines(nonzero_inputs))
             test_data = self.receiver.get_clean_dump()['xeng_raw']
             actual_nz_bls_indices = all_nonzero_baselines(test_data)
@@ -348,7 +348,10 @@ class test_CBF(unittest.TestCase):
             actual_z_bls_indices = zero_baselines(test_data)
             actual_z_bls = set(tuple(bls_ordering[i])
                 for i in actual_z_bls_indices)
+            self.assertEqual(expected_z_bls, actual_z_bls)
+            self.assertEqual(expected_nz_bls, actual_nz_bls)
 
+            #import IPython;IPython.embed()
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
