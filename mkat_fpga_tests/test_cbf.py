@@ -348,10 +348,13 @@ class test_CBF(unittest.TestCase):
             actual_z_bls_indices = zero_baselines(test_data)
             actual_z_bls = set(tuple(bls_ordering[i])
                 for i in actual_z_bls_indices)
-            self.assertEqual(expected_z_bls, actual_z_bls)
-            self.assertEqual(expected_nz_bls, actual_nz_bls)
 
-            #import IPython;IPython.embed()
+            # Expect all Non zero baselines to be non-zero
+            self.assertEqual(actual_z_bls, expected_z_bls)
+            self.assertEqual(actual_nz_bls, expected_nz_bls)
+            #self.assertEqual(actual_nz_bls, nonzero_bls)
+            #self.assertEqual(actual_z_bls, zero_bls)
+
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
