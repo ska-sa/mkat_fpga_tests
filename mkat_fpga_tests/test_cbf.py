@@ -332,27 +332,23 @@ class test_CBF(unittest.TestCase):
                         zeros.add((inp_i, inp_j))
             return zeros, nonzeros
 
-        zero_baselines_indices, nonzero_baselines_indices = calc_zero_and_nonzero_baselines(nonzero_inputs)
-        def print_baselines():
-            print ('zeros: {}\n\nnonzeros: {}\n\nnonzero-baselines: {}\n\n '
-                'zero-baselines: {}\n\n'.format(
-                    sorted(zero_inputs), sorted(nonzero_inputs),
-                    sorted(nonzero_baselines_indices), sorted(zero_baselines_indices)))
+        zero_bls_indices, nonzero_bls_indices = calc_zero_and_nonzero_baselines(nonzero_inputs)
 
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=old_eq)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
-            expected_zero_baselines, expected_nonzero_baselines = (
+            expected_zero_bls, expected_nonzero_bls = (
                 calc_zero_and_nonzero_baselines(nonzero_inputs))
             test_data = self.receiver.get_clean_dump()['xeng_raw']
-            actual_nz_baseline_indices = all_nonzero_baselines(test_data)
-            actual_nz_baselines = set(tuple(bls_ordering[i])
-                for i in actual_nz_baseline_indices)
-            actual_z_baseline_indices = zero_baselines(test_data)
-            actual_z_baselines = set(tuple(bls_ordering[i])
-                for i in actual_z_baseline_indices)
+            actual_nz_bls_indices = all_nonzero_baselines(test_data)
+            actual_nz_bls = set(tuple(bls_ordering[i])
+                for i in actual_nz_bls_indices)
+            actual_z_bls_indices = zero_baselines(test_data)
+            actual_z_bls = set(tuple(bls_ordering[i])
+                for i in actual_z_bls_indices)
+
 
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
