@@ -349,7 +349,6 @@ class test_CBF(unittest.TestCase):
             actual_z_bls = set(tuple(bls_ordering[i])
                 for i in actual_z_bls_indices)
 
-
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
