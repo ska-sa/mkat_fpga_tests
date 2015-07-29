@@ -331,8 +331,6 @@ class test_CBF(unittest.TestCase):
                         zeros.add((inp_i, inp_j))
             return zeros, nonzeros
 
-        #zero_bls, nonzero_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
-
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
             fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eq)
@@ -348,15 +346,8 @@ class test_CBF(unittest.TestCase):
             actual_z_bls = set(tuple(bls_ordering[i])
                 for i in actual_z_bls_indices)
 
-            actual_bls = set(actual_z_bls)
-            expected_bls = set(expected_z_bls)
-            actual_bls.intersection(expected_bls)
-            actual_bls.union(expected_bls)
-            print (actual_bls.union(expected_bls) -
-                actual_bls.intersection(expected_bls))
-            #self.assertEqual(actual_nz_bls, expected_nz_bls)
-            #self.assertEqual(actual_z_bls, expected_z_bls)
-            #import IPython;IPython.embed()
+            self.assertEqual(actual_nz_bls, expected_nz_bls)
+            self.assertEqual(actual_z_bls, expected_z_bls)
 
     def test_back2back_consistency(self):
         """1. Check that back-to-back dumps with same input are equal"""
