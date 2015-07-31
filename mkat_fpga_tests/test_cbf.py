@@ -425,9 +425,11 @@ class test_CBF(unittest.TestCase):
 
                 self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].'
+                        .format(np.abs(s1 - s0)/norm_fac, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
+        pass
