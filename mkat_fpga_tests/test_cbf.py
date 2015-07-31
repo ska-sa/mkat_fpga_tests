@@ -2,13 +2,13 @@ from __future__ import division
 
 import unittest
 import logging
-import matplotlib
-import matplotlib.pyplot as plt
-
 import time
 import itertools
 
+
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 
 from unittest.util import strclass
 
@@ -18,6 +18,8 @@ from corr2.corr_rx import CorrRx
 
 import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
+
+from corr2 import utils
 
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
@@ -424,7 +426,7 @@ class test_CBF(unittest.TestCase):
                 norm_fac = initial_max_freq_list[freq_i]
 
                 self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
-                    'frequency scan comparison({}) is >= {} threshold[dB].'
+                    'frequency scan comparison({}) is >= {} threshold[dB].')
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
