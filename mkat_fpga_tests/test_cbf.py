@@ -424,7 +424,7 @@ class test_CBF(unittest.TestCase):
                 s0 = scans[0][freq_i]
                 s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
-
+                print np.max(np.abs(s1 - s0)/norm_fac)
                 self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].')
 
