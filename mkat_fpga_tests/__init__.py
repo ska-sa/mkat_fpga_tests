@@ -73,6 +73,11 @@ class CorrelatorFixture(object):
         # multcast_ip
         # Build list of 8
 
+        config = os.environ['CORR2INI']
+        corr_conf = utils.parse_ini_file(config, ['dsimengine'])
+        feng_conf = corr_conf['fengine']
+        multicast_ip = feng_conf['source_mcast_ips']
+
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s',
             'localhost:7147', 'array-assign', 'array{}'.format(array_no),
                 '{}'.format(multcast_ip)])
