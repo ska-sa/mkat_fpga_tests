@@ -33,6 +33,8 @@ class CorrelatorFixture(object):
 
             # get config file from /etc/corr/{array-name}-{instrument-name}, e.g.
             # /etc/corr/array0-c8n856M4k
+
+            # corr_conf = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
             self._correlator = fxcorrelator.FxCorrelator(
                 'test correlator', config_source=self.config_filename)
             self.correlator.initialise(program=False)
@@ -53,9 +55,9 @@ class CorrelatorFixture(object):
             #'localhost:{}'.format(array_port) ,'capture-{}'.format(start_or_stop) ,
                 #'{}'.format('c856M4k')]
 
-        #subprocess.check_call([
-            #'corr2_start_stop_tx.py', '--{}'.format(start_or_stop),
-            #'--class', engine_class])
+        subprocess.check_call([
+            'corr2_start_stop_tx.py', '--{}'.format(start_or_stop),
+            '--class', engine_class])
 
 
     def start_x_data(self):
@@ -72,27 +74,31 @@ class CorrelatorFixture(object):
         # Read deng multicast groups from config
         # multcast_ip
         # Build list of 8
+#>>>>>>>>>>>>
+        #corr_conf = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
+        #array_no = 0
+        #host_port = corr_conf['FxCorrelator']['katcp_port']
+        #multicast_ip = corr_conf['fengine']['source_mcast_ips']
+#<<<<<<<<<<<<<
 
-        config = os.environ['CORR2INI']
-        corr_conf = utils.parse_ini_file(config, ['dsimengine'])
-        feng_conf = corr_conf['fengine']
-        multicast_ip = feng_conf['source_mcast_ips']
-
-        subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s',
-            'localhost:7147', 'array-assign', 'array{}'.format(array_no),
-                '{}'.format(multcast_ip)])
+        #subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s',
+            #'localhost:{}'.format(host_port), 'array-assign', 'array{}'.format(array_no),
+                #'{}'.format(multcast_ip)])
 
         #'kcpcmd -t 30 -s localhost:7147 array-assign array0 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888'
 
         # kcpcmd array-assign array0 [list of deng multicast groups]
         # Do something to get katcp port of array interface and store it
-        if (subprocess.Popen("kcpcmd -s localhost:7147 array-list array{0}\
-            | grep array{0} | cut -f3 -d ' '".format(array_no)
-                , shell=True, stdout=subprocess.PIPE).stdout.read().rstrip()) != int :
 
-        katcp_port = int(subprocess.Popen("kcpcmd -s localhost:7147 array-list array{0}\
-            | grep array{0} | cut -f3 -d ' '".format(array_no)
-                , shell=True, stdout=subprocess.PIPE).stdout.read())
+        #if (subprocess.Popen("kcpcmd -s localhost:7147 array-list array{0}\
+            #| grep array{0} | cut -f3 -d ' '".format(array_no)
+                #, shell=True, stdout=subprocess.PIPE).stdout.read().rstrip()) != int :
+
+        #katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array{1}\
+            #| grep array{1} | cut -f3 -d ' '".format(host_port,array_no)
+                #, shell=True, stdout=subprocess.PIPE).stdout.read())
+        if katcp_port == int :
+
 
 
         while retries and not success:
