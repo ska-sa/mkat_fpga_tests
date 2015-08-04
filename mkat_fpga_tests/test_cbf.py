@@ -423,7 +423,7 @@ class test_CBF(unittest.TestCase):
                 s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
 
-                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
+                self.assertLess(np.max(np.abs(s1 - s0)/norm_fac), self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].'
                         .format(np.abs(s1 - s0)/norm_fac, self.threshold))
 
@@ -433,3 +433,82 @@ class test_CBF(unittest.TestCase):
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
         pass
+
+    def test_delay_tracking(self):
+        """CBF Delay Tracking"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+        test_chan = 1500
+        init_dsim_sources(self.dhost)
+
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=9, chans_around=5)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
+
+        # Placeholder of actual frequencies that the signal generator produces
+        actual_test_freqs = []
+        # Channel magnitude responses for each frequency
+        chan_responses = []
+        last_source_freq = None
+
+        this_freq_data = this_freq_dump['xeng_raw']
+        this_freq_response = normalised_magnitude(
+            this_freq_data[:, test_baseline, :])
+        actual_test_freqs.append(this_source_freq)
+        chan_responses.append(this_freq_response)
+
+        # Test fft overflow and qdr status after
+        test_fftoverflow_qdrstatus()
+        self.corr_fix.stop_x_data()
+        # Convert the lists to numpy arrays for easier working
+        actual_test_freqs = np.array(actual_test_freqs)
+        chan_responses = np.array(chan_responses)
+        for i, freq in enumerate(requested_test_freqs):
+            # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+            #     i+1, len(requested_test_freqs), freq/1e6))
+            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
+                i+1, len(requested_test_freqs), freq/1e6))
+
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            if this_source_freq == last_source_freq:
+                LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
+                            'Digitiser frequency is same as previous.'.format(
+                                i+1, len(requested_test_freqs), freq/1e6))
+                continue    # Already calculated this one
+            else:
+                last_source_freq = this_source_freq
+
+            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            try:
+                snapshots = get_snapshots(self.correlator)
+            except Exception:
+                print ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
+                    i+1, len(requested_test_freqs), freq/1e6))
+                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz.".format(
+                    i+1, len(requested_test_freqs), freq/1e6))
+                if i == 0:
+                    # The first snapshot must work properly to give us the data structure
+                    raise
+                else:
+                    snapshots['all_ok'] = False
+            else:
+                snapshots['all_ok'] = True
+            source_info = get_dsim_source_info(self.dhost)
+            test_data_h5.add_result(this_freq_dump, source_info, snapshots)
+            this_freq_data = this_freq_dump['xeng_raw']
+            this_freq_response = normalised_magnitude(
+                this_freq_data[:, test_baseline, :])
+            actual_test_freqs.append(this_source_freq)
+            chan_responses.append(this_freq_response)
+
+        # Test fft overflow and qdr status after
+        test_fftoverflow_qdrstatus()
+        self.corr_fix.stop_x_data()
+        # Convert the lists to numpy arrays for easier working
+        actual_test_freqs = np.array(actual_test_freqs)
+        chan_responses = np.array(chan_responses)
+
+        #test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
