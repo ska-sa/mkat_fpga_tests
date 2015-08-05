@@ -462,5 +462,5 @@ class test_CBF(unittest.TestCase):
             data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
             phases = np.angle(data)
             plt.plot(self.corr_freqs.chan_freqs, phases)
-            import IPython; IPython.embed()
+            #import IPython; IPython.embed()
             #plt.show()
