@@ -423,9 +423,9 @@ class test_CBF(unittest.TestCase):
                 s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
 
-                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
+                self.assertLess(np.max(np.abs(s1 - s0))/norm_fac, self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].'
-                        .format(np.abs(s1 - s0)/norm_fac, self.threshold))
+                        .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
@@ -434,6 +434,7 @@ class test_CBF(unittest.TestCase):
         # will only add test method onces correlator startup is reliable.
         pass
 
+<<<<<<< HEAD
     def test_delay_tracking(self):
         """CBF Delay Tracking"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -464,3 +465,43 @@ class test_CBF(unittest.TestCase):
             plt.plot(self.corr_freqs.chan_freqs, phases)
             #import IPython; IPython.embed()
             #plt.show()
+
+    def test_channel_peaks(self):
+        """Test that the correct channels have the peak response to each frequency"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+
+        init_dsim_sources(self.dhost)
+        # Get baseline 0 data, i.e. auto-corr of m000h
+        test_baseline = 0
+        # Placeholder of actual frequencies that the signal generator produces
+        actual_test_freqs = []
+        # Channel no with max response for each frequency
+        max_channels = []
+        # Channel responses higher than -20 dB relative to expected channel
+        extra_peaks = []
+
+        start_chan = 1 # skip DC channel since dsim puts out zeros
+        for channel, channel_f0 in enumerate(
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
+                channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
+            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
+
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            actual_test_freqs.append(this_source_freq)
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
+            this_freq_response = (
+                normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            max_chan = np.argmax(this_freq_response)
+            max_channels.append(max_chan)
+            # Find responses that are more than -20 dB relative to max
+            unwanted_cutoff = this_freq_response[max_chan] / 10e2
+            extra_responses = [i for i, resp in enumerate(this_freq_response)
+                               if i != max_chan and resp >= unwanted_cutoff]
+            extra_peaks.append(extra_responses)
+
+        # Check that the correct channels have the peak response to each frequency
+        self.assertEqual(max_channels, range(start_chan,
+            len(max_channels) + start_chan))
+        # Check that no other channels responded > -20 dB
+        self.assertEqual(extra_peaks, [[]]*len(max_channels))

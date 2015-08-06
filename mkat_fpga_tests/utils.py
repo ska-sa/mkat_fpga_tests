@@ -85,6 +85,8 @@ class CorrelatorFrequencyInfo(object):
         f_start = 0. # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
         "Channel centre frequencies"
+        self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
+        self.sample_period = 1 / self.sample_freq
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
