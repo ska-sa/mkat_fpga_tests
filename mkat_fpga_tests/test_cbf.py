@@ -434,6 +434,37 @@ class test_CBF(unittest.TestCase):
         # will only add test method onces correlator startup is reliable.
         pass
 
+ def test_delay_tracking(self):
+        """CBF Delay Tracking"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+
+        # Select dsim signal output, zero all sources, output scalings to 0.5
+        init_dsim_sources(self.dhost)
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        initial_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+
+        # Get list of all the baselines present in the correlator output
+        bls_ordering = initial_dump['bls_ordering']
+        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
+            bls_ordering)}
+        # Choose baseline for phase comparison
+        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+
+        correlation_bw = self.corr_freqs.bandwidth
+        sampling_period = self.corr_freqs.sample_period
+        test_delays = [0, sampling_period, 1.5*sampling_period]
+
+        for delay in test_delays[0:1]:
+            # set delay on correlator input m000_y
+            # TODO
+            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+            phases = np.angle(data)
+            plt.plot(self.corr_freqs.chan_freqs, phases)
+            #import IPython; IPython.embed()
+            #plt.show()
+
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
