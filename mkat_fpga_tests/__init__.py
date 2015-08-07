@@ -50,6 +50,7 @@ class CorrelatorFixture(object):
 
     def start_correlator(self, retries=5, loglevel='INFO'):
         success = False
+        retries_requested = retries
         while retries and not success:
             success = 0 == subprocess.call(
                 ['corr2_startcorr.py', '--loglevel', loglevel])
@@ -62,7 +63,7 @@ class CorrelatorFixture(object):
 
         if not success:
             raise RuntimeError('Could not successfully start correlator within {} retries'
-                               .format(retries))
+                               .format(retries_requested))
 
     def issue_metadata(self):
         subprocess.check_call('corr2_issue_spead_metadata.py')
