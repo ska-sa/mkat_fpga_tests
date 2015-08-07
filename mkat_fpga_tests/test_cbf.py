@@ -443,9 +443,7 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        initial_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-        input_labels = sorted(tuple(initial_dump['input_labelling'][:,0]))
-
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Get list of all the baselines present in the correlator output
         bls_ordering = initial_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
@@ -454,37 +452,35 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, 1.5*sampling_period]
+        test_delays = [0, sampling_period, #1.5*sampling_period,
+            3*sampling_period]
 
-        def expected_phases():
+        def expected_phases(plot=False):
             expected_chan_phase = []
             for channel in self.corr_freqs.chan_freqs:
                 phases = channel * 2 * np.pi * sampling_period
                 expected_chan_phase.append(phases)
+            plt.plot(self.corr_freqs.chan_freqs,
+                np.array(expected_chan_phase))
+            if plot:
+                plt.show()
+            return expected_chan_phase
 
-        for delay in test_delays:
-            print delay
-            #if delay == 0:
-            # set delay on correlator input m000_y
-            # TODO
-            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
-            phases = np.angle(data)
-            plt.plot(self.corr_freqs.chan_freqs, phases)
-            import IPython; IPython.embed()
-            #plt.show()
-            #else:
-                ## set delay on correlator input m000_y
-                #for inp in input_labels:
-                    #if inp == 'm000_y':
-                        ## TODO
-                        #this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                        #data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
-                        #phases = np.angle(data)
-                        #plt.plot(self.corr_freqs.chan_freqs, phases)
-                        #plt.show()
+        def actual_phases(plot=False):
+            for delay in test_delays:
+                # set coarse delay on correlator input m000_y
+                input_y = [s for s in self.correlator.fengine_sources
+                           if s.name == 'm000_y'][0]
+                delay_samples = int(np.floor(delay/sampling_period))
+                input_y.host.registers.coarse_delay0.write(coarse_delay=delay_samples)
+                input_y.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
 
-            import IPython; IPython.embed()
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+                phases = np.unwrap(np.angle(data))
+                plt.plot(self.corr_freqs.chan_freqs, phases)
+                if plot:
+                    plt.show()
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
