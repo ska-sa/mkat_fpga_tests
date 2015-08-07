@@ -251,3 +251,21 @@ def get_feng_snapshots(feng_fpga, timeout=5):
 def get_snapshots(instrument):
     f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
     return dict(feng=f_snaps)
+
+def set_coarse_delay(instrument, input_name, value):
+    """ Sets coarse delay(default = 1) for Correlator baseline input.
+        Parameters
+            =========
+            instrument
+                Correlator object
+            input_name
+                Baseline (eg.'m000_x')
+    """
+    source = [s for s in instrument.fengine_sources if s.name == input_name][0]
+    source_index = [i for i, s in enumerate(source.host.data_sources) if s.name == source.name][0]
+    if source_index == 0:
+        s.host.registers.coarse_delay0.write(coarse_delay=value)
+        s.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+    else:
+        s.host.registers.coarse_delay1.write(coarse_delay=value)
+        #s.host.registers.tl_cd0_control.write(arm='pulse', load_immediate=1)
