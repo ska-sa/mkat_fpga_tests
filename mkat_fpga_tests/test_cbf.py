@@ -458,25 +458,25 @@ class test_CBF(unittest.TestCase):
 
         for delay in test_delays:
             print delay
-            if delay == 0:
-                # set delay on correlator input m000_y
-                # TODO
-                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
-                phases = np.angle(data)
-                plt.plot(self.corr_freqs.chan_freqs, phases)
-                import IPython; IPython.embed()
-                #plt.show()
-            else:
-                # set delay on correlator input m000_y
-                for inp in input_labels:
-                    if inp == 'm000_y':
-                        # TODO
-                        this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                        data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
-                        phases = np.angle(data)
-                        plt.plot(self.corr_freqs.chan_freqs, phases)
-                        plt.show()
+            #if delay == 0:
+            # set delay on correlator input m000_y
+            # TODO
+            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+            phases = np.angle(data)
+            plt.plot(self.corr_freqs.chan_freqs, phases)
+            import IPython; IPython.embed()
+            #plt.show()
+            #else:
+                ## set delay on correlator input m000_y
+                #for inp in input_labels:
+                    #if inp == 'm000_y':
+                        ## TODO
+                        #this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                        #data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+                        #phases = np.angle(data)
+                        #plt.plot(self.corr_freqs.chan_freqs, phases)
+                        #plt.show()
 
             import IPython; IPython.embed()
 
