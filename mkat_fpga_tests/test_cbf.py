@@ -460,6 +460,7 @@ class test_CBF(unittest.TestCase):
             for channel in self.corr_freqs.chan_freqs:
                 phases = channel * 2 * np.pi * sampling_period
                 expected_chan_phase.append(phases)
+
             plt.plot(self.corr_freqs.chan_freqs,
                 np.array(expected_chan_phase))
             if plot:
@@ -467,6 +468,7 @@ class test_CBF(unittest.TestCase):
             return expected_chan_phase
 
         def actual_phases(plot=False):
+            actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
                 input_y = [s for s in self.correlator.fengine_sources
@@ -478,9 +480,11 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
                 phases = np.unwrap(np.angle(data))
+                actual_phases_list.append(phases)
                 plt.plot(self.corr_freqs.chan_freqs, phases)
                 if plot:
                     plt.show()
+            return actual_phases_list
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
