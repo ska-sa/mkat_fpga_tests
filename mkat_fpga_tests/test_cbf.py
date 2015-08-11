@@ -434,7 +434,6 @@ class test_CBF(unittest.TestCase):
         # will only add test method onces correlator startup is reliable.
         pass
 
-
     def test_delay_tracking(self):
         """CBF Delay Tracking"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
