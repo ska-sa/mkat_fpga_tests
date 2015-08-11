@@ -454,17 +454,18 @@ class test_CBF(unittest.TestCase):
         test_delays = [0, sampling_period, #1.5*sampling_period,
             3*sampling_period]
 
-        def expected_phases(plot=False):
+        def expected_phases():
+            sampling_period = self.corr_freqs.sample_period
             expected_chan_phase = []
             for channel in self.corr_freqs.chan_freqs:
                 phases = channel * 2 * np.pi * sampling_period
                 expected_chan_phase.append(phases)
-
-            plt.plot(self.corr_freqs.chan_freqs,
-                np.array(expected_chan_phase))
-            if plot:
-                plt.show()
             return np.array(expected_chan_phase)
+
+        def plot_expected_phases():
+            plt.plot(self.corr_freqs.chan_freqs,
+                expected_phases())
+            plt.show()
 
         def actual_phases(plot=False):
             actual_phases_list = []
@@ -485,13 +486,16 @@ class test_CBF(unittest.TestCase):
                     plt.show()
             return actual_phases_list
 
+        #plot_expected_phases()
+
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
-        self.assertAlmostEqual(np.max(np.abs(actual_phases()[1])),
-            np.max(np.abs(expected_phases())), places=3)
-        # Check if the min actual and expected phases are equal
-        self.assertEqual(np.min(np.abs(actual_phases()[1])),
-            np.min(np.abs(expected_phases())))
+        #self.assertAlmostEqual(np.max(np.abs(actual_phases()[1])),
+            #np.max(np.abs(expected_phases())), places=3)
+        ## Check if the min actual and expected phases are equal
+        #self.assertEqual(np.min(np.abs(actual_phases()[1])),
+            #np.min(np.abs(expected_phases())))
+        import IPython;IPython.embed()
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
