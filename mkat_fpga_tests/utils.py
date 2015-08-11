@@ -262,7 +262,7 @@ def set_coarse_delay(instrument, input_name, value=1):
             input_name
                 Baseline (eg.'m000_x').
             value
-                Coarse delay value input.
+                number of samples to delay
     """
     source = [s for s in instrument.fengine_sources if s.name == input_name][0]
     source_index = [i for i, s in enumerate(source.host.data_sources)
