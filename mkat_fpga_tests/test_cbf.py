@@ -25,6 +25,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
+#from mkat_fpga_tests.utils import set_coarse_delay
 
 LOGGER = logging.getLogger(__name__)
 
@@ -477,6 +478,7 @@ class test_CBF(unittest.TestCase):
                 input_y.host.registers.coarse_delay0.write(coarse_delay=delay_samples)
                 input_y.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
 
+                #set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
                 phases = np.unwrap(np.angle(data))
@@ -484,23 +486,15 @@ class test_CBF(unittest.TestCase):
                 plt.plot(self.corr_freqs.chan_freqs, phases)
                 if plot:
                     plt.show()
+
             return actual_phases_list
 
         #plot_expected_phases()
 
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
-        #self.assertAlmostEqual(np.max(np.abs(actual_phases()[1])),
-            #np.max(np.abs(expected_phases())), places=3)
-        ## Check if the min actual and expected phases are equal
-        #self.assertEqual(np.min(np.abs(actual_phases()[1])),
-            #np.min(np.abs(expected_phases())))
-
         np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
-            np.abs(expected_phases()), decimal=3)
-        np.testing.assert_allclose(np.abs(actual_phases()[1]),
-            np.abs(expected_phases()), rtol=1e-3, atol=0)
-        import IPython;IPython.embed()
+            np.abs(expected_phases()) , decimal=3)
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
