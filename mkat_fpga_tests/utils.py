@@ -252,7 +252,7 @@ def get_snapshots(instrument):
     f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
     return dict(feng=f_snaps)
 
-def set_coarse_delay(instrument, input_name, value=1):
+def set_coarse_delay(instrument, input_name, value=0):
     """ Sets coarse delay(default = 1) for Correlator baseline input.
 
         Parameters

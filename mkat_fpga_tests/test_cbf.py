@@ -25,7 +25,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
-#from mkat_fpga_tests.utils import set_coarse_delay
+from mkat_fpga_tests.utils import set_coarse_delay
 
 LOGGER = logging.getLogger(__name__)
 
@@ -472,29 +472,24 @@ class test_CBF(unittest.TestCase):
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
-                input_y = [s for s in self.correlator.fengine_sources
-                           if s.name == 'm000_y'][0]
                 delay_samples = int(np.floor(delay/sampling_period))
-                input_y.host.registers.coarse_delay0.write(coarse_delay=delay_samples)
-                input_y.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+                set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
 
-                #set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+                data = complexise(this_freq_dump['xeng_raw']
+                    [:, baseline_index, :])
                 phases = np.unwrap(np.angle(data))
                 actual_phases_list.append(phases)
                 plt.plot(self.corr_freqs.chan_freqs, phases)
                 if plot:
                     plt.show()
-
             return actual_phases_list
 
         #plot_expected_phases()
-
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
         np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
-            np.abs(expected_phases()) , decimal=3)
+            np.abs(expected_phases()), decimal=3)
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
