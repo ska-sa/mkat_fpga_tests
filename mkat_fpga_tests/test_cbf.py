@@ -495,6 +495,11 @@ class test_CBF(unittest.TestCase):
         ## Check if the min actual and expected phases are equal
         #self.assertEqual(np.min(np.abs(actual_phases()[1])),
             #np.min(np.abs(expected_phases())))
+
+        np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
+            np.abs(expected_phases()), decimal=3)
+        np.testing.assert_allclose(np.abs(actual_phases()[1]),
+            np.abs(expected_phases()), rtol=1e-3, atol=0)
         import IPython;IPython.embed()
 
     def test_channel_peaks(self):
