@@ -67,7 +67,7 @@ class test_CBF(unittest.TestCase):
     # the VACC is rotated. Run this test first so that we know immediately that other
     # tests will be b0rked.
     def test_channelisation(self):
-        """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
+        """(TP.C.1.19) CBF Channelisation Wideband Coarse L-band"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
@@ -262,7 +262,7 @@ class test_CBF(unittest.TestCase):
         # import IPython ; IPython.embed()
 
     def test_product_baselines(self):
-        """CBF Baseline Correlation Products: VR.C.19, TP.C.1.3"""
+        """(TP.C.1.30) CBF Baseline Correlation Products - AR1"""
 
         init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
@@ -436,7 +436,8 @@ class test_CBF(unittest.TestCase):
         pass
 
     def test_delay_tracking(self):
-        """CBF Delay Tracking"""
+        """(TP.C.1.27) CBF Delay Compensation/LO Fringe stopping polynomial"""
+
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         # Select dsim signal output, zero all sources, output scalings to 0.5
