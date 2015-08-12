@@ -463,10 +463,12 @@ class test_CBF(unittest.TestCase):
                 expected_chan_phase.append(phases)
             return np.array(expected_chan_phase)
 
-        def plot_expected_phases():
+        def plot_expected_phases(plot=False):
             plt.plot(self.corr_freqs.chan_freqs,
                 expected_phases())
-            plt.show()
+            if plot:
+                plt.show()
+            plt.close('all')
 
         def actual_phases(plot=False):
             actual_phases_list = []
@@ -485,7 +487,7 @@ class test_CBF(unittest.TestCase):
                     plt.show()
             return actual_phases_list
 
-        #plot_expected_phases()
+        plot_expected_phases(plot=True)
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
         np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
