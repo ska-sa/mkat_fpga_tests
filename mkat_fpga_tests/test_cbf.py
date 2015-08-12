@@ -463,12 +463,12 @@ class test_CBF(unittest.TestCase):
                 expected_chan_phase.append(phases)
             return np.array(expected_chan_phase)
 
-        def plot_expected_phases(plot=False):
+        def plot_expected_phases(show=False):
             plt.plot(self.corr_freqs.chan_freqs,
                 expected_phases())
             if plot:
                 plt.show()
-            plt.close('all')
+            plt.close()
 
         def actual_phases(plot=False):
             actual_phases_list = []
@@ -487,11 +487,13 @@ class test_CBF(unittest.TestCase):
                     plt.show()
             return actual_phases_list
 
-        plot_expected_phases(plot=True)
+        #plot_expected_phases(plot=True)
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
-        np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
-            np.abs(expected_phases()), decimal=3)
+        np.testing.assert_almost_equal(actual_phases()[1],
+            expected_phases(), decimal=3)
+        # Check if the phases at test delay = 0 are all zeros.
+        self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
