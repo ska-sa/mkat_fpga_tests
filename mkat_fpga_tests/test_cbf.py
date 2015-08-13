@@ -465,7 +465,21 @@ class test_CBF(unittest.TestCase):
                 expected_chan_phase.append(phases)
             return np.array(expected_chan_phase)
 
-        def actual_phases(show=False):
+        def actual_phases():
+            actual_phases_list = []
+            for delay in test_delays:
+                # set coarse delay on correlator input m000_y
+                delay_samples = int(np.floor(delay/sampling_period))
+                set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
+
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                data = complexise(this_freq_dump['xeng_raw']
+                    [:, baseline_index, :])
+                phases = np.unwrap(np.angle(data))
+                actual_phases_list.append(phases)
+            return actual_phases_list
+
+        def actual_phases(plot=False):
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
@@ -478,7 +492,7 @@ class test_CBF(unittest.TestCase):
                 phases = np.unwrap(np.angle(data))
                 actual_phases_list.append(phases)
                 plt.plot(self.corr_freqs.chan_freqs, phases)
-                if show:
+                if plot:
                     plt.show()
             return actual_phases_list
 
