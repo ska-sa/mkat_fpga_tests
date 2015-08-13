@@ -465,7 +465,7 @@ class test_CBF(unittest.TestCase):
                 expected_chan_phase.append(phases)
             return np.array(expected_chan_phase)
 
-        def actual_phases(plot=False):
+        def actual_phases():
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
@@ -477,9 +477,6 @@ class test_CBF(unittest.TestCase):
                     [:, baseline_index, :])
                 phases = np.unwrap(np.angle(data))
                 actual_phases_list.append(phases)
-                plt.plot(self.corr_freqs.chan_freqs, phases)
-                if plot:
-                    plt.show()
             return actual_phases_list
 
         def plot_and_save(freqs, data, plot_filename, show=False):
@@ -519,7 +516,6 @@ class test_CBF(unittest.TestCase):
             expected_phases(), decimal=3)
         # Check if the phases at test delay = 0 are all zeros.
         self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
-
 
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
