@@ -75,7 +75,7 @@ class test_CBF(unittest.TestCase):
         test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=101, chans_around=5)
+            test_chan, samples_per_chan=101, chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
 
         def get_fftoverflow_qdrstatus():
@@ -187,6 +187,7 @@ class test_CBF(unittest.TestCase):
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
         chan_responses = np.array(chan_responses)
+        import IPython;IPython.embed()
 
         def plot_and_save(freqs, data, plot_filename, show=False):
             df = self.corr_freqs.delta_f

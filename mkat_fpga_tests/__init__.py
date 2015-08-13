@@ -101,6 +101,8 @@ class CorrelatorFixture(object):
         except Exception:
             subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
                 'array-assign', 'array{}'.format(array_no)] + '{}'.format(multicast_ip).split())
+            import IPython;IPython.embed()
+
 
         #if katcp_port == int :
         #print "katcp array port", katcp_port
