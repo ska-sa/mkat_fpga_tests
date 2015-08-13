@@ -518,7 +518,7 @@ class test_CBF(unittest.TestCase):
         self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
 
     def test_channel_peaks(self):
-        """Test that the correct channels have the peak response to each frequency"""
+        """4. Test that the correct channels have the peak response to each frequency"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         init_dsim_sources(self.dhost)
