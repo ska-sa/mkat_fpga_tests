@@ -53,7 +53,7 @@ class CorrelatorFixture(object):
 
         subprocess.check_call(['/usr/local/bin/kcpcmd' ,'-s' ,
             'localhost:{}'.format(array_port) ,'capture-{}'.format(start_or_stop) ,
-                '{}'.format(mode)]
+                '{}'.format(mode)])
 
         #subprocess.check_call([
         #    'corr2_start_stop_tx.py', '--{}'.format(start_or_stop),
@@ -62,7 +62,7 @@ class CorrelatorFixture(object):
 
     def start_x_data(self):
         # On array interf
-        #self.start_stop_data('start', 'xengine')
+        import IPython;IPython.embed()
         self.start_stop_data('start','c856M4k')
 
     def stop_x_data(self):
