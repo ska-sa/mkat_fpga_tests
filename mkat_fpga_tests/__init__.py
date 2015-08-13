@@ -17,8 +17,7 @@ class CorrelatorFixture(object):
 
     def __init__(self, config_filename=None):
         if config_filename is None:
-            config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
-                                ['dsimengine'])
+            config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
         self.config_filename = config_filename
         #utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
             #['dsimengine']) = config_filename
@@ -66,7 +65,6 @@ class CorrelatorFixture(object):
 
     def start_x_data(self):
         # On array interf
-        import IPython;IPython.embed()
         self.start_stop_data('start','c856M4k')
 
     def stop_x_data(self):

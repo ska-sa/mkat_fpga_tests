@@ -433,3 +433,104 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
+        pass
+
+    def test_delay_tracking(self):
+        """CBF Delay Tracking"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+
+        # Select dsim signal output, zero all sources, output scalings to 0.5
+        init_dsim_sources(self.dhost)
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        # Get list of all the baselines present in the correlator output
+        bls_ordering = initial_dump['bls_ordering']
+        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
+            bls_ordering)}
+        # Choose baseline for phase comparison
+        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+
+        sampling_period = self.corr_freqs.sample_period
+        test_delays = [0, sampling_period, #1.5*sampling_period,
+            3*sampling_period]
+
+        def expected_phases():
+            sampling_period = self.corr_freqs.sample_period
+            expected_chan_phase = []
+            for channel in self.corr_freqs.chan_freqs:
+                phases = channel * 2 * np.pi * sampling_period
+                expected_chan_phase.append(phases)
+            return np.array(expected_chan_phase)
+
+        def plot_expected_phases():
+            plt.plot(self.corr_freqs.chan_freqs,
+                expected_phases())
+            plt.show()
+
+        def actual_phases(plot=False):
+            actual_phases_list = []
+            for delay in test_delays:
+                # set coarse delay on correlator input m000_y
+                input_y = [s for s in self.correlator.fengine_sources
+                           if s.name == 'm000_y'][0]
+                delay_samples = int(np.floor(delay/sampling_period))
+                input_y.host.registers.coarse_delay0.write(coarse_delay=delay_samples)
+                input_y.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+                phases = np.unwrap(np.angle(data))
+                actual_phases_list.append(phases)
+                plt.plot(self.corr_freqs.chan_freqs, phases)
+                if plot:
+                    plt.show()
+            return actual_phases_list
+
+        #plot_expected_phases()
+
+        # Compare Actual and Expected phases and check if their equal
+        # upto 3 decimal places
+        np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
+            np.abs(expected_phases()), decimal=3)
+        #import IPython;IPython.embed()
+
+    def test_channel_peaks(self):
+        """Test that the correct channels have the peak response to each frequency"""
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+
+        init_dsim_sources(self.dhost)
+        # Get baseline 0 data, i.e. auto-corr of m000h
+        test_baseline = 0
+        # Placeholder of actual frequencies that the signal generator produces
+        actual_test_freqs = []
+        # Channel no with max response for each frequency
+        max_channels = []
+        # Channel responses higher than -20 dB relative to expected channel
+        extra_peaks = []
+
+        start_chan = 1 # skip DC channel since dsim puts out zeros
+        for channel, channel_f0 in enumerate(
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
+                channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
+            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
+
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            actual_test_freqs.append(this_source_freq)
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
+            this_freq_response = (
+                normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            max_chan = np.argmax(this_freq_response)
+            max_channels.append(max_chan)
+            # Find responses that are more than -20 dB relative to max
+            unwanted_cutoff = this_freq_response[max_chan] / 10e2
+            extra_responses = [i for i, resp in enumerate(this_freq_response)
+                               if i != max_chan and resp >= unwanted_cutoff]
+            extra_peaks.append(extra_responses)
+
+        # Check that the correct channels have the peak response to each frequency
+        self.assertEqual(max_channels, range(start_chan,
+            len(max_channels) + start_chan))
+        # Check that no other channels responded > -20 dB
+        self.assertEqual(extra_peaks, [[]]*len(max_channels))
