@@ -490,7 +490,7 @@ class test_CBF(unittest.TestCase):
             yb_diff = abs(ybound[1] - ybound[0])
             new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
             plt.vlines(np.max(freqs), *new_ybound,
-                label='{}MHz max'.format(self.corr_freqs.bandwidth/1e6),
+                label='{} MHz (max)'.format(self.corr_freqs.bandwidth/1e6),
                     linestyles='dashed')
             plt.legend().draggable()
             plt.title('Correlation Phase Slope for {}ns delay '.format(
