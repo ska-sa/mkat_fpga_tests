@@ -520,7 +520,7 @@ class test_CBF(unittest.TestCase):
         # Check if the phases at test delay = 0 are all zeros.
         self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
 
-    @unittest.skip('  Test Skipped as it takes long to complete.')
+
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
