@@ -486,11 +486,11 @@ class test_CBF(unittest.TestCase):
             #plt.vlines(expected_fc + 0.8*df / 2, *new_ybound, label='_chan +40%',
                        #linestyles='dashed')
             plt.legend()
-            plt.title('Channel {} ({} MHz) response'.format(
-                test_chan, expected_fc/1e6))
+            plt.title('Expected Correlation Phase Slope for {} delay '.format(
+                self.corr_freqs.sample_period))
             axes.set_ybound(*new_ybound)
             plt.grid(True)
-            plt.ylabel('radians')
+            plt.ylabel('Phase [radians]')
             plt.xlabel('Frequency (Hz)')
             plt.savefig(plot_filename)
             if show:
