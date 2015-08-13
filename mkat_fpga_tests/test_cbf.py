@@ -471,6 +471,36 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
+        def plot_and_save(freqs, data, plot_filename, show=False):
+            #df = self.corr_freqs.delta_f
+            fig = plt.plot(freqs, data)[0]
+            axes = fig.get_axes()
+            ybound = axes.get_ybound()
+            yb_diff = abs(ybound[1] - ybound[0])
+            new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff * 1.1]
+            #plt.vlines(expected_fc, *new_ybound, colors='r', label='chan fc')
+            #plt.vlines(expected_fc - df / 2, *new_ybound, label='chan min/max')
+            #plt.vlines(expected_fc - 0.8*df / 2, *new_ybound, label='chan +-40%',
+                       #linestyles='dashed')
+            #plt.vlines(expected_fc + df / 2, *new_ybound, label='_chan max')
+            #plt.vlines(expected_fc + 0.8*df / 2, *new_ybound, label='_chan +40%',
+                       #linestyles='dashed')
+            plt.legend()
+            plt.title('Channel {} ({} MHz) response'.format(
+                test_chan, expected_fc/1e6))
+            axes.set_ybound(*new_ybound)
+            plt.grid(True)
+            plt.ylabel('radians')
+            plt.xlabel('Frequency (Hz)')
+            plt.savefig(plot_filename)
+            if show:
+                plt.show()
+            plt.close()
+
+        graph_name_all = test_name + '.svg'
+        plot_and_save(self.corr_freqs.chan_freqs,
+            expected_phases(), graph_name_all)
+
         def actual_phases(plot=False):
             actual_phases_list = []
             for delay in test_delays:
@@ -496,6 +526,7 @@ class test_CBF(unittest.TestCase):
         # Check if the phases at test delay = 0 are all zeros.
         self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
 
+    @unittest.skip('  Test Skipped as it takes long to complete.')
     def test_channel_peaks(self):
         """Test that the correct channels have the peak response to each frequency"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
