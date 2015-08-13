@@ -8,6 +8,8 @@ from testconfig import config as test_config
 from corr2 import fxcorrelator
 from corr2 import utils
 
+
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -18,8 +20,8 @@ class CorrelatorFixture(object):
             config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
                                 ['dsimengine'])
         self.config_filename = config_filename
-        utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
-            ['dsimengine']) = config_filename
+        #utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
+            #['dsimengine']) = config_filename
         self._correlator = None
         """Assume correlator is already running if this flag is True.
         IOW, don't do start_correlator() if set."""
@@ -31,7 +33,9 @@ class CorrelatorFixture(object):
         else:
             if int(test_config.get('start_correlator', False)):
                 # Is it not easier to just call a self._correlator method?
+                import IPython;IPython.embed()
                 self.start_correlator()
+
 
             # get config file from /etc/corr/{array-name}-{instrument-name}, e.g.
             # /etc/corr/array0-c8n856M4k
@@ -72,14 +76,10 @@ class CorrelatorFixture(object):
         success = False
         retries_requested = retries
 
-        # Read deng multicast groups from config
-        # multcast_ip
-        # Build list of 8
-#>>>>>>>>>>>>
-        #corr_conf = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
-        #array_no = 0
-        #host_port = corr_conf['FxCorrelator']['katcp_port']
-        #multicast_ip = corr_conf['fengine']['source_mcast_ips']
+        array_no = 0
+        host_port = self.config_filename['FxCorrelator']['katcp_port']
+        multicast_ip = self.config_filename['fengine']['source_mcast_ips'].replace(' ',',')
+
 #<<<<<<<<<<<<<
 
         #subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s',
@@ -94,20 +94,33 @@ class CorrelatorFixture(object):
         #if (subprocess.Popen("kcpcmd -s localhost:7147 array-list array{0}\
             #| grep array{0} | cut -f3 -d ' '".format(array_no)
                 #, shell=True, stdout=subprocess.PIPE).stdout.read().rstrip()) != int :
+        host_port = 7147
+        array_no = 0
+        try:
+            katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array{1}\
+            | grep array{1} | cut -f3 -d ' '".format(host_port,array_no)
+                , shell=True, stdout=subprocess.PIPE).stdout.read())
+        except Exception:
+            subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
+                'array-assign', 'array{}'.format(array_no)] + '{}'.format(multicast_ip).split())
 
-        #katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array{1}\
-            #| grep array{1} | cut -f3 -d ' '".format(host_port,array_no)
-                #, shell=True, stdout=subprocess.PIPE).stdout.read())
-        if katcp_port == int :
-
-
+        #if katcp_port == int :
+        #print "katcp array port", katcp_port
 
         while retries and not success:
+            #instrument_name = "c8n856M4k"
+            #subprocess.check_call(['kcpcmd' '-s' 'localhost:{}'.format(katcp_port),
+                #'instrument-activate', '{}'.format(instrument_name)])
 
-            subprocess.check_call(['kcpcmd' '-s' 'localhost:{}'.format(array_port), 'instrument-activate', '{}'.format(instrument_name)])
+            try:
+                subprocess.check_call(['kcpcmd','-t','500','-s','localhost:{}'.format(katcp_port),
+                'instrument-activate', 'c8n856M4k'])
 
-            subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:{}'.format(port),
-                'array-assign', 'array{}'.format(array_no)] + '{}'.format(multicast_ip).split())
+            except Exception:
+                #subprocess.check_call(['kcpcmd', 'array-halt', 'array{}'.format(array_no)])
+
+                subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
+                    'array-assign', 'array{}'.format(array_no)] + '{}'.format(multicast_ip).split())
 
                         # Will create a correlator config file in
             success = 0 == subprocess.call(
