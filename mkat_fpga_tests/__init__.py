@@ -16,12 +16,17 @@ LOGGER = logging.getLogger(__name__)
 class CorrelatorFixture(object):
 
     def __init__(self, config_filename=None):
+
         if config_filename is None:
-            config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
+            import IPython;IPython.embed()
+            config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
+                ['dsimengine'])
         self.config_filename = config_filename
         #utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
             #['dsimengine']) = config_filename
+
         self._correlator = None
+
         """Assume correlator is already running if this flag is True.
         IOW, don't do start_correlator() if set."""
 
@@ -32,7 +37,6 @@ class CorrelatorFixture(object):
         else:
             if int(test_config.get('start_correlator', False)):
                 # Is it not easier to just call a self._correlator method?
-                import IPython;IPython.embed()
                 self.start_correlator()
 
 
@@ -70,13 +74,13 @@ class CorrelatorFixture(object):
     def stop_x_data(self):
         self.start_stop_data('stop', 'c856M4k')
 
-    def start_correlator(self, retries=5, loglevel='INFO'):
+    def start_correlator(self, retries=10, loglevel='INFO'):
         success = False
         retries_requested = retries
 
         array_no = 0
-        host_port = self.config_filename['FxCorrelator']['katcp_port']
-        multicast_ip = self.config_filename['fengine']['source_mcast_ips'].replace(' ',',')
+        host_port = int(self.config_filename['FxCorrelator']['katcp_port'])
+        multicast_ip = self.config_filename['fengine']['source_mcast_ips']
 
 #<<<<<<<<<<<<<
 
@@ -92,16 +96,17 @@ class CorrelatorFixture(object):
         #if (subprocess.Popen("kcpcmd -s localhost:7147 array-list array{0}\
             #| grep array{0} | cut -f3 -d ' '".format(array_no)
                 #, shell=True, stdout=subprocess.PIPE).stdout.read().rstrip()) != int :
-        host_port = 7147
         array_no = 0
+#        import IPython;IPython.embed()
         try:
-            katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array{1}\
+            katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array0\
             | grep array{1} | cut -f3 -d ' '".format(host_port,array_no)
                 , shell=True, stdout=subprocess.PIPE).stdout.read())
+
         except Exception:
             subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
-                'array-assign', 'array{}'.format(array_no)] + '{}'.format(multicast_ip).split())
-            import IPython;IPython.embed()
+                'array-assign', 'array0'] + multicast_ip.split(','))
+#            import IPython;IPython.embed()
 
 
         #if katcp_port == int :
@@ -117,10 +122,10 @@ class CorrelatorFixture(object):
                 'instrument-activate', 'c8n856M4k'])
 
             except Exception:
-                #subprocess.check_call(['kcpcmd', 'array-halt', 'array{}'.format(array_no)])
+                subprocess.check_call(['kcpcmd', 'array-halt', 'array0'])
 
                 subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
-                    'array-assign', 'array{}'.format(array_no)] + '{}'.format(multicast_ip).split())
+                    'array-assign', 'array0'] + multicast_ip.split(','))
 
                         # Will create a correlator config file in
             success = 0 == subprocess.call(
