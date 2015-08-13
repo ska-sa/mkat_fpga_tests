@@ -436,8 +436,9 @@ class test_CBF(unittest.TestCase):
         pass
 
     def test_delay_tracking(self):
-        """(TP.C.1.27) CBF Delay Compensation/LO Fringe stopping polynomial"""
-
+        """
+        (TP.C.1.27) CBF Delay Compensation/LO Fringe stopping polynomial
+        """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         # Select dsim signal output, zero all sources, output scalings to 0.5
@@ -464,43 +465,6 @@ class test_CBF(unittest.TestCase):
                 expected_chan_phase.append(phases)
             return np.array(expected_chan_phase)
 
-        def plot_expected_phases(show=False):
-            plt.plot(self.corr_freqs.chan_freqs,
-                expected_phases())
-            if plot:
-                plt.show()
-            plt.close()
-
-        def plot_and_save(freqs, data, plot_filename, show=False):
-            #df = self.corr_freqs.delta_f
-            fig = plt.plot(freqs, data)[0]
-            axes = fig.get_axes()
-            ybound = axes.get_ybound()
-            yb_diff = abs(ybound[1] - ybound[0])
-            new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff * 1.1]
-            #plt.vlines(expected_fc, *new_ybound, colors='r', label='chan fc')
-            #plt.vlines(expected_fc - df / 2, *new_ybound, label='chan min/max')
-            #plt.vlines(expected_fc - 0.8*df / 2, *new_ybound, label='chan +-40%',
-                       #linestyles='dashed')
-            #plt.vlines(expected_fc + df / 2, *new_ybound, label='_chan max')
-            #plt.vlines(expected_fc + 0.8*df / 2, *new_ybound, label='_chan +40%',
-                       #linestyles='dashed')
-            plt.legend()
-            plt.title('Expected Correlation Phase Slope for {} delay '.format(
-                self.corr_freqs.sample_period))
-            axes.set_ybound(*new_ybound)
-            plt.grid(True)
-            plt.ylabel('Phase [radians]')
-            plt.xlabel('Frequency (Hz)')
-            plt.savefig(plot_filename)
-            if show:
-                plt.show()
-            plt.close()
-
-        graph_name_all = test_name + '.svg'
-        plot_and_save(self.corr_freqs.chan_freqs,
-            expected_phases(), graph_name_all)
-
         def actual_phases(plot=False):
             actual_phases_list = []
             for delay in test_delays:
@@ -518,7 +482,37 @@ class test_CBF(unittest.TestCase):
                     plt.show()
             return actual_phases_list
 
-        #plot_expected_phases(plot=True)
+        def plot_and_save(freqs, data, plot_filename, show=False):
+            lab = plot_filename.split(".")[-2].title()
+            fig = plt.plot(freqs, data, label='{}'.format(lab))[0]
+            axes = fig.get_axes()
+            ybound = axes.get_ybound()
+            yb_diff = abs(ybound[1] - ybound[0])
+            new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+            plt.vlines(np.max(freqs), *new_ybound,
+                label='{}MHz max'.format(self.corr_freqs.bandwidth/1e6),
+                    linestyles='dashed')
+            plt.legend().draggable()
+            plt.title('Correlation Phase Slope for {}ns delay '.format(
+                np.around(self.corr_freqs.sample_period/1e-9,
+                    decimals=3)))
+            axes.set_ybound(*new_ybound)
+            plt.grid(True)
+            plt.ylabel('Phase [radians]')
+            plt.xlabel('Frequency (Hz)')
+            plt.savefig(plot_filename)
+            if show:
+                plt.show()
+            plt.close()
+
+        graph_name_all = test_name + '.expected_phases.svg'
+        plot_and_save(self.corr_freqs.chan_freqs,
+            expected_phases(), graph_name_all,show=True)
+
+        graph_name_all = test_name + '.actual_phases.svg'
+        plot_and_save(self.corr_freqs.chan_freqs,
+            actual_phases()[1], graph_name_all,show=True)
+
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
         np.testing.assert_almost_equal(actual_phases()[1],
