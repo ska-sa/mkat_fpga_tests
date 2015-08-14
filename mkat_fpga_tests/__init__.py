@@ -92,7 +92,7 @@ class CorrelatorFixture(object):
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
                 'array-halt', 'array0'])
 
-        except subprocess.CalledProcessError:
+        except Exception:
             while retries and not success:
                 try:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
@@ -119,7 +119,6 @@ class CorrelatorFixture(object):
                                 .format(retries))
 
                 except Exception:
-                #except subprocess.CalledProcessError:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
                     'localhost', 'array-halt', 'array0'])
                     retries -= 1
