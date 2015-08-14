@@ -63,8 +63,7 @@ class CorrelatorFixture(object):
         assert self.modes in ('c856M4k', 'c856M32k')
 
         destination = self.correlator.configd['xengine']['output_destination_ip']
-        destination_port = self.correlator.configd['xengine']
-            ['output_destination_port']
+        destination_port = self.correlator.configd['xengine']['output_destination_port']
 
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-destination' ,
