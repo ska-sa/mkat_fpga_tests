@@ -19,14 +19,12 @@ class CorrelatorFixture(object):
     def __init__(self, config_filename=None):
 
         if config_filename is None:
-            """Assume correlator is already running."""
             try:
                 config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
                 ['dsimengine'])
             except IOError:
-                print "ERROR Config File Does Not Exist.\nReading for CORR_TEMPLATE"
-                #config_filename = utils.parse_ini_file(os.environ['HOME'] +
-                    #'/src/mkat_fpga_tests/mkat_fpga_tests/config_templates/c8n856M4k')
+                print "ERROR Config File Does Not Exist.\
+                \nReading for CORR_TEMPLATE"
                 config_filename = utils.parse_ini_file(os.environ['CORR2INI'])
 
             self.config_filename = config_filename
@@ -46,24 +44,24 @@ class CorrelatorFixture(object):
                 self.start_correlator()
 
 
-            # get config file from /etc/corr/{array-name}-{instrument-name}, e.g.
-            # /etc/corr/array0-c8n856M4k
-
-            # corr_conf = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
+#            corr_conf = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
             #self._correlator = fxcorrelator.FxCorrelator(
             #    'test correlator', config_source=self.config_filename)
-            #self.correlator.initialise(program=False)
-            import IPython;IPython.embed()
-
+#            self.correlator.initialise(program=False)
+            LOGGER.info('Correlator started succesfully')
             return self._correlator
 
-    def start_stop_data(self, start_or_stop, engine_class):
+    def start_stop_data(self, start_or_stop, modes):
+        import IPython;IPython.embed()
         assert start_or_stop in ('start', 'stop')
         assert modes in ('c856M4k', 'c856M32k')
+
+        destination = self.config_filename['xengine']['output_destination_ip']
+
         # kcpcmd -s localhost:{array-port} capture-destination c856M4k 10.100.201.1
         subprocess.check_call(['/usr/local/bin/kcpcmd' ,'-s' ,
-            'localhost:{}'.format(array_port) ,'capture-destination' ,
-                '{}'.format(instrument_name), '{}'.format(destination)])
+            'localhost:{}'.format(self.katcp_port) ,'capture-destination' ,
+                '{}'.format(self.instrument_name), '{}'.format(destination)])
 
 
         subprocess.check_call(['/usr/local/bin/kcpcmd' ,'-s' ,
@@ -84,68 +82,54 @@ class CorrelatorFixture(object):
 
     def start_correlator(self, retries=10, loglevel='INFO'):
         success = False
+        start_dsim = False
         retries_requested = retries
 
         array_no = 0
         host_port = int(self.config_filename['FxCorrelator']['katcp_port'])
         multicast_ip = self.config_filename['fengine']['source_mcast_ips']
-        instrument_name = "c8n856M4k"
-#<<<<<<<<<<<<<
+        self.instrument_name = "c8n856M4k"
 
-        #subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s',
-            #'localhost:{}'.format(host_port), 'array-assign', 'array{}'.format(array_no),
-                #'{}'.format(multcast_ip)])
-
-        #'kcpcmd -t 30 -s localhost:7147 array-assign array0 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888'
-
-        # kcpcmd array-assign array0 [list of deng multicast groups]
-        # Do something to get katcp port of array interface and store it
-
-        #if (subprocess.Popen("kcpcmd -s localhost:7147 array-list array{0}\
-            #| grep array{0} | cut -f3 -d ' '".format(array_no)
-                #, shell=True, stdout=subprocess.PIPE).stdout.read().rstrip()) != int :
-        #        import IPython;IPython.embed()
-        #if katcp_port == int :
-        #print "katcp array port", katcp_port
+        start_dsim = 0 == subprocess.check_call(['corr2_dsim_control.py',
+            '--program', '--start'])
+        if start_dsim:
+            LOGGER.info('D-Eng Started succesfully')
+        else:
+            LOGGER.warn('Failed to start D-Eng')
 
         while retries and not success:
-        #while retries and not success:
-            #success = 0 == subprocess.call(
-                #['corr2_startcorr.py', '--loglevel', loglevel])
-            #retries -= 1
-            #if success:
-                #LOGGER.info('Correlator started succesfully')
-            #else:
-                #LOGGER.warn('Failed to start correlator, {} attempts left'
-                            #.format(retries))
             try:
-                try:
-                    subprocess.check_call(['kcpcmd', 'array-halt', 'array0'])
-                except:
-                    subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
+                subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
                     'array-assign', 'array0'] + multicast_ip.split(','))
 
-                katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array0\
+                self.katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array0\
                 | grep array{1} | cut -f3 -d ' '".format(host_port,array_no)
                     , shell=True, stdout=subprocess.PIPE).stdout.read())
 
                 time.sleep(5)
-                success = 0 == subprocess.check_call(['kcpcmd','-t','500','-s','localhost:{}'.format(katcp_port),
-                'instrument-activate', 'c8n856M4k'])
+                print "\nStarting Correlator.\n"
+                success = 0 == subprocess.check_call(['kcpcmd','-t','500','-s',
+                    'localhost:{}'.format(katcp_port), 'instrument-activate',
+                        'c8n856M4k', '2>&1', '|', 'tee',
+                        '/home/mmphego/Daily_systems_check/`date -I`/startcorr_output_$(date +%H%M%S).txt'])
                 retries -= 1
                 if success:
                     LOGGER.info('Correlator started succesfully')
                 else:
-                    LOGGER.warn('Failed to start correlator, {} attempts left'
+                    print ('Failed to start correlator, {} attempts left.\
+                        \nRestarting Correlator.'
+                            .format(retries))
+                    LOGGER.warn('Failed to start correlator, {} attempts left.\
+                        \nRestarting Correlator.'
                             .format(retries))
 
             except Exception:
                 subprocess.check_call(['kcpcmd', 'array-halt', 'array0'])
-                #import IPython;IPython.embed()
                 retries -= 1
-                print ('Failed to start correlator, {} attempts left'
+                print ('\nFailed to start correlator, {} attempts left.\n'
                             .format(retries))
                 time.sleep(5)
+                print "-"*100
                 #subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
                     #'array-assign', 'array0'] + multicast_ip.split(','))
 
@@ -167,17 +151,8 @@ class CorrelatorFixture(object):
                 #success = 0 == subprocess.call(
                     #['corr2_startcorr.py', '--loglevel', loglevel])
 
-            print "you are here"
-            time.sleep(3)
-            #success = 0 == subprocess.check_call(['kcpcmd','-t','100','-s',
-                #'localhost:{}'.format(katcp_port),
-                    #'instrument-activate', 'c8n856M4k'])
-            #retries -= 1
-            #if success:
-                #LOGGER.info('Correlator started succesfully')
-            #else:
-                #LOGGER.warn('Failed to start correlator, {} attempts left'
-                            #.format(retries))
+
+            #time.sleep(5)
 
         if not success:
             raise RuntimeError('Could not successfully start correlator within {} retries'
