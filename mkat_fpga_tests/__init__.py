@@ -46,7 +46,7 @@ class CorrelatorFixture(object):
         else:
             if int(test_config.get('start_correlator', False)):
                 # Is it not easier to just call a self._correlator method?
-                print "-"*100
+                print "-"*50
                 time.sleep(5)
                 self.start_correlator()
 
