@@ -28,7 +28,7 @@ class CorrelatorFixture(object):
             try:
                 config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k')
             except IOError:
-                LOGGER.info ("ERROR Config File Does Not Exist.")
+                LOGGER.warn ("ERROR Config File Does Not Exist.")
                 config_filename = os.environ['CORR2INI']
             self.config_filename = config_filename
 
