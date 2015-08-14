@@ -52,11 +52,15 @@ class test_CBF(unittest.TestCase):
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
         import IPython;IPython.embed()
-        self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
-        dsim_conf = self.correlator.configd['dsimengine']
+        #self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
+        # Configuring cmc nosetests correlator startup
+        self.corr_freqs = CorrelatorFrequencyInfo(self.corr_fix.config_filename)
+        #dsim_conf = self.correlator.configd['dsimengine']
+        dsim_conf = self.corr_fix.config_filename['dsimengine']
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
+
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)

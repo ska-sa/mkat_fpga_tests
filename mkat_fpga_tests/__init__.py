@@ -20,12 +20,12 @@ class CorrelatorFixture(object):
 
         if config_filename is None:
             try:
-                config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k',
-                ['dsimengine'])
+                config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k')#,['dsimengine'])
             except IOError:
                 print "ERROR Config File Does Not Exist.\
                 \nReading for CORR_TEMPLATE"
-                config_filename = utils.parse_ini_file(os.environ['CORR2INI'])
+                config_filename = os.environ['CORR2INI']
+#                config_filename = utils.parse_ini_file(os.environ['CORR2INI'])
 
             self.config_filename = config_filename
 
@@ -37,22 +37,26 @@ class CorrelatorFixture(object):
     @property
     def correlator(self):
         if self._correlator is not None:
+            print "What are you doing here."
             return self._correlator
         else:
             if int(test_config.get('start_correlator', False)):
                 # Is it not easier to just call a self._correlator method?
+                print "-"*100
+                time.sleep(5)
                 self.start_correlator()
 
-
-#            corr_conf = utils.parse_ini_file('/etc/corr/array0-c8n856M4k', ['dsimengine'])
-            #self._correlator = fxcorrelator.FxCorrelator(
-            #    'test correlator', config_source=self.config_filename)
-#            self.correlator.initialise(program=False)
+            self._correlator = fxcorrelator.FxCorrelator(
+                'test correlator', config_source='/etc/corr/array0-c8n856M4k')
+            self.correlator.initialise(program=False)
             LOGGER.info('Correlator started succesfully')
+            #
             return self._correlator
 
     def start_stop_data(self, start_or_stop, modes):
-        import IPython;IPython.embed()
+        print '>'*30
+        time.sleep(30)
+        #import IPython;IPython.embed()
         assert start_or_stop in ('start', 'stop')
         assert modes in ('c856M4k', 'c856M32k')
 
@@ -90,13 +94,14 @@ class CorrelatorFixture(object):
         multicast_ip = self.config_filename['fengine']['source_mcast_ips']
         self.instrument_name = "c8n856M4k"
 
-        start_dsim = 0 == subprocess.check_call(['corr2_dsim_control.py',
-            '--program', '--start'])
-        if start_dsim:
-            LOGGER.info('D-Eng Started succesfully')
-        else:
-            LOGGER.warn('Failed to start D-Eng')
-
+        #start_dsim = 0 == subprocess.check_call(['corr2_dsim_control.py',
+            #'--program', '--start'])
+        #if start_dsim:
+            #LOGGER.info('D-Eng Started succesfully')
+        #else:
+            #LOGGER.warn('Failed to start D-Eng')
+        # Clear out any arrays, if they exist
+        subprocess.check_call(['kcpcmd', 'array-halt', 'array0'])
         while retries and not success:
             try:
                 subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
@@ -109,16 +114,12 @@ class CorrelatorFixture(object):
                 time.sleep(5)
                 print "\nStarting Correlator.\n"
                 success = 0 == subprocess.check_call(['kcpcmd','-t','500','-s',
-                    'localhost:{}'.format(katcp_port), 'instrument-activate',
-                        'c8n856M4k', '2>&1', '|', 'tee',
-                        '/home/mmphego/Daily_systems_check/`date -I`/startcorr_output_$(date +%H%M%S).txt'])
+                    'localhost:{}'.format(self.katcp_port), 'instrument-activate',
+                        'c8n856M4k'])
                 retries -= 1
                 if success:
                     LOGGER.info('Correlator started succesfully')
                 else:
-                    print ('Failed to start correlator, {} attempts left.\
-                        \nRestarting Correlator.'
-                            .format(retries))
                     LOGGER.warn('Failed to start correlator, {} attempts left.\
                         \nRestarting Correlator.'
                             .format(retries))
@@ -126,33 +127,12 @@ class CorrelatorFixture(object):
             except Exception:
                 subprocess.check_call(['kcpcmd', 'array-halt', 'array0'])
                 retries -= 1
-                print ('\nFailed to start correlator, {} attempts left.\n'
+                print ('\nFailed to start correlator, {} attempts left\n'
                             .format(retries))
                 time.sleep(5)
-                print "-"*100
-                #subprocess.check_call(['kcpcmd', '-t', '30', '-s', 'localhost:7147',
-                    #'array-assign', 'array0'] + multicast_ip.split(','))
 
-                #katcp_port = int(subprocess.Popen("kcpcmd -s localhost:{0} array-list array0\
-                    #| grep array{1} | cut -f3 -d ' '".format(host_port,array_no)
-                        #, shell=True, stdout=subprocess.PIPE).stdout.read())
-
-                #import IPython;IPython.embed()
-
-                #subprocess.check_call(['kcpcmd','-t','500','-s',
-                    #'localhost:{}'.format(katcp_port),
-                        #'instrument-activate', 'c8n856M4k'])
-
-                        # Will create a correlator config file in
-            #success = 0 == subprocess.call(
-                #['corr2_startcorr.py', '--loglevel', loglevel])
-           # else:
-
-                #success = 0 == subprocess.call(
-                    #['corr2_startcorr.py', '--loglevel', loglevel])
-
-
-            #time.sleep(5)
+            print "-"*50
+            time.sleep(5)
 
         if not success:
             raise RuntimeError('Could not successfully start correlator within {} retries'
