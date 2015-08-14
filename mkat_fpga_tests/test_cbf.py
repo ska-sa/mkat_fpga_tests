@@ -62,6 +62,8 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
         self.threshold = 1e-7
+        # Remove once JasonM has fixed the vacc_rsync in corr2 package
+        xengops.xeng_vacc_sync(self.correlator)
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
@@ -259,7 +261,7 @@ class test_CBF(unittest.TestCase):
         #     pyplot.plot(loggerise(chan_responses[:, i], dynamic_range=60), color=colour, ls=style)
         # pyplot.ion()
         # pyplot.show()
-        # import IPython ; IPython.embed()
+
 
     def test_product_baselines(self):
         """(TP.C.1.30) CBF Baseline Correlation Products - AR1"""
