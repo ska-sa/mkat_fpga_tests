@@ -91,8 +91,7 @@ class CorrelatorFixture(object):
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
                 'array-halt', 'array0'])
-
-        except Exception:
+        except:
             while retries and not success:
                 try:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
