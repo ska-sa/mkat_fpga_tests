@@ -5,6 +5,7 @@ import time
 
 # Config using nose-testconfig plugin, set variables with --tc on nose command line
 from testconfig import config as test_config
+from corr2.dsimhost_fpga import FpgaDsimHost
 
 from corr2 import fxcorrelator
 from corr2 import utils
@@ -17,12 +18,6 @@ LOGGER = logging.getLogger(__name__)
 class CorrelatorFixture(object):
 
     def __init__(self, config_filename=None):
-        #try:
-            #subprocess.check_call(['corr2_dsim_control.py',
-            #'--program', '--start'])
-            #LOGGER.info('D-Eng Started succesfully')
-        #except subprocess.CalledProcessError:
-            #LOGGER.warn('Failed to start D-Eng')
 
         if config_filename is None:
             try:
@@ -31,6 +26,20 @@ class CorrelatorFixture(object):
                 LOGGER.warn ("ERROR Config File Does Not Exist.")
                 config_filename = os.environ['CORR2INI']
             self.config_filename = config_filename
+            #corr_conf = utils.parse_ini_file(config_filename)
+            dsim_conf = config_filename['dsimengine']
+            dig_host = dsim_conf['host']
+            d_engine = FpgaDsimHost(dig_host, config=dsim_conf)
+
+            if d_engine.is_running():
+                LOGGER.info('D-Eng is running')
+            else:
+                # d_engine.initialise() #Hangs
+                subprocess.check_call(['corr2_dsim_control.py', '--program', '--start'])
+                if d_engine.is_running():
+                    print ('D-Eng Started succesfully')
+                    LOGGER.info('D-Eng Started succesfully')
+                    time.sleep(5)
 
         self._correlator = None
 
