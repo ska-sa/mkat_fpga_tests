@@ -27,6 +27,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
+from mkat_fpga_tests.utils import set_coarse_delay
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,16 +52,14 @@ class test_CBF(unittest.TestCase):
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
-        import IPython;IPython.embed()
-        #self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
         # Configuring cmc nosetests correlator startup
+        #self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
         self.corr_freqs = CorrelatorFrequencyInfo(self.corr_fix.config_filename)
         #dsim_conf = self.correlator.configd['dsimengine']
         dsim_conf = self.corr_fix.config_filename['dsimengine']
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
-
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
@@ -68,12 +67,14 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
         self.threshold = 1e-7
+        # Remove once JasonM has fixed the vacc_rsync in corr2 package
+        xengops.xeng_vacc_sync(self.correlator)
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
     # tests will be b0rked.
     def test_channelisation(self):
-        """TP.C.1.19 CBF Channelisation Wideband Coarse L-band"""
+        """(TP.C.1.19) CBF Channelisation Wideband Coarse L-band"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
@@ -266,10 +267,10 @@ class test_CBF(unittest.TestCase):
         #     pyplot.plot(loggerise(chan_responses[:, i], dynamic_range=60), color=colour, ls=style)
         # pyplot.ion()
         # pyplot.show()
-        # import IPython ; IPython.embed()
+
 
     def test_product_baselines(self):
-        """CBF Baseline Correlation Products: VR.C.19, TP.C.1.3"""
+        """(TP.C.1.30) CBF Baseline Correlation Products - AR1"""
 
         init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
@@ -430,9 +431,10 @@ class test_CBF(unittest.TestCase):
                 s0 = scans[0][freq_i]
                 s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
-                print np.max(np.abs(s1 - s0)/norm_fac)
-                self.assertLess(np.abs(s1 - s0)/norm_fac, self.threshold,
-                    'frequency scan comparison({}) is >= {} threshold[dB].')
+
+                self.assertLess(np.max(np.abs(s1 - s0))/norm_fac, self.threshold,
+                    'frequency scan comparison({}) is >= {} threshold[dB].'
+                        .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
@@ -442,7 +444,9 @@ class test_CBF(unittest.TestCase):
         pass
 
     def test_delay_tracking(self):
-        """CBF Delay Tracking"""
+        """
+        (TP.C.1.27) CBF Delay Compensation/LO Fringe stopping polynomial
+        """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         # Select dsim signal output, zero all sources, output scalings to 0.5
@@ -469,23 +473,31 @@ class test_CBF(unittest.TestCase):
                 expected_chan_phase.append(phases)
             return np.array(expected_chan_phase)
 
-        def plot_expected_phases():
-            plt.plot(self.corr_freqs.chan_freqs,
-                expected_phases())
-            plt.show()
+        def actual_phases():
+            actual_phases_list = []
+            for delay in test_delays:
+                # set coarse delay on correlator input m000_y
+                delay_samples = int(np.floor(delay/sampling_period))
+                set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
+
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                data = complexise(this_freq_dump['xeng_raw']
+                    [:, baseline_index, :])
+                phases = np.unwrap(np.angle(data))
+                actual_phases_list.append(phases)
+            return actual_phases_list
 
         def actual_phases(plot=False):
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
-                input_y = [s for s in self.correlator.fengine_sources
-                           if s.name == 'm000_y'][0]
                 delay_samples = int(np.floor(delay/sampling_period))
-                input_y.host.registers.coarse_delay0.write(coarse_delay=delay_samples)
-                input_y.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+                set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
 
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(this_freq_dump['xeng_raw'][:, baseline_index, :])
+                data = complexise(this_freq_dump['xeng_raw']
+                    [:, baseline_index, :])
+
                 phases = np.unwrap(np.angle(data))
                 actual_phases_list.append(phases)
                 plt.plot(self.corr_freqs.chan_freqs, phases)
@@ -493,16 +505,46 @@ class test_CBF(unittest.TestCase):
                     plt.show()
             return actual_phases_list
 
-        #plot_expected_phases()
+        def plot_and_save(freqs, data, plot_filename, show=False):
+            lab = plot_filename.split(".")[-2].title()
+            fig = plt.plot(freqs, data, label='{}'.format(lab))[0]
+            axes = fig.get_axes()
+            ybound = axes.get_ybound()
+            yb_diff = abs(ybound[1] - ybound[0])
+            new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+            plt.vlines(np.max(freqs), *new_ybound,
+                label='{} MHz (max)'.format(self.corr_freqs.bandwidth/1e6),
+                    linestyles='dashed')
+            plt.legend().draggable()
+            plt.title('Correlation Phase Slope for {}ns delay '.format(
+                np.around(self.corr_freqs.sample_period/1e-9,
+                    decimals=3)))
+            axes.set_ybound(*new_ybound)
+            plt.grid(True)
+            plt.ylabel('Phase [radians]')
+            plt.xlabel('Frequency (Hz)')
+            plt.savefig(plot_filename)
+            if show:
+                plt.show()
+            plt.close()
+
+        graph_name_all = test_name + '.expected_phases.svg'
+        plot_and_save(self.corr_freqs.chan_freqs,
+            expected_phases(), graph_name_all,show=True)
+
+        graph_name_all = test_name + '.actual_phases.svg'
+        plot_and_save(self.corr_freqs.chan_freqs,
+            actual_phases()[1], graph_name_all,show=True)
 
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
-        np.testing.assert_almost_equal(np.abs(actual_phases()[1]),
-            np.abs(expected_phases()), decimal=3)
-        #import IPython;IPython.embed()
+        np.testing.assert_almost_equal(actual_phases()[1],
+            expected_phases(), decimal=3)
+        # Check if the phases at test delay = 0 are all zeros.
+        self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
 
     def test_channel_peaks(self):
-        """Test that the correct channels have the peak response to each frequency"""
+        """4. Test that the correct channels have the peak response to each frequency"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         init_dsim_sources(self.dhost)

@@ -85,6 +85,8 @@ class CorrelatorFrequencyInfo(object):
         f_start = 0. # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
         "Channel centre frequencies"
+        self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
+        self.sample_period = 1 / self.sample_freq
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
@@ -249,3 +251,25 @@ def get_feng_snapshots(feng_fpga, timeout=5):
 def get_snapshots(instrument):
     f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
     return dict(feng=f_snaps)
+
+def set_coarse_delay(instrument, input_name, value=0):
+    """ Sets coarse delay(default = 1) for Correlator baseline input.
+
+        Parameters
+            =========
+            instrument
+                Correlator object.
+            input_name
+                Baseline (eg.'m000_x').
+            value
+                Number of samples to delay
+    """
+    source = [s for s in instrument.fengine_sources if s.name == input_name][0]
+    source_index = [i for i, s in enumerate(source.host.data_sources)
+                    if s.name == source.name][0]
+    if source_index == 0:
+        s.host.registers.coarse_delay0.write(coarse_delay=value)
+        s.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+    else:
+        s.host.registers.coarse_delay1.write(coarse_delay=value)
+        s.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
