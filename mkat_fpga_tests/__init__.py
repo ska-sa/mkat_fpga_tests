@@ -121,7 +121,7 @@ class CorrelatorFixture(object):
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
                     'localhost', 'array-halt', 'array0'])
                     retries -= 1
-                    LOGGER.info ('\nFailed to start correlator, {} attempts left.\n'
+                    LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
                                 .format(retries))
                     time.sleep(5)
                 print "-"*50
