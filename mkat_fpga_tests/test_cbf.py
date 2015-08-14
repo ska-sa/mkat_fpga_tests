@@ -68,7 +68,8 @@ class test_CBF(unittest.TestCase):
         # Threshold: -70dB
         self.threshold = 1e-7
         # Remove once JasonM has fixed the vacc_rsync in corr2 package
-        xengops.xeng_vacc_sync(self.correlator)
+        #xengops.xeng_vacc_sync(self.correlator)
+        import IPython;IPython.embed()
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
