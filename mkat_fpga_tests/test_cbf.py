@@ -81,7 +81,7 @@ class test_CBF(unittest.TestCase):
         test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=10, chans_around=2)
+            test_chan, samples_per_chan=101, chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
 
         def get_fftoverflow_qdrstatus():
