@@ -22,8 +22,9 @@ class CorrelatorFixture(object):
         if config_filename is None:
             config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k')
             self.config_filename = config_filename
-            #corr_conf = utils.parse_ini_file(dsim_config_filename, ['dsimengine'])
-            dsim_conf = config_filename['dsimengine']
+            dsim_conf = (utils.parse_ini_file(os.environ['HOME'] +
+                '/src/mkat_fpga_tests/mkat_fpga_tests/config_templates/dsim_conf.ini')
+                    ['dsimengine'])
             dig_host = dsim_conf['host']
             d_engine = FpgaDsimHost(dig_host, config=dsim_conf)
             # Check if D-eng is running else start it.
