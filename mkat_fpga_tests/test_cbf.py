@@ -582,3 +582,9 @@ class test_CBF(unittest.TestCase):
             len(max_channels) + start_chan))
         # Check that no other channels responded > -20 dB
         self.assertEqual(extra_peaks, [[]]*len(max_channels))
+
+    def test_sensor_values(self):
+        """
+        (TP.C.1.16) Report sensor values (AR1)
+        """
+        pass

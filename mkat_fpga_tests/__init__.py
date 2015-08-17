@@ -26,7 +26,6 @@ class CorrelatorFixture(object):
                 LOGGER.warn ("ERROR Config File Does Not Exist.")
                 config_filename = os.environ['CORR2INI']
             self.config_filename = config_filename
-            #corr_conf = utils.parse_ini_file(config_filename)
             dsim_conf = config_filename['dsimengine']
             dig_host = dsim_conf['host']
             d_engine = FpgaDsimHost(dig_host, config=dsim_conf)
@@ -34,13 +33,14 @@ class CorrelatorFixture(object):
             if d_engine.is_running():
                 LOGGER.info('D-Eng is running')
             else:
-                # d_engine.initialise() #Hangs
-                subprocess.check_call(['corr2_dsim_control.py', '--program', '--start'])
+                # Programming and starting D-Eng
+                d_engine.initialise()
+                d_engine.enable_data_output(enabled=True)
+                d_engine.registers.control.write(gbe_txen=True)
                 if d_engine.is_running():
                     print ('D-Eng Started succesfully')
                     LOGGER.info('D-Eng Started succesfully')
                     time.sleep(5)
-
         self._correlator = None
 
         """Assume correlator is already running if this flag is True.
