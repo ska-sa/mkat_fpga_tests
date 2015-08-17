@@ -110,6 +110,8 @@ class CorrelatorFixture(object):
 
         finally:
             while retries and not success:
+                import IPython;IPython.embed()
+
                 try:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
                         '-s', 'localhost:7147', 'array-assign', 'array0']
@@ -133,7 +135,6 @@ class CorrelatorFixture(object):
                         LOGGER.warn('Failed to start correlator, {} attempts left.\
                             \nRestarting Correlator.'
                                 .format(retries))
-
                 except Exception:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
                     'localhost', 'array-halt', 'array0'])
