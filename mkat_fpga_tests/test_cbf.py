@@ -52,23 +52,20 @@ class test_CBF(unittest.TestCase):
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
-        # Configuring cmc nosetests correlator startup
-        #self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
-        self.corr_freqs = CorrelatorFrequencyInfo(self.corr_fix.config_filename)
-        #dsim_conf = self.correlator.configd['dsimengine']
-        dsim_conf = self.corr_fix.config_filename['dsimengine']
+        self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
+        dsim_conf = self.correlator.configd['dsimengine']
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
+        # Remove once JasonM has fixed the vacc_rsync in corr2 package
+        xengops.xeng_vacc_sync(self.correlator)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
         self.threshold = 1e-7
-        # Remove once JasonM has fixed the vacc_rsync in corr2 package
-        #xengops.xeng_vacc_sync(self.correlator)
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other

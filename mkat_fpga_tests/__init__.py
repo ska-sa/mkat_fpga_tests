@@ -20,8 +20,7 @@ class CorrelatorFixture(object):
             test_config_filename = os.environ['CORR2TESTINI']
             self.corr_conf = utils.parse_ini_file(
                 test_config_filename)
-            self.dsim_conf = utils.parse_ini_file(
-                test_config_filename)['dsimengine']
+            self.dsim_conf = self.corr_conf['dsimengine']
 
         self._correlator = None
         self._dhost = None
@@ -32,7 +31,8 @@ class CorrelatorFixture(object):
             return self._dhost
         else:
             dig_host = self.dsim_conf['host']
-            self._dhost = FpgaDsimHost(dig_host, config=dsim_conf)
+            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
+            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
             if self._dhost.is_running():
                 LOGGER.info('D-Eng is running')
@@ -47,7 +47,6 @@ class CorrelatorFixture(object):
 
     @property
     def correlator(self):
-        LOGGER.debug('it is here')
         if self._correlator is not None:
             LOGGER.info('Correlator started succesfully')
             return self._correlator
@@ -61,7 +60,6 @@ class CorrelatorFixture(object):
 
             # TODO: hard-coded config location
             self.config_filename = '/etc/corr/array0-c8n856M4k'
-            #self.corr_conf = utils.parse_ini_file(self.config_filename)
             self._correlator = fxcorrelator.FxCorrelator(
                 'test correlator', config_source=self.config_filename)
             self.correlator.initialise(program=False)
@@ -101,7 +99,7 @@ class CorrelatorFixture(object):
         success = False
         retries_requested = retries
         array_no = 0
-        import IPython;IPython.embed()
+        self.dhost
         host_port = self.corr_conf['FxCorrelator']['katcp_port']
         multicast_ip = self.corr_conf['fengine']['source_mcast_ips']
         try:
