@@ -104,7 +104,6 @@ class CorrelatorFixture(object):
         except:
             LOGGER.info ("Already cleared array")
 
-
         while retries and not success:
             try:
                 subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
@@ -138,7 +137,6 @@ class CorrelatorFixture(object):
                             .format(retries))
                 print ('\nFailed to start correlator, {} attempts left.\n'
                             .format(retries))
-                time.sleep(5)
 
         if not success:
             raise RuntimeError('Could not successfully start correlator within {}\
