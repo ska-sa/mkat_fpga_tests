@@ -36,7 +36,6 @@ class CorrelatorFixture(object):
                 d_engine.enable_data_output(enabled=True)
                 d_engine.registers.control.write(gbe_txen=True)
                 if d_engine.is_running():
-                    print ('D-Eng Started succesfully')
                     LOGGER.info('D-Eng Started succesfully')
                     time.sleep(5)
         self._correlator = None
@@ -136,9 +135,6 @@ class CorrelatorFixture(object):
                 retries -= 1
                 LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
                             .format(retries))
-                print ('\nFailed to start correlator, {} attempts left.\n'
-                            .format(retries))
-
         if not success:
             raise RuntimeError('Could not successfully start correlator within {}\
                 retries'.format(retries_requested))
