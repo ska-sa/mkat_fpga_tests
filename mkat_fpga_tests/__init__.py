@@ -99,7 +99,6 @@ class CorrelatorFixture(object):
         success = False
         retries_requested = retries
         array_no = 0
-        self.dhost
         host_port = self.corr_conf['FxCorrelator']['katcp_port']
         multicast_ip = self.corr_conf['fengine']['source_mcast_ips']
         try:
@@ -109,40 +108,41 @@ class CorrelatorFixture(object):
         except:
             LOGGER.info ("Already cleared array")
 
-        while retries and not success:
-            try:
-                subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
-                    '-s', 'localhost:7147', 'array-assign', 'array0']
-                        + multicast_ip.split(','))
+        finally:
+            while retries and not success:
+                try:
+                    subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
+                        '-s', 'localhost:7147', 'array-assign', 'array0']
+                            + multicast_ip.split(','))
 
-                self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
-                    -s localhost:{0} array-list array0\
-                        | grep array{1} | cut -f3 -d ' '"
-                            .format(host_port,array_no)
-                                , shell=True, stdout=subprocess.PIPE).
-                                    stdout.read())
+                    self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
+                        -s localhost:{0} array-list array0\
+                            | grep array{1} | cut -f3 -d ' '"
+                                .format(host_port,array_no)
+                                    , shell=True, stdout=subprocess.PIPE).
+                                        stdout.read())
 
-                LOGGER.info ("Starting Correlator.")
-                success = 0 == subprocess.check_call(['/usr/local/bin/kcpcmd',
-                    '-t','500','-s', 'localhost:{}'.format(self.katcp_port),
-                        'instrument-activate', 'c8n856M4k'])
-                retries -= 1
-                if success == True:
-                    LOGGER.info('Correlator started succesfully')
-                else:
-                    LOGGER.warn('Failed to start correlator, {} attempts left.\
-                        \nRestarting Correlator.'
-                            .format(retries))
+                    LOGGER.info ("Starting Correlator.")
+                    success = 0 == subprocess.check_call(['/usr/local/bin/kcpcmd',
+                        '-t','500','-s', 'localhost:{}'.format(self.katcp_port),
+                            'instrument-activate', 'c8n856M4k'])
+                    retries -= 1
+                    if success == True:
+                        LOGGER.info('Correlator started succesfully')
+                    else:
+                        LOGGER.warn('Failed to start correlator, {} attempts left.\
+                            \nRestarting Correlator.'
+                                .format(retries))
 
-            except Exception:
-                subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
-                'localhost', 'array-halt', 'array0'])
-                retries -= 1
-                LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
-                            .format(retries))
-        if not success:
-            raise RuntimeError('Could not successfully start correlator within {}\
-                retries'.format(retries_requested))
+                except Exception:
+                    subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
+                    'localhost', 'array-halt', 'array0'])
+                    retries -= 1
+                    LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
+                                .format(retries))
+            if not success:
+                raise RuntimeError('Could not successfully start correlator within {}\
+                    retries'.format(retries_requested))
 
     def issue_metadata(self):
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '100', '-s' ,
