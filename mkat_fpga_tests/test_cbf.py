@@ -2,13 +2,13 @@ from __future__ import division
 
 import unittest
 import logging
-import matplotlib
-import matplotlib.pyplot as plt
-
 import time
 import itertools
 
+
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 
 from unittest.util import strclass
 
@@ -18,6 +18,8 @@ from corr2.corr_rx import CorrRx
 
 import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
+
+from corr2 import utils
 
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
@@ -57,13 +59,13 @@ class test_CBF(unittest.TestCase):
         self.dhost.get_system_information()
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
+        # Remove once JasonM has fixed the vacc_rsync in corr2 package
+        xengops.xeng_vacc_sync(self.correlator)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
         self.threshold = 1e-7
-        # Remove once JasonM has fixed the vacc_rsync in corr2 package
-        xengops.xeng_vacc_sync(self.correlator)
 
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
@@ -491,6 +493,7 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw']
                     [:, baseline_index, :])
+
                 phases = np.unwrap(np.angle(data))
                 actual_phases_list.append(phases)
                 plt.plot(self.corr_freqs.chan_freqs, phases)
@@ -575,3 +578,9 @@ class test_CBF(unittest.TestCase):
             len(max_channels) + start_chan))
         # Check that no other channels responded > -20 dB
         self.assertEqual(extra_peaks, [[]]*len(max_channels))
+
+    def test_sensor_values(self):
+        """
+        (TP.C.1.16) Report sensor values (AR1)
+        """
+        pass

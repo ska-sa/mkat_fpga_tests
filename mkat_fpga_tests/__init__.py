@@ -5,53 +5,63 @@ import time
 
 # Config using nose-testconfig plugin, set variables with --tc on nose command line
 from testconfig import config as test_config
+from corr2.dsimhost_fpga import FpgaDsimHost
 
 from corr2 import fxcorrelator
 from corr2 import utils
 
-
-
 LOGGER = logging.getLogger(__name__)
-
 
 class CorrelatorFixture(object):
 
-    def __init__(self, config_filename=None):
-        try:
-            subprocess.check_call(['corr2_dsim_control.py',
-            '--program', '--start'])
-            LOGGER.info('D-Eng Started succesfully')
-        except subprocess.CalledProcessError:
-            LOGGER.warn('Failed to start D-Eng')
+    def __init__(self, test_config_filename=None):
 
-        if config_filename is None:
-            try:
-                config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k')
-            except IOError:
-                LOGGER.info ("ERROR Config File Does Not Exist.")
-                config_filename = os.environ['CORR2INI']
-            self.config_filename = config_filename
+        if test_config_filename is None:
+            test_config_filename = os.environ['CORR2TESTINI']
+            self.corr_conf = utils.parse_ini_file(
+                test_config_filename)
+            self.dsim_conf = self.corr_conf['dsimengine']
 
         self._correlator = None
+        self._dhost = None
 
-        """Assume correlator is already running if this flag is True.
-        IOW, don't do start_correlator() if set."""
+    @property
+    def dhost(self):
+        if self._dhost is not None:
+            return self._dhost
+        else:
+            dig_host = self.dsim_conf['host']
+            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
+            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
+            # Check if D-eng is running else start it.
+            if self._dhost.is_running():
+                LOGGER.info('D-Eng is running')
+            else:
+                # Programming and starting D-Eng
+                self._dhost.initialise()
+                self._dhost.enable_data_output(enabled=True)
+                self._dhost.registers.control.write(gbe_txen=True)
+                if self._dhost.is_running():
+                    LOGGER.info('D-Eng Started succesfully')
+            return self._dhost
 
     @property
     def correlator(self):
         if self._correlator is not None:
             LOGGER.info('Correlator started succesfully')
             return self._correlator
-
         else:
             if int(test_config.get('start_correlator', False)):
-                # Is it not easier to just call a self._correlator method?
-                print "-"*100
-                time.sleep(5)
                 self.start_correlator()
 
+            # We assume either start_correlator() above has been called, or
+            # the c8n856M4k instrument was started on array0 before running the
+            # test.
+
+            # TODO: hard-coded config location
+            self.config_filename = '/etc/corr/array0-c8n856M4k'
             self._correlator = fxcorrelator.FxCorrelator(
-                'test correlator', config_source='/etc/corr/array0-c8n856M4k')
+                'test correlator', config_source=self.config_filename)
             self.correlator.initialise(program=False)
             LOGGER.info('Correlator started succesfully')
             return self._correlator
@@ -60,11 +70,14 @@ class CorrelatorFixture(object):
         self.modes = modes
         LOGGER.info('Correlator starting to capture data.')
         assert start_or_stop in ('start', 'stop')
-        assert self.modes in ('c856M4k', 'c856M32k')
 
         destination = self.correlator.configd['xengine']['output_destination_ip']
-        destination_port = self.correlator.configd['xengine']
-            ['output_destination_port']
+        destination_port = self.correlator.configd['xengine']['output_destination_port']
+        self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
+                    -s localhost:7147 array-list array0\
+                        | grep array0 | cut -f3 -d ' '"
+                            , shell=True, stdout=subprocess.PIPE).
+                                    stdout.read())
 
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-destination' ,
@@ -86,14 +99,16 @@ class CorrelatorFixture(object):
         success = False
         retries_requested = retries
         array_no = 0
-        host_port = self.config_filename['FxCorrelator']['katcp_port']
-        multicast_ip = self.config_filename['fengine']['source_mcast_ips']
+        host_port = self.corr_conf['FxCorrelator']['katcp_port']
+        multicast_ip = self.corr_conf['fengine']['source_mcast_ips']
         try:
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
                 'array-halt', 'array0'])
+        except:
+            LOGGER.info ("Already cleared array")
 
-        except subprocess.CalledProcessError:
+        finally:
             while retries and not success:
                 try:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
@@ -120,20 +135,16 @@ class CorrelatorFixture(object):
                                 .format(retries))
 
                 except Exception:
-                #except subprocess.CalledProcessError:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
                     'localhost', 'array-halt', 'array0'])
                     retries -= 1
-                    LOGGER.info ('\nFailed to start correlator, {} attempts left.\n'
+                    LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
                                 .format(retries))
-                    time.sleep(5)
-                print "-"*50
-
-        if not success:
-            raise RuntimeError('Could not successfully start correlator within {}\
-                retries'.format(retries_requested))
+            if not success:
+                raise RuntimeError('Could not successfully start correlator within {}\
+                    retries'.format(retries_requested))
 
     def issue_metadata(self):
-        subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s' ,
+        subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '100', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-meta', self.modes])
 correlator_fixture = CorrelatorFixture()
