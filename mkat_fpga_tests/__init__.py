@@ -18,6 +18,8 @@ class CorrelatorFixture(object):
 
         if test_config_filename is None:
             test_config_filename = os.environ['CORR2TESTINI']
+            self.corr_conf = utils.parse_ini_file(
+                test_config_filename)
             self.dsim_conf = utils.parse_ini_file(
                 test_config_filename)['dsimengine']
 
@@ -100,8 +102,8 @@ class CorrelatorFixture(object):
         retries_requested = retries
         array_no = 0
         import IPython;IPython.embed()
-        host_port = self.config_filename['FxCorrelator']['katcp_port']
-        multicast_ip = self.config_filename['fengine']['source_mcast_ips']
+        host_port = self.corr_conf['FxCorrelator']['katcp_port']
+        multicast_ip = self.corr_conf['fengine']['source_mcast_ips']
         try:
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
