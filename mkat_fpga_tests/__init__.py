@@ -20,16 +20,13 @@ class CorrelatorFixture(object):
     def __init__(self, config_filename=None):
 
         if config_filename is None:
-            try:
-                config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k')
-            except IOError:
-                LOGGER.warn ("ERROR Config File Does Not Exist.")
-                config_filename = os.environ['CORR2INI']
+            config_filename = utils.parse_ini_file('/etc/corr/array0-c8n856M4k')
             self.config_filename = config_filename
+            #corr_conf = utils.parse_ini_file(dsim_config_filename, ['dsimengine'])
             dsim_conf = config_filename['dsimengine']
             dig_host = dsim_conf['host']
             d_engine = FpgaDsimHost(dig_host, config=dsim_conf)
-
+            # Check if D-eng is running else start it.
             if d_engine.is_running():
                 LOGGER.info('D-Eng is running')
             else:
@@ -55,7 +52,6 @@ class CorrelatorFixture(object):
         else:
             if int(test_config.get('start_correlator', False)):
                 # Is it not easier to just call a self._correlator method?
-                print "-"*50
                 time.sleep(5)
                 self.start_correlator()
 
@@ -143,14 +139,12 @@ class CorrelatorFixture(object):
                 print ('\nFailed to start correlator, {} attempts left.\n'
                             .format(retries))
                 time.sleep(5)
-            print "-"*50
 
         if not success:
             raise RuntimeError('Could not successfully start correlator within {}\
                 retries'.format(retries_requested))
 
     def issue_metadata(self):
-
-        subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s' ,
+        subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '100', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-meta', self.modes])
 correlator_fixture = CorrelatorFixture()

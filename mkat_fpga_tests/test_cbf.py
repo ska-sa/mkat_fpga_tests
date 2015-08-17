@@ -193,7 +193,6 @@ class test_CBF(unittest.TestCase):
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
         chan_responses = np.array(chan_responses)
-#        import IPython;IPython.embed()
 
         def plot_and_save(freqs, data, plot_filename, show=False):
             df = self.corr_freqs.delta_f
