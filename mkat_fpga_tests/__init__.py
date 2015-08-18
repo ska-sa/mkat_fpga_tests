@@ -32,7 +32,6 @@ class CorrelatorFixture(object):
         else:
             dig_host = self.dsim_conf['host']
             self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
-            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
             if self._dhost.is_running():
                 LOGGER.info('D-Eng is running')
