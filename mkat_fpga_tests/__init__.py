@@ -32,7 +32,6 @@ class CorrelatorFixture(object):
         else:
             dig_host = self.dsim_conf['host']
             self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
-            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
             if self._dhost.is_running():
                 LOGGER.info('D-Eng is running')
@@ -99,15 +98,15 @@ class CorrelatorFixture(object):
         success = False
         retries_requested = retries
         array_no = 0
-        host_port = self.corr_conf['FxCorrelator']['katcp_port']
-        multicast_ip = self.corr_conf['fengine']['source_mcast_ips']
+        self.dhost
+        host_port = self.corr_conf['test_confs']['katcp_port']
+        multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         try:
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
                 'array-halt', 'array0'])
         except:
             LOGGER.info ("Already cleared array")
-
         finally:
             while retries and not success:
                 try:
@@ -133,7 +132,6 @@ class CorrelatorFixture(object):
                         LOGGER.warn('Failed to start correlator, {} attempts left.\
                             \nRestarting Correlator.'
                                 .format(retries))
-
                 except Exception:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
                     'localhost', 'array-halt', 'array0'])
