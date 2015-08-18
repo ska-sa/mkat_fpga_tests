@@ -583,4 +583,30 @@ class test_CBF(unittest.TestCase):
         """
         (TP.C.1.16) Report sensor values (AR1)
         """
-        pass
+        xhosts = {}
+        fhosts = {}
+        dict_hosts = {}
+        dict_hosts['fhosts'] = {}
+        dict_hosts['xhosts'] = {}
+        for fhost in self.correlator.fhosts:
+            fhosts[fhost.host] = {}
+            fhosts[fhost.host]['sensor-lists'] = {sensors.arguments[0]:sensors.arguments[1:]
+                            for sensors in fhost.katcprequest('sensor-list',
+                                request_timeout=1, require_ok=True)[1]}
+            fhosts[fhost.host]['sensor-values'] = {sensors.arguments[2]:sensors.arguments[3:]
+                            for sensors in fhost.katcprequest('sensor-value',
+                                request_timeout=1, require_ok=True)[1]}
+
+            for xhost in self.correlator.xhosts:
+                xhosts[xhost.host] = {}
+                xhosts[xhost.host]['sensor-lists'] = {sensors.arguments[0]:sensors.arguments[1:]
+                            for sensors in xhost.katcprequest('sensor-list',
+                                request_timeout=1, require_ok=True)[1]}
+                xhosts[xhost.host]['sensor-values'] = {sensors.arguments[2]:sensors.arguments[3:]
+                            for sensors in xhost.katcprequest('sensor-value',
+                                request_timeout=1, require_ok=True)[1]}
+
+        dict_hosts['fhosts'] = fhosts
+        dict_hosts['xhosts'] = xhosts
+
+        import IPython;IPython.embed()
