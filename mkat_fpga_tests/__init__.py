@@ -99,8 +99,10 @@ class CorrelatorFixture(object):
         success = False
         retries_requested = retries
         array_no = 0
-        host_port = self.corr_conf['FxCorrelator']['katcp_port']
-        multicast_ip = self.corr_conf['fengine']['source_mcast_ips']
+        self.dhost
+        self.dhost
+        host_port = self.corr_conf['test_confs']['katcp_port']
+        multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         try:
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
@@ -110,8 +112,6 @@ class CorrelatorFixture(object):
 
         finally:
             while retries and not success:
-                import IPython;IPython.embed()
-
                 try:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
                         '-s', 'localhost:7147', 'array-assign', 'array0']
