@@ -108,7 +108,6 @@ class CorrelatorFixture(object):
                 'array-halt', 'array0'])
         except:
             LOGGER.info ("Already cleared array")
-
         finally:
             while retries and not success:
                 try:
