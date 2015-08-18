@@ -608,5 +608,8 @@ class test_CBF(unittest.TestCase):
 
         dict_hosts['fhosts'] = fhosts
         dict_hosts['xhosts'] = xhosts
+        for i,b in dict_hosts['xhosts'].iteritems():
+            print i, b['sensor-values']['r2hwmond.current.3v3'][-1]
+
 
         import IPython;IPython.embed()
