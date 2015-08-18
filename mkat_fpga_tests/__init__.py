@@ -100,7 +100,6 @@ class CorrelatorFixture(object):
         retries_requested = retries
         array_no = 0
         self.dhost
-        self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         try:
