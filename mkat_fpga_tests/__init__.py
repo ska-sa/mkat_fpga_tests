@@ -22,7 +22,9 @@ class CorrelatorFixture(object):
     def __init__(self, test_config_filename=None):
 
         if test_config_filename is None:
-            test_config_filename = os.environ['CORR2TESTINI']
+            test_config_filename = os.environ.get(
+                'CORR2TESTINI',
+                './mkat_fpga_tests/config_templates/test_conf.ini')
             self.corr_conf = utils.parse_ini_file(
                 test_config_filename)
             self.dsim_conf = self.corr_conf['dsimengine']
