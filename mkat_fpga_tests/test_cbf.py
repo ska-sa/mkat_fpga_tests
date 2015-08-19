@@ -609,10 +609,12 @@ class test_CBF(unittest.TestCase):
                 iow = resource_client.IOLoopThreadWrapper(rc.ioloop)
                 rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
                 rct.start()
-                print str(rct.req.status())
+                if
+                print str(rct.sensor.items())
             else:
                 self.assertTrue((rct.is_connected() or rc.is_connected()),
                     msg='How is it Active,ie it didnt stop!!!!')
 
-#       import IPython;IPython.embed()
-        iom.stop()
+        import IPython;IPython.embed()
+        if iom._running.is_set():
+            iom.stop()
