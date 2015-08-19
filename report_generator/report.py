@@ -179,24 +179,25 @@ class Report(object):
             All auto_tests + demo_tests + site_tests
             (demo and site is required to generate the full demonstration procedure)
         """
-        requirements = self._requirements_from_tests()
-        ver_requirement = requirements.get(ver_req_id, {})
-        tests = ver_requirement.get('tests', [])
-        for test in tests:
-            # ver_req_id == 'auto' is default for tests
-            # not tagged with VR.xx.AUTO.nn or VR.xx.DEMO.nn or VR.xx.SITE.nn
-            auto_test = self.test_data[test].get('aqf_auto_test', ver_req_id == 'auto')
-            demo_test = self.test_data[test].get('aqf_demo_test', False)
-            site_test = self.test_data[test].get('aqf_site_test', False)
-            site_acceptance = self.test_data[test].get('aqf_site_acceptance', False)
-            if acceptance_report:
-                # For Acceptance Testing:
-                in_test_doc = site_test or site_acceptance
-            else:
-                # For Qualification Testing:
-                in_test_doc = not site_test
-            if in_test_doc:
-                return True
+        return True
+        # requirements = self._requirements_from_tests()
+        # ver_requirement = requirements.get(ver_req_id, {})
+        # tests = ver_requirement.get('tests', [])
+        # for test in tests:
+        #     # ver_req_id == 'auto' is default for tests
+        #     # not tagged with VR.xx.AUTO.nn or VR.xx.DEMO.nn or VR.xx.SITE.nn
+        #     auto_test = self.test_data[test].get('aqf_auto_test', ver_req_id == 'auto')
+        #     demo_test = self.test_data[test].get('aqf_demo_test', False)
+        #     site_test = self.test_data[test].get('aqf_site_test', False)
+        #     site_acceptance = self.test_data[test].get('aqf_site_acceptance', False)
+        #     if acceptance_report:
+        #         # For Acceptance Testing:
+        #         in_test_doc = site_test or site_acceptance
+        #     else:
+        #         # For Qualification Testing:
+        #         in_test_doc = not site_test
+        #     if in_test_doc:
+        #         return True
 
     def _include_in_demo_doc(self, ver_req_id, acceptance_report):
         """
