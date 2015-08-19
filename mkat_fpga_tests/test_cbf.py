@@ -20,6 +20,8 @@ import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
 from corr2 import utils
+from katcp import resource_client
+from katcp import ioloop_manager
 
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
@@ -583,33 +585,36 @@ class test_CBF(unittest.TestCase):
         """
         (TP.C.1.16) Report sensor values (AR1)
         """
-        xhosts = {}
-        fhosts = {}
-        dict_hosts = {}
-        dict_hosts['fhosts'] = {}
-        dict_hosts['xhosts'] = {}
+        iom = ioloop_manager.IOLoopManager()
+        iom.get_ioloop()
+        iom.start()
+
+        hosts_list = []
         for fhost in self.correlator.fhosts:
-            fhosts[fhost.host] = {}
-            fhosts[fhost.host]['sensor-lists'] = {sensors.arguments[0]:sensors.arguments[1:]
-                            for sensors in fhost.katcprequest('sensor-list',
-                                request_timeout=1, require_ok=True)[1]}
-            fhosts[fhost.host]['sensor-values'] = {sensors.arguments[2]:sensors.arguments[3:]
-                            for sensors in fhost.katcprequest('sensor-value',
-                                request_timeout=1, require_ok=True)[1]}
-
             for xhost in self.correlator.xhosts:
-                xhosts[xhost.host] = {}
-                xhosts[xhost.host]['sensor-lists'] = {sensors.arguments[0]:sensors.arguments[1:]
-                            for sensors in xhost.katcprequest('sensor-list',
-                                request_timeout=1, require_ok=True)[1]}
-                xhosts[xhost.host]['sensor-values'] = {sensors.arguments[2]:sensors.arguments[3:]
-                            for sensors in xhost.katcprequest('sensor-value',
-                                request_timeout=1, require_ok=True)[1]}
+                if xhost != fhost:
+                hosts_list.append(xhost)
+                hosts_list.append(fhost)
+        roaches = set(hosts_list)
+        for host in roaches:
+            rc = resource_client.KATCPClientResource(
+                dict(name=roach.host, address=(roach.host, roach.katcp_port),
+                    controlled=True))
+            rc.set_ioloop(iom.get_ioloop())
+            if not rc.is_connected():
+                rc.start()
+                self.assertTrue(rc.ioloop._running,
+                    msg='Resource client is not running for {}'.format(fhost.host))
+                rc.set_ioloop(iom.get_ioloop())
+                iow = resource_client.IOLoopThreadWrapper(rc.ioloop)
+                rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
+                rct.start()
+            else:
+                self.assertTrue((rct.is_connected() or rc.is_connected()),
+                    msg='How is it connected!!!!')
 
-        dict_hosts['fhosts'] = fhosts
-        dict_hosts['xhosts'] = xhosts
-        for i,b in dict_hosts['xhosts'].iteritems():
-            print i, b['sensor-values']['r2hwmond.current.3v3'][-1]
+           # reply, informs = rct.req.sensor_list()
+#        print reply.arguments
 
-
-        import IPython;IPython.embed()
+            import IPython;IPython.embed()
+        iom.stop()
