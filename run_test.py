@@ -21,7 +21,7 @@ def option_parser():
                       help="Be more quiet")
     parser.add_option("--acceptance", dest="site_acceptance",
                       action="store_true", default=False,
-                      help="Will only run test marked '@site_acceptance',"
+                      help="Will only run test marked '@site_acceptance' or linked to .SITE. VRs,"
                            " if in the Karoo then also @site_only tests")
     parser.add_option("--dry_run", dest="dry_run",
                       action="store_true", default=False,
@@ -31,7 +31,7 @@ def option_parser():
                       help="Do not generate the html output")
     parser.add_option("--demo", dest="demo",
                       action="store_true", default=False,
-                      help="Run the tests in demo mode. Wait for user input "
+                      help="Run the tests linked to .DEMO. and .SITE. VRs in demo mode. Wait for user input "
                            "at each Aqf.checkbox instance")
     parser.add_option("--quick", dest="katreport_quick",
                       action="store_true", default=False,
@@ -52,32 +52,39 @@ def option_parser():
     parser.add_option("--report", dest="report",
                       action="store", type="string", default='local_&_test',
                       help="Only generate the reports. No tests will be run.\n"
-                      "Valid options are: local, jenkins, skip")
+                      "Valid options are: local, jenkins, skip and results. 'results' will print the katreport[_accept].json test results")
     parser.add_option("--nose", dest="nose_args",
                       action="store", type="string", default='',
-                      help="Arguments to pass on to nosetests. "
+                      help="Additional arguments to pass on to nosetests. "
                       "eg --nose \"-x -s -v\"")
     parser.add_option("--jenkins", dest="jenkins",
                       action="store_true", default=False,
                       help="Run this command with the correct flags for"
                       "jenkins.")
+    parser.add_option("--manual_systype", dest="manual_systype",
+                      action="store", default=None,
+                      help="Overwrite the system systype used for report"
+                      "generation on jenkins.")
 
     (cmd_options, cmd_args) = parser.parse_args()
     return cmd_options, cmd_args
 
 
 def run_command(settings, log_func, cmd,
-                log_filename=None, stdout=False, stderr=False):
+                log_filename=None, stdout=False, stderr=False, shell=False):
     if log_filename is False:
         log_filename = '/dev/null'
-    if settings.get('dry_run'):
+    if settings.get('dry_run') or shell:
         # Fundge the command to add " when the command is
-        # printed.
+        # printed or run as string in shell.
         if '/usr/local/bin/nosetests' in cmd:
             for item in range(len(cmd)):
                 if cmd[item].startswith("-A"):
                     break
             cmd[item] = cmd[item].replace('-A(', '-A"(') + '"'
+
+    if settings.get('dry_run'):
+        # Just print the command
         log_func('INFO', *cmd)
     else:
         if log_filename and not stdout and not stderr:
@@ -87,10 +94,16 @@ def run_command(settings, log_func, cmd,
         else:
             log_func('DEBUG', 'Run command with stderr:', *cmd)
             kwargs_cmd = {'env': os.environ}
-            return subprocess.call(cmd, **kwargs_cmd)
+            if shell:
+                kwargs_cmd['shell'] = True
+                str_cmd = " ".join(cmd)
+                log_func('DEBUG', 'Run command with shell', str_cmd)
+                return subprocess.call(str_cmd, **kwargs_cmd)
+            else:
+                return subprocess.call(cmd, **kwargs_cmd)
 
 
-def run_command_out(settings, log_func, cmd):
+def run_command_output(settings, log_func, cmd):
     """Run a command and return output."""
     if settings.get('dry_run'):
         log_func('INFO', *cmd)
@@ -214,7 +227,7 @@ def create_log_func(settings):
 def generate_html_sphinx_docs(settings, log_func):
     os.chdir(settings['base_dir'])
     log_func("INFO", "make html from rst documents")
-    log_file = '/tmp/make_html.log'
+    log_file = '/dev/null'
     cmd = ['make', 'html']
     status = run_command(settings, log_func, cmd, log_file)
     if status:
@@ -223,31 +236,37 @@ def generate_html_sphinx_docs(settings, log_func):
     else:
         now = time.localtime()
         build_dir = settings["build_dir"]
-        log_func("INFO", "copy build to %s" % build_dir)
-        cmd = ['cp', '-r', 'build', build_dir]
+        katreport_dir = settings["katreport_dir"]
+        # Make run_tests directory
+        log_func("INFO", "mkdir ../run_tests")
+        cmd = ['mkdir', '-p', '../run_tests']
         status = run_command(settings, log_func, cmd, log_file)
         if status:
-            log_func("ERROR", "there was an error on copying build to %s" %
-                              build_dir)
-        log_func("INFO", "copy katreport to %s/katreport" % build_dir)
-        cmd = ['cp', '-r', 'katreport', build_dir]
+            log_func("ERROR", "there was an error n mkdir -p ../run_tests")
+        # Copy build directory
+        log_func("INFO", "copy build to ../run_tests/%s" % build_dir)
+        cmd = ['cp', '-r', 'build', '../run_tests/%s' % build_dir]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
-            log_func("ERROR", "there was an error on copying katreport to %s" %
+            log_func("ERROR", "there was an error on copying build to ../run_tests/%s" %
                               build_dir)
-        #output_log = settings["output_log"]
-        #log_func("INFO", "copy output to %s/katreport" % build_dir)
-        #cmd = ['cp', output_log, '%s/katreport/%s' % (build_dir, output_log)]
-        #status = run_command(settings, log_func, cmd, log_file)
-        #if status:
-            log_func("ERROR", "there was an error on copying katreport to %s" %
-                              build_dir)
-
+        # Copy katreport_dir directory
+        log_func("INFO", "copy ./{} to ../run_tests/{}".format(katreport_dir, build_dir))
+        cmd = ['cp', '-r', katreport_dir, "../run_tests/{}".format(build_dir)]
+        status = run_command(settings, log_func, cmd, log_file)
+        if status:
+            log_func("ERROR", "there was an error on copying ./{} to {}"
+                              .format(katreport_dir, build_dir))
 
 def run_nose_test(settings, log_func):
-    """Run the nose test."""
+    """
+    Run the nose test:
+    output is captured in <katreport_dir>/output.log
+    result is captured in <katreport_dir>/katreport.json
+    """
     os.chdir(settings['base_dir'])
     cmd = ['/usr/local/bin/nosetests']
+    katreport_dir = settings.get('katreport_dir')
     # Note settings['verbose'] is a tri-state, where none is normal
     # verbosity level. True is more verbose and False is less.
     if settings['verbose'] is True:
@@ -267,17 +286,41 @@ def run_nose_test(settings, log_func):
 
     if settings.get('system_location', '').startswith('karoo'):
         # Disable intrusive if in the Karoo.
-        condition['AND'].append("not aqf_intrusive")
+        condition['AND'].append("(not aqf_intrusive)")
     else:
         # Disable site_only if not in karoo.
-        condition['AND'].append("not aqf_site_only")
+        condition['AND'].append("(not aqf_site_only)")
 
-    if settings.get('site_acceptance'):
-        if settings.get('system_location', '').startswith('karoo'):
-            # Include site_only tests if in the Karoo
-            condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
+    #if settings.get('site_acceptance'):
+    #    if settings.get('system_location', '').startswith('karoo'):
+    #        # Include site_only tests if in the Karoo
+    #        condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
+    #    else:
+    #        condition['AND'].append("aqf_site_acceptance")
+
+    # Set the include/exclude criteria for Qualification/Acceptance Testing/Demonstration
+    if settings.get('demo'):
+        if settings.get('site_acceptance'):
+            # For Acceptance Demonstration:
+            # run aqf_demo_tests decorated with site_acceptance
+            # and aqf_site_tests
+            condition['AND'].append('(aqf_site_test or (aqf_demo_test and aqf_site_acceptance))')
         else:
-            condition['AND'].append("aqf_site_acceptance")
+            # For Qualification Demonstration:
+            # run aqf_demo_tests
+            condition['AND'].append('aqf_demo_test')
+    else: # Not demo mode - thus this is AUTO testing
+        if settings.get('site_acceptance'):
+            # For Acceptance Testing:
+            # run aqf_auto_test decorated with site_acceptance
+            # and aqf_demo_tests decorated with site_acceptance
+            # and aqf_site_tests
+            condition['AND'].append('(aqf_site_test or aqf_site_acceptance)')
+        else:
+            # For Qualification Testing:
+            # run all tests except site_tests
+            condition['AND'].append('(not aqf_site_test)')
+            pass
 
     if not settings.get('slow_test'):
         condition['AND'].append("not aqf_slow")
@@ -302,6 +345,10 @@ def run_nose_test(settings, log_func):
     if katreport_control:
         cmd.append("--katreport-control=%s" % ','.join(katreport_control))
 
+    if settings.get('site_acceptance'):
+        # Use different directory for acceptance results, so as not to overwrite qualification results
+        cmd.append("--katreport-name=katreport_accept") # Using default "katreport" for qualification
+
     if settings.get('jenkins'):
         cmd.append("--with-xunit")
         cmd.append("--xunit-file=build/nosetests.xml")
@@ -314,16 +361,15 @@ def run_nose_test(settings, log_func):
     if "logging-level" not in nose_args:
         cmd.append("--logging-level=WARN")
 
-    #output_log = settings.get('output_log', 'output.log')
-    #cmd.append(" | ")
-    #cmd.append("tee %s" % output_log)
-    #print cmd
+    # Let the output log be written into the katreport_dir
+    cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
 
-    run_command(settings, log_func, cmd)
+    run_command(settings, log_func, cmd, shell=True)
 
 
 def _downloadfile(url, filename, log_func):
     from urllib2 import urlopen, HTTPError
+    log_func("INFO", "Download {} from {}".format(filename, url))
     try:
         stream = urlopen(url)
         with open(filename, 'w') as fh:
@@ -333,32 +379,38 @@ def _downloadfile(url, filename, log_func):
         filename = None
     return filename
 
+def get_filename(what, settings):
+    katreport_dir = settings["katreport_dir"]
+    files = {'test': os.path.join(settings['me_dir'],
+                                  '{}/katreport.json'.format(katreport_dir)),
+             'system': os.path.join(settings['me_dir'],
+                                    '{}/katreport_system.json'.format(katreport_dir)),
+             'core': settings.get('json_file', '')}
+    return files.get(what, None)
 
 def generate_report(settings, log_func):
     report_type = settings['report'].lower()
-    files = {'test': os.path.join(settings['me_dir'],
-                                  'katreport/katreport.json'),
-             'system': os.path.join(settings['me_dir'],
-                                    'katreport/katreport_system.json'),
-             'core': settings.get('json_file', '')}
-    urls = {'test': "katreport.json",
-            'system': "katreport_system.json"}
+    sys_type = settings['systype']
+    katreport_dir = settings["katreport_dir"]
+    files = {'test': get_filename('test', settings),
+             'system': get_filename('system', settings),
+             'core': get_filename('core', settings)}
+    urls_for_jenkins = {'test': "katreport.json",
+                        'system': "katreport_system.json"}
     # TODO(MS) Get this from the command line so that it can be passed in for
     # each different document generation.
-    url_server = "http://katbuild.camlab.kat.ac.za:8080"
-    url_path1 = "job/IntegrationTest_MKAT/lastSuccessfulBuild/"
-    url_path2 = "artifact/integration_tests/json"
     if report_type == 'jenkins':
+        url_server = "http://katbuild.camlab.kat.ac.za:8080"
+        url_path1 = "job/IntegrationTest_{}/lastSuccessfulBuild/".format(sys_type.upper())
+        url_path2 = "artifact/integration_tests/json"
         print "Fetch from jenkins"
         log_func('INFO', "Fetch files from jenkins")
-        for item in urls:
-            url = '/'.join([url_server, url_path1, url_path2, urls[item]])
+        for item in urls_for_jenkins:
+            url = '/'.join([url_server, url_path1, url_path2, urls_for_jenkins[item]])
             tmp_filename = os.path.join('/tmp', 'aqf_' + item + '.json')
             files[item] = _downloadfile(url, tmp_filename, log_func)
 
     for f in files:
-        if f == 'core':
-            continue
         if not files[f] or not os.path.isfile(files.get(f, '')):
             log_func('ERROR', "The {0} data file {1} could not be found.".
                      format(f, files[f]))
@@ -366,43 +418,98 @@ def generate_report(settings, log_func):
     from report_generator.report import Report
 
     report = Report(system_data=files['system'],
-                    acceptance_test=settings.get('site_acceptance'))
-    #report.read_requirements(files['core'])
-    report.requirements = {}
-    report.load(filename=files['test'])
+                    acceptance_report=settings.get('site_acceptance'))
+    report.load_core_requirements(files['core'])
+    report.load_test_results(filename=files['test'])
 
     report_name = "katreport"
     reports = {}
     reports['core'] = 'katreport_core.rst'
     reports['system'] = 'katreport_system.rst'
-    report.base_dir = os.path.join(settings['me_dir'], report_name)
+    report.base_dir = os.path.join(settings['me_dir'], katreport_dir)
     for report_type in reports:
         report.clear()
-        filename = os.path.join(settings['me_dir'], report_name,
+        filename = os.path.join(settings['me_dir'], katreport_dir,
                                 reports[report_type])
         report.write_to_file(filename, report_type)
 
     report.clear()
-    report.write_rst_cam_files(os.path.join(settings['me_dir'], report_name),
-                               settings['build_dir'],
+    report.write_rst_cam_files(os.path.join(settings['me_dir'], katreport_dir),
+                               settings['build_dir'], settings["katreport_dir"],
                                'cam')
+    # import IPython ; IPython.embed()
 
+def show_test_results(settings, log_func):
+    """Helper function to print test results
+    
+    test_data['Meta'] typically
+        {u'end': u'2015-08-18 05:30:17.308133',
+         u'sitename': u'devl_mkat',
+         u'start': u'2015-08-18 04:33:30.186272',
+         u'sys_args': [u'/usr/local/bin/nosetests',
+         u'--with-katreport',
+         u'--katreport-requirements=/tmp/CORE_EXPORT/M.json',
+         u'-A((not aqf_site_only) and (not aqf_site_test) and (aqf_system_all or aqf_system_mkat))',
+         u'./tests',
+         u'--logging-level=WARN']}
+
+    For each test_data[test] there is a dictionary with typically the following entries:
+         u'status', u'group', u'description', u'success', u'label', u'steps', u'systems',
+         u'requirements', u'error_msg'
+         Optional:
+            u'demo' (to be deprecated soon)
+            u'aqf_demo_test', u'aqf_auto_test', u'aqf_site_test'
+            u'aqf_site_only', u'aqf_site_acceptance',
+            u'aqf_slow'
+            u'aqf_intrusive' (to be deprecated soon)
+
+    """
+
+    #from report_generator.report import Report
+    #report = Report(system_data=files['system'],
+    #                acceptance_report=settings.get('site_acceptance'))
+    #report.load_core_requirements(files['core'])
+    #report.load_test_results(filename=files['test'])
+    #report.show_test_results()
+    #or report.show_core_requirements()
+    
+    filename = get_filename('test', settings)
+
+    with open(filename, 'r') as fh:
+        test_data = json.loads(fh.read())
+
+    print "===Meta==="
+    for item in sorted(test_data["Meta"].keys()):
+        print "    ",item.ljust(20),": ",test_data["Meta"][item]
+
+    tests = [item for item in test_data.keys() if item != 'Meta']
+    for test in tests:
+        print "\n-------",test,"------"
+        for item in sorted(test_data[test].keys()):
+            if item not in ['steps','description']:
+                print "    ",item.ljust(20),": ",test_data[test][item]
+        # IF verbose, print description and steps at the end
+        if settings["verbose"]:
+            for item in ['description', 'steps']:
+                print "    ",item.ljust(20),": ",test_data[test][item]
 
 def do_cleanup(settings, log_func):
     """Run make clean and remove previous run."""
-    log_func('INFO', 'Remove HTML files and results from previous tests')
+    katreport_dir = settings["katreport_dir"]
+    log_func('INFO', 'Remove HTML files and results from previous tests from {}'.format(katreport_dir))
     os.chdir(settings.get('me_dir'))
     run_command(settings, log_func, ['make', 'clean'])
-    run_command(settings, log_func, ['rm', '-rf', 'katreport'])
+    run_command(settings, log_func, ['rm', '-rf', katreport_dir])
     try:
-        os.makedirs('katreport')
+        os.makedirs(katreport_dir)
     except os.error:
         pass
 
 
 def gather_system_settings(settings, log_func):
     """Get information of the system we are running on."""
-    filename = os.path.join(settings['me_dir'], 'katreport',
+    katreport_dir = settings["katreport_dir"]
+    filename = os.path.join(settings['me_dir'], katreport_dir,
                             'katreport_system.json')
     data = {'pip_version': {}, 'dpkg_version': {}, 'vcs_version': {}}
 
@@ -411,7 +518,7 @@ def gather_system_settings(settings, log_func):
         data[item] = settings[item]
 
     cmd = ['pip', 'freeze']
-    for line in str.splitlines(run_command_out(settings, log_func, cmd)):
+    for line in str.splitlines(run_command_output(settings, log_func, cmd)):
         package = {}
         if not line.startswith("#"):
             segments = line.split("==")
@@ -420,14 +527,14 @@ def gather_system_settings(settings, log_func):
             data['pip_version'][package['name']] = package['ver']
 
     cmd = ['dpkg', '-l']
-    for line in str.splitlines(run_command_out(settings, log_func, cmd)):
+    for line in str.splitlines(run_command_output(settings, log_func, cmd)):
         package = {}
         if line.startswith("i"):
             line_segments = line.split()
             data['dpkg_version'][line_segments[1]] = line_segments[2]
 
     cmd = ['kat-versioncontrol.py']
-    for line in str.splitlines(run_command_out(settings, log_func, cmd)):
+    for line in str.splitlines(run_command_output(settings, log_func, cmd)):
         segments = line.split(":")
         if len(segments) > 1:
             data['vcs_version'][segments[0]] = segments[1]
@@ -437,7 +544,7 @@ def gather_system_settings(settings, log_func):
     data['environment'] = dict([(i, str(data['environment'].get(i, '')))
                                 for i in data['environment']])
     data['ip_addresses'] = str.splitlines(
-        run_command_out(settings, log_func, ['ip', '-f', 'inet', 'addr']))
+        run_command_output(settings, log_func, ['ip', '-f', 'inet', 'addr']))
     # Here we define the labels that katreport will use. Dont want katreport
     # to have to much knowledge of this file.
     data['Labels'] = {'pip_version': {'label': 'Python Modules',
@@ -467,17 +574,23 @@ if __name__ == "__main__":
                     if not callable(getattr(options, k))
                     and not k.startswith('_'))
     settings.update(get_system_info())
+    if settings['manual_systype']:
+        settings['systype'] = settings['manual_systype']
     settings['process_core'] = True
     settings['gather_system_settings'] = True
     settings['tests'] = args
     settings['me'] = os.path.abspath(__file__)
     settings['me_dir'] = os.path.dirname(settings['me'])
+    if settings["site_acceptance"]:
+        settings['katreport_dir'] = "katreport_accept"
+    else:
+        settings['katreport_dir'] = "katreport"
     if 'base_dir' not in settings:
         settings['base_dir'] = os.getcwdu()
 
     os.chdir(settings['me_dir'])
-    if not os.path.exists('katreport'):
-        os.mkdir('katreport')
+    if not os.path.exists(settings['katreport_dir']):
+        os.mkdir(settings['katreport_dir'])
 
     if settings.get('katreport_quick'):
         settings['gather_system_settings'] = False
@@ -515,11 +628,17 @@ if __name__ == "__main__":
                      (now.tm_year, now.tm_mon, now.tm_mday,
                       now.tm_hour, now.tm_min))
     settings['build_dir'] = "build-"+start_time
-    settings['output_log'] = "output-"+start_time+".log"
+    if settings['verbose']:
+        print "=========settings========="
+        for key in settings:
+            print key,":",settings[key]
+        print "=========================="
     if (settings['report'] in ['local_&_test', 'skip']
             or settings.get('dry_run')):
         run_nose_test(settings, log_func)
-    if settings['report'] not in ['skip']:
+    if settings['report'] in ['results']:
+        show_test_results(settings, log_func)
+    elif settings['report'] not in ['skip']:
         generate_report(settings, log_func)
         if settings['gen_html']:
             generate_html_sphinx_docs(settings, log_func)
