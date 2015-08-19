@@ -1149,6 +1149,9 @@ class Report(object):
                     docproducer.add_line('        **PASSED / FAILED** ')
                 if action.get('stack'):
                     docproducer.add_sourcecode(''.join(action['stack']))
+                if action_type == 'IMAGE':
+                    docproducer.add_sourcecode('{filename}, {caption}, {alt}'.format(
+                        **action))
 
         if not test_data.get('success'):
             docproducer.add_sourcecode(
