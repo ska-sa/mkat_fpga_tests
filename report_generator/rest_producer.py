@@ -11,7 +11,7 @@
 
 class ReStProducer(object):
 
-    """A very minimal, very stupid ReStructuredText produceri."""
+    """A very minimal, very stupid ReStructuredText producer."""
 
     # Each value is a tuple with the character to use for headings of
     # various levels and True if an overline should be added

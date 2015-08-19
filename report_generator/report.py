@@ -19,7 +19,7 @@ class Report(object):
 
     """
 
-    def __init__(self, data=None, system_data=None, acceptance_test=None):
+    def __init__(self, data=None, system_data=None, acceptance_report=None):
         # See update_status_strings method.
         self.UNKNOWN = 'unknown'
         self.WAIVED = 'waived'
@@ -46,7 +46,7 @@ class Report(object):
         self._cache_requirements_from_tests = {}
         self.core_meta = {}
         self.document_lookup = {}
-        if acceptance_test:
+        if acceptance_report:
             self.acceptance_report = True
         else:
             self.acceptance_report = False
@@ -93,10 +93,11 @@ class Report(object):
                            if self.requirements[r].get('timescale')] +
                       ['Timescale Unlinked']))
 
-    def write_rst_cam_files(self, base_dir, build_dir, prefix):
+    def write_rst_cam_files(self, base_dir, build_dir, katreport_dir, prefix):
         """Generate a set of reports for CAM."""
         self.base_dir = base_dir
         self.build_dir = build_dir
+        self.katreport_dir = katreport_dir
         for test_req in self._requirements_from_tests():
             if test_req not in self.requirements:
                 # Create a fake Core entry.
@@ -113,8 +114,8 @@ class Report(object):
         documents = ['CAM %s Summary' % scheme.capitalize(),
                      'System Information']
         for timescale in nsort(timescales):
-            for demo in [False, True]:
-                for procedure in [True, False]:
+            for demo in [False, True]: # for Testing and Demonstration
+                for procedure in [True, False]: # For Procedure and Results
 
                     self.clear()
                     number += 1
@@ -136,6 +137,13 @@ class Report(object):
                 for line in documents:
                     fh.write(" * {0}\n".format(
                         self.docproducer.add_link(line)))
+                # Add katreport.json and output.log links
+                fh.write(" * Test results:  :download:`katreport.json <{0}/katreport.json>`\n".format(
+                        self.katreport_dir))
+                fh.write(" * Test output log:  :download:`output.log <{0}/output.log>`\n".format(
+                        self.katreport_dir))
+                fh.write(" * CORE export:  `katreport_core.html <{0}/katreport_core.html>`\n".format(
+                        self.katreport_dir))
 
         self.clear()
         dp = self.docproducer
@@ -145,13 +153,10 @@ class Report(object):
         site_type = self.test_data.get("Meta", {}).get("sitename", "Unknown")
 
         dp.add_line(":Test run: from %s until %s" % (start, end))
+        dp.add_line(':Build directory: %s' % dp.add_link(build_dir))
         dp.add_line(":Site Type: '%s'" % site_type)
-        dp.add_line(':Core Exported on: %s' % (self.core_meta.get(
+        dp.add_line(':CORE Exported on: %s' % (self.core_meta.get(
             'export', {}).get('time-stamp', '')))
-        # Add a link to the katreport/*.json files
-        json_file = os.path.join(build_dir, "katreport")
-        dp.add_line(':Test output in .json files at: %s' %
-            dp.add_link(json_file))
 
         with open(filename, 'w') as fh:
             for line in self.docproducer.output:
@@ -165,6 +170,59 @@ class Report(object):
         self.clear()
         self.write_report_system_info(base_dir)
 
+    def _include_in_test_doc(self, ver_req_id, acceptance_report):
+        """
+        Check if a requirement is linked to a test that should be included for Testing docs:
+        If acceptance_report then:
+            all auto + demo tests that are decorated with site_acceptance + site_tests
+        else
+            All auto_tests + demo_tests + site_tests
+            (demo and site is required to generate the full demonstration procedure)
+        """
+        requirements = self._requirements_from_tests()
+        ver_requirement = requirements.get(ver_req_id, {})
+        tests = ver_requirement.get('tests', [])
+        for test in tests:
+            # ver_req_id == 'auto' is default for tests
+            # not tagged with VR.xx.AUTO.nn or VR.xx.DEMO.nn or VR.xx.SITE.nn
+            auto_test = self.test_data[test].get('aqf_auto_test', ver_req_id == 'auto')
+            demo_test = self.test_data[test].get('aqf_demo_test', False)
+            site_test = self.test_data[test].get('aqf_site_test', False)
+            site_acceptance = self.test_data[test].get('aqf_site_acceptance', False)
+            if acceptance_report:
+                # For Acceptance Testing:
+                in_test_doc = site_test or site_acceptance
+            else:
+                # For Qualification Testing:
+                in_test_doc = not site_test
+            if in_test_doc:
+                return True
+
+    def _include_in_demo_doc(self, ver_req_id, acceptance_report):
+        """
+        Check if a requirement is linked to a test that should be included for Demonstration docs:
+        If acceptance_report then:
+            all demo tests that are decorated with site_acceptance + site_tests
+        else
+            All auto_tests + demo_tests + site_tests
+            (demo and site is required to generate the full demonstration procedure)
+        """
+        requirements = self._requirements_from_tests()
+        ver_requirement = requirements.get(ver_req_id, {})
+        tests = ver_requirement.get('tests', [])
+        for test in tests:
+            demo_test = self.test_data[test].get('aqf_demo_test', False)
+            site_test = self.test_data[test].get('aqf_site_test', False)
+            site_acceptance = self.test_data[test].get('aqf_site_acceptance', False)
+            if acceptance_report:
+                # For Acceptance Demonstration:
+                in_demo_doc = site_test or (demo_test and site_acceptance)
+            else:
+                # For Qualification Demonstration:
+                in_demo_doc = not site_test and demo_test
+            if in_demo_doc:
+                return True
+
     def generate_cam_report(self, base_dir, timescale, scheme,
                             demo=False, procedure=True, number=None):
         """Generate the cam reports.
@@ -176,12 +234,17 @@ class Report(object):
         :return: String. The title of the report.
 
         """
-        demo_title = 'Demonstration' if demo else 'Testing'
-        result_title = 'Procedure' if procedure else 'Results'
+        demo_doc = True if demo else False
+        test_doc = not demo_doc
+        procedure_doc = True if procedure else False
+        results_doc = not procedure_doc
+        demo_test_title = 'Demonstration' if demo else 'Testing'
+        proc_result_title = 'Procedure' if procedure else 'Results'
         title_l = ['CAM', timescale.title(), scheme.title()]
-        title_l.append(demo_title)
-        title_l.append(result_title)
+        title_l.append(demo_test_title)
+        title_l.append(proc_result_title)
         title = ' '.join(title_l)
+        # This produces "CAM Timescale N Demonstration/Testing Procedure/Results"
 
         if number:
             key = title.lower()
@@ -193,16 +256,16 @@ class Report(object):
 
         # Include stats and tables.
         inc_title = "CAM %s %s %s %s Summary" % \
-                    (timescale, scheme, demo_title, result_title)
+                    (timescale, scheme, demo_test_title, proc_result_title)
         inc_filename = inc_title.lower().replace(" ", "_") + ".inc"
         self.docproducer.add_include(inc_filename)
 
         inc_title = "CAM %s %s %s %s" % \
-                    (timescale, scheme, demo_title, result_title)
+                    (timescale, scheme, demo_test_title, proc_result_title)
         inc_filename = inc_title.lower().replace(" ", "_") + "_table.inc"
         self.docproducer.add_include(inc_filename)
 
-        # Generate the list.
+        # Generate the list of requirements to include
         req_list = []
         for item in self.requirements:
             requirement = self.requirements[item]
@@ -217,18 +280,31 @@ class Report(object):
             if ("1500 CAM" not in requirement.get('category-list', [])):
                 # Only Cam requirements.
                 continue
-            method = requirement.get('method', "".join(item.split(".")[-2:-1]))
-            is_demo = method.lower().strip() not in ['test', 'auto']
-            if (is_demo != demo):
-                # If this is a demo report we only want demo's
-                continue
             if self.acceptance_report:
                 if not self.is_acceptance(item):
                     continue
+            if False:
+                # Previous selection criteria
+                method = requirement.get('method', "".join(item.split(".")[-2:-1]))
+                is_demo = method.lower().strip() not in ['test', 'auto']
+                if (is_demo != demo):
+                    # If this is a demo report we only want demo's
+                    continue
+            else:
+                # Don't use the method here - not too sure if those are reliable
+                ver_req_id = requirement.get('kat_id', 'auto')
+                #print item,"===",ver_req_id,"==================================="
+                #print requirement
+                if demo_doc and not self._include_in_demo_doc(ver_req_id, self.acceptance_report):
+                    continue
+                elif test_doc and not self._include_in_test_doc(ver_req_id, self.acceptance_report):
+                    continue
+                #print "--include--", ver_req_id, "demo_doc", demo_doc, "test_doc", test_doc
             req_list.append(item)
 
         if not req_list:
             return
+
         demo_script = []
         count = 0
         for item in nsort(req_list):
@@ -327,8 +403,8 @@ class Report(object):
                     for line in self.docproducer.output:
                         fh.write(line + '\n')
 
-    def read_requirements(self, requirements_file):
-        """Read requirements from a JSON file."""
+    def load_core_requirements(self, requirements_file):
+        """Read CORE requirements from a JSON file."""
         if requirements_file and os.path.isfile(requirements_file):
             with open(requirements_file, 'r') as fh:
                 self.requirements = json.loads(fh.read())
@@ -336,7 +412,7 @@ class Report(object):
             self.core_meta = self.requirements['__Meta']
             del(self.requirements['__Meta'])
 
-    def load(self, data=None, filename=None):
+    def load_test_results(self, data=None, filename=None):
         """
         Load new test data for report.
 
@@ -402,7 +478,7 @@ class Report(object):
         return test_counts
 
     def grouped_requirements(self, func=None):
-        """Group requirements by timescale, scheme, demo.
+        """Group requirements by timescale, scheme (qualification or acceptance), [optional: func]
 
         :return: Dict.
 
@@ -415,17 +491,25 @@ class Report(object):
             if ("1500 CAM" not in requirement.get('category-list', [])):
                 # Only Cam requirements.
                 continue
-            if self.acceptance_report:
-                if not self.is_acceptance(item):
-                    continue
             definition = requirement.get('definition', 'CAM Verification Test')
             timescale = requirement.get('timescale', 'Timescale Unlinked')
-            # is_demo = requirement.get('method') == 'Demonstration'
-            method = requirement.get('method', "".join(item.split(".")[-2:-1]))
-            is_demo = method.lower().strip() not in ['test', 'auto']
-            demo = 'Demonstration' if is_demo else 'Testing'
-            self.prepare_dict(data, [timescale, definition, demo])
-            data[timescale][definition][demo][item] = func(item)
+            if False:
+                # is_demo = requirement.get('method') == 'Demonstration'
+                method = requirement.get('method', "".join(item.split(".")[-2:-1]))
+                is_demo = method.lower().strip() not in ['test', 'auto']
+                if self.acceptance_report:
+                    if not self.is_acceptance(item):
+                        continue
+            else:
+                ver_req_id = requirement.get('kat_id', 'auto')
+                is_demo = self._include_in_demo_doc(ver_req_id, self.acceptance_report)
+                is_test = self._include_in_test_doc(ver_req_id, self.acceptance_report)
+                if not is_demo and not is_test:
+                    # This requirement is not included in this set
+                    continue
+            demo_test = 'Demonstration' if is_demo else 'Testing'
+            self.prepare_dict(data, [timescale, definition, demo_test])
+            data[timescale][definition][demo_test][item] = func(item)
         return data
 
     def status_of_requirements(self, req, demo=False):
@@ -453,13 +537,13 @@ class Report(object):
                   "SKIPPED", "TBD", 'WAIVED', "UNKNOWN", "total"]
         table = []
         for ts in nsort(reqs):
-            for de in nsort([t for t in reqs[ts]
+            for desc in nsort([t for t in reqs[ts]
                              if t == 'VerificationRequirement']):
-                for demo in reversed(nsort(reqs[ts][de])):
-                    title = "cam %s %s %s results" % (ts, scheme, demo)
+                for demo_or_test in reversed(nsort(reqs[ts][desc])):
+                    title = "cam %s %s %s results" % (ts, scheme, demo_or_test)
                     label = dp.add_link(self.document_lookup.get(
                         title.lower(), title))
-                    row_data = self.sum_status(reqs[ts][de][demo])
+                    row_data = self.sum_status(reqs[ts][desc][demo_or_test])
                     row_data['FAILED'] = (row_data.get('FAILED', 0) +
                                           row_data.get('ERROR', 0))
                     if row_data['FAILED'] == 0:
@@ -1026,7 +1110,10 @@ class Report(object):
                     'aqf_intrusive': "This test has been tagged as an"
                                      " intrusive test.",
                     'aqf_slow': "This test has been tagged as a slow test",
-                    'aqf_site_only': "This should run on *Site Only*"}
+                    'aqf_site_only': "This should run on *Site Only*",
+                    'aqf_site_test': "This is a SITE test",
+                    'aqf_demo_test': "This is a DEMO test",
+                    'aqf_auto_tests': "This is an AUTO test"}
 
         for aqf_var in aqf_vars:
             if test_data.get(aqf_var):
