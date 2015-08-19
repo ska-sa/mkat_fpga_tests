@@ -585,36 +585,37 @@ class test_CBF(unittest.TestCase):
         """
         (TP.C.1.16) Report sensor values (AR1)
         """
-        iom = ioloop_manager.IOLoopManager()
-        iom.get_ioloop()
-        iom.start()
+        try:
+            iom = ioloop_manager.IOLoopManager()
+            iom.get_ioloop()
+            iom.start()
 
-        hosts_list = []
-        for fhost in self.correlator.fhosts:
-            for xhost in self.correlator.xhosts:
-                if xhost != fhost:
-                hosts_list.append(xhost)
-                hosts_list.append(fhost)
-        roaches = set(hosts_list)
-        for host in roaches:
-            rc = resource_client.KATCPClientResource(
-                dict(name=roach.host, address=(roach.host, roach.katcp_port),
-                    controlled=True))
-            rc.set_ioloop(iom.get_ioloop())
-            if not rc.is_connected():
-                rc.start()
-                self.assertTrue(rc.ioloop._running,
-                    msg='Resource client is not running for {}'.format(fhost.host))
+            hosts_list = []
+            for fhost in self.correlator.fhosts:
+                for xhost in self.correlator.xhosts:
+                    if xhost != fhost:
+                        hosts_list.append(xhost)
+                        hosts_list.append(fhost)
+            roaches = set(hosts_list)
+            for roach in roaches:
+                rc = resource_client.KATCPClientResource(
+                    dict(name=roach.host, address=(roach.host, roach.katcp_port),
+                        controlled=True))
                 rc.set_ioloop(iom.get_ioloop())
-                iow = resource_client.IOLoopThreadWrapper(rc.ioloop)
-                rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
-                rct.start()
-            else:
-                self.assertTrue((rct.is_connected() or rc.is_connected()),
-                    msg='How is it connected!!!!')
+                if not rc.is_connected():
+                    rc.start()
+                    #self.assertTrue(rc.ioloop._running,
+                        #msg='Resource client is not running: {}'.format(fhost.host))
+                    rc.set_ioloop(iom.get_ioloop())
+                    iow = resource_client.IOLoopThreadWrapper(rc.ioloop)
+                    rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
+                    rct.start()
+                    print str(rct.req.status())
+                else:
+                    self.assertTrue((rct.is_connected() or rc.is_connected()),
+                        msg='How is it Active,ie it didnt stop!!!!')
 
-           # reply, informs = rct.req.sensor_list()
-#        print reply.arguments
-
-            import IPython;IPython.embed()
-        iom.stop()
+    #       import IPython;IPython.embed()
+            iom.stop()
+        except Exception:
+            print 'ERROR--'*30
