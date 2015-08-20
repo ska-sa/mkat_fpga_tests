@@ -587,7 +587,8 @@ class test_CBF(unittest.TestCase):
         """
         iom = ioloop_manager.IOLoopManager()
         iom.get_ioloop()
-        iom.start()
+        if not iom._running.is_set():
+            iom.start()
 
         hosts_list = []
         for fhost in self.correlator.fhosts:
@@ -603,18 +604,35 @@ class test_CBF(unittest.TestCase):
             rc.set_ioloop(iom.get_ioloop())
             if not rc.is_connected():
                 rc.start()
-                #self.assertTrue(rc.ioloop._running,
-                    #msg='Resource client is not running: {}'.format(fhost.host))
+                self.assertTrue(rc.ioloop._running,
+                    msg='Resource client did not running: {}'.format(fhost.host))
                 rc.set_ioloop(iom.get_ioloop())
                 iow = resource_client.IOLoopThreadWrapper(rc.ioloop)
                 rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
                 rct.start()
-                if
-                print str(rct.sensor.items())
+                # 1. Request a list of available sensors using
+                # KATCP command "?sensor-list"
+                #if  rct.req.sensor.is_active():
+                    # Requested list of sensor are equal
+                    #self.assertTrue(len(rct.req.sensor_list()[1]) == int(
+                    #    rct.req.sensor_list()[0].arguments[1]))
+                    #print rct.req.sensor_list()
+
+                    # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
+                    # where numSensors is the number of sensor-list informs sent.
+                    #sens_stat, num_sens =  rct.req.sensor_value().reply.arguments
+
+                    #self.assertTrue(int(num_sens) == len(rct.req.sensor_value()[1]))
+
+                    #self.assertTrue(rct.req.sensor_list().reply.reply_ok(),
+                    #    msg='Sensors are Ok!')
+
+
+                import IPython;IPython.embed()
+
             else:
                 self.assertTrue((rct.is_connected() or rc.is_connected()),
                     msg='How is it Active,ie it didnt stop!!!!')
 
-        import IPython;IPython.embed()
         if iom._running.is_set():
             iom.stop()
