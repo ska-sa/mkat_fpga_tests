@@ -586,9 +586,9 @@ class test_CBF(unittest.TestCase):
         (TP.C.1.16) Report sensor values (AR1)
         """
         iom = ioloop_manager.IOLoopManager()
-        iom.get_ioloop()
-        if not iom._running.is_set():
-            iom.start()
+        iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
+        iom.start()
+        self.addCleanup(iom.stop)
 
         hosts_list = []
         for fhost in self.correlator.fhosts:
@@ -597,42 +597,23 @@ class test_CBF(unittest.TestCase):
                     hosts_list.append(xhost)
                     hosts_list.append(fhost)
         roaches = set(hosts_list)
+        roach_clients = []
+
         for roach in roaches:
             rc = resource_client.KATCPClientResource(
                 dict(name=roach.host, address=(roach.host, roach.katcp_port),
                     controlled=True))
             rc.set_ioloop(iom.get_ioloop())
-            if not rc.is_connected():
-                rc.start()
-                self.assertTrue(rc.ioloop._running,
-                    msg='Resource client did not running: {}'.format(fhost.host))
-                rc.set_ioloop(iom.get_ioloop())
-                iow = resource_client.IOLoopThreadWrapper(rc.ioloop)
-                rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
-                rct.start()
-                # 1. Request a list of available sensors using
-                # KATCP command "?sensor-list"
-                #if  rct.req.sensor.is_active():
-                    # Requested list of sensor are equal
-                    #self.assertTrue(len(rct.req.sensor_list()[1]) == int(
-                    #    rct.req.sensor_list()[0].arguments[1]))
-                    #print rct.req.sensor_list()
+            rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
+            rct.start()
+            rct.until_synced()
+            roach_clients.append(rct)
 
-                    # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-                    # where numSensors is the number of sensor-list informs sent.
-                    #sens_stat, num_sens =  rct.req.sensor_value().reply.arguments
+            # 1. Request a list of available sensors using
+            # KATCP command "?sensor-list"
+            # Requested list of sensor are equal
+            # self.assertTrue(len(rct.req.sensor_list()[1]) == int(
+            #    rct.req.sensor_list()[0].arguments[1]))
+            print rct.req.sensor_list()
 
-                    #self.assertTrue(int(num_sens) == len(rct.req.sensor_value()[1]))
-
-                    #self.assertTrue(rct.req.sensor_list().reply.reply_ok(),
-                    #    msg='Sensors are Ok!')
-
-
-                import IPython;IPython.embed()
-
-            else:
-                self.assertTrue((rct.is_connected() or rc.is_connected()),
-                    msg='How is it Active,ie it didnt stop!!!!')
-
-        if iom._running.is_set():
-            iom.stop()
+        import IPython;IPython.embed()
