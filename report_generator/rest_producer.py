@@ -74,10 +74,36 @@ class ReStProducer(object):
             self._output.append('..')
             self._output.append('')
 
+    def add_figure(self, filename, caption, alt=None, legend=None,
+                   align='center', figwidth='90%', width='80%', **options):
+        self._ensure_empty_line()
+        self._output.append(' .. figure:: {}'.format(filename))
+        if alt:
+            self._output.append(self.indent + ':alt: {}'.format(alt))
+        if align:
+            self._output.append(self.indent + ':align: {}'.format(align))
+        if figwidth:
+            self._output.append(self.indent + ':figwidth: {}'.format(figwidth))
+        if width:
+            self._output.append(self.indent + ':width: {}'.format(width))
+        for option, value in options.items():
+            if value:
+                self.output.append(self.indent + ':{}: {}'.format(option, value))
+        self._ensure_empty_line()
+        self.add_indented_raw_text(caption, level=1)
+        if legend:
+            self._ensure_empty_line()
+            self.add_indented_raw_text(legend, level=1)
+        self._ensure_empty_line()
+
     def add_raw_text(self, text):
         """Add raw text to the ReST output stream."""
         if text:
             self._output.append(str(text))
+
+    def add_indented_raw_text(self, text, level=1):
+        for line in str(text).split('\n'):
+            self._output.append(self.indent*level + line)
 
     def add_line(self, text):
         if text:

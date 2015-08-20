@@ -1150,8 +1150,8 @@ class Report(object):
                 if action.get('stack'):
                     docproducer.add_sourcecode(''.join(action['stack']))
                 if action_type == 'IMAGE':
-                    docproducer.add_sourcecode('{filename}, {caption}, {alt}'.format(
-                        **action))
+                    docproducer.add_figure(
+                        action['filename'], action['caption'], action['alt'])
 
         if not test_data.get('success'):
             docproducer.add_sourcecode(
