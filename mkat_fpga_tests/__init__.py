@@ -81,11 +81,12 @@ class CorrelatorFixture(object):
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-destination' ,
                 '{}'.format(self.modes), '{}:{}'.format(destination,
-                    destination_port)])
+                    destination_port)], stdout=open(os.devnull,"w"))
 
         subprocess.check_call(['/usr/local/bin/kcpcmd' ,'-t','30', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-{}'
-                .format(start_or_stop), '{}'.format(self.modes)])
+                .format(start_or_stop), '{}'.format(self.modes)],
+                    stdout=open(os.devnull,"w"))
 
     def start_x_data(self):
         # On array interf
@@ -134,7 +135,8 @@ class CorrelatorFixture(object):
                                 .format(retries))
                 except Exception:
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
-                    'localhost', 'array-halt', 'array0'])
+                    'localhost', 'array-halt', 'array0'],
+                        stdout=open(os.devnull,"w"))
                     retries -= 1
                     LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
                                 .format(retries))
@@ -144,5 +146,6 @@ class CorrelatorFixture(object):
 
     def issue_metadata(self):
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '100', '-s' ,
-            'localhost:{}'.format(self.katcp_port) ,'capture-meta', self.modes])
+            'localhost:{}'.format(self.katcp_port) ,'capture-meta', self.modes ]
+                , stdout=open(os.devnull,"w"))
 correlator_fixture = CorrelatorFixture()
