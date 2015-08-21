@@ -599,7 +599,6 @@ class test_CBF(unittest.TestCase):
         roaches = set(hosts_list)
 
         roach_clients = []
-        #for roach in roaches:
         rc = resource_client.KATCPClientResource(
             dict(name='localhost', address=('localhost', '7147'),
                 controlled=True))
@@ -647,7 +646,15 @@ class test_CBF(unittest.TestCase):
             sensor = sensor.replace('_','.')
             LOGGER.info (sensor +':'+ rct.sensor.device_status.name +' '+
                 str(rct.req.sensor_value.issue_request(sensor)))
-            self.assertTrue(rct.req.sensor_value.issue_request(
-                sensor).reply.reply_ok(), 'Sensor: {} Failed.'.format(sensor))
+            #self.assertTrue(rct.req.sensor_value.issue_request(
+                #sensor).reply.reply_ok(), 'Sensor: {} Failed.'.format(sensor))
+
+        for roach in roaches:
+            values_reply, sensors_values = roach.katcprequest('sensor-value')
+            list_reply, sensors_list = roach.katcprequest('sensor-list')
+            # Check if the is a sensor failure.
+            self.assertTrue(reply.reply_ok, msg='Sensors Failure: {}'.format(roach.host))
+            # Check the number of sensors in the list is equal to the list of values received.
+            self.assertEqual(len(sensors_list), int(values_reply.arguments[1]), msg='Missing sensors: {}'.format(roach.host))
 
         import IPython;IPython.embed()
