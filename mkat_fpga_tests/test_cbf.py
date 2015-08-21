@@ -20,10 +20,12 @@ import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
 from corr2 import utils
+
 from katcp import resource_client
 from katcp import ioloop_manager
+from nosekatreport import Aqf
 
-from mkat_fpga_tests import correlator_fixture
+from mkat_fpga_tests import correlator_fixture, meth_end_aqf
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
@@ -82,8 +84,10 @@ class test_CBF(unittest.TestCase):
     # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
     # the VACC is rotated. Run this test first so that we know immediately that other
     # tests will be b0rked.
+    @meth_end_aqf
+    @aqf_vr('TP.C.1.19')
     def test_channelisation(self):
-        """(TP.C.1.19) CBF Channelisation Wideband Coarse L-band"""
+        """CBF Channelisation Wideband Coarse L-band"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
@@ -145,14 +149,14 @@ class test_CBF(unittest.TestCase):
             curr_pfb_counts = get_pfb_counts(
                 fftoverflow_qdrstatus['fhosts'].items())
             # Test FFT Overflow status
-            self.assertEqual(last_pfb_counts, curr_pfb_counts)
+            Aqf.equal(last_pfb_counts, curr_pfb_counts, "Pfb FFT is not overflowing")
             # Test QDR error flags
             for hosts_status in fftoverflow_qdrstatus.values():
                 for host, hosts_status in hosts_status.items():
                     if hosts_status['QDR_okay'] is False:
                         QDR_error_roaches.add(host)
             # Test QDR status
-            self.assertFalse(QDR_error_roaches)
+            Aqf.is_false(QDR_error_roaches)
 
         # Test fft overflow and qdr status before
         test_fftoverflow_qdrstatus()
@@ -249,10 +253,9 @@ class test_CBF(unittest.TestCase):
         # Test responses in central 80% of channel
         for i, freq in enumerate(central_chan_test_freqs):
             max_chan = np.argmax(np.abs(central_chan_responses[i]))
-            self.assertEqual(max_chan, test_chan, 'Source freq {} peak not in channel '
-                             '{} as expected but in {}.'
+            self.assertEqual(max_chan, test_chan, 'Source freq {} peak in correct channel.'
                              .format(freq, test_chan, max_chan))
-
+        # TODO Aqf conversion
         self.assertLess(
             np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
             'VACC output at > 99% of maximum value, indicates that '

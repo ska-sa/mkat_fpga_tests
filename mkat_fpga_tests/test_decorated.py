@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 from nosekatreport import Aqf
 from nosekatreport import aqf_vr
 
+from mkat_fpga_tests import cls_end_aqf
 
+@cls_end_aqf
 class test_Something(unittest.TestCase):
-    def setUp(self):
-        self.addCleanup(Aqf.end)
 
     @aqf_vr('TP.C.1.19')
     def test_channelisation(self):
