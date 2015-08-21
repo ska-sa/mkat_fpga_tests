@@ -637,10 +637,11 @@ class test_CBF(unittest.TestCase):
 
             for sensor in rct.sensor.keys():
                 sensor = sensor.replace('_','.')
-                LOGGER.info (sensor +':'+ rct.sensor.device_status.name +' '+
-                    str(rct.req.sensor_value.issue_request(sensor)))
+                LOGGER.info (sensor +': '+ str(rct.req.sensor_value.issue_request(
+                    sensor)[0]))
                 self.assertTrue(rct.req.sensor_value.issue_request(
-                    sensor).reply.reply_ok(), 'Sensor: {} Failed.'.format(sensor))
+                    sensor).reply.reply_ok(), 'Sensor Failed: {}'.format(sensor))
+                #import IPython;IPython.embed()
 
         def client_sensor_status():
             """ Check clients sensor status """
