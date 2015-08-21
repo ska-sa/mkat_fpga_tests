@@ -607,16 +607,16 @@ class test_CBF(unittest.TestCase):
 
             # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
             #   where numSensors is the number of sensor-list informs sent.
-            sens_val_stat, sens_val_cnt =  rct.req.sensor_value().reply.arguments
-            sens_lst_stat, sens_lst_cnt = rct.req.sensor_list().reply.arguments
+            list_reply, list_informs = rct.req.sensor_list()
+            sens_lst_stat, numSensors = list_reply.arguments
+            numSensors = int(numSensors)
+            self.assertEqual(numSensors, len(list_informs))
 
-            self.assertTrue(sens_val_cnt == sens_lst_cnt,
+            # 4. Test that ?sensor-value and ?sensor-list agree about the number
+            # of sensors.
+            sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
+            self.assertEqual(sens_val_cnt, numSensors,
                 msg='Sensors count are not the same')
-
-            # 3. Confirm the CBF replies with "!sensor-list ok numSensors" where
-            # numSensors is the number of sensor-list informs sent.
-            #print (str(rct.req.sensor_value().reply))
-            LOGGER.info (str(rct.req.sensor_value().reply))
 
             # Sensors status
             rct.sensor.time_synchronised.status
