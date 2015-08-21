@@ -585,76 +585,95 @@ class test_CBF(unittest.TestCase):
         """
         (TP.C.1.16) Report sensor values (AR1)
         """
-        iom = ioloop_manager.IOLoopManager()
-        iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
-        iom.start()
-        self.addCleanup(iom.stop)
+        def cmc_sensor_status():
+            """ Check cmc sensor status """
+            iom = ioloop_manager.IOLoopManager()
+            iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
+            iom.start()
+            self.addCleanup(iom.stop)
+            #roach_clients = []
+            rc = resource_client.KATCPClientResource(
+                dict(name='localhost', address=('localhost', '7147'),
+                    controlled=True))
+            rc.set_ioloop(iom.get_ioloop())
+            rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
+            rct.start()
+            rct.until_synced()
+            #roach_clients.append(rct)
 
-        hosts_list = []
-        for fhost in self.correlator.fhosts:
-            for xhost in self.correlator.xhosts:
-                if xhost != fhost:
-                    hosts_list.append(xhost)
-                    hosts_list.append(fhost)
-        roaches = set(hosts_list)
+            ## 1. Request a list of available sensors using KATCP command
+            ## 2. Confirm the CBF replies with a number of sensor-list inform messages
+            LOGGER.info (rct.req.sensor_list())
 
-        roach_clients = []
-        rc = resource_client.KATCPClientResource(
-            dict(name='localhost', address=('localhost', '7147'),
-                controlled=True))
-        rc.set_ioloop(iom.get_ioloop())
-        rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
-        rct.start()
-        rct.until_synced()
-        roach_clients.append(rct)
+            # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
+            #   where numSensors is the number of sensor-list informs sent.
+            sens_val_stat, sens_val_cnt =  rct.req.sensor_value().reply.arguments
+            sens_lst_stat, sens_lst_cnt = rct.req.sensor_list().reply.arguments
 
-        ## 1. Request a list of available sensors using KATCP command
-        ## 2. Confirm the CBF replies with a number of sensor-list inform messages
-        LOGGER.info (rct.req.sensor_list())
+            self.assertTrue(sens_val_cnt == sens_lst_cnt,
+                msg='Sensors count are not the same')
 
-        # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-        #   where numSensors is the number of sensor-list informs sent.
-        sens_val_stat, sens_val_cnt =  rct.req.sensor_value().reply.arguments
-        sens_lst_stat, sens_lst_cnt = rct.req.sensor_list().reply.arguments
+            # 3. Confirm the CBF replies with "!sensor-list ok numSensors" where
+            # numSensors is the number of sensor-list informs sent.
+            #print (str(rct.req.sensor_value().reply))
+            LOGGER.info (str(rct.req.sensor_value().reply))
 
-        self.assertTrue(sens_val_cnt == sens_lst_cnt,
-            msg='Sensors count are not the same')
+            # Sensors status
+            rct.sensor.time_synchronised.status
+            self.assertEqual(rct.sensor.time_synchronised.status,
+                'nominal', msg='Status Failed, current status:{}'
+                    .format(rct.sensor.time_synchronised.status))
 
-        # 3. Confirm the CBF replies with "!sensor-list ok numSensors" where
-        # numSensors is the number of sensor-list informs sent.
-        #print (str(rct.req.sensor_value().reply))
-        LOGGER.info (str(rct.req.sensor_value().reply))
+            # 4. Request the time synchronisation status using KATCP command
+            #"?sensor-value time.synchronised
+            self.assertTrue(rct.req.sensor_value.issue_request('time.synchronised').
+                reply.reply_ok(), msg='Time Synchronisation Failed!')
 
-        # Sensors status
-        rct.sensor.time_synchronised.status
-        self.assertEqual(rct.sensor.time_synchronised.status,
-            'nominal', msg='Status Failed, current status:{}'
-                .format(rct.sensor.time_synchronised.status))
+            # 5. Confirm the CBF replies with " #sensor-value <time>
+            # time.synchronised [status value], followed by a "!sensor-value ok 1"
+            # message.
+            self.assertEqual(str(rct.req.sensor_value.issue_request('time.synchronised')[0]),
+             '!sensor-value ok 1', msg='Time Synchronisation Failed!')
 
-        # 4. Request the time synchronisation status using KATCP command
-        #"?sensor-value time.synchronised
-        self.assertTrue(rct.req.sensor_value.issue_request('time.synchronised').
-            reply.reply_ok(), msg='Time Synchronisation Failed!')
+            for sensor in rct.sensor.keys():
+                sensor = sensor.replace('_','.')
+                LOGGER.info (sensor +':'+ rct.sensor.device_status.name +' '+
+                    str(rct.req.sensor_value.issue_request(sensor)))
+                self.assertTrue(rct.req.sensor_value.issue_request(
+                    sensor).reply.reply_ok(), 'Sensor: {} Failed.'.format(sensor))
 
-        # 5. Confirm the CBF replies with " #sensor-value <time>
-        # time.synchronised [status value], followed by a "!sensor-value ok 1"
-        # message.
-        self.assertEqual(str(rct.req.sensor_value.issue_request('time.synchronised')[0]),
-         '!sensor-value ok 1', msg='Time Synchronisation Failed!')
+        def client_sensor_status():
+            """ Check clients sensor status """
+            hosts_list = []
+            for fhost in self.correlator.fhosts:
+                for xhost in self.correlator.xhosts:
+                    if xhost != fhost:
+                        hosts_list.append(xhost)
+                        hosts_list.append(fhost)
+            roaches = set(hosts_list)
 
-        for sensor in rct.sensor.keys():
-            sensor = sensor.replace('_','.')
-            LOGGER.info (sensor +':'+ rct.sensor.device_status.name +' '+
-                str(rct.req.sensor_value.issue_request(sensor)))
-            #self.assertTrue(rct.req.sensor_value.issue_request(
-                #sensor).reply.reply_ok(), 'Sensor: {} Failed.'.format(sensor))
+            for roach in roaches:
+                values_reply, sensors_values = roach.katcprequest('sensor-value')
+                list_reply, sensors_list = roach.katcprequest('sensor-list')
 
-        for roach in roaches:
-            values_reply, sensors_values = roach.katcprequest('sensor-value')
-            list_reply, sensors_list = roach.katcprequest('sensor-list')
-            # Check if the is a sensor failure.
-            self.assertTrue(reply.reply_ok, msg='Sensors Failure: {}'.format(roach.host))
-            # Check the number of sensors in the list is equal to the list of values received.
-            self.assertEqual(len(sensors_list), int(values_reply.arguments[1]), msg='Missing sensors: {}'.format(roach.host))
+                # Varify the number of sensors received.
+                self.assertTrue((values_reply.reply_ok() == list_reply.reply_ok())
+                    , msg='Sensors Failure: {}'
+                    .format(roach.host))
 
-        import IPython;IPython.embed()
+                # Check the number of sensors in the list is equal to the list
+                # of values received.
+                self.assertEqual(len(sensors_list), int(values_reply.arguments[1])
+                    , msg='Missing sensors: {}'.format(roach.host))
+
+                for sensor in sensors_values[1:]:
+                    sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
+                    # Check is sensor status is a Fail
+                    self.assertFalse((sensor_status == 'fail'),
+                        msg='Roach {}, Sensor name: {}, status: {}'
+                            .format(roach.host, sensor_name, sensor_status))
+
+                   # import IPython;IPython.embed()
+
+        client_sensor_status()
+        cmc_sensor_status()
