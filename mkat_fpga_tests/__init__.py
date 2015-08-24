@@ -10,6 +10,9 @@ from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2 import fxcorrelator
 from corr2 import utils
 
+from katcp import resource_client
+from katcp import ioloop_manager
+
 LOGGER = logging.getLogger(__name__)
 
 class CorrelatorFixture(object):
