@@ -27,6 +27,18 @@ class CorrelatorFixture(object):
 
         self._correlator = None
         self._dhost = None
+        self.iomanager = ioloop_manager.IOLoopManager()
+        self.iowrapper = resource_client.IOLoopThreadWrapper(self.iomanager.get_ioloop())
+        self.iomanager.start()
+        self.resource_client = resource_client.KATCPClientResource(
+                dict(name='localhost', address=('localhost', '7147'),
+                    controlled=True))
+        self.resource_client.set_ioloop(self.iomanager.get_ioloop())
+        self.rct = resource_client.ThreadSafeKATCPClientResourceWrapper(
+            self.resource_client, self.iowrapper)
+        self.rct.start()
+        self.rct.until_synced()
+
 
     @property
     def dhost(self):
@@ -99,6 +111,8 @@ class CorrelatorFixture(object):
 
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
+        import IPython;IPython.embed()
+
         retries_requested = retries
         array_no = 0
         self.dhost
@@ -106,8 +120,10 @@ class CorrelatorFixture(object):
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         try:
             # Clear out any arrays, if exist
-            subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
-                'array-halt', 'array0'])
+            #subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
+            #    'array-halt', 'array0'])
+            array_list_status, multicst_ip_array = self.rct.req.array_list()
+            self.rct.req.array_halt(multicst_ip_array[0].arguments[0])
         except:
             LOGGER.info ("Already cleared array")
         finally:
@@ -148,4 +164,5 @@ class CorrelatorFixture(object):
     def issue_metadata(self):
         subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '100', '-s' ,
             'localhost:{}'.format(self.katcp_port) ,'capture-meta', self.modes])
+
 correlator_fixture = CorrelatorFixture()
