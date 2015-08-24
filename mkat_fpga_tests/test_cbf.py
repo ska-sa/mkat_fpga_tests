@@ -526,11 +526,11 @@ class test_CBF(unittest.TestCase):
 
         graph_name_all = test_name + '.expected_phases.svg'
         plot_and_save(self.corr_freqs.chan_freqs,
-            expected_phases(), graph_name_all,show=True)
+            expected_phases(), graph_name_all)
 
         graph_name_all = test_name + '.actual_phases.svg'
         plot_and_save(self.corr_freqs.chan_freqs,
-            actual_phases()[1], graph_name_all,show=True)
+            actual_phases()[1], graph_name_all)
 
         # Compare Actual and Expected phases and check if their equal
         # upto 3 decimal places
