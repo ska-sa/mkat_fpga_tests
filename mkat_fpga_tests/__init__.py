@@ -111,7 +111,7 @@ class CorrelatorFixture(object):
 
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
-        import IPython;IPython.embed()
+        #import IPython;IPython.embed()
 
         retries_requested = retries
         array_no = 0
@@ -120,10 +120,10 @@ class CorrelatorFixture(object):
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         try:
             # Clear out any arrays, if exist
-            #subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
-            #    'array-halt', 'array0'])
-            array_list_status, multicst_ip_array = self.rct.req.array_list()
-            self.rct.req.array_halt(multicst_ip_array[0].arguments[0])
+            subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
+                'array-halt', 'array0'])
+            #array_list_status, multicst_ip_array = self.rct.req.array_list()
+            #self.rct.req.array_halt(multicst_ip_array[0].arguments[0])
         except:
             LOGGER.info ("Already cleared array")
         finally:
