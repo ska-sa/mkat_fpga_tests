@@ -111,19 +111,24 @@ class CorrelatorFixture(object):
 
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
-        #import IPython;IPython.embed()
+        import IPython;IPython.embed()
 
         retries_requested = retries
         array_no = 0
         self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
+
         try:
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
                 'array-halt', 'array0'])
-            #array_list_status, multicst_ip_array = self.rct.req.array_list()
-            #self.rct.req.array_halt(multicst_ip_array[0].arguments[0])
+
+            array_list_status, array_list_messages = self.rct.req.array_list()
+            array_number, self.katcp_assigned_port = (array_list_messages[0].
+                arguments[0:2])
+
+            self.rct.req.array_halt(array_number)
         except:
             LOGGER.info ("Already cleared array")
         finally:
@@ -132,6 +137,7 @@ class CorrelatorFixture(object):
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
                         '-s', 'localhost:7147', 'array-assign', 'array0']
                             + multicast_ip.split(','))
+                    #self.rct.req.array_assign('array0',multicast_ip.split(','))
 
                     self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
                         -s localhost:{0} array-list array0\
