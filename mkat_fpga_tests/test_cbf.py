@@ -610,24 +610,27 @@ class test_CBF(unittest.TestCase):
             list_reply, list_informs = rct.req.sensor_list()
             sens_lst_stat, numSensors = list_reply.arguments
             numSensors = int(numSensors)
-            self.assertEqual(numSensors, len(list_informs))
+            self.assertEqual(numSensors, len(list_informs), msg='Number of sensors are not equal to the number of sensors on the list.')
 
             # 4. Test that ?sensor-value and ?sensor-list agree about the number
             # of sensors.
             sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
-            self.assertEqual(sens_val_cnt, numSensors,
+            self.assertEqual(int(sens_val_cnt), numSensors,
                 msg='Sensors count are not the same')
 
             # Sensors status
-            rct.sensor.time_synchronised.status
+            #rct.sensor.time_synchronised.status
+            received_timestamp, timestamp, istatus, value = rct.sensor.time_synchronised.get_reading()
+            self.assertTrue(value, msg='Sensor was not read successfully.')
             self.assertEqual(rct.sensor.time_synchronised.status,
                 'nominal', msg='Status Failed, current status:{}'
                     .format(rct.sensor.time_synchronised.status))
 
             # 4. Request the time synchronisation status using KATCP command
             #"?sensor-value time.synchronised
-            self.assertTrue(rct.req.sensor_value.issue_request('time.synchronised').
-                reply.reply_ok(), msg='Time Synchronisation Failed!')
+            self.assertTrue(rct.req.sensor_value.issue_request(
+            'time.synchronised').reply.reply_ok(),
+                msg='Time Synchronisation Failed!')
 
             # 5. Confirm the CBF replies with " #sensor-value <time>
             # time.synchronised [status value], followed by a "!sensor-value ok 1"
@@ -641,17 +644,11 @@ class test_CBF(unittest.TestCase):
                     sensor)[0]))
                 self.assertTrue(rct.req.sensor_value.issue_request(
                     sensor).reply.reply_ok(), 'Sensor Failed: {}'.format(sensor))
-                #import IPython;IPython.embed()
 
         def client_sensor_status():
             """ Check clients sensor status """
-            hosts_list = []
-            for fhost in self.correlator.fhosts:
-                for xhost in self.correlator.xhosts:
-                    if xhost != fhost:
-                        hosts_list.append(xhost)
-                        hosts_list.append(fhost)
-            roaches = set(hosts_list)
+
+            roaches = self.correlator.fhosts + self.correlator.xhosts
 
             for roach in roaches:
                 values_reply, sensors_values = roach.katcprequest('sensor-value')
