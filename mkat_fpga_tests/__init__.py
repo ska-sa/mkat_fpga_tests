@@ -6,6 +6,8 @@ import time
 # Config using nose-testconfig plugin, set variables with --tc on nose command line
 from testconfig import config as test_config
 from corr2.dsimhost_fpga import FpgaDsimHost
+from katcp import resource_client
+from katcp import ioloop_manager
 
 from corr2 import fxcorrelator
 from corr2 import utils
@@ -39,6 +41,17 @@ class CorrelatorFixture(object):
         self.rct.start()
         self.rct.until_synced()
 
+
+        self.io_manager = ioloop_manager.IOLoopManager()
+        self.io_wrapper = resource_client.IOLoopThreadWrapper(
+            self.io_manager.get_ioloop())
+        self.io_manager.start()
+        self.rc = resource_client.KATCPClientResource(dict(name='localhost',
+            address=('localhost', '7147'), controlled=True))
+        self.rc.set_ioloop(self.io_manager.get_ioloop())
+        self.rct = resource_client.ThreadSafeKATCPClientResourceWrapper(self.rc, self.io_wrapper)
+        self.rct.start()
+        self.rct.until_synced()
 
     @property
     def dhost(self):
@@ -119,6 +132,9 @@ class CorrelatorFixture(object):
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
 
+
+        import IPython;IPython.embed()
+
         try:
             # Clear out any arrays, if exist
             subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
@@ -129,6 +145,7 @@ class CorrelatorFixture(object):
                 arguments[0:2])
 
             self.rct.req.array_halt(array_number)
+
         except:
             LOGGER.info ("Already cleared array")
         finally:
