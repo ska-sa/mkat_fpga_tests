@@ -2,11 +2,10 @@ import os
 import logging
 import subprocess
 import time
-import functools
 
 # Config using nose-testconfig plugin, set variables with --tc on nose command line
 from testconfig import config as test_config
-from nosekatreport import Aqf
+
 from corr2.dsimhost_fpga import FpgaDsimHost
 
 from katcp import resource_client
