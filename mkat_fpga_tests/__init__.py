@@ -29,19 +29,6 @@ class CorrelatorFixture(object):
 
         self._correlator = None
         self._dhost = None
-        """
-        self.iomanager = ioloop_manager.IOLoopManager()
-        self.iowrapper = resource_client.IOLoopThreadWrapper(self.iomanager.get_ioloop())
-        self.iomanager.start()
-        self.resource_client = resource_client.KATCPClientResource(
-                dict(name='localhost', address=('localhost', '7147'),
-                    controlled=True))
-        self.resource_client.set_ioloop(self.iomanager.get_ioloop())
-        self.rct = resource_client.ThreadSafeKATCPClientResourceWrapper(
-            self.resource_client, self.iowrapper)
-        self.rct.start()
-        self.rct.until_synced()
-        """
 
         self.io_manager = ioloop_manager.IOLoopManager()
         self.io_wrapper = resource_client.IOLoopThreadWrapper(
