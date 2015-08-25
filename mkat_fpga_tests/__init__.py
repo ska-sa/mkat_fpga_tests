@@ -163,8 +163,6 @@ class CorrelatorFixture(object):
                         *multicast_ip.split(','))
                     self.katcp_array_port = int(
                         self.rct.req.array_list()[1][0].arguments[1])
-
-                    import IPython;IPython.embed()
                     """
                     self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
                         -s localhost:{0} array-list array0\
@@ -174,8 +172,9 @@ class CorrelatorFixture(object):
                                         stdout.read())
                     """
                     # make a plan for this to work
-                    self.katcp_rc = resource_client.KATCPClientResource(dict(name='localhost',
-                        address=('localhost', '{}'.format(self.katcp_array_port)),
+                    self.katcp_rc = resource_client.KATCPClientResource(
+                        dict(name='localhost', address=(
+                            'localhost', '{}'.format(self.katcp_array_port)),
                             controlled=True))
                     self.katcp_rc.set_ioloop(self.io_manager.get_ioloop())
                     self.katcp_rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(
@@ -185,7 +184,8 @@ class CorrelatorFixture(object):
 
 
                     LOGGER.info ("Starting Correlator.")
-                    success = 0 == self.katcp_rct.req.instrument_activate(instrument, timeout=500)
+                    success = 0 == (self.katcp_rct.req.instrument_activate(
+                        instrument, timeout=500))
 
                     #success = 0 == subprocess.check_call(['/usr/local/bin/kcpcmd',
                         #'-t','500','-s', 'localhost:{}'.format(self.katcp_port),
