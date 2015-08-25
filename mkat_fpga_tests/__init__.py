@@ -126,15 +126,15 @@ class CorrelatorFixture(object):
         # On array interf
         #self.start_stop_data('start','c856M4k')
         katcp_rct.req.capture_start(self.modes)
+
     def stop_x_data(self):
         #self.start_stop_data('stop', 'c856M4k')
         katcp_rct.req.capture_stop(self.modes)
+
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
-
-
         retries_requested = retries
-        array_no = 0
+        #array_no = 0
         self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
@@ -148,7 +148,7 @@ class CorrelatorFixture(object):
                 #'array-halt', 'array0'])
 
         array_list_status, array_list_messages = self.rct.req.array_list()
-        array_number = (array_list_messages[0].arguments[1])
+        array_number = array_list_messages[0].arguments[0]
         try:
             if bool(array_list_messages) is False:
                 self.rct.req.array_halt(array_number)
