@@ -140,9 +140,9 @@ class CorrelatorFixture(object):
             #subprocess.check_call(['/usr/local/bin/kcpcmd', '-s', 'localhost',
                 #'array-halt', 'array0'])
 
-            array_list_status, array_list_messages = self.rct.req.array_list()
-            array_number, self.katcp_assigned_port = (array_list_messages[0].
-                arguments[0:2])
+        array_list_status, array_list_messages = self.rct.req.array_list()
+        array_number, self.katcp_assigned_port = (array_list_messages[0].
+            arguments[0:2])
         try:
             if array_list_messages != list():
                 self.rct.req.array_halt(array_number)
