@@ -141,8 +141,8 @@ class CorrelatorFixture(object):
                 #'array-halt', 'array0'])
 
         array_list_status, array_list_messages = self.rct.req.array_list()
-        array_number, self.katcp_assigned_port = (array_list_messages[0].
-            arguments[0:2])
+        array_number = (array_list_messages[0].
+            arguments[1])
         try:
             if bool(array_list_messages) is False:
                 self.rct.req.array_halt(array_number)
@@ -161,6 +161,7 @@ class CorrelatorFixture(object):
                     self.katcp_array_port = int(
                         self.rct.req.array_list()[1][0].arguments[1])
 
+                    import IPython;IPython.embed()
                     """
                     self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
                         -s localhost:{0} array-list array0\
