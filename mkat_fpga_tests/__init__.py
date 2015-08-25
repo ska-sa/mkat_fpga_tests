@@ -155,7 +155,8 @@ class CorrelatorFixture(object):
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
                         '-s', 'localhost:7147', 'array-assign', 'array0']
                             + multicast_ip.split(','))
-                    #self.rct.req.array_assign('array0',  multicast_ip.split(','))
+                    #self.rct.req.array_assign('array0',  *multicast_ip.split(','))
+
                     self.rct.req.array_assign('array0', '239.0.1.68+1:8888','239.0.1.70+1:8888','239.0.1.68+1:8888','239.0.1.70+1:8888','239.0.1.68+1:8888','239.0.1.70+1:8888','239.0.1.68+1:8888','239.0.1.70+1:8888')
 
                     self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
