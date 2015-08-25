@@ -144,28 +144,31 @@ class CorrelatorFixture(object):
         array_number, self.katcp_assigned_port = (array_list_messages[0].
             arguments[0:2])
         try:
-            if array_list_messages != list():
+            if bool(array_list_messages) is False:
                 self.rct.req.array_halt(array_number)
-
         except:
             LOGGER.info ("Already cleared array")
         finally:
             while retries and not success:
                 try:
+                    """
                     subprocess.check_call(['/usr/local/bin/kcpcmd', '-t', '30',
                         '-s', 'localhost:7147', 'array-assign', 'array0']
                             + multicast_ip.split(','))
-                    #self.rct.req.array_assign('array0',  *multicast_ip.split(','))
+                    """
+                    self.rct.req.array_assign('array0',
+                        *multicast_ip.split(','))
+                    self.katcp_array_port = int(
+                        self.rct.req.array_list()[1][0].arguments[1])
 
-                    self.rct.req.array_assign('array0', '239.0.1.68+1:8888','239.0.1.70+1:8888','239.0.1.68+1:8888','239.0.1.70+1:8888','239.0.1.68+1:8888','239.0.1.70+1:8888','239.0.1.68+1:8888','239.0.1.70+1:8888')
-
+                    """
                     self.katcp_port = int(subprocess.Popen("/usr/local/bin/kcpcmd \
                         -s localhost:{0} array-list array0\
                             | grep array{1} | cut -f3 -d ' '"
                                 .format(host_port,array_no)
                                     , shell=True, stdout=subprocess.PIPE).
                                         stdout.read())
-
+                    """
                     LOGGER.info ("Starting Correlator.")
                     success = 0 == subprocess.check_call(['/usr/local/bin/kcpcmd',
                         '-t','500','-s', 'localhost:{}'.format(self.katcp_port),
