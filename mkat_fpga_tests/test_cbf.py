@@ -664,6 +664,7 @@ class test_CBF(unittest.TestCase):
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
                 # Check is sensor status is a Fail
+                import IPython;IPython.embed()
                 self.assertFalse((sensor_status == 'fail'),
                     msg='Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
