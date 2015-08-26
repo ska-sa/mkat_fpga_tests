@@ -585,8 +585,6 @@ class test_CBF(unittest.TestCase):
         """
         (TP.C.1.16) Report sensor values (AR1)
         """
-
-        """ Check cmc sensor status """
         iom = ioloop_manager.IOLoopManager()
         iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
         iom.start()
@@ -610,8 +608,8 @@ class test_CBF(unittest.TestCase):
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
         self.assertEqual(numSensors, len(list_informs),
-            msg=('Number of sensors are not equal to the number of sensors\
-                on the list.'))
+            msg= 'Number of sensors are not equal to the'
+                'number of sensors on the list.')
 
         # 4. Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
@@ -648,7 +646,6 @@ class test_CBF(unittest.TestCase):
             self.assertTrue(rct.req.sensor_value.issue_request(
                 sensor).reply.reply_ok(), 'Sensor Failed: {}'.format(sensor))
 
-        """ Check clients sensor status """
         roaches = self.correlator.fhosts + self.correlator.xhosts
 
         for roach in roaches:
