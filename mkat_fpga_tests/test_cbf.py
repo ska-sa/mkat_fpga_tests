@@ -460,7 +460,7 @@ class test_CBF(unittest.TestCase):
         sampling_period = self.corr_freqs.sample_period
         test_delays = [0, sampling_period, #1.5*sampling_period,
             3*sampling_period]
-        #list comprehension
+
         def expected_phases():
             sampling_period = self.corr_freqs.sample_period
             expected_chan_phase = []
