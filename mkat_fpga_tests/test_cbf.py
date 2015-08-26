@@ -576,7 +576,7 @@ class test_CBF(unittest.TestCase):
         # Check that the correct channels have the peak response to each frequency
         self.assertEqual(max_channels, range(start_chan,
             len(max_channels) + start_chan))
-        # Check that no other channels responded > -20 dB
+        # Check that no other channels responded > -80 dB
         self.assertEqual(extra_peaks, [[]]*len(max_channels))
 
     def test_sensor_values(self):
