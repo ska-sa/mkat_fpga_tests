@@ -460,7 +460,7 @@ class test_CBF(unittest.TestCase):
         sampling_period = self.corr_freqs.sample_period
         test_delays = [0, sampling_period, #1.5*sampling_period,
             3*sampling_period]
-
+        #list comprehension
         def expected_phases():
             sampling_period = self.corr_freqs.sample_period
             expected_chan_phase = []
@@ -555,7 +555,7 @@ class test_CBF(unittest.TestCase):
 
         start_chan = 1 # skip DC channel since dsim puts out zeros
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:250], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -567,8 +567,8 @@ class test_CBF(unittest.TestCase):
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
             max_chan = np.argmax(this_freq_response)
             max_channels.append(max_chan)
-            # Find responses that are more than -20 dB relative to max
-            unwanted_cutoff = this_freq_response[max_chan] / 10e2
+            # Find responses that are more than -80 dB relative to max
+            unwanted_cutoff = this_freq_response[max_chan] / 10e-5
             extra_responses = [i for i, resp in enumerate(this_freq_response)
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
