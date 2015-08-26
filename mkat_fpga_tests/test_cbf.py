@@ -555,7 +555,7 @@ class test_CBF(unittest.TestCase):
 
         start_chan = 1 # skip DC channel since dsim puts out zeros
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:250], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
