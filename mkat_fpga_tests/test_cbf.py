@@ -608,8 +608,8 @@ class test_CBF(unittest.TestCase):
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
         self.assertEqual(numSensors, len(list_informs),
-            msg= 'Number of sensors are not equal to the'
-                'number of sensors on the list.')
+            msg= ('Number of sensors are not equal to the'
+                'number of sensors in the list.'))
 
         # 4. Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
@@ -618,8 +618,7 @@ class test_CBF(unittest.TestCase):
             msg='Sensors count are not the same')
 
         # Sensors status
-        sens_status, sens_value = (rct.sensor.
-            time_synchronised.get_reading()[2:4])
+        sens_status, sens_value = (rct.sensor.time_synchronised.get_reading()[2:4])
         self.assertTrue(sens_value, msg='Sensor was not read successfully.')
         # Sensors actual status
         self.assertEqual(rct.sensor.time_synchronised.status,
