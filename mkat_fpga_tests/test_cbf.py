@@ -643,7 +643,8 @@ class test_CBF(unittest.TestCase):
             LOGGER.info (sensor +': '+ str(rct.req.sensor_value.issue_request(
                 sensor)[0]))
             self.assertTrue(rct.req.sensor_value.issue_request(
-                sensor).reply.reply_ok(), 'Sensor Failed: {}'.format(sensor))
+                sensor).reply.reply_ok(),
+                    'Sensor Failed: {}'.format(sensor.replace('.','-')))
 
         roaches = self.correlator.fhosts + self.correlator.xhosts
 
