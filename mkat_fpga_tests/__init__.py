@@ -84,6 +84,7 @@ class CorrelatorFixture(object):
 #    def start_stop_data(self, start_or_stop, modes):
     def start_stop_data(self, modes):
         self.modes = modes
+        #import IPython;IPython.embed()
         LOGGER.info('Correlator starting to capture data.')
         #assert start_or_stop in ('start', 'stop')
 
@@ -112,16 +113,16 @@ class CorrelatorFixture(object):
     def start_x_data(self):
         # On array interf
         #self.start_stop_data('start','c856M4k')
-        katcp_rct.req.capture_start(self.modes)
+        self.katcp_rct.req.capture_start(self.modes)
 
     def stop_x_data(self):
         #self.start_stop_data('stop', 'c856M4k')
-        katcp_rct.req.capture_stop(self.modes)
+        self.katcp_rct.req.capture_stop(self.modes)
 
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
         retries_requested = retries
-        #array_no = 0
+
         self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
@@ -132,10 +133,11 @@ class CorrelatorFixture(object):
             #'array-halt', 'array0'])
 
         array_list_status, array_list_messages = self.rct.req.array_list()
-        array_number = array_list_messages[0].arguments[0]
+
         try:
-            if bool(array_list_messages) is False:
-                self.rct.req.array_halt(array_number)
+            if array_list_messages:
+                self.array_number = array_list_messages[0].arguments[0]
+                self.rct.req.array_halt(self.array_number)
         except:
             LOGGER.info ("Already cleared array")
         finally:
@@ -169,26 +171,30 @@ class CorrelatorFixture(object):
                     self.katcp_rct.start()
                     self.katcp_rct.until_synced()
 
-
+                    #import IPython;IPython.embed()
                     LOGGER.info ("Starting Correlator.")
-                    success = 0 == (self.katcp_rct.req.instrument_activate(
-                        instrument, timeout=500))
+                    reply, informs = self.katcp_rct.req.instrument_activate(
+                        instrument, timeout=500)
+                    success = reply.reply_ok()
 
                     #success = 0 == subprocess.check_call(['/usr/local/bin/kcpcmd',
                         #'-t','500','-s', 'localhost:{}'.format(self.katcp_port),
                             #'instrument-activate', 'c8n856M4k'])
 
                     retries -= 1
+
                     if success == True:
                         LOGGER.info('Correlator started succesfully')
                     else:
+                        import IPython;IPython.embed()
+
                         LOGGER.warn('Failed to start correlator, {} attempts left.\
-                            \nRestarting Correlator.'
-                                .format(retries))
+                            \nRestarting Correlator.\nReply:{}, Informs: {}'
+                                .format(retries, reply, informs))
                 except Exception:
                     #subprocess.check_call(['/usr/local/bin/kcpcmd', '-s',
                     #'localhost', 'array-halt', 'array0'])
-                    self.rct.req.array_halt(array_number)
+                    self.rct.req.array_halt(self.array_number)
                     retries -= 1
                     LOGGER.warn ('\nFailed to start correlator, {} attempts left.\n'
                                 .format(retries))
