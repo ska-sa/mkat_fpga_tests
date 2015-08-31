@@ -638,6 +638,7 @@ class test_CBF(unittest.TestCase):
             rct.req.sensor_value.issue_request('time.synchronised')[0]),
                 '!sensor-value ok 1', msg='Time Synchronisation Failed!')
 
+        # Check all sensors statuses
         for sensor in rct.sensor.keys():
             sensor = sensor.replace('_','.')
             LOGGER.info (sensor +': '+ str(rct.req.sensor_value.issue_request(
@@ -652,7 +653,8 @@ class test_CBF(unittest.TestCase):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
 
-            # Varify the number of sensors received.
+            # Varify the number of sensors received with
+            # number of sensors in the list.
             self.assertTrue((values_reply.reply_ok() == list_reply.reply_ok())
                 , msg='Sensors Failure: {}'
                 .format(roach.host))
@@ -665,7 +667,6 @@ class test_CBF(unittest.TestCase):
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
                 # Check is sensor status is a Fail
-                import IPython;IPython.embed()
                 self.assertFalse((sensor_status == 'fail'),
                     msg='Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
