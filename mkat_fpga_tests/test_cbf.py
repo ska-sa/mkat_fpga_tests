@@ -584,3 +584,8 @@ class test_CBF(unittest.TestCase):
         (TP.C.1.16) Report sensor values (AR1)
         """
         pass
+    def test_product_switch(self):
+        """
+        (TP.C.1.40) CBF Data Product Switching Time
+        """
+        pass
