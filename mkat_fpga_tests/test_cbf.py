@@ -570,7 +570,7 @@ class test_CBF(unittest.TestCase):
             max_chan = np.argmax(this_freq_response)
             max_channels.append(max_chan)
             # Find responses that are more than -80 dB relative to max
-            unwanted_cutoff = this_freq_response[max_chan] / 10e-8
+            unwanted_cutoff = this_freq_response[max_chan] / 1e-8
             extra_responses = [i for i, resp in enumerate(this_freq_response)
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
