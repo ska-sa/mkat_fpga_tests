@@ -584,8 +584,18 @@ class test_CBF(unittest.TestCase):
         (TP.C.1.16) Report sensor values (AR1)
         """
         pass
+
     def test_product_switch(self):
         """
         (TP.C.1.40) CBF Data Product Switching Time
         """
-        pass
+        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
+
+        # Select dsim signal output, zero all sources, output scalings to 0.5
+        init_dsim_sources(self.dhost)
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        # Data product ('m000_x', 'm000_y')
+        test_freq_dump = initial_dump['xeng_raw'][:,2,:]
+        import IPython;IPython.embed()
