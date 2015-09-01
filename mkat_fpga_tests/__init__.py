@@ -89,7 +89,6 @@ class CorrelatorFixture(object):
         self.katcp_rct.req.capture_start(self.output_product)
 
     def stop_x_data(self):
-        import IPython;IPython.embed()
         LOGGER.info ('Stop X data capture')
         self.katcp_rct.req.capture_stop(self.output_product)
 
