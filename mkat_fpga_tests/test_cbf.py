@@ -684,3 +684,10 @@ class test_CBF(unittest.TestCase):
         # Data product ('m000_x', 'm000_y')
         test_freq_dump = initial_dump['xeng_raw'][:,2,:]
         import IPython;IPython.embed()
+        """
+        4. Confirm that SPEAD packets are being produced, with the selected data product(s).
+        5. Unplug one of the data cables from any one of the ROACHs. Confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
+        6. Plug the data cable back in, and reinitialise the instrument. Confirm that SPEAD packets are being produced, with the selected data product(s).
+        7. Unplug the power cable from one of the ROACHs.
+        8. Plug the power cable back in, and reinitialise the instrument. Confirm that SPEAD packets are being produced, with the selected data product(s).
+        """
