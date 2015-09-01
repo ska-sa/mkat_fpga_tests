@@ -627,21 +627,20 @@ class test_CBF(unittest.TestCase):
 
         # 4. Request the time synchronisation status using KATCP command
         #"?sensor-value time.synchronised
-        self.assertTrue(rct.req.sensor_value.issue_request(
-            'time.synchronised').reply.reply_ok(),
-                msg='Time Synchronisation Failed!')
+        self.assertTrue(rct.req.sensor_value('time.synchronised').reply.reply_ok(),
+                msg='Reading time synchronisation sensor failed!')
 
         # 5. Confirm the CBF replies with " #sensor-value <time>
         # time.synchronised [status value], followed by a "!sensor-value ok 1"
         # message.
         self.assertEqual(str(
-            rct.req.sensor_value.issue_request('time.synchronised')[0]),
-                '!sensor-value ok 1', msg='Time Synchronisation Failed!')
+            rct.req.sensor_value('time.synchronised')[0]),
+                '!sensor-value ok 1', msg='Reading time synchronisation sensor Failed!')
 
         # Check all sensors statuses
         for sensor in rct.sensor.keys():
             sensor = sensor.replace('_','.')
-            LOGGER.info (sensor +': '+ str(rct.req.sensor_value.issue_request(
+            LOGGER.info (sensor +': '+ str(rct.req.sensor_value(
                 sensor)[0]))
             self.assertTrue(rct.req.sensor_value.issue_request(
                 sensor).reply.reply_ok(),
