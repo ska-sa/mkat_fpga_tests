@@ -82,17 +82,6 @@ class CorrelatorFixture(object):
             LOGGER.info('Correlator started succesfully')
             return self._correlator
 
-
-    def start_stop_data(self, modes):
-        LOGGER.info('Correlator starting to capture data.')
-        destination = self.correlator.configd['xengine']['output_destination_ip']
-        destination_port = (self.correlator.configd['xengine']
-            ['output_destination_port'])
-        self.katcp_array_port = int(
-                        self.rct.req.array_list()[1][0].arguments[1])
-        self.katcp_rct.req.capture_destination(self.modes, destination,
-            destination_port)
-
     def start_x_data(self):
         LOGGER.info ('Start X data capture')
         self.output_product = (self.correlator.configd['xengine']
@@ -100,6 +89,7 @@ class CorrelatorFixture(object):
         self.katcp_rct.req.capture_start(self.output_product)
 
     def stop_x_data(self):
+        import IPython;IPython.embed()
         LOGGER.info ('Stop X data capture')
         self.katcp_rct.req.capture_stop(self.output_product)
 
