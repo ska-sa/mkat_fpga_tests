@@ -43,7 +43,6 @@ class CorrelatorFixture(object):
         self.rct.start()
         self.rct.until_synced()
 
-
     @property
     def dhost(self):
         if self._dhost is not None:
@@ -101,8 +100,6 @@ class CorrelatorFixture(object):
             self._katcp_rct.start()
             self._katcp_rct.until_synced()
         return self._katcp_rct
-
-
 
     def start_x_data(self):
         LOGGER.info ('Start X data capture')
