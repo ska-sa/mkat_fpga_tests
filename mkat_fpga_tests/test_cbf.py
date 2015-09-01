@@ -608,8 +608,8 @@ class test_CBF(unittest.TestCase):
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
         self.assertEqual(numSensors, len(list_informs),
-            msg= ('Number of sensors are not equal to the'
-                'number of sensors in the list.'))
+            msg=('Number of sensors are not equal to the'
+                 'number of sensors in the list.'))
 
         # 4. Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
