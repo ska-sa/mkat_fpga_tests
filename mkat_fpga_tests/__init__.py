@@ -95,7 +95,7 @@ class CorrelatorFixture(object):
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
         retries_requested = retries
-        # starting d-engine before correlator.
+        # starting d-engine before correlator
         self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
