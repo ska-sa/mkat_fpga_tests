@@ -611,22 +611,14 @@ class test_CBF(unittest.TestCase):
             msg=('Number of sensors are not equal to the'
                  'number of sensors in the list.'))
 
-        # 4. Test that ?sensor-value and ?sensor-list agree about the number
+        # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
         sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
         self.assertEqual(int(sens_val_cnt), numSensors,
             msg='Sensors count are not the same')
 
-        # Sensors status
-        sens_status, sens_value = (rct.sensor.time_synchronised.get_reading()[2:4])
-        self.assertTrue(sens_value, msg='Sensor was not read successfully.')
-        # Sensors actual status
-        self.assertEqual(rct.sensor.time_synchronised.status,
-            'nominal', msg='Status Failed, current status:{}'
-                .format(rct.sensor.time_synchronised.status))
-
-        # 4. Request the time synchronisation status using KATCP command
-        #"?sensor-value time.synchronised
+        # 4.2 Request the time synchronisation status using KATCP command
+        # "?sensor-value time.synchronised
         self.assertTrue(rct.req.sensor_value('time.synchronised').reply.reply_ok(),
                 msg='Reading time synchronisation sensor failed!')
 
@@ -635,16 +627,15 @@ class test_CBF(unittest.TestCase):
         # message.
         self.assertEqual(str(
             rct.req.sensor_value('time.synchronised')[0]),
-                '!sensor-value ok 1', msg='Reading time synchronisation sensor Failed!')
+                '!sensor-value ok 1',
+                    msg='Reading time synchronisation sensor Failed!')
 
         # Check all sensors statuses
-        for sensor in rct.sensor.keys():
-            sensor = sensor.replace('_','.')
-            LOGGER.info (sensor +': '+ str(rct.req.sensor_value(
-                sensor)[0]))
-            self.assertTrue(rct.req.sensor_value.issue_request(
-                sensor).reply.reply_ok(),
-                    'Sensor Failed: {}'.format(sensor.replace('.','-')))
+        for sensor in rct.sensor.values():
+            LOGGER.info(sensor.name + ':'+ str(sensor.get_value()))
+            self.assertEqual(sensor.get_status(), 'nominal',
+                msg='Sensor status fail: {}, {} '
+                    .format(sensor.name, sensor.get_status()))
 
         roaches = self.correlator.fhosts + self.correlator.xhosts
 
