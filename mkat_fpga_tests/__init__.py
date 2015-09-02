@@ -29,6 +29,7 @@ class CorrelatorFixture(object):
 
         self._correlator = None
         self._dhost = None
+        self._katcp_rct = None
 
         self.io_manager = ioloop_manager.IOLoopManager()
         self.io_wrapper = resource_client.IOLoopThreadWrapper(
@@ -82,16 +83,23 @@ class CorrelatorFixture(object):
             LOGGER.info('Correlator started succesfully')
             return self._correlator
 
+    @property
+    def katcp_rct(self):
+        if self._katcp_rct is None:
+            self.katcp_array_port = int(
+                self.rct.req.array_list()[1][0].arguments[1])
 
-    def start_stop_data(self, modes):
-        LOGGER.info('Correlator starting to capture data.')
-        destination = self.correlator.configd['xengine']['output_destination_ip']
-        destination_port = (self.correlator.configd['xengine']
-            ['output_destination_port'])
-        self.katcp_array_port = int(
-                        self.rct.req.array_list()[1][0].arguments[1])
-        self.katcp_rct.req.capture_destination(self.modes, destination,
-            destination_port)
+            katcp_rc = resource_client.KATCPClientResource(
+                dict(name='localhost', address=(
+                    'localhost', '{}'.format(self.katcp_array_port)),
+                    controlled=True))
+            katcp_rc.set_ioloop(self.io_manager.get_ioloop())
+            self._katcp_rct = (
+            resource_client.ThreadSafeKATCPClientResourceWrapper(
+                katcp_rc, self.io_wrapper))
+            self._katcp_rct.start()
+            self._katcp_rct.until_synced()
+        return self._katcp_rct
 
     def start_x_data(self):
         LOGGER.info ('Start X data capture')
@@ -106,7 +114,8 @@ class CorrelatorFixture(object):
     def start_correlator(self, retries=30, loglevel='INFO'):
         success = False
         retries_requested = retries
-        self.dhost # starting d-engine
+        # starting d-engine before correlator
+        self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         instrument = 'c8n856M4k'
@@ -124,19 +133,6 @@ class CorrelatorFixture(object):
                 try:
                     self.rct.req.array_assign('array0',
                         *multicast_ip.split(','))
-                    self.katcp_array_port = int(
-                        self.rct.req.array_list()[1][0].arguments[1])
-
-                    self.katcp_rc = resource_client.KATCPClientResource(
-                        dict(name='localhost', address=(
-                            'localhost', '{}'.format(self.katcp_array_port)),
-                            controlled=True))
-                    self.katcp_rc.set_ioloop(self.io_manager.get_ioloop())
-                    self.katcp_rct = (
-                    resource_client.ThreadSafeKATCPClientResourceWrapper(
-                        self.katcp_rc, self.io_wrapper))
-                    self.katcp_rct.start()
-                    self.katcp_rct.until_synced()
 
                     LOGGER.info ("Starting Correlator.")
                     reply, informs = self.katcp_rct.req.instrument_activate(
@@ -154,6 +150,7 @@ class CorrelatorFixture(object):
 
                 except Exception:
                     self.rct.req.array_halt(self.array_number)
+                    self.katcp_rct.stop()
                     retries -= 1
                     LOGGER.warn ('\nFailed to start correlator,'
                         '{} attempts left.\n'.format(retries))
