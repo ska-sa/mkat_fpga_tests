@@ -59,11 +59,9 @@ def get_and_restore_initial_eqs(test_instance, correlator):
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
 
-    
+
 class test_CBF(unittest.TestCase):
     def setUp(self):
-        self.receiver = CorrRx(port=8888)
-        start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
@@ -76,6 +74,8 @@ class test_CBF(unittest.TestCase):
         # Remove once JasonM has fixed the vacc_rsync in corr2 package
         xengops.xeng_vacc_sync(self.correlator)
         self.addCleanup(self.corr_fix.stop_x_data)
+        self.receiver = CorrRx(port=8888)
+        start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
@@ -684,7 +684,13 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         test_freq = 856e6/2     # Choose a test freqency around the centre of the band
         test_input = 'm000_x'
-        eq_scaling = 2**15-1 #+ 1j*(2**15-1)
+        eq_scaling = 30
+        acc_times = [0.05, 0.1, 0.5, 1]
+
+        internal_accumulations = int(
+            self.correlator.configd['xengine']['xeng_accumulation_len'])
+        delta_acc_t = self.corr_freqs.fft_period * internal_accumulations
+        test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
         test_freq_channel = np.argmin(
             np.abs(self.corr_freqs.chan_freqs - test_freq))
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
@@ -692,69 +698,22 @@ class test_CBF(unittest.TestCase):
         get_and_restore_initial_eqs(self, self.correlator)
         fengops.feng_eq_set(self.correlator, source_name=test_input,
                             new_eq=list(eqs))
-        self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125)
-        no_q_spectra = 1000
+        self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
+                                          repeatN=self.corr_freqs.n_chans*2)
         q_denorm = 128
-        print "getting quantiser snapshots:"
-        quantiser_spectra = np.array(
-            [get_quant_snapshot(self.correlator, test_input) * q_denorm
-             for i in range(no_q_spectra)])
-        print "Got 'em"
-        accumulated_qs_powers = np.sum(np.abs(quantiser_spectra)**2, axis=0)
-        an_x = self.correlator.xhosts[0]
-        internal_accumulations = int(
-            self.correlator.configd['xengine']['xeng_accumulation_len'])
+        quantiser_spectrum = get_quant_snapshot(
+            self.correlator, test_input) * q_denorm
+        # Check that the spectrum is zero except in the test channel
+        self.assertTrue(np.all(quantiser_spectrum[0:test_freq_channel] == 0))
+        self.assertTrue(np.all(quantiser_spectrum[test_freq_channel+1:] == 0))
+        accumulated_qs_powers = np.sum(np.abs(quantiser_spectrum)**2, axis=0)
 
-        def do_it():
-            vacc_accumulations = an_x.registers.acc_len.read()['data']['reg']
+        for vacc_accumulations in test_acc_lens:
+            xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
-            expected_response = accumulated_qs_powers / no_q_spectra * no_accs
+            expected_response = np.abs(quantiser_spectrum)**2  * no_accs
             peak_expected = np.max(np.abs(expected_response))
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
-            response = complexise(self.receiver.data_queue.get(timeout=5)['xeng_raw'][:, 0, :])
-            peak_response = np.max(np.abs(response))
-            peak_diff = peak_response - peak_expected
-            norm_peak_diff = peak_diff / peak_expected
-            peak_db = 10 * np.log10(np.abs(norm_peak_diff))
-            print "dB diff: {peak_db}\tnorm_peak_diff: {norm_peak_diff}".format(**locals())
-            return locals()
-        do_it()
-        import IPython ; IPython.embed()
+            np.testing.assert_array_equal(response, expected_response)
 
-
-    def test_vacc_noise(self):
-        """Test vector accumulator"""
-        init_dsim_sources(self.dhost)
-        test_input = 'm000_x'
-        #self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125)
-        self.dhost.noise_sources.noise_0.set(scale=0.5)
-        no_q_spectra = 4000
-        q_denorm = 128
-        print "getting quantiser snapshots:"
-        quantiser_spectra = [get_quant_snapshot(self.correlator, test_input) * q_denorm
-                             for i in range(no_q_spectra)]
-        print "Got 'em"
-        accumulated_qs_powers = np.sum(np.abs(quantiser_spectra)**2, axis=0)
-        an_x = self.correlator.xhosts[0]
-        vacc_accumulations = an_x.registers.acc_len.read()['data']['reg']
-        internal_accumulations = int(
-            self.correlator.configd['xengine']['xeng_accumulation_len'])
-        no_accs = internal_accumulations * vacc_accumulations
-        expected_response = accumulated_qs_powers / no_q_spectra * no_accs
-        peak_expected = np.max(np.abs(expected_response))
-
-        def do_it():
-            response = complexise(
-                self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
-
-            norm_diff = (np.abs(response) - np.abs(expected_response)) / np.abs(expected_response)
-            max_diff = np.max(np.abs(norm_diff))
-            max_diff_db = 10*np.log10(max_diff)
-            print 'max_diff: {max_diff}, max_diff_db: {max_diff_db}'.format(
-                **locals())
-            return locals()
-        for i in range(3):
-            do_it()
-
-        import IPython ; IPython.embed()

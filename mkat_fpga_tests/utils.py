@@ -57,6 +57,10 @@ def init_dsim_sources(dhost):
     """Select dsim signal output, zero all sources, output scalings to 0.5"""
     for sin_source in dhost.sine_sources:
         sin_source.set(frequency=0, scale=0)
+        try:
+            sin_source.set(repeatN=0)
+        except NotImplementedError:
+            pass
     for noise_source in dhost.noise_sources:
         noise_source.set(scale=0)
     for output in dhost.outputs:
@@ -87,6 +91,8 @@ class CorrelatorFrequencyInfo(object):
         "Channel centre frequencies"
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
         self.sample_period = 1 / self.sample_freq
+        self.fft_period = self.sample_period*2*self.n_chans
+        """Time length of a single FFT"""
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
