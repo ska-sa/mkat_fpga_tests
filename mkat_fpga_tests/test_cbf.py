@@ -62,7 +62,7 @@ class test_CBF(unittest.TestCase):
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         # Remove once JasonM has fixed the vacc_rsync in corr2 package
-        xengops.xeng_vacc_sync(self.correlator)
+       # xengops.xeng_vacc_sync(self.correlator)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
