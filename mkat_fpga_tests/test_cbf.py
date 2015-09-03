@@ -322,7 +322,7 @@ class test_CBF(unittest.TestCase):
         # Save initial f-engine equalisations, and ensure they are restored at the end of
         # the test
         initial_equalisations = get_and_restore_initial_eqs(self, self.correlator)
-        
+
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
@@ -699,7 +699,12 @@ class test_CBF(unittest.TestCase):
         fengops.feng_eq_set(self.correlator, source_name=test_input,
                             new_eq=list(eqs))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
+        # Make dsim output periodic in FFT-length so that each FFT is identical
                                           repeatN=self.corr_freqs.n_chans*2)
+        # The re-quantiser outputs signed int (8bit), but the snapshot code
+        # normalises it to floats between -1:1. Since we want to calculate the
+        # output of the vacc which sums integers, denormalise the snapshot
+        # output back to ints.
         q_denorm = 128
         quantiser_spectrum = get_quant_snapshot(
             self.correlator, test_input) * q_denorm
@@ -714,4 +719,3 @@ class test_CBF(unittest.TestCase):
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
             np.testing.assert_array_equal(response, expected_response)
-
