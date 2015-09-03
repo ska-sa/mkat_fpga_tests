@@ -29,7 +29,8 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
-from mkat_fpga_tests.utils import set_coarse_delay
+from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
+from mkat_fpga_tests.utils import get_source_object_and_index
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,10 +49,19 @@ def get_vacc_offset(xeng_raw):
     else:
         raise ValueError('Could not determine VACC offset')
 
+
+def get_and_restore_initial_eqs(test_instance, correlator):
+    initial_equalisations = {input: eq_info['eq'] for input, eq_info
+                             in fengops.feng_eq_get(correlator).items()}
+    def restore_initial_equalisations():
+        for input, eq in initial_equalisations.items():
+            fengops.feng_eq_set(correlator, source_name=input, new_eq=eq)
+    test_instance.addCleanup(restore_initial_equalisations)
+    return initial_equalisations
+
+
 class test_CBF(unittest.TestCase):
     def setUp(self):
-        self.receiver = CorrRx(port=8888)
-        start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
@@ -64,6 +74,8 @@ class test_CBF(unittest.TestCase):
         # Remove once JasonM has fixed the vacc_rsync in corr2 package
        # xengops.xeng_vacc_sync(self.correlator)
         self.addCleanup(self.corr_fix.stop_x_data)
+        self.receiver = CorrRx(port=8888)
+        start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
@@ -281,8 +293,8 @@ class test_CBF(unittest.TestCase):
         bls_ordering = test_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
-        present_baselines = sorted(baseline_lookup.keys())
-
+        present_baselines = sorted(baseline_lookup.keys()
+)
         # Make a list of all possible baselines (including redundant baselines) for the
         # given list of inputs
         possible_baselines = set()
@@ -307,13 +319,9 @@ class test_CBF(unittest.TestCase):
         self.assertEqual(nonzero_baselines(test_data),
                          all_nonzero_baselines(test_data))
 
-        # Save initial f-engine equalisations
-        initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                                in fengops.feng_eq_get(self.correlator).items()}
-        def restore_initial_equalisations():
-            for input, eq in initial_equalisations.items():
-                fengops.feng_eq_set(self.correlator, source_name=input, new_eq=eq)
-        self.addCleanup(restore_initial_equalisations)
+        # Save initial f-engine equalisations, and ensure they are restored at the end of
+        # the test
+        initial_equalisations = get_and_restore_initial_eqs(self, self.correlator)
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
@@ -555,9 +563,9 @@ class test_CBF(unittest.TestCase):
         # Channel responses higher than -20 dB relative to expected channel
         extra_peaks = []
 
-        start_chan = 1 # skip DC channel since dsim puts out zeros
+        start_chan = 2048 # skip DC channel since dsim puts out zeros
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:start_chan+2], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -574,6 +582,7 @@ class test_CBF(unittest.TestCase):
             extra_responses = [i for i, resp in enumerate(this_freq_response)
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
+            import IPython ; IPython.embed()
 
         # Check that the correct channels have the peak response to each frequency
         self.assertEqual(max_channels, range(start_chan,
@@ -660,3 +669,44 @@ class test_CBF(unittest.TestCase):
                 self.assertFalse((sensor_status == 'fail'),
                     msg='Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
+
+    def test_vacc(self):
+        """Test vector accumulator"""
+        init_dsim_sources(self.dhost)
+        test_freq = 856e6/2     # Choose a test freqency around the centre of the band
+        test_input = 'm000_x'
+        eq_scaling = 30
+        acc_times = [0.05, 0.1, 0.5, 1]
+
+        internal_accumulations = int(
+            self.correlator.configd['xengine']['xeng_accumulation_len'])
+        delta_acc_t = self.corr_freqs.fft_period * internal_accumulations
+        test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
+        test_freq_channel = np.argmin(
+            np.abs(self.corr_freqs.chan_freqs - test_freq))
+        eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
+        eqs[test_freq_channel] = eq_scaling
+        get_and_restore_initial_eqs(self, self.correlator)
+        fengops.feng_eq_set(self.correlator, source_name=test_input,
+                            new_eq=list(eqs))
+        self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
+        # Make dsim output periodic in FFT-length so that each FFT is identical
+                                          repeatN=self.corr_freqs.n_chans*2)
+        # The re-quantiser outputs signed int (8bit), but the snapshot code
+        # normalises it to floats between -1:1. Since we want to calculate the
+        # output of the vacc which sums integers, denormalise the snapshot
+        # output back to ints.
+        q_denorm = 128
+        quantiser_spectrum = get_quant_snapshot(
+            self.correlator, test_input) * q_denorm
+        # Check that the spectrum is zero except in the test channel
+        self.assertTrue(np.all(quantiser_spectrum[0:test_freq_channel] == 0))
+        self.assertTrue(np.all(quantiser_spectrum[test_freq_channel+1:] == 0))
+
+        for vacc_accumulations in test_acc_lens:
+            xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
+            no_accs = internal_accumulations * vacc_accumulations
+            expected_response = np.abs(quantiser_spectrum)**2  * no_accs
+            response = complexise(
+                self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
+            np.testing.assert_array_equal(response, expected_response)
