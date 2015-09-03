@@ -71,8 +71,6 @@ class test_CBF(unittest.TestCase):
         self.dhost.get_system_information()
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
-        # Remove once JasonM has fixed the vacc_rsync in corr2 package
-       # xengops.xeng_vacc_sync(self.correlator)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.receiver = CorrRx(port=8888)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
