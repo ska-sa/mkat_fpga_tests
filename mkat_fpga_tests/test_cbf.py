@@ -706,13 +706,11 @@ class test_CBF(unittest.TestCase):
         # Check that the spectrum is zero except in the test channel
         self.assertTrue(np.all(quantiser_spectrum[0:test_freq_channel] == 0))
         self.assertTrue(np.all(quantiser_spectrum[test_freq_channel+1:] == 0))
-        accumulated_qs_powers = np.sum(np.abs(quantiser_spectrum)**2, axis=0)
 
         for vacc_accumulations in test_acc_lens:
             xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum)**2  * no_accs
-            peak_expected = np.max(np.abs(expected_response))
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
             np.testing.assert_array_equal(response, expected_response)
