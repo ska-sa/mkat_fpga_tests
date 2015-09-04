@@ -69,6 +69,8 @@ class test_CBF(unittest.TestCase):
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
+        # Increase the dump rate so tests can run faster
+        xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.receiver = CorrRx(port=8888)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
