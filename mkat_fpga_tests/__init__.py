@@ -19,10 +19,27 @@ from katcp import ioloop_manager
 
 LOGGER = logging.getLogger(__name__)
 
+cleanups = []
+"""Callables that will be called in reverse order at package teardown
+
+Stored as a tuples of (callable, args, kwargs)
+"""
+
+def add_cleanup(fn, *args, **kwargs):
+    cleanups.append((fn, args, kwargs))
+
+def teardown_package():
+    while cleanups:
+        fn, args, kwargs = cleanups.pop()
+        try:
+            fn(*args, **kwargs)
+        except Exception:
+            LOGGER.exception('Exception calling cleanup fn')
+
+
 class CorrelatorFixture(object):
 
     def __init__(self, test_config_filename=None):
-
         if test_config_filename is None:
             test_config_filename = os.environ.get(
                 'CORR2TESTINI',
@@ -38,6 +55,7 @@ class CorrelatorFixture(object):
         self.io_manager = ioloop_manager.IOLoopManager()
         self.io_wrapper = resource_client.IOLoopThreadWrapper(
             self.io_manager.get_ioloop())
+        add_cleanup(self.io_manager.stop)
         self.io_manager.start()
         self.rc = resource_client.KATCPClientResource(dict(name='localhost',
             address=('localhost', '7147'), controlled=True))
@@ -45,6 +63,7 @@ class CorrelatorFixture(object):
         self.rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(self.rc,
             self.io_wrapper))
         self.rct.start()
+        add_cleanup(self.rct.stop)
         self.rct.until_synced()
 
     @property
