@@ -578,7 +578,6 @@ class test_CBF(unittest.TestCase):
             extra_responses = [i for i, resp in enumerate(this_freq_response)
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
-            import IPython ; IPython.embed()
 
         # Check that the correct channels have the peak response to each frequency
         self.assertEqual(max_channels, range(start_chan,
