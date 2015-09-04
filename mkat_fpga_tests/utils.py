@@ -279,11 +279,11 @@ def set_coarse_delay(instrument, input_name, value=0):
     """
     source, source_index = get_source_object_and_index(instrument, input_name)
     if source_index == 0:
-        s.host.registers.coarse_delay0.write(coarse_delay=value)
-        s.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+        source.host.registers.coarse_delay0.write(coarse_delay=value)
+        source.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
     else:
-        s.host.registers.coarse_delay1.write(coarse_delay=value)
-        s.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
+        source.host.registers.coarse_delay1.write(coarse_delay=value)
+        source.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
 
 def rearrange_snapblock(snap_data, reverse=False):
     segs = []
