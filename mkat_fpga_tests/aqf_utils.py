@@ -47,7 +47,7 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
 
     """
     try:
-        np.testing.assert_almost_equal(actual, expected, **kwargs)
+        np.testing.assert_almost_equal(result, expected, **kwargs)
     except AssertionError, e:
         Aqf.failed('{} - {}'.format(str(e), description))
     else:

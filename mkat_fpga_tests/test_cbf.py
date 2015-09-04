@@ -82,9 +82,6 @@ class test_CBF(unittest.TestCase):
         # Threshold: -70dB
         self.threshold = 1e-7
 
-    # TODO 2015-05-27 (NM) Do test using get_vacc_offset(test_dump['xeng_raw']) to see if
-    # the VACC is rotated. Run this test first so that we know immediately that other
-    # tests will be b0rked.
     @aqf_vr('TP.C.1.19')
     def test_channelisation(self):
         """CBF Channelisation Wideband Coarse L-band"""
@@ -287,8 +284,7 @@ class test_CBF(unittest.TestCase):
         bls_ordering = test_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
-        present_baselines = sorted(baseline_lookup.keys()
-)
+        present_baselines = sorted(baseline_lookup.keys())
         # Make a list of all possible baselines (including redundant baselines) for the
         # given list of inputs
         possible_baselines = set()
@@ -311,7 +307,7 @@ class test_CBF(unittest.TestCase):
         # Expect all baselines and all channels to be non-zero
         Aqf.is_false(zero_baselines(test_data),
                      'Check that no baselines have all-zero visibilities')
-        Aqf.equal(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
+        Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
                   "Check that all baseline visibilities are non-zero accross all channels")
 
         # Save initial f-engine equalisations, and ensure they are restored at the end of
@@ -322,7 +318,8 @@ class test_CBF(unittest.TestCase):
         for input in input_labels:
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
-        Aqf.false(nonzero_baselines(test_data), "Check that all basline visibilities are zero")
+        Aqf.is_false(nonzero_baselines(test_data),
+                     "Check that all basline visibilities are zero")
         #-----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
@@ -356,11 +353,11 @@ class test_CBF(unittest.TestCase):
             actual_z_bls = set(tuple(bls_ordering[i])
                 for i in actual_z_bls_indices)
 
-            Aqf.equal(
+            Aqf.equals(
                 actual_nz_bls, expected_nz_bls,
                 "Check that expected baseline visibilities are nonzero with non-zero inputs {}."
                 .format(sorted(nonzero_inputs)))
-            Aqf.equal(
+            Aqf.equals(
                 actual_z_bls, expected_z_bls,
                 "Also check that expected baselines visibilities are zero.")
 
@@ -399,7 +396,7 @@ class test_CBF(unittest.TestCase):
             Aqf.less(dumps_comp, self.threshold,
                      'Check that back-to-back dumps with the same frequency '
                      'input differ by no more than {} threshold[dB].'
-                     .format(self.threshold))
+                     .format(10*np.log10(self.threshold)))
 
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
@@ -524,12 +521,15 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
-        plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), )
+        plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), expected_phases(),
+                      'delay_phase_response.svg')
 
-        aqf_numpy_almost_equal(actual_phases()[1], expected_phases(),
+        # TODO NM 2015-09-04: We are only checking one of the results here? This structure
+        # needs a bit of unpacking :)
+        aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
                                "Check that phases are as expected to within 3 "
                                "decimal places", decimal=3)
-        Aqf.equals(np.min(actual_phases()[0]), np.max(actual_phases()[0]),
+        Aqf.equals(np.min(actual_phases()[0][0]), np.max(actual_phases()[0][0]),
                    "Check if the phase-slope with delay = 0 is zero.")
 
     @aqf_vr('TP.C.1.19')
@@ -555,6 +555,7 @@ class test_CBF(unittest.TestCase):
         extra_peaks = []
 
         start_chan = 2048 # skip DC channel since dsim puts out zeros
+        # TODO NM 2015-09-04 Need to check this for all channels?
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan:start_chan+2], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
@@ -662,6 +663,8 @@ class test_CBF(unittest.TestCase):
                     msg='Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
 
+
+    # TODO NM 2015-09-04: Needs to be AQFized
     def test_vacc(self):
         """Test vector accumulator"""
         init_dsim_sources(self.dhost)
