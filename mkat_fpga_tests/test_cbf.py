@@ -81,7 +81,9 @@ class test_CBF(unittest.TestCase):
     # the VACC is rotated. Run this test first so that we know immediately that other
     # tests will be b0rked.
     def test_channelisation(self):
-        """(TP.C.1.19) CBF Channelisation Wideband Coarse L-band"""
+        """
+            (TP.C.1.19) CBF Channelisation Wideband Coarse L-band
+        """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_data_h5 = TestDataH5(test_name + '.h5')
         self.addCleanup(test_data_h5.close)
@@ -276,7 +278,9 @@ class test_CBF(unittest.TestCase):
 
 
     def test_product_baselines(self):
-        """(TP.C.1.30) CBF Baseline Correlation Products - AR1"""
+        """
+            (TP.C.1.30) CBF Baseline Correlation Products - AR1
+        """
 
         init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
@@ -361,7 +365,9 @@ class test_CBF(unittest.TestCase):
             self.assertEqual(actual_z_bls, expected_z_bls)
 
     def test_back2back_consistency(self):
-        """1. Check that back-to-back dumps with same input are equal"""
+        """
+            1. Check that back-to-back dumps with same input are equal
+        """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         init_dsim_sources(self.dhost)
         test_chan = 1500
@@ -397,7 +403,9 @@ class test_CBF(unittest.TestCase):
                     .format(dumps_comp, self.threshold))
 
     def test_freq_scan_consistency(self):
-        """2. Check that identical frequency scans produce equal results"""
+        """
+            2. Check that identical frequency scans produce equal results
+        """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         init_dsim_sources(self.dhost)
         test_chan = 1500
@@ -440,14 +448,16 @@ class test_CBF(unittest.TestCase):
 
     @unittest.skip('Correlator startup is currently unreliable')
     def test_restart_consistency(self):
-        """3. Check that results are consequent on correlator restart"""
+        """
+            3. Check that results are consequent on correlator restart
+        """
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
         pass
 
     def test_delay_tracking(self):
         """
-        (TP.C.1.27) CBF Delay Compensation/LO Fringe stopping polynomial
+            (TP.C.1.27) CBF Delay Compensation/LO Fringe stopping polynomial
         """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
@@ -546,7 +556,10 @@ class test_CBF(unittest.TestCase):
         self.assertTrue(np.min(actual_phases()[0]) == np.max(actual_phases()[0]))
 
     def test_channel_peaks(self):
-        """4. Test that the correct channels have the peak response to each frequency"""
+        """
+            4. Test that the correct channels have the peak response to each
+            frequency
+        """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
         init_dsim_sources(self.dhost)
@@ -588,7 +601,7 @@ class test_CBF(unittest.TestCase):
 
     def test_sensor_values(self):
         """
-        (TP.C.1.16) Report sensor values (AR1)
+            (TP.C.1.16) Report sensor values (AR1)
         """
         iom = ioloop_manager.IOLoopManager()
         iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
@@ -667,7 +680,9 @@ class test_CBF(unittest.TestCase):
                         .format(roach.host, sensor_name, sensor_status))
 
     def test_vacc(self):
-        """Test vector accumulator"""
+    """
+        (TP.C.1.31) Accumulation length
+    """
         init_dsim_sources(self.dhost)
         test_freq = 856e6/2     # Choose a test freqency around the centre of the band
         test_input = 'm000_x'
