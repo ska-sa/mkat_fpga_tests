@@ -88,9 +88,10 @@ class CorrelatorFixture(object):
     @property
     def correlator(self):
         if self._correlator is not None:
-            LOGGER.info('Correlator started succesfully')
+            LOGGER.info('Using cached correlator instance')
             return self._correlator
         else: # include a check, if correlator is runninge else start it.
+            LOGGER.info('Making new correlator instance')
             if int(test_config.get('start_correlator', False)):
                 self.start_correlator()
 
@@ -103,7 +104,6 @@ class CorrelatorFixture(object):
             self._correlator = fxcorrelator.FxCorrelator(
                 'test correlator', config_source=self.config_filename)
             self.correlator.initialise(program=False)
-            LOGGER.info('Correlator started succesfully')
             return self._correlator
 
     @property
