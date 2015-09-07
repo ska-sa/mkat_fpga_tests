@@ -575,8 +575,8 @@ class test_CBF(unittest.TestCase):
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
             max_chan = np.argmax(this_freq_response)
             max_channels.append(max_chan)
-            # Find responses that are more than -20 dB relative to max
-            unwanted_cutoff = this_freq_response[max_chan] / 10e2
+            # Find responses that are more than -80 dB relative to max
+            unwanted_cutoff = this_freq_response[max_chan] / 1e-8
             extra_responses = [i for i, resp in enumerate(this_freq_response)
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
@@ -584,7 +584,7 @@ class test_CBF(unittest.TestCase):
         # Check that the correct channels have the peak response to each frequency
         self.assertEqual(max_channels, range(start_chan,
             len(max_channels) + start_chan))
-        # Check that no other channels responded > -20 dB
+        # Check that no other channels responded > -80 dB
         self.assertEqual(extra_peaks, [[]]*len(max_channels))
 
     def test_sensor_values(self):
