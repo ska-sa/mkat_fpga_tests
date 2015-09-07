@@ -11,7 +11,6 @@ def meth_end_aqf(meth):
         try:
             meth(*args, **kwargs)
         finally:
-            print 'endy'
             Aqf.end()
 
     return decorated
