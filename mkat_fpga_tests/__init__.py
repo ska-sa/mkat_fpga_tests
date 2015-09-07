@@ -184,29 +184,4 @@ class CorrelatorFixture(object):
     def issue_metadata(self):
         self.katcp_rct.req.capture_meta(self.output_product)
 
-def meth_end_aqf(meth):
-    """Decorates a test method to ensure that Aqf.end() is called after the test"""
-    @functools.wraps(meth)
-    def decorated(*args, **kwargs):
-        try:
-            meth(*args, **kwargs)
-        finally:
-            print 'endy'
-            Aqf.end()
-
-    return decorated
-
-def cls_end_aqf(cls):
-    """Decorates a test class to ensure that Aqf.end() is called after each test
-
-    Assumes test methods start with test_ are is named runTest
-    """
-    for attr_name in dir(cls):
-        if attr_name.startswith('test_') or attr_name == 'runTest':
-            meth = getattr(cls, attr_name)
-            if callable(meth):
-               setattr(cls, attr_name,  meth_end_aqf(meth))
-    return cls
-
 correlator_fixture = CorrelatorFixture()
-
