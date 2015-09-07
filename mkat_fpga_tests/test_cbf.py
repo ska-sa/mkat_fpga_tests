@@ -44,8 +44,8 @@ def get_vacc_offset(xeng_raw):
     b0 = np.abs(complexise(xeng_raw[:,0]))
     b1 = np.abs(complexise(xeng_raw[:,1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
-        # We expect autocorr in baseline 0 to be nonzero if the vacc is properly aligned,
-        # hence no offset
+        # We expect autocorr in baseline 0 to be nonzero if the vacc is
+        # properly aligned, hence no offset
         return 0
     elif np.max(b1) > 0 and np.max(b0) == 0:
         return 1
@@ -93,7 +93,6 @@ class test_CBF(unittest.TestCase):
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=101, chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
-
         def get_fftoverflow_qdrstatus():
             fhosts = {}
             xhosts = {}
@@ -118,8 +117,8 @@ class test_CBF(unittest.TestCase):
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
-        # The signal source is going to quantise the requested freqency, so see what we
-        # actually got
+        # The signal source is going to quantise the requested freqency, so see
+        # what we actually got
         source_fc = self.dhost.sine_sources.sin_0.frequency
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
@@ -146,7 +145,8 @@ class test_CBF(unittest.TestCase):
             curr_pfb_counts = get_pfb_counts(
                 fftoverflow_qdrstatus['fhosts'].items())
             # Test FFT Overflow status
-            Aqf.equals(last_pfb_counts, curr_pfb_counts, "Pfb FFT is not overflowing")
+            Aqf.equals(last_pfb_counts, curr_pfb_counts,
+                "Pfb FFT is not overflowing")
             # Test QDR error flags
             for hosts_status in fftoverflow_qdrstatus.values():
                 for host, hosts_status in hosts_status.items():
@@ -181,10 +181,11 @@ class test_CBF(unittest.TestCase):
             except Exception:
                 print ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
                     i+1, len(requested_test_freqs), freq/1e6))
-                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz.".format(
-                    i+1, len(requested_test_freqs), freq/1e6))
+                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz."
+                    .format(i+1, len(requested_test_freqs), freq/1e6))
                 if i == 0:
-                    # The first snapshot must work properly to give us the data structure
+                    # The first snapshot must work properly to give us the data
+                    # structure
                     raise
                 else:
                     snapshots['all_ok'] = False
@@ -246,7 +247,8 @@ class test_CBF(unittest.TestCase):
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
         graph_name_central = test_name + '.channel_response_central.svg'
-        plot_data_central  = loggerise(central_chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_central  = loggerise(central_chan_responses[:, test_chan],
+            dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
                       caption='Channel 1500 central response vs source frequency')
 
@@ -254,14 +256,17 @@ class test_CBF(unittest.TestCase):
         for i, freq in enumerate(central_chan_test_freqs):
             max_chan = np.argmax(np.abs(central_chan_responses[i]))
             # TODO Aqf conversion
-            self.assertEqual(max_chan, test_chan, 'Source freq {} peak in correct channel.'
-                             .format(freq, test_chan, max_chan))
+            self.assertEqual(max_chan, test_chan,
+                'Source freq {} peak in correct channel.'
+                    .format(freq, test_chan, max_chan))
         Aqf.less(
             np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
             'Check that VACC output is at < 99% of maximum value, otherwise '
             'something, somewhere, is probably overranging.')
-        max_central_chan_response = np.max(10*np.log10(central_chan_responses[:, test_chan]))
-        min_central_chan_response = np.min(10*np.log10(central_chan_responses[:, test_chan]))
+        max_central_chan_response = np.max(10*np.log10(
+            central_chan_responses[:, test_chan]))
+        min_central_chan_response = np.min(10*np.log10(
+            central_chan_responses[:, test_chan]))
         chan_ripple = max_central_chan_response - min_central_chan_response
         acceptable_ripple_lt = 0.3
 
@@ -285,16 +290,16 @@ class test_CBF(unittest.TestCase):
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
         present_baselines = sorted(baseline_lookup.keys())
-        # Make a list of all possible baselines (including redundant baselines) for the
-        # given list of inputs
+        # Make a list of all possible baselines (including redundant baselines)
+        # for the given list of inputs
         possible_baselines = set()
         for li in input_labels:
             for lj in input_labels:
                 possible_baselines.add((li, lj))
 
         test_bl = sorted(list(possible_baselines))
-        # Test that each baseline (or its reverse-order counterpart) is present in the
-        # correlator output
+        # Test that each baseline (or its reverse-order counterpart) is present
+        # in the correlator output
         baseline_is_present = {}
 
         for test_bl in possible_baselines:
@@ -308,10 +313,11 @@ class test_CBF(unittest.TestCase):
         Aqf.is_false(zero_baselines(test_data),
                      'Check that no baselines have all-zero visibilities')
         Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
-                  "Check that all baseline visibilities are non-zero accross all channels")
+                  "Check that all baseline visibilities are non-zero accross "
+                    "all channels")
 
-        # Save initial f-engine equalisations, and ensure they are restored at the end of
-        # the test
+        # Save initial f-engine equalisations, and ensure they are restored
+        # at the end of the test
         initial_equalisations = get_and_restore_initial_eqs(self, self.correlator)
 
         # Set all inputs to zero, and check that output product is all-zero
@@ -319,7 +325,7 @@ class test_CBF(unittest.TestCase):
             fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
-                     "Check that all basline visibilities are zero")
+                     "Check that all baseline visibilities are zero")
         #-----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
@@ -355,7 +361,8 @@ class test_CBF(unittest.TestCase):
 
             Aqf.equals(
                 actual_nz_bls, expected_nz_bls,
-                "Check that expected baseline visibilities are nonzero with non-zero inputs {}."
+                "Check that expected baseline visibilities are nonzero with "
+                    "non-zero inputs {}."
                 .format(sorted(nonzero_inputs)))
             Aqf.equals(
                 actual_z_bls, expected_z_bls,
