@@ -91,7 +91,6 @@ class CorrelatorFixture(object):
             LOGGER.info('Using cached correlator instance')
             return self._correlator
         else: # include a check, if correlator is runninge else start it.
-            LOGGER.info('Making new correlator instance')
             if int(test_config.get('start_correlator', False)):
                 self.start_correlator()
 
@@ -101,6 +100,7 @@ class CorrelatorFixture(object):
 
             # TODO: hard-coded config location
             self.config_filename = '/etc/corr/array0-c8n856M4k'
+            LOGGER.info('Making new correlator instance')
             self._correlator = fxcorrelator.FxCorrelator(
                 'test correlator', config_source=self.config_filename)
             self.correlator.initialise(program=False)
