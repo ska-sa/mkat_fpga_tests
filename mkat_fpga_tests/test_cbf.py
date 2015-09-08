@@ -114,7 +114,6 @@ class test_CBF(unittest.TestCase):
             return dicts
 
         init_dsim_sources(self.dhost)
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
         # The signal source is going to quantise the requested freqency, so see
