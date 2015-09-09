@@ -423,9 +423,6 @@ class test_CBF(unittest.TestCase):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
-                # print ('{} of {}: Testing frequency scan consistancy {}/{}
-                # @ {} MHz.'.format(scan_i+1, len(range(3)), i+1,
-                # len(requested_test_freqs), freq/1e6))
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -533,8 +530,8 @@ class test_CBF(unittest.TestCase):
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), expected_phases(),
                       'delay_phase_response.svg')
 
-        # TODO NM 2015-09-04: We are only checking one of the results here? This structure
-        # needs a bit of unpacking :)
+        # TODO NM 2015-09-04: We are only checking one of the results here?
+        # This structure needs a bit of unpacking :)
         aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
                                "Check that phases are as expected to within 3 "
                                "decimal places", decimal=3)
@@ -564,7 +561,7 @@ class test_CBF(unittest.TestCase):
         extra_peaks = []
 
         # Checking for all channels.
-        start_chan = 1
+        start_chan = 1  # skip DC channel since dsim puts out zeros
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
@@ -610,12 +607,11 @@ class test_CBF(unittest.TestCase):
         rct.until_synced()
 
         # 1. Request a list of available sensors using KATCP command
-        # 2. Confirm the CBF replies with a number of sensor-list
-        # inform messages
+        # 2. Confirm the CBF replies with a number of sensor-list inform messages
         LOGGER.info (rct.req.sensor_list())
 
         # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-        #   where numSensors is the number of sensor-list informs sent.
+        #    where numSensors is the number of sensor-list informs sent.
         list_reply, list_informs = rct.req.sensor_list()
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
