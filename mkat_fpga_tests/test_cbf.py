@@ -164,7 +164,8 @@ class test_CBF(unittest.TestCase):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
+             repeatN=self.corr_freqs.n_chans*2)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
