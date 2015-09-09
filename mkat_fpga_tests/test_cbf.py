@@ -651,11 +651,11 @@ class test_CBF(unittest.TestCase):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
 
-            # Varify the number of sensors received with
+            # Verify the number of sensors received with
             # number of sensors in the list.
             Aqf.is_true((values_reply.reply_ok() == list_reply.reply_ok())
-                , '{}: Varify the number of sensors received with number of '
-                    'sensors in the list.'.format(roach.host))
+                , '{}: Verify that ?sensor-list and ?sensor-value agree'
+                ' about the number of sensors.'.format(roach.host))
 
             # Check the number of sensors in the list is equal to the list
             # of values received.
