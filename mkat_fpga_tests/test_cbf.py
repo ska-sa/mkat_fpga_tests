@@ -615,15 +615,15 @@ class test_CBF(unittest.TestCase):
         list_reply, list_informs = rct.req.sensor_list()
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
-        self.assertEqual(numSensors, len(list_informs),
-            msg=('Number of sensors are not equal to the'
-                 'number of sensors in the list.'))
+        Aqf.equals(numSensors, len(list_informs),
+            'Check that the number of sensors are equal to the'
+                 'number of sensors in the list.')
 
         # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
         sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
-        self.assertEqual(int(sens_val_cnt), numSensors,
-            msg='Sensors count are not the same')
+        Aqf.equals(int(sens_val_cnt), numSensors,
+            'Check that the sensor-value and sensor-list counts are the same')
 
         # 4.2 Request the time synchronisation status using KATCP command
         # "?sensor-value time.synchronised
@@ -633,10 +633,9 @@ class test_CBF(unittest.TestCase):
         # 5. Confirm the CBF replies with " #sensor-value <time>
         # time.synchronised [status value], followed by a "!sensor-value ok 1"
         # message.
-        self.assertEqual(str(
-            rct.req.sensor_value('time.synchronised')[0]),
-                '!sensor-value ok 1',
-                    msg='Reading time synchronisation sensor Failed!')
+        Aqf.equals(str(rct.req.sensor_value('time.synchronised')[0]),
+            '!sensor-value ok 1', 'Check that the time synchronised sensor values'
+                ' replies with !sensor-value ok 1')
 
         # Check all sensors statuses
         for sensor in rct.sensor.values():
@@ -651,22 +650,23 @@ class test_CBF(unittest.TestCase):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
 
-            # Varify the number of sensors received with
+            # Verify the number of sensors received with
             # number of sensors in the list.
-            self.assertTrue((values_reply.reply_ok() == list_reply.reply_ok())
-                , msg='Sensors Failure: {}'
-                .format(roach.host))
+            Aqf.is_true((values_reply.reply_ok() == list_reply.reply_ok())
+                , '{}: Verify that ?sensor-list and ?sensor-value agree'
+                ' about the number of sensors.'.format(roach.host))
 
             # Check the number of sensors in the list is equal to the list
             # of values received.
-            self.assertEqual(len(sensors_list), int(values_reply.arguments[1])
-                , msg='Missing sensors: {}'.format(roach.host))
+            Aqf.equals(len(sensors_list), int(values_reply.arguments[1])
+                , 'Check the number of sensors in the list is equal to the '
+                    'list of values received for {}'.format(roach.host))
 
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
                 # Check is sensor status is a Fail
-                self.assertFalse((sensor_status == 'fail'),
-                    msg='Roach {}, Sensor name: {}, status: {}'
+                Aqf.is_false((sensor_status == 'fail'),
+                    'Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
 
 
