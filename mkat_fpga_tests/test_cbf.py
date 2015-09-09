@@ -423,8 +423,6 @@ class test_CBF(unittest.TestCase):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
-                #print ('{} of {}: Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
-                #scan_i+1, len(range(3)), i+1, len(requested_test_freqs), freq/1e6))
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -443,9 +441,10 @@ class test_CBF(unittest.TestCase):
                 s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
 
-                # TODO Convert to a less-verbose comparison for Aqf. E.g. test all the
-                # frequencies and only save the error cases, then have a final Aqf-check
-                # so that there is only one step (not n_chan) in the report.
+                # TODO Convert to a less-verbose comparison for Aqf.
+                # E.g. test all the frequencies and only save the error cases,
+                # then have a final Aqf-check so that there is only one step
+                # (not n_chan) in the report.
                 self.assertLess(np.max(np.abs(s1 - s0))/norm_fac, self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].'
                         .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
@@ -531,8 +530,8 @@ class test_CBF(unittest.TestCase):
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), expected_phases(),
                       'delay_phase_response.svg')
 
-        # TODO NM 2015-09-04: We are only checking one of the results here? This structure
-        # needs a bit of unpacking :)
+        # TODO NM 2015-09-04: We are only checking one of the results here?
+        # This structure needs a bit of unpacking :)
         aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
                                "Check that phases are as expected to within 3 "
                                "decimal places", decimal=3)
@@ -543,8 +542,8 @@ class test_CBF(unittest.TestCase):
     def test_sfdr_peaks(self):
         """Test spurious free dynamic range
 
-        Check that the correct channels have the peak response to each frequency and that
-        no other channels have significant relative power.
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
 
         """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -561,10 +560,10 @@ class test_CBF(unittest.TestCase):
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
 
-        start_chan = 2048 # skip DC channel since dsim puts out zeros
-        # TODO NM 2015-09-04 Need to check this for all channels?
+        # Checking for all channels.
+        start_chan = 1  # skip DC channel since dsim puts out zeros
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:start_chan+2], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -607,12 +606,12 @@ class test_CBF(unittest.TestCase):
         rct.start()
         rct.until_synced()
 
-        ## 1. Request a list of available sensors using KATCP command
-        ## 2. Confirm the CBF replies with a number of sensor-list inform messages
+        # 1. Request a list of available sensors using KATCP command
+        # 2. Confirm the CBF replies with a number of sensor-list inform messages
         LOGGER.info (rct.req.sensor_list())
 
         # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-        #   where numSensors is the number of sensor-list informs sent.
+        #    where numSensors is the number of sensor-list informs sent.
         list_reply, list_informs = rct.req.sensor_list()
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
@@ -675,7 +674,8 @@ class test_CBF(unittest.TestCase):
     def test_vacc(self):
         """Test vector accumulator"""
         init_dsim_sources(self.dhost)
-        test_freq = 856e6/2     # Choose a test freqency around the centre of the band
+        # Choose a test freqency around the centre of the band.
+        test_freq = 856e6/2
         test_input = 'm000_x'
         eq_scaling = 30
         acc_times = [0.05, 0.1, 0.5, 1]
