@@ -673,6 +673,7 @@ class test_CBF(unittest.TestCase):
                         .format(roach.host, sensor_name, sensor_status))
 
     # TODO NM 2015-09-04: Needs to be AQFized
+    @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
         init_dsim_sources(self.dhost)
