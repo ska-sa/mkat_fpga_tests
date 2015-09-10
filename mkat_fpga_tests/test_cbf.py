@@ -701,6 +701,9 @@ class test_CBF(unittest.TestCase):
         q_denorm = 128
         quantiser_spectrum = get_quant_snapshot(
             self.correlator, test_input) * q_denorm
+
+        # Check that the spectrum is not zero in the test channel
+        self.assertTrue(quantiser_spectrum[test_freq_channel] != 0)
         # Check that the spectrum is zero except in the test channel
         self.assertTrue(np.all(quantiser_spectrum[0:test_freq_channel] == 0))
         self.assertTrue(np.all(quantiser_spectrum[test_freq_channel+1:] == 0))
