@@ -423,8 +423,6 @@ class test_CBF(unittest.TestCase):
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
-                #print ('{} of {}: Testing frequency scan consistancy {}/{} @ {} MHz.'.format(
-                #scan_i+1, len(range(3)), i+1, len(requested_test_freqs), freq/1e6))
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -443,9 +441,10 @@ class test_CBF(unittest.TestCase):
                 s1 = scans[scan_i][freq_i]
                 norm_fac = initial_max_freq_list[freq_i]
 
-                # TODO Convert to a less-verbose comparison for Aqf. E.g. test all the
-                # frequencies and only save the error cases, then have a final Aqf-check
-                # so that there is only one step (not n_chan) in the report.
+                # TODO Convert to a less-verbose comparison for Aqf.
+                # E.g. test all the frequencies and only save the error cases,
+                # then have a final Aqf-check so that there is only one step
+                # (not n_chan) in the report.
                 self.assertLess(np.max(np.abs(s1 - s0))/norm_fac, self.threshold,
                     'frequency scan comparison({}) is >= {} threshold[dB].'
                         .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
@@ -531,8 +530,8 @@ class test_CBF(unittest.TestCase):
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), expected_phases(),
                       'delay_phase_response.svg')
 
-        # TODO NM 2015-09-04: We are only checking one of the results here? This structure
-        # needs a bit of unpacking :)
+        # TODO NM 2015-09-04: We are only checking one of the results here?
+        # This structure needs a bit of unpacking :)
         aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
                                "Check that phases are as expected to within 3 "
                                "decimal places", decimal=3)
@@ -543,8 +542,8 @@ class test_CBF(unittest.TestCase):
     def test_sfdr_peaks(self):
         """Test spurious free dynamic range
 
-        Check that the correct channels have the peak response to each frequency and that
-        no other channels have significant relative power.
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
 
         """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -561,10 +560,10 @@ class test_CBF(unittest.TestCase):
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
 
-        start_chan = 2048 # skip DC channel since dsim puts out zeros
-        # TODO NM 2015-09-04 Need to check this for all channels?
+        # Checking for all channels.
+        start_chan = 1  # skip DC channel since dsim puts out zeros
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:start_chan+2], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 channel, len(self.corr_freqs.chan_freqs), channel_f0/1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -607,24 +606,24 @@ class test_CBF(unittest.TestCase):
         rct.start()
         rct.until_synced()
 
-        ## 1. Request a list of available sensors using KATCP command
-        ## 2. Confirm the CBF replies with a number of sensor-list inform messages
+        # 1. Request a list of available sensors using KATCP command
+        # 2. Confirm the CBF replies with a number of sensor-list inform messages
         LOGGER.info (rct.req.sensor_list())
 
         # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-        #   where numSensors is the number of sensor-list informs sent.
+        #    where numSensors is the number of sensor-list informs sent.
         list_reply, list_informs = rct.req.sensor_list()
         sens_lst_stat, numSensors = list_reply.arguments
         numSensors = int(numSensors)
-        self.assertEqual(numSensors, len(list_informs),
-            msg=('Number of sensors are not equal to the'
-                 'number of sensors in the list.'))
+        Aqf.equals(numSensors, len(list_informs),
+            'Check that the number of sensors are equal to the'
+                 'number of sensors in the list.')
 
         # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
         sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
-        self.assertEqual(int(sens_val_cnt), numSensors,
-            msg='Sensors count are not the same')
+        Aqf.equals(int(sens_val_cnt), numSensors,
+            'Check that the sensor-value and sensor-list counts are the same')
 
         # 4.2 Request the time synchronisation status using KATCP command
         # "?sensor-value time.synchronised
@@ -634,10 +633,9 @@ class test_CBF(unittest.TestCase):
         # 5. Confirm the CBF replies with " #sensor-value <time>
         # time.synchronised [status value], followed by a "!sensor-value ok 1"
         # message.
-        self.assertEqual(str(
-            rct.req.sensor_value('time.synchronised')[0]),
-                '!sensor-value ok 1',
-                    msg='Reading time synchronisation sensor Failed!')
+        Aqf.equals(str(rct.req.sensor_value('time.synchronised')[0]),
+            '!sensor-value ok 1', 'Check that the time synchronised sensor values'
+                ' replies with !sensor-value ok 1')
 
         # Check all sensors statuses
         for sensor in rct.sensor.values():
@@ -652,30 +650,32 @@ class test_CBF(unittest.TestCase):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
 
-            # Varify the number of sensors received with
+            # Verify the number of sensors received with
             # number of sensors in the list.
-            self.assertTrue((values_reply.reply_ok() == list_reply.reply_ok())
-                , msg='Sensors Failure: {}'
-                .format(roach.host))
+            Aqf.is_true((values_reply.reply_ok() == list_reply.reply_ok())
+                , '{}: Verify that ?sensor-list and ?sensor-value agree'
+                ' about the number of sensors.'.format(roach.host))
 
             # Check the number of sensors in the list is equal to the list
             # of values received.
-            self.assertEqual(len(sensors_list), int(values_reply.arguments[1])
-                , msg='Missing sensors: {}'.format(roach.host))
+            Aqf.equals(len(sensors_list), int(values_reply.arguments[1])
+                , 'Check the number of sensors in the list is equal to the '
+                    'list of values received for {}'.format(roach.host))
 
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
                 # Check is sensor status is a Fail
-                self.assertFalse((sensor_status == 'fail'),
-                    msg='Roach {}, Sensor name: {}, status: {}'
+                Aqf.is_false((sensor_status == 'fail'),
+                    'Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
 
-
     # TODO NM 2015-09-04: Needs to be AQFized
+    @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
         init_dsim_sources(self.dhost)
-        test_freq = 856e6/2     # Choose a test freqency around the centre of the band
+        # Choose a test freqency around the centre of the band.
+        test_freq = 856e6/2
         test_input = 'm000_x'
         eq_scaling = 30
         acc_times = [0.05, 0.1, 0.5, 1]
