@@ -663,13 +663,17 @@ class test_CBF(unittest.TestCase):
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
 
-            for sensor in sensors_values[1:]:
-                sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
-                # Check is sensor status is a Fail
-                Aqf.is_false((sensor_status == 'fail'),
-                    'Roach {}, Sensor name: {}, status: {}'
-                        .format(roach.host, sensor_name, sensor_status))
+            def roach_sensors_status(run_test=False):
+                if test:
+                    for sensor in sensors_values[1:]:
+                        sensor_name, sensor_status, sensor_value = (
+                            sensor.arguments[2:])
+                        Aqf.is_false((sensor_status == 'fail'),
+                            'Roach {}, Sensor name: {}, status: {}'
+                                .format(roach.host, sensor_name, sensor_status))
 
+            # Check if roach sensors are failing
+            roach_sensors_status()
 
     # TODO NM 2015-09-04: Needs to be AQFized
     def test_vacc(self):
