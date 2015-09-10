@@ -116,9 +116,6 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
-        # The signal source is going to quantise the requested freqency, so see
-        # what we actually got
-        source_fc = self.dhost.sine_sources.sin_0.frequency
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
 
@@ -161,11 +158,8 @@ class test_CBF(unittest.TestCase):
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
-            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-                i+1, len(requested_test_freqs), freq/1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
-             repeatN=self.corr_freqs.n_chans*2)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
