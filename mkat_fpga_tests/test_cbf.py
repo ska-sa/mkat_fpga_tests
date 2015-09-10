@@ -368,6 +368,7 @@ class test_CBF(unittest.TestCase):
                 actual_z_bls, expected_z_bls,
                 "Also check that expected baselines visibilities are zero.")
 
+    @aqf_vr('TP.C.dummy_vr_1')
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -405,6 +406,7 @@ class test_CBF(unittest.TestCase):
                      'input differ by no more than {} threshold[dB].'
                      .format(10*np.log10(self.threshold)))
 
+    @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -449,7 +451,8 @@ class test_CBF(unittest.TestCase):
                     'frequency scan comparison({}) is >= {} threshold[dB].'
                         .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
 
-    @unittest.skip('Correlator startup is currently unreliable')
+    # @unittest.skip('Correlator startup is currently unreliable')
+    @aqf_vr('TP.C.dummy_vr_3')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
