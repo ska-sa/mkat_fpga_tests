@@ -114,12 +114,8 @@ class test_CBF(unittest.TestCase):
             return dicts
 
         init_dsim_sources(self.dhost)
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
-        # The signal source is going to quantise the requested freqency, so see
-        # what we actually got
-        source_fc = self.dhost.sine_sources.sin_0.frequency
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
 
@@ -162,8 +158,6 @@ class test_CBF(unittest.TestCase):
         for i, freq in enumerate(requested_test_freqs):
             # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
             #     i+1, len(requested_test_freqs), freq/1e6))
-            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
-                i+1, len(requested_test_freqs), freq/1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
@@ -368,6 +362,7 @@ class test_CBF(unittest.TestCase):
                 actual_z_bls, expected_z_bls,
                 "Also check that expected baselines visibilities are zero.")
 
+    @aqf_vr('TP.C.dummy_vr_1')
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -405,6 +400,7 @@ class test_CBF(unittest.TestCase):
                      'input differ by no more than {} threshold[dB].'
                      .format(10*np.log10(self.threshold)))
 
+    @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
@@ -449,7 +445,8 @@ class test_CBF(unittest.TestCase):
                     'frequency scan comparison({}) is >= {} threshold[dB].'
                         .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
 
-    @unittest.skip('Correlator startup is currently unreliable')
+    # @unittest.skip('Correlator startup is currently unreliable')
+    @aqf_vr('TP.C.dummy_vr_3')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
