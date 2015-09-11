@@ -57,6 +57,10 @@ def init_dsim_sources(dhost):
     """Select dsim signal output, zero all sources, output scalings to 0.5"""
     for sin_source in dhost.sine_sources:
         sin_source.set(frequency=0, scale=0)
+        try:
+            sin_source.set(repeatN=0)
+        except NotImplementedError:
+            pass
     for noise_source in dhost.noise_sources:
         noise_source.set(scale=0)
     for output in dhost.outputs:
@@ -87,6 +91,8 @@ class CorrelatorFrequencyInfo(object):
         "Channel centre frequencies"
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
         self.sample_period = 1 / self.sample_freq
+        self.fft_period = self.sample_period*2*self.n_chans
+        """Time length of a single FFT"""
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
@@ -252,6 +258,13 @@ def get_snapshots(instrument):
     f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
     return dict(feng=f_snaps)
 
+def get_source_object_and_index(instrument, input_name):
+    """Return the DataSource object and local roach source index for a given input"""
+    source = [s for s in instrument.fengine_sources if s.name == input_name][0]
+    source_index = [i for i, s in enumerate(source.host.data_sources)
+                    if s.name == source.name][0]
+    return source, source_index
+
 def set_coarse_delay(instrument, input_name, value=0):
     """ Sets coarse delay(default = 1) for Correlator baseline input.
 
@@ -264,12 +277,31 @@ def set_coarse_delay(instrument, input_name, value=0):
             value
                 Number of samples to delay
     """
-    source = [s for s in instrument.fengine_sources if s.name == input_name][0]
-    source_index = [i for i, s in enumerate(source.host.data_sources)
-                    if s.name == source.name][0]
+    source, source_index = get_source_object_and_index(instrument, input_name)
     if source_index == 0:
-        s.host.registers.coarse_delay0.write(coarse_delay=value)
-        s.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
+        source.host.registers.coarse_delay0.write(coarse_delay=value)
+        source.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
     else:
-        s.host.registers.coarse_delay1.write(coarse_delay=value)
-        s.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
+        source.host.registers.coarse_delay1.write(coarse_delay=value)
+        source.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
+
+def rearrange_snapblock(snap_data, reverse=False):
+    segs = []
+    for segment in sorted(snap_data.keys(), reverse=reverse):
+        segs.append(snap_data[segment])
+    return np.column_stack(segs).flatten()
+
+def get_quant_snapshot(instrument, input_name, timeout=5):
+    """Get the quantiser snapshot of named input. Snapshot will be assembled"""
+    source, source_index = get_source_object_and_index(instrument, input_name)
+    snap_name = 'snap_quant{}_ss'.format(source_index)
+    snap = source.host.snapshots[snap_name]
+    snap_data = snap.read(
+        man_valid=False, man_trig=False, timeout=timeout)['data']
+
+    def get_part(qd, part):
+        return {k: v for k,v in qd.items() if k.startswith(part)}
+    real = rearrange_snapblock(get_part(snap_data, 'real'))
+    imag = rearrange_snapblock(get_part(snap_data, 'imag'))
+    quantiser_spectrum = real + 1j*imag
+    return quantiser_spectrum
