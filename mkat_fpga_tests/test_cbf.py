@@ -659,6 +659,19 @@ class test_CBF(unittest.TestCase):
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
 
+    @aqf_vr('TP.C.dummy_vr_4')
+    def test_roach_sensors_status(self):
+        """ Test all roach sensors status are not failing """
+        for roach in (self.correlator.fhosts + self.correlator.xhosts):
+            values_reply, sensors_values = roach.katcprequest('sensor-value')
+            for sensor in sensors_values[1:]:
+                sensor_name, sensor_status, sensor_value = (
+                    sensor.arguments[2:])
+                # Check if roach sensors are failing
+                Aqf.is_false((sensor_status == 'fail'),
+                    'Roach {}, Sensor name: {}, status: {}'
+                        .format(roach.host, sensor_name, sensor_status))
+
     # TODO NM 2015-09-04: Needs to be AQFized
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
