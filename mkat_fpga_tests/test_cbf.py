@@ -703,10 +703,13 @@ class test_CBF(unittest.TestCase):
             self.correlator, test_input) * q_denorm
 
         # Check that the spectrum is not zero in the test channel
-        self.assertTrue(quantiser_spectrum[test_freq_channel] != 0)
+        Aqf.is_true(quantiser_spectrum[test_freq_channel] != 0,
+            'Check that the spectrum is not zero in the test channel')
         # Check that the spectrum is zero except in the test channel
-        self.assertTrue(np.all(quantiser_spectrum[0:test_freq_channel] == 0))
-        self.assertTrue(np.all(quantiser_spectrum[test_freq_channel+1:] == 0))
+        Aqf.is_true(np.all(quantiser_spectrum[0:test_freq_channel] == 0),
+            'Check that the spectrum is zero except in the test channel')
+        Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel+1:] == 0),
+            'Check that the spectrum is zero except in the test channel')
 
         for vacc_accumulations in test_acc_lens:
             xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
@@ -714,4 +717,7 @@ class test_CBF(unittest.TestCase):
             expected_response = np.abs(quantiser_spectrum)**2  * no_accs
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
-            np.testing.assert_array_equal(response, expected_response)
+            # Check that the complexised response is equal to the expected response
+            Aqf.is_true(np.array_equal(expected_response, response),
+                'Check that the complexised response is equal'
+                    ' to the expected response')
