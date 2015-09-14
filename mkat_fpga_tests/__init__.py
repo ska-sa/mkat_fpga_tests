@@ -106,6 +106,18 @@ class CorrelatorFixture(object):
             self.correlator.initialise(program=False)
             return self._correlator
 
+    def halt_array(self):
+        if not self._correlator:
+            raise RuntimeError('Array not yet initialised')
+
+        self.katcp_rct.req.halt()
+        self.katcp_rct.req.stop()
+
+        self._katcp_rct = None
+        # TODO: MM(2015-09-11) Proper teardown of corr object(katcp connections etc.)
+        # Must still be implemented.
+        self._correlator = None
+
     @property
     def katcp_rct(self):
         if self._katcp_rct is None:
