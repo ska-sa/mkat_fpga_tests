@@ -142,6 +142,8 @@ class CorrelatorFixture(object):
         host_port = self.corr_conf['test_confs']['katcp_port']
         multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         instrument = 'c8n856M4k'
+        self.rct.req.array_assign('array0',
+                        *multicast_ip.split(','))
         array_list_status, array_list_messages = self.rct.req.array_list()
 
         try:
@@ -154,9 +156,6 @@ class CorrelatorFixture(object):
         finally:
             while retries and not success:
                 try:
-                    self.rct.req.array_assign('array0',
-                        *multicast_ip.split(','))
-
                     LOGGER.info ("Starting Correlator.")
                     reply, informs = self.katcp_rct.req.instrument_activate(
                         instrument, timeout=500)
