@@ -712,9 +712,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
-                """
-        (TP.C.1.40) CBF Data Product Switching Time
-        """
+        """(TP.C.1.40) CBF Data Product Switching Time"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         # Select dsim signal output, zero all sources, output scalings to 0.5
         init_dsim_sources(self.dhost)
@@ -728,12 +726,18 @@ class test_CBF(unittest.TestCase):
         # 3. Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        bls_ordering = initial_dump['bls_ordering']
+        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
+            bls_ordering)}
+
         test_freq_dump = initial_dump['xeng_raw'][:,data_product,:]
 
         # 4. Deprogram CBF
         for host in (self.correlator.xhosts + self.correlator.fhosts):
             host.deprogram()
             Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+
+        # fpgautils.threaded_fpga_function(to_deprogram, 10, 'deprogram')
         # Start timer
         initial_time = time.time()
         # ,and confirm that SPEAD packets are either no longer
@@ -747,6 +751,10 @@ class test_CBF(unittest.TestCase):
 
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
+        re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        test_freq_dump = re_dump['xeng_raw'][:,data_product,:]
+        Aqf.is_true(self.receiver.isAlive(),
+            'Check that SPEAD parkets are being produced.')
 
         # Stop timer.
         final_timer = time.time()
@@ -754,7 +762,8 @@ class test_CBF(unittest.TestCase):
         # Data Product switching time = End time - Start time.
         final_time =  final_timer - initial_time
         # Confirm data product switching time is less than 60 seconds
-        # Aqf.equal(final_time, minute)
+        Aqf.equal(final_time, minute, 'Check that the product switching time is'
+            ' less than one minute')
 
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
