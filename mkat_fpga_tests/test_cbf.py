@@ -678,7 +678,7 @@ class test_CBF(unittest.TestCase):
         test_freq = 856e6/2
         test_input = 'm000_x'
         eq_scaling = 30
-        acc_times = [0.05, 0.1, 0.5, 1]
+        acc_times = [0.05, 0.1, 0.5, 0.75]
 
         internal_accumulations = int(
             self.correlator.configd['xengine']['xeng_accumulation_len'])
@@ -720,4 +720,5 @@ class test_CBF(unittest.TestCase):
             # Check that the complexised response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
                 'Check that the complexised response is equal'
-                    ' to the expected response')
+                    ' to the expected response for {} accumulation length'
+                        .format(vacc_accumulations))
