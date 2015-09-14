@@ -156,8 +156,8 @@ class test_CBF(unittest.TestCase):
         test_fftoverflow_qdrstatus()
 
         for i, freq in enumerate(requested_test_freqs):
-            # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
-            #     i+1, len(requested_test_freqs), freq/1e6))
+            LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+                i+1, len(requested_test_freqs), freq/1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
