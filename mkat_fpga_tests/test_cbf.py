@@ -156,8 +156,8 @@ class test_CBF(unittest.TestCase):
         test_fftoverflow_qdrstatus()
 
         for i, freq in enumerate(requested_test_freqs):
-            # LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
-            #     i+1, len(requested_test_freqs), freq/1e6))
+            LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+                i+1, len(requested_test_freqs), freq/1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
@@ -659,9 +659,15 @@ class test_CBF(unittest.TestCase):
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
 
+    @aqf_vr('TP.C.dummy_vr_4')
+    def test_roach_sensors_status(self):
+        """ Test all roach sensors status are not failing """
+        for roach in (self.correlator.fhosts + self.correlator.xhosts):
+            values_reply, sensors_values = roach.katcprequest('sensor-value')
             for sensor in sensors_values[1:]:
-                sensor_name, sensor_status, sensor_value = sensor.arguments[2:]
-                # Check is sensor status is a Fail
+                sensor_name, sensor_status, sensor_value = (
+                    sensor.arguments[2:])
+                # Check if roach sensors are failing
                 Aqf.is_false((sensor_status == 'fail'),
                     'Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
@@ -698,9 +704,15 @@ class test_CBF(unittest.TestCase):
         q_denorm = 128
         quantiser_spectrum = get_quant_snapshot(
             self.correlator, test_input) * q_denorm
+
+        # Check that the spectrum is not zero in the test channel
+        Aqf.is_true(quantiser_spectrum[test_freq_channel] != 0,
+            'Check that the spectrum is not zero in the test channel')
         # Check that the spectrum is zero except in the test channel
-        self.assertTrue(np.all(quantiser_spectrum[0:test_freq_channel] == 0))
-        self.assertTrue(np.all(quantiser_spectrum[test_freq_channel+1:] == 0))
+        Aqf.is_true(np.all(quantiser_spectrum[0:test_freq_channel] == 0),
+            'Check that the spectrum is zero except in the test channel')
+        Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel+1:] == 0),
+            'Check that the spectrum is zero except in the test channel')
 
         for vacc_accumulations in test_acc_lens:
             xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
@@ -708,7 +720,10 @@ class test_CBF(unittest.TestCase):
             expected_response = np.abs(quantiser_spectrum)**2  * no_accs
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
-            np.testing.assert_array_equal(response, expected_response)
+            # Check that the complexised response is equal to the expected response
+            Aqf.is_true(np.array_equal(expected_response, response),
+                'Check that the complexised response is equal'
+                    ' to the expected response')
 
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
