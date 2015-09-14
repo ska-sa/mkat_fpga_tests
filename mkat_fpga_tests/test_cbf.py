@@ -748,28 +748,30 @@ class test_CBF(unittest.TestCase):
         test_freq_dump = initial_dump['xeng_raw'][:,data_product,:]
 
         # 4. Deprogram CBF
-        for host in (self.correlator.xhosts + self.correlator.fhosts):
-            host.deprogram()
-            Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+        import os;os.system('corr2_deprogram.py --dnsmasq')
+        #for host in (self.correlator.xhosts + self.correlator.fhosts):
+        #    host.deprogram()
+        #    Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
 
         # fpgautils.threaded_fpga_function(to_deprogram, 10, 'deprogram')
         # Start timer
         initial_time = time.time()
         # ,and confirm that SPEAD packets are either no longer
         # being produced, or that the data content is at least affected.
-        Aqf.is_false(self.receiver.isAlive(),
-            'Check that SPEAD parkets are nolonger being produced.')
+        #self.receiver.stop()
+        #Aqf.is_false(self.receiver.isAlive(),
+            #'Check that SPEAD parkets are nolonger being produced.')
 
         # 5. Reinitialise the instrument and repeat step 2 and 3.
-        self.correlator_fixture.halt_array()
+        correlator_fixture.halt_array()
         self.correlator = correlator_fixture.correlator
-
+        import IPython;IPython.embed()
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         test_freq_dump = re_dump['xeng_raw'][:,data_product,:]
-        Aqf.is_true(self.receiver.isAlive(),
-            'Check that SPEAD parkets are being produced.')
+        #Aqf.is_true(self.receiver.isAlive(),
+            #'Check that SPEAD parkets are being produced.')
 
         # Stop timer.
         final_timer = time.time()

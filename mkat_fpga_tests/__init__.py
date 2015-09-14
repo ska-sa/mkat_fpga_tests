@@ -111,7 +111,7 @@ class CorrelatorFixture(object):
             raise RuntimeError('Array not yet initialised')
 
         self.katcp_rct.req.halt()
-        self.katcp_rct.req.stop()
+        self.katcp_rct.stop()
 
         self._katcp_rct = None
         # TODO: MM(2015-09-11) Proper teardown of corr object(katcp connections etc.)
