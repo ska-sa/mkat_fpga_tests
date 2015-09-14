@@ -20,6 +20,7 @@ import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
 from corr2 import utils
+from casperfpga import utils as fpgautils
 
 from katcp import resource_client
 from katcp import ioloop_manager
@@ -737,51 +738,56 @@ class test_CBF(unittest.TestCase):
         # 2. Configure the CBF to generate a data product, using the noise source.
         # Which specific data product is chosen is irrelevant.
         data_product = 2 # ('m000_x', 'm000_y')
-        minute = 1.0
+        minute = 60.0
         # 3. Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         bls_ordering = initial_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
-
         test_freq_dump = initial_dump['xeng_raw'][:,data_product,:]
+        hosts = self.correlator.fhosts + self.correlator.xhosts
 
         # 4. Deprogram CBF
-        import os;os.system('corr2_deprogram.py --dnsmasq')
-        #for host in (self.correlator.xhosts + self.correlator.fhosts):
-        #    host.deprogram()
-        #    Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+        fpgautils.threaded_fpga_function(hosts, 10, 'deprogram')
+        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+            for host in hosts]
 
-        # fpgautils.threaded_fpga_function(to_deprogram, 10, 'deprogram')
-        # Start timer
-        initial_time = time.time()
         # ,and confirm that SPEAD packets are either no longer
         # being produced, or that the data content is at least affected.
-        #self.receiver.stop()
-        #Aqf.is_false(self.receiver.isAlive(),
-            #'Check that SPEAD parkets are nolonger being produced.')
+        try:
+            self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            Aqf.failed('SPEAD parkets are still being produced.')
+        except Exception:
+            Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
+        # Start timer
+        start_time = time.time()
 
-        # 5. Reinitialise the instrument and repeat step 2 and 3.
+        # 5. Reinitialise the instrument and repeat step 2 and 3
         correlator_fixture.halt_array()
         self.correlator = correlator_fixture.correlator
-        import IPython;IPython.embed()
+        Aqf.is_true(self.correlator._initialised,
+            'Check that the instrument has been re-activated.')
+
         # Confirm that SPEAD packets are being produced,
-        # with the selected data product(s).
+        # with the selected data product(s)
+        self.corr_fix.start_x_data()
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        test_freq_dump = re_dump['xeng_raw'][:,data_product,:]
-        #Aqf.is_true(self.receiver.isAlive(),
-            #'Check that SPEAD parkets are being produced.')
+        test_freq_re_dump = re_dump['xeng_raw'][:,data_product,:]
+        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+            ' instrument re-initialisation.')
 
         # Stop timer.
-        final_timer = time.time()
-
+        end_timer = time.time()
         # Data Product switching time = End time - Start time.
-        final_time =  final_timer - initial_time
+        final_time =  round((end_timer - start_time), 2)
         # Confirm data product switching time is less than 60 seconds
-        Aqf.equal(final_time, minute, 'Check that the product switching time is'
-            ' less than one minute')
+        Aqf.less(final_time, minute,
+            'Check that product switching time is less than one minute')
 
+        '''
+        TO Do: MM 2015-09-14, Still need more info
+        '''
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
