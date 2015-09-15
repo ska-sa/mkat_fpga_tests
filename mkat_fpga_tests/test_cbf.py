@@ -719,6 +719,6 @@ class test_CBF(unittest.TestCase):
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
-                'Check that the complexised response is equal'
+                'Check that the accumulator response is equal'
                     ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
