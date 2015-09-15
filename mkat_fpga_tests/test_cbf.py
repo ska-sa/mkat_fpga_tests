@@ -744,7 +744,7 @@ class test_CBF(unittest.TestCase):
 
         # Configure the CBF to generate a data product, using the noise source.
         data_product = baseline_lookup[('m000_x', 'm000_y')]
-        test_freq_dump = re_dump['xeng_raw'][:,data_product,:]
+        test_freq_dump = initial_dump['xeng_raw'][:,data_product,:]
 
         # Deprogram CBF
         hosts = self.correlator.fhosts + self.correlator.xhosts
@@ -759,17 +759,17 @@ class test_CBF(unittest.TestCase):
         except Exception:
             Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
 
-        # Start timer and re-initialise the instrument and,
+        # Start timer and re-initialise the instrument and, start capturing data.
         start_time = time.time()
-        #import IPython;IPython.embed()
         correlator_fixture.halt_array()
-        correlator_fixture.start_correlator(retries=30, loglevel='INFO')
+        self.corr_fix.start_x_data()
+        # Confirm that the instrument is initialised by checking if roaches
+        # are programmed.
         [Aqf.is_true(host.is_running(),'{} programmed and running'
             .format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s)
-        self.corr_fix.start_x_data()
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         test_freq_re_dump = re_dump['xeng_raw'][:,data_product,:]
         Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '

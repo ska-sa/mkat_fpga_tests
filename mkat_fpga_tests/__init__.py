@@ -158,8 +158,6 @@ class CorrelatorFixture(object):
 
         try:
             if array_list_messages:
-                print self.array_number
-                import IPython;IPython.embed()
                 self.array_number = array_list_messages[0].arguments[0]
                 self.rct.req.array_halt(self.array_number)
         except:
