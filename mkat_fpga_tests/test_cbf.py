@@ -739,8 +739,8 @@ class test_CBF(unittest.TestCase):
             bls_ordering)}
 
         # Configure the CBF to generate a data product, using the noise source.
-        data_product = baseline_lookup[('m000_x', 'm000_y')]
-        test_freq_dump = initial_dump['xeng_raw'][:,data_product,:]
+        base_line = baseline_lookup[('m000_x', 'm000_y')]
+        test_freq_dump = initial_dump['xeng_raw'][:,base_line,:]
 
         # Deprogram CBF
         hosts = self.correlator.fhosts + self.correlator.xhosts
@@ -767,7 +767,7 @@ class test_CBF(unittest.TestCase):
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s)
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        test_freq_re_dump = re_dump['xeng_raw'][:,data_product,:]
+        test_freq_re_dump = re_dump['xeng_raw'][:,base_line,:]
         Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
             ' instrument re-initialisation.')
 
