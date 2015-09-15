@@ -84,8 +84,6 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
         self.threshold = 1e-7
-        # Select dsim signal output, zero all sources, output scalings to 0.5
-        init_dsim_sources(self.dhost)
 
     @aqf_vr('TP.C.1.19')
     def test_channelisation(self):
