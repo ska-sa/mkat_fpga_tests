@@ -73,6 +73,8 @@ class test_CBF(unittest.TestCase):
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
+        # Select dsim signal output, zero all sources, output scalings to 0.5
+        init_dsim_sources(self.dhost)
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
@@ -82,6 +84,8 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         # Threshold: -70dB
         self.threshold = 1e-7
+        # Select dsim signal output, zero all sources, output scalings to 0.5
+        init_dsim_sources(self.dhost)
 
     @aqf_vr('TP.C.1.19')
     def test_channelisation(self):
@@ -729,8 +733,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        # Select dsim signal output, zero all sources, output scalings to 0.5
-        init_dsim_sources(self.dhost)
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Confirm that SPEAD packets are being produced,
@@ -739,8 +741,11 @@ class test_CBF(unittest.TestCase):
         bls_ordering = initial_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
+
         # Configure the CBF to generate a data product, using the noise source.
         data_product = baseline_lookup[('m000_x', 'm000_y')]
+        test_freq_dump = re_dump['xeng_raw'][:,data_product,:]
+
         # Deprogram CBF
         hosts = self.correlator.fhosts + self.correlator.xhosts
         fpgautils.threaded_fpga_function(hosts, 10, 'deprogram')
@@ -753,14 +758,14 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('SPEAD parkets are still being produced.')
         except Exception:
             Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
-        # Start timer
-        start_time = time.time()
 
-        # 5. Reinitialise the instrument and repeat step 2 and 3
+        # Start timer and re-initialise the instrument and,
+        start_time = time.time()
+        #import IPython;IPython.embed()
         correlator_fixture.halt_array()
-        self.correlator = correlator_fixture.correlator
-        Aqf.is_true(self.correlator._initialised,
-            'Check that the instrument has been re-activated.')
+        correlator_fixture.start_correlator(retries=30, loglevel='INFO')
+        [Aqf.is_true(host.is_running(),'{} programmed and running'
+            .format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s)
@@ -780,8 +785,9 @@ class test_CBF(unittest.TestCase):
             'Check that product switching time is less than one minute')
 
         '''
-        TO Do: MM 2015-09-14, Still need more info
-        '''
+        TODO: MM 2015-09-14, Still need more info
+
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
+        '''
