@@ -733,23 +733,19 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        # 2. Configure the CBF to generate a data product, using the noise source.
-        data_product = 2 # ('m000_x', 'm000_y')
-        minute = 60.0
-        # 3. Confirm that SPEAD packets are being produced,
+        # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         bls_ordering = initial_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
-        test_freq_dump = initial_dump['xeng_raw'][:,data_product,:]
+        # Configure the CBF to generate a data product, using the noise source.
+        data_product = baseline_lookup[('m000_x', 'm000_y')]
+        # Deprogram CBF
         hosts = self.correlator.fhosts + self.correlator.xhosts
-
-        # 4. Deprogram CBF
         fpgautils.threaded_fpga_function(hosts, 10, 'deprogram')
         [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
             for host in hosts]
-
         # ,and confirm that SPEAD packets are either no longer
         # being produced, or that the data content is at least affected.
         try:
@@ -778,6 +774,7 @@ class test_CBF(unittest.TestCase):
         end_timer = time.time()
         # Data Product switching time = End time - Start time.
         final_time =  round((end_timer - start_time), 2)
+        minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
             'Check that product switching time is less than one minute')
