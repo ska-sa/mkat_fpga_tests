@@ -729,14 +729,11 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         # Select dsim signal output, zero all sources, output scalings to 0.5
         init_dsim_sources(self.dhost)
         # 1. Configure one of the ROACHs in the CBF to generate noise.
-        # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # 2. Configure the CBF to generate a data product, using the noise source.
-        # Which specific data product is chosen is irrelevant.
         data_product = 2 # ('m000_x', 'm000_y')
         minute = 60.0
         # 3. Confirm that SPEAD packets are being produced,
