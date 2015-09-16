@@ -460,7 +460,6 @@ class test_CBF(unittest.TestCase):
         CBF Delay Compensation/LO Fringe stopping polynomial
         """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
         # Select dsim signal output, zero all sources, output scalings to 0.5
         init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
@@ -474,10 +473,11 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, #1.5*sampling_period,
-            3*sampling_period]
+        test_delays = [0, sampling_period, 2*sampling_period,
+            3*sampling_period, 4*sampling_period]
 
-        def expected_phases():
+
+        def get_expected_phases():
             expected_phases = []
             for delay in test_delays:
                 phases = self.corr_freqs.chan_freqs * 2 * np.pi * delay
@@ -485,12 +485,16 @@ class test_CBF(unittest.TestCase):
 
             return zip(test_delays, expected_phases)
 
-        def actual_phases():
+        def get_actual_phases():
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
-                delay_samples = int(np.floor(delay/sampling_period))
-                set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
+                # use correlator_fixture.corr_conf[]
+                # correlator_fixture.katcp_rct.req.delays time.time+somethign
+                # See page 22 on ICD ?delays on CBF-CAM ICD
+                fengops.feng_set_delay(self.correlator, 'm000_y', delay=delay,
+                    delta_delay=0, phase_offset=0, delta_phase_offset=0,
+                        ld_time=None, ld_check=True)
 
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw']
@@ -500,13 +504,14 @@ class test_CBF(unittest.TestCase):
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
+
         def plot_and_save(freqs, actual_data, expected_data, plot_filename, show=False):
             plt.gca().set_color_cycle(None)
             for delay, phases in actual_data:
-                plt.plot(freqs, phases, label='{}ns'.format(delay/1e9))
+                plt.plot(freqs, phases, label='{}ns'.format(delay*1e9))
             plt.gca().set_color_cycle(None)
             for delay, phases in expected_data:
-                fig = plt.plot(freqs, phases)[0]
+                fig = plt.plot(freqs, phases, '--')[0]
 
             axes = fig.get_axes()
             ybound = axes.get_ybound()
@@ -525,9 +530,16 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
-        plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), expected_phases(),
-                      'delay_phase_response.svg')
+        actual_phases = get_actual_phases()
+        expected_phases = get_expected_phases()
+        for i, delay in enumerate(test_delays):
+            delta_actual = np.max(actual_phases[i][1]) - np.min(actual_phases[i][1])
+            delta_expected = np.max(expected_phases[i][1]) - np.min(expected_phases[i][1])
+            print "delay: {}ns, expected phase delta: {}, actual_phase_delta: {}".format(
+                delay*1e9, delta_expected, delta_actual)
 
+        plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
+                      'delay_phase_response.svg', show=True)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
@@ -721,10 +733,11 @@ class test_CBF(unittest.TestCase):
             expected_response = np.abs(quantiser_spectrum)**2  * no_accs
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
-            # Check that the complexised response is equal to the expected response
+            # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
-                'Check that the complexised response is equal'
-                    ' to the expected response')
+                'Check that the accumulator response is equal'
+                    ' to the expected response for {} accumulation length'
+                        .format(vacc_accumulations))
 
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
