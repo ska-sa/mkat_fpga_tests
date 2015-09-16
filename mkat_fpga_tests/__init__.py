@@ -121,8 +121,18 @@ class CorrelatorFixture(object):
     @property
     def katcp_rct(self):
         if self._katcp_rct is None:
-            self.katcp_array_port = int(
+            try:
+                self.katcp_array_port = int(
                 self.rct.req.array_list()[1][0].arguments[1])
+            except IndexError:
+                print 'Index error at line 126\n\n\n'
+                import IPython;IPython.embed()
+                #self.start_correlator()
+                # multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
+                #self.rct.req.array_assign('array0',
+                #        *multicast_ip.split(','))
+                #self.katcp_array_port = int(
+                #self.rct.req.array_list()[1][0].arguments[1])
 
             katcp_rc = resource_client.KATCPClientResource(
                 dict(name='localhost', address=(
@@ -152,7 +162,7 @@ class CorrelatorFixture(object):
         # starting d-engine before correlator
         self.dhost
         host_port = self.corr_conf['test_confs']['katcp_port']
-        multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
+        self.multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
         instrument = 'c8n856M4k'
         array_list_status, array_list_messages = self.rct.req.array_list()
 
@@ -160,14 +170,17 @@ class CorrelatorFixture(object):
             if array_list_messages:
                 self.array_number = array_list_messages[0].arguments[0]
                 self.rct.req.array_halt(self.array_number)
-        except:
+
+        except IndexError:
+            print 'Index error at line 166\n\n\n'
+            import IPython;IPython.embed()
             LOGGER.info ("Already cleared array")
 
         finally:
             while retries and not success:
                 try:
                     self.rct.req.array_assign('array0',
-                        *multicast_ip.split(','))
+                        *self.multicast_ip.split(','))
 
                     LOGGER.info ("Starting Correlator.")
                     reply, informs = self.katcp_rct.req.instrument_activate(
@@ -184,7 +197,10 @@ class CorrelatorFixture(object):
                         self.rct.req.array_halt(self.array_number)
 
                 except Exception:
-                    self.rct.req.array_halt(self.array_number)
+                    try:
+                        self.rct.req.array_halt(self.array_number)
+                    except AttributeError:
+                        print 'Attribute error at line 194\n\n\n'
                     self.katcp_rct.stop()
                     retries -= 1
                     LOGGER.warn ('\nFailed to start correlator,'
