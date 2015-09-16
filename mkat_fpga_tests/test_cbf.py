@@ -20,6 +20,7 @@ import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
 from corr2 import utils
+from casperfpga import utils as fpgautils
 
 from katcp import resource_client
 from katcp import ioloop_manager
@@ -737,3 +738,66 @@ class test_CBF(unittest.TestCase):
                 'Check that the accumulator response is equal'
                     ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
+
+    @aqf_vr('TP.C.1.40')
+    def test_product_switch(self):
+        """(TP.C.1.40) CBF Data Product Switching Time"""
+        init_dsim_sources(self.dhost)
+        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        # Confirm that SPEAD packets are being produced,
+        # with the selected data product(s).
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        # TODO NM 2015-09-14: Do we need to validate the shape of the data to
+        # ensure the product is correct?
+
+        # Deprogram CBF
+        xhosts = self.correlator.xhosts
+        fhosts = self.correlator.fhosts
+        hosts = xhosts + fhosts
+        # Deprogramming xhosts first then fhosts avoid reorder timeout errors
+        fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
+        fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
+        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+            for host in hosts]
+        # Confirm that SPEAD packets are either no longer being produced, or
+        # that the data content is at least affected.
+        try:
+            self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            Aqf.failed('SPEAD parkets are still being produced.')
+        except Exception:
+            Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
+
+        # Start timer and re-initialise the instrument and, start capturing data.
+        start_time = time.time()
+        correlator_fixture.halt_array()
+        correlator_fixture.start_correlator()
+        self.corr_fix.start_x_data()
+        # Confirm that the instrument is initialised by checking if roaches
+        # are programmed.
+        [Aqf.is_true(host.is_running(),'{} programmed and running'
+            .format(host.host)) for host in hosts]
+
+        # Confirm that SPEAD packets are being produced, with the selected data
+        # product(s) The receiver won't return a dump if the correlator is not
+        # producing well-formed SPEAD data.
+        re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+            ' instrument re-initialisation.')
+
+        # Stop timer.
+        end_time = time.time()
+        # Data Product switching time = End time - Start time.
+        final_time =  round((end_time - start_time), 2)
+        minute = 60.0
+        # Confirm data product switching time is less than 60 seconds
+        Aqf.less(final_time, minute,
+            'Check that product switching time is less than one minute')
+
+
+        # TODO: MM 2015-09-14, Still need more info
+
+        # 6. Repeat for all combinations of available data products,
+        # including the case where the "new" data product is the same as the
+        # "old" one.
+
