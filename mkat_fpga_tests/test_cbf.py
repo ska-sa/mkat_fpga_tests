@@ -748,23 +748,20 @@ class test_CBF(unittest.TestCase):
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        bls_ordering = initial_dump['bls_ordering']
-        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
-            bls_ordering)}
-
-        # Configure the CBF to generate a data product, using the noise source.
-        baseline = baseline_lookup[('m000_x', 'm000_y')]
-        test_freq_dump = initial_dump['xeng_raw'][:,baseline,:]
+        # TODO NM 2015-09-14: Do we need to validate the shape of the data to
+        # ensure the product is correct?
 
         # Deprogram CBF
-        hosts = self.correlator.xhosts + self.correlator.fhosts
+        xhosts = self.correlator.xhosts
+        fhosts = self.correlator.fhosts
+        hosts = xhosts + fhosts
         # Deprogramming xhosts first then fhosts avoid reorder timeout errors
-        fpgautils.threaded_fpga_function(hosts[:8], 10, 'deprogram')
-        fpgautils.threaded_fpga_function(hosts[8:], 10, 'deprogram')
+        fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
+        fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
         [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
             for host in hosts]
-        # , and confirm that SPEAD packets are either no longer
-        # being produced, or that the data content is at least affected.
+        # Confirm that SPEAD packets are either no longer being produced, or
+        # that the data content is at least affected.
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
             Aqf.failed('SPEAD parkets are still being produced.')
@@ -774,32 +771,33 @@ class test_CBF(unittest.TestCase):
         # Start timer and re-initialise the instrument and, start capturing data.
         start_time = time.time()
         correlator_fixture.halt_array()
+        correlator_fixture.start_correlator()
         self.corr_fix.start_x_data()
         # Confirm that the instrument is initialised by checking if roaches
         # are programmed.
         [Aqf.is_true(host.is_running(),'{} programmed and running'
             .format(host.host)) for host in hosts]
 
-        # Confirm that SPEAD packets are being produced,
-        # with the selected data product(s)
+        # Confirm that SPEAD packets are being produced, with the selected data
+        # product(s) The receiver won't return a dump if the correlator is not
+        # producing well-formed SPEAD data.
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        test_freq_re_dump = re_dump['xeng_raw'][:,baseline,:]
         Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
             ' instrument re-initialisation.')
 
         # Stop timer.
-        end_timer = time.time()
+        end_time = time.time()
         # Data Product switching time = End time - Start time.
-        final_time =  round((end_timer - start_time), 2)
-        minute = 70.0
+        final_time =  round((end_time - start_time), 2)
+        minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
             'Check that product switching time is less than one minute')
 
-        '''
-        TODO: MM 2015-09-14, Still need more info
+
+        # TODO: MM 2015-09-14, Still need more info
 
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
-        '''
+

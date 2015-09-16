@@ -47,7 +47,9 @@ class CorrelatorFixture(object):
             self.corr_conf = utils.parse_ini_file(
                 test_config_filename)
             self.dsim_conf = self.corr_conf['dsimengine']
-
+        # Assume the correlator is already started if start_correlator is False
+        self._correlator_started = not int(
+            test_config.get('start_correlator', False))
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None
@@ -90,8 +92,8 @@ class CorrelatorFixture(object):
         if self._correlator is not None:
             LOGGER.info('Using cached correlator instance')
             return self._correlator
-        else: # include a check, if correlator is runninge else start it.
-            if int(test_config.get('start_correlator', False)):
+        else: # include a check, if correlator is running else start it.
+            if not self._correlator_started:
                 self.start_correlator()
 
             # We assume either start_correlator() above has been called, or
@@ -111,6 +113,7 @@ class CorrelatorFixture(object):
             raise RuntimeError('Array not yet initialised')
 
         self.katcp_rct.req.halt()
+        self._correlator_started = False
         self.katcp_rct.stop()
 
         self._katcp_rct = None
@@ -170,44 +173,40 @@ class CorrelatorFixture(object):
             if array_list_messages:
                 self.array_number = array_list_messages[0].arguments[0]
                 self.rct.req.array_halt(self.array_number)
-
         except IndexError:
-            print 'Index error at line 166\n\n\n'
-            import IPython;IPython.embed()
             LOGGER.info ("Already cleared array")
 
-        finally:
-            while retries and not success:
-                try:
-                    self.rct.req.array_assign('array0',
-                        *self.multicast_ip.split(','))
+        while retries and not success:
+            try:
+                self.rct.req.array_assign('array0',
+                    *multicast_ip.split(','))
 
-                    LOGGER.info ("Starting Correlator.")
-                    reply, informs = self.katcp_rct.req.instrument_activate(
-                        instrument, timeout=500)
-                    success = reply.reply_ok()
-                    retries -= 1
+                LOGGER.info ("Starting Correlator.")
+                reply, informs = self.katcp_rct.req.instrument_activate(
+                    instrument, timeout=500)
+                success = reply.reply_ok()
+                retries -= 1
 
-                    if success == True:
-                        LOGGER.info('Correlator started succesfully')
-                    else:
-                        LOGGER.warn('Failed to start correlator, {} attempts left.'
-                            '\nRestarting Correlator.\nReply:{}, Informs: {}'
-                                .format(retries, reply, informs))
-                        self.rct.req.array_halt(self.array_number)
+                if success == True:
+                    LOGGER.info('Correlator started succesfully')
+                else:
+                    LOGGER.warn('Failed to start correlator, {} attempts left.'
+                        '\nRestarting Correlator.\nReply:{}, Informs: {}'
+                            .format(retries, reply, informs))
+                    self.rct.req.array_halt(self.array_number)
 
-                except Exception:
-                    try:
-                        self.rct.req.array_halt(self.array_number)
-                    except AttributeError:
-                        print 'Attribute error at line 194\n\n\n'
-                    self.katcp_rct.stop()
-                    retries -= 1
-                    LOGGER.warn ('\nFailed to start correlator,'
-                        '{} attempts left.\n'.format(retries))
-            if not success:
-                raise RuntimeError('Could not successfully start correlator'
-                'within {} retries'.format(retries_requested))
+            except Exception:
+                self.rct.req.array_halt(self.array_number)
+                self.katcp_rct.stop()
+                retries -= 1
+                LOGGER.warn ('\nFailed to start correlator,'
+                    '{} attempts left.\n'.format(retries))
+        if success:
+            self._correlator_started = True
+        else:
+            self._correlator_started = False
+            raise RuntimeError('Could not successfully start correlator'
+            'within {} retries'.format(retries_requested))
 
     def issue_metadata(self):
         self.katcp_rct.req.capture_meta(self.output_product)
