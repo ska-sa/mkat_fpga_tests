@@ -73,6 +73,8 @@ class test_CBF(unittest.TestCase):
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
+        # Initialise dsim sources.
+        init_dsim_sources(self.dhost)
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
@@ -114,7 +116,6 @@ class test_CBF(unittest.TestCase):
             dicts['xhosts'] = xhosts
             return dicts
 
-        init_dsim_sources(self.dhost)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
         # Get baseline 0 data, i.e. auto-corr of m000h
@@ -272,8 +273,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     def test_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
-
-        init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -366,10 +365,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_1')
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
         test_chan = 1500
-
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
@@ -404,15 +400,11 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
         test_chan = 1500
-
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
-        init_dsim_sources(self.dhost)
 
         scans = []
         initial_max_freq_list = []
@@ -459,9 +451,6 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial
         """
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        # Select dsim signal output, zero all sources, output scalings to 0.5
-        init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -475,7 +464,6 @@ class test_CBF(unittest.TestCase):
         sampling_period = self.corr_freqs.sample_period
         test_delays = [0, sampling_period, 2*sampling_period,
             3*sampling_period, 4*sampling_period]
-
 
         def get_expected_phases():
             expected_phases = []
@@ -556,9 +544,6 @@ class test_CBF(unittest.TestCase):
         frequency and that no other channels have significant relative power.
 
         """
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
-        init_dsim_sources(self.dhost)
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         # Placeholder of actual frequencies that the signal generator produces
@@ -689,7 +674,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
-        init_dsim_sources(self.dhost)
         # Choose a test freqency around the centre of the band.
         test_freq = 856e6/2
         test_input = 'm000_x'
