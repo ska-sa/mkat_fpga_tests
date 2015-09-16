@@ -113,7 +113,7 @@ eq_poly_m002_y = 300
 eq_poly_m003_x = 300
 eq_poly_m003_y = 300
 # Delay settings
-min_load_time = 23
+min_load_time = 0.1
 network_latency_adjust = 0
 
 [xengine]
