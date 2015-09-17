@@ -366,7 +366,6 @@ class test_CBF(unittest.TestCase):
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
         test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
@@ -404,7 +403,6 @@ class test_CBF(unittest.TestCase):
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
         test_chan = 1500
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
@@ -460,8 +458,6 @@ class test_CBF(unittest.TestCase):
         """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
-        # Select dsim signal output, zero all sources, output scalings to 0.5
-        init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -545,7 +541,6 @@ class test_CBF(unittest.TestCase):
         """
         test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
 
-        init_dsim_sources(self.dhost)
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         # Placeholder of actual frequencies that the signal generator produces
@@ -676,7 +671,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
-        init_dsim_sources(self.dhost)
         # Choose a test freqency around the centre of the band.
         test_freq = 856e6/2
         test_input = 'm000_x'
