@@ -533,11 +533,20 @@ class test_CBF(unittest.TestCase):
                       'delay_phase_response.svg', show=False)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
-        aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
-                               "Check that phases are as expected to within 3 "
-                               "decimal places", decimal=3)
-        Aqf.equals(np.min(actual_phases()[0][0]), np.max(actual_phases()[0][0]),
+        Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
                    "Check if the phase-slope with delay = 0 is zero.")
+        aqf_numpy_almost_equal(actual_phases[1][0], expected_phases[1][0],
+            'Check that when one clock cycle is introduced (0.584ns),'
+                ' the is a change in phases at 180 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
+        aqf_numpy_almost_equal(actual_phases[2][1], expected_phases[2][1],
+            'Check that when 1.5 clock cycle is introduced (0.876ns),'
+                ' the is a change in phases at 270 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
+        aqf_numpy_almost_equal(actual_phases[3][1], expected_phases[3][1],
+            'Check that when 2 clock cycle is introduced (1.168ns),'
+                ' the is a change in phases at 360 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
 
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
