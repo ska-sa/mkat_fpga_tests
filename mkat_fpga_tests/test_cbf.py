@@ -20,6 +20,7 @@ import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
 from corr2 import utils
+from casperfpga import utils as fpgautils
 
 from katcp import resource_client
 from katcp import ioloop_manager
@@ -72,6 +73,8 @@ class test_CBF(unittest.TestCase):
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
+        # Initialise dsim sources.
+        init_dsim_sources(self.dhost)
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
@@ -113,7 +116,6 @@ class test_CBF(unittest.TestCase):
             dicts['xhosts'] = xhosts
             return dicts
 
-        init_dsim_sources(self.dhost)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
         # Get baseline 0 data, i.e. auto-corr of m000h
@@ -271,8 +273,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     def test_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
-
-        init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -365,9 +365,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_1')
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_chan = 1500
-
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
@@ -402,14 +400,11 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
         test_chan = 1500
-
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
-        init_dsim_sources(self.dhost)
 
         scans = []
         initial_max_freq_list = []
@@ -456,8 +451,6 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial
         """
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -469,10 +462,10 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, #1.5*sampling_period,
-            3*sampling_period]
+        test_delays = [0, sampling_period, 2*sampling_period,
+            3*sampling_period, 4*sampling_period]
 
-        def expected_phases():
+        def get_expected_phases():
             expected_phases = []
             for delay in test_delays:
                 phases = self.corr_freqs.chan_freqs * 2 * np.pi * delay
@@ -480,12 +473,16 @@ class test_CBF(unittest.TestCase):
 
             return zip(test_delays, expected_phases)
 
-        def actual_phases():
+        def get_actual_phases():
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
-                delay_samples = int(np.floor(delay/sampling_period))
-                set_coarse_delay(self.correlator, 'm000_y', value=delay_samples)
+                # use correlator_fixture.corr_conf[]
+                # correlator_fixture.katcp_rct.req.delays time.time+somethign
+                # See page 22 on ICD ?delays on CBF-CAM ICD
+                fengops.feng_set_delay(self.correlator, 'm000_y', delay=delay,
+                    delta_delay=0, phase_offset=0, delta_phase_offset=0,
+                        ld_time=None, ld_check=True)
 
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw']
@@ -495,13 +492,14 @@ class test_CBF(unittest.TestCase):
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
+
         def plot_and_save(freqs, actual_data, expected_data, plot_filename, show=False):
             plt.gca().set_color_cycle(None)
             for delay, phases in actual_data:
-                plt.plot(freqs, phases, label='{}ns'.format(delay/1e9))
+                plt.plot(freqs, phases, label='{}ns'.format(delay*1e9))
             plt.gca().set_color_cycle(None)
             for delay, phases in expected_data:
-                fig = plt.plot(freqs, phases)[0]
+                fig = plt.plot(freqs, phases, '--')[0]
 
             axes = fig.get_axes()
             ybound = axes.get_ybound()
@@ -520,9 +518,16 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
-        plot_and_save(self.corr_freqs.chan_freqs, actual_phases(), expected_phases(),
-                      'delay_phase_response.svg')
+        actual_phases = get_actual_phases()
+        expected_phases = get_expected_phases()
+        for i, delay in enumerate(test_delays):
+            delta_actual = np.max(actual_phases[i][1]) - np.min(actual_phases[i][1])
+            delta_expected = np.max(expected_phases[i][1]) - np.min(expected_phases[i][1])
+            print "delay: {}ns, expected phase delta: {}, actual_phase_delta: {}".format(
+                delay*1e9, delta_expected, delta_actual)
 
+        plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
+                      'delay_phase_response.svg', show=True)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
@@ -537,10 +542,7 @@ class test_CBF(unittest.TestCase):
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
-
         """
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         # Placeholder of actual frequencies that the signal generator produces
@@ -667,7 +669,6 @@ class test_CBF(unittest.TestCase):
                     'Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
 
-    # TODO NM 2015-09-04: Needs to be AQFized
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
@@ -719,3 +720,64 @@ class test_CBF(unittest.TestCase):
                 'Check that the accumulator response is equal'
                     ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
+
+    @aqf_vr('TP.C.1.40')
+    def test_product_switch(self):
+        """(TP.C.1.40) CBF Data Product Switching Time"""
+        init_dsim_sources(self.dhost)
+        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        # Confirm that SPEAD packets are being produced,
+        # with the selected data product(s).
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        # TODO NM 2015-09-14: Do we need to validate the shape of the data to
+        # ensure the product is correct?
+
+        # Deprogram CBF
+        xhosts = self.correlator.xhosts
+        fhosts = self.correlator.fhosts
+        hosts = xhosts + fhosts
+        # Deprogramming xhosts first then fhosts avoid reorder timeout errors
+        fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
+        fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
+        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+            for host in hosts]
+        # Confirm that SPEAD packets are either no longer being produced, or
+        # that the data content is at least affected.
+        try:
+            self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            Aqf.failed('SPEAD parkets are still being produced.')
+        except Exception:
+            Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
+
+        # Start timer and re-initialise the instrument and, start capturing data.
+        start_time = time.time()
+        correlator_fixture.halt_array()
+        correlator_fixture.start_correlator()
+        self.corr_fix.start_x_data()
+        # Confirm that the instrument is initialised by checking if roaches
+        # are programmed.
+        [Aqf.is_true(host.is_running(),'{} programmed and running'
+            .format(host.host)) for host in hosts]
+
+        # Confirm that SPEAD packets are being produced, with the selected data
+        # product(s) The receiver won't return a dump if the correlator is not
+        # producing well-formed SPEAD data.
+        re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+            ' instrument re-initialisation.')
+
+        # Stop timer.
+        end_time = time.time()
+        # Data Product switching time = End time - Start time.
+        final_time =  round((end_time - start_time), 2)
+        minute = 60.0
+        # Confirm data product switching time is less than 60 seconds
+        Aqf.less(final_time, minute,
+            'Check that product switching time is less than one minute')
+
+        # TODO: MM 2015-09-14, Still need more info
+
+        # 6. Repeat for all combinations of available data products,
+        # including the case where the "new" data product is the same as the
+        # "old" one.
