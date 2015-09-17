@@ -128,7 +128,7 @@ class CorrelatorFixture(object):
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
             except IndexError:
-                LOGGER.error('Failed to assing katcp array port number.')
+                LOGGER.error('Failed to assign katcp array port number.')
 
             katcp_rc = resource_client.KATCPClientResource(
                 dict(name='localhost', address=(
