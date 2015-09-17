@@ -534,7 +534,7 @@ class test_CBF(unittest.TestCase):
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
-                   "Check if the phase-slope with delay = 0 is zero.")
+            "Check if the phase-slope with delay = 0 is zero.")
         aqf_numpy_almost_equal(actual_phases[1][0], expected_phases[1][0],
             'Check that when one clock cycle is introduced (0.584ns),'
                 ' the is a change in phases at 180 degrees as expected '
