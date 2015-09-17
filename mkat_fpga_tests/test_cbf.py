@@ -472,8 +472,8 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, 2*sampling_period,
-            3*sampling_period, 4*sampling_period]
+        test_delays = [0, sampling_period, 1.5*sampling_period,
+            2*sampling_period]
 
 
         def get_expected_phases():
@@ -503,8 +503,8 @@ class test_CBF(unittest.TestCase):
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
-
-        def plot_and_save(freqs, actual_data, expected_data, plot_filename, show=False):
+        def plot_and_save(freqs, actual_data, expected_data, plot_filename,
+            show=False):
             plt.gca().set_color_cycle(None)
             for delay, phases in actual_data:
                 plt.plot(freqs, phases, label='{}ns'.format(delay*1e9))
@@ -532,13 +532,16 @@ class test_CBF(unittest.TestCase):
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
         for i, delay in enumerate(test_delays):
-            delta_actual = np.max(actual_phases[i][1]) - np.min(actual_phases[i][1])
-            delta_expected = np.max(expected_phases[i][1]) - np.min(expected_phases[i][1])
-            print "delay: {}ns, expected phase delta: {}, actual_phase_delta: {}".format(
-                delay*1e9, delta_expected, delta_actual)
+            delta_actual = np.max(actual_phases[i][1]) - np.min(
+                actual_phases[i][1])
+            delta_expected = np.max(expected_phases[i][1]) - np.min(
+                expected_phases[i][1])
+            LOGGER.info( "delay: {}ns, expected phase delta: {},"
+                " actual_phase_delta: {}".format(
+                delay*1e9, delta_expected, delta_actual))
 
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
-                      'delay_phase_response.svg', show=True)
+                      'delay_phase_response.svg', show=False)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
