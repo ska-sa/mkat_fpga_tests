@@ -20,6 +20,7 @@ import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
 from corr2 import utils
+from casperfpga import utils as fpgautils
 
 from katcp import resource_client
 from katcp import ioloop_manager
@@ -72,6 +73,8 @@ class test_CBF(unittest.TestCase):
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
+        # Initialise dsim sources.
+        init_dsim_sources(self.dhost)
         # Increase the dump rate so tests can run faster
         xengops.xeng_set_acc_time(self.correlator, 0.2)
         self.addCleanup(self.corr_fix.stop_x_data)
@@ -113,7 +116,6 @@ class test_CBF(unittest.TestCase):
             dicts['xhosts'] = xhosts
             return dicts
 
-        init_dsim_sources(self.dhost)
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
         # Get baseline 0 data, i.e. auto-corr of m000h
@@ -271,8 +273,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     def test_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
-
-        init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -365,10 +365,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_1')
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
         test_chan = 1500
-
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
@@ -403,15 +400,11 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        init_dsim_sources(self.dhost)
         test_chan = 1500
-
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
-        init_dsim_sources(self.dhost)
 
         scans = []
         initial_max_freq_list = []
@@ -458,9 +451,6 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial
         """
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        # Select dsim signal output, zero all sources, output scalings to 0.5
-        init_dsim_sources(self.dhost)
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -474,7 +464,6 @@ class test_CBF(unittest.TestCase):
         sampling_period = self.corr_freqs.sample_period
         test_delays = [0, sampling_period, 1.5*sampling_period,
             2*sampling_period]
-
 
         def get_expected_phases():
             expected_phases = []
@@ -558,9 +547,6 @@ class test_CBF(unittest.TestCase):
         frequency and that no other channels have significant relative power.
 
         """
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-
-        init_dsim_sources(self.dhost)
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         # Placeholder of actual frequencies that the signal generator produces
@@ -691,7 +677,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
-        init_dsim_sources(self.dhost)
         # Choose a test freqency around the centre of the band.
         test_freq = 856e6/2
         test_input = 'm000_x'
@@ -740,3 +725,66 @@ class test_CBF(unittest.TestCase):
                 'Check that the accumulator response is equal'
                     ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
+
+    @aqf_vr('TP.C.1.40')
+    def test_product_switch(self):
+        """(TP.C.1.40) CBF Data Product Switching Time"""
+        init_dsim_sources(self.dhost)
+        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        # Confirm that SPEAD packets are being produced,
+        # with the selected data product(s).
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        # TODO NM 2015-09-14: Do we need to validate the shape of the data to
+        # ensure the product is correct?
+
+        # Deprogram CBF
+        xhosts = self.correlator.xhosts
+        fhosts = self.correlator.fhosts
+        hosts = xhosts + fhosts
+        # Deprogramming xhosts first then fhosts avoid reorder timeout errors
+        fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
+        fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
+        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+            for host in hosts]
+        # Confirm that SPEAD packets are either no longer being produced, or
+        # that the data content is at least affected.
+        try:
+            self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            Aqf.failed('SPEAD parkets are still being produced.')
+        except Exception:
+            Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
+
+        # Start timer and re-initialise the instrument and, start capturing data.
+        start_time = time.time()
+        correlator_fixture.halt_array()
+        correlator_fixture.start_correlator()
+        self.corr_fix.start_x_data()
+        # Confirm that the instrument is initialised by checking if roaches
+        # are programmed.
+        [Aqf.is_true(host.is_running(),'{} programmed and running'
+            .format(host.host)) for host in hosts]
+
+        # Confirm that SPEAD packets are being produced, with the selected data
+        # product(s) The receiver won't return a dump if the correlator is not
+        # producing well-formed SPEAD data.
+        re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+            ' instrument re-initialisation.')
+
+        # Stop timer.
+        end_time = time.time()
+        # Data Product switching time = End time - Start time.
+        final_time =  round((end_time - start_time), 2)
+        minute = 60.0
+        # Confirm data product switching time is less than 60 seconds
+        Aqf.less(final_time, minute,
+            'Check that product switching time is less than one minute')
+
+
+        # TODO: MM 2015-09-14, Still need more info
+
+        # 6. Repeat for all combinations of available data products,
+        # including the case where the "new" data product is the same as the
+        # "old" one.
+
