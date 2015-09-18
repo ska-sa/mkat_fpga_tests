@@ -163,7 +163,7 @@ class CorrelatorFixture(object):
             if array_list_messages:
                 self.array_number = array_list_messages[0].arguments[0]
                 self.rct.req.array_halt(self.array_number)
-        except Exception:
+        except IndexError:
             LOGGER.info ("Already cleared array")
 
         while retries and not success:
