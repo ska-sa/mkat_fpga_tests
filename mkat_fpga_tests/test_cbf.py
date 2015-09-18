@@ -491,8 +491,6 @@ class test_CBF(unittest.TestCase):
                 scans comparison {} >= {} threshold[dB].'
                     .format(diff_scans_comp, self.threshold))
 
-
-
     @aqf_vr('TP.C.1.27')
     def test_delay_tracking(self):
         """
