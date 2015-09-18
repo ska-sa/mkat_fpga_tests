@@ -452,9 +452,8 @@ class test_CBF(unittest.TestCase):
 
         initial_max_freq_list = []
         scans = []
-        for scan_i in range(1):
+        for scan_i in range(3):
             if scan_i:
-                pass
                 #correlator_fixture.halt_array()
                 #correlator_fixture.start_correlator()
             scan_dumps = []
@@ -472,6 +471,7 @@ class test_CBF(unittest.TestCase):
                     this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 # still need to fix
+
         diff_scans_dumps = []
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
@@ -485,7 +485,6 @@ class test_CBF(unittest.TestCase):
 
         correct_init_freq = np.abs(np.max(v0 - v1))
         diff_scans_comp = np.max(np.array(diff_scans_dumps)/correct_init_freq)
-        import IPython;IPython.embed()
         self.assertLess(diff_scans_comp, self.threshold,
             'Results are not consequenct after correlator restart!!!\n\
                 scans comparison {} >= {} threshold[dB].'
