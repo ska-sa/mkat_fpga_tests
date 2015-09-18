@@ -488,8 +488,7 @@ class test_CBF(unittest.TestCase):
                 fengops.feng_set_delay(self.correlator, source_name[1], delay=delay,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
                         ld_time=None, ld_check=True)
-                if delay != 0:
-                    import IPython;IPython.embed()
+
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw']
                     [:, baseline_index, :])
