@@ -462,8 +462,8 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, 2*sampling_period,
-            3*sampling_period, 4*sampling_period]
+        test_delays = [0, sampling_period, 1.5*sampling_period,
+            2*sampling_period]
 
         def get_expected_phases():
             expected_phases = []
@@ -492,8 +492,8 @@ class test_CBF(unittest.TestCase):
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
-
-        def plot_and_save(freqs, actual_data, expected_data, plot_filename, show=False):
+        def plot_and_save(freqs, actual_data, expected_data, plot_filename,
+            show=False):
             plt.gca().set_color_cycle(None)
             for delay, phases in actual_data:
                 plt.plot(freqs, phases, label='{}ns'.format(delay*1e9))
@@ -521,20 +521,36 @@ class test_CBF(unittest.TestCase):
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
         for i, delay in enumerate(test_delays):
-            delta_actual = np.max(actual_phases[i][1]) - np.min(actual_phases[i][1])
-            delta_expected = np.max(expected_phases[i][1]) - np.min(expected_phases[i][1])
-            print "delay: {}ns, expected phase delta: {}, actual_phase_delta: {}".format(
-                delay*1e9, delta_expected, delta_actual)
+            delta_actual = round(np.max(actual_phases[i][1]) - np.min(
+                actual_phases[i][1]),2)
+            delta_expected = round(np.max(expected_phases[i][1]) - np.min(
+                expected_phases[i][1]),2)
+            LOGGER.debug( "delay: {}ns, expected phase delta: {},"
+                " actual_phase_delta: {}".format(
+                delay*1e9, delta_expected, delta_actual))
+            Aqf.equals(delta_expected,delta_actual,
+                'Check if difference expected({0:.3f}) and actual({1:.3f}) '
+                    'phases are equal at delay {2:.3f}ns.'
+                        .format(delta_expected, delta_actual, delay*1e9))
 
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
-                      'delay_phase_response.svg', show=True)
+                      'delay_phase_response.svg', show=False)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
-        aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
-                               "Check that phases are as expected to within 3 "
-                               "decimal places", decimal=3)
-        Aqf.equals(np.min(actual_phases()[0][0]), np.max(actual_phases()[0][0]),
-                   "Check if the phase-slope with delay = 0 is zero.")
+        Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
+            "Check if the phase-slope with delay = 0 is zero.")
+        aqf_numpy_almost_equal(actual_phases[1][0], expected_phases[1][0],
+            'Check that when one clock cycle is introduced (0.584ns),'
+                ' the is a change in phases at 180 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
+        aqf_numpy_almost_equal(actual_phases[2][1], expected_phases[2][1],
+            'Check that when 1.5 clock cycle is introduced (0.876ns),'
+                ' the is a change in phases at 270 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
+        aqf_numpy_almost_equal(actual_phases[3][1], expected_phases[3][1],
+            'Check that when 2 clock cycle is introduced (1.168ns),'
+                ' the is a change in phases at 360 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
 
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
@@ -542,7 +558,6 @@ class test_CBF(unittest.TestCase):
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
-
         """
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
@@ -670,7 +685,6 @@ class test_CBF(unittest.TestCase):
                     'Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
 
-    # TODO NM 2015-09-04: Needs to be AQFized
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
@@ -778,10 +792,8 @@ class test_CBF(unittest.TestCase):
         Aqf.less(final_time, minute,
             'Check that product switching time is less than one minute')
 
-
         # TODO: MM 2015-09-14, Still need more info
 
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
-
