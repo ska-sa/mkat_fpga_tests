@@ -444,7 +444,54 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        pass
+        test_chan = 1000
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=3, chans_around=1)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+
+        initial_max_freq_list = []
+        scans = []
+        for scan_i in range(1):
+            if scan_i:
+                pass
+                #correlator_fixture.halt_array()
+                #correlator_fixture.start_correlator()
+            scan_dumps = []
+            scans.append(scan_dumps)
+            for i, freq in enumerate(requested_test_freqs):
+                if scan_i == 0:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
+                    initial_max_freq_list.append(initial_max_freq)
+                else:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    this_freq_data = this_freq_dump['xeng_raw']
+                scan_dumps.append(this_freq_data)
+# still need to fix
+        diff_scans_dumps = []
+        for comparison in range(1, len(scans)):
+            s0 = np.array(scans[comparison - 1])
+            s1 = np.array(scans[comparison])
+            diff_scans_dumps.append(np.max(s0 - s1))
+
+        normalised_init_freq = np.array(initial_max_freq_list)
+        for comp in range(1, len(normalised_init_freq)):
+            v0 = np.array(normalised_init_freq[comp - 1])
+            v1 = np.array(normalised_init_freq[comp])
+
+        correct_init_freq = np.abs(np.max(v0 - v1))
+        diff_scans_comp = np.max(np.array(diff_scans_dumps)/correct_init_freq)
+        import IPython;IPython.embed()
+        self.assertLess(diff_scans_comp, self.threshold,
+            'Results are not consequenct after correlator restart!!!\n\
+                scans comparison {} >= {} threshold[dB].'
+                    .format(diff_scans_comp, self.threshold))
+
+
 
     @aqf_vr('TP.C.1.27')
     def test_delay_tracking(self):
@@ -784,4 +831,3 @@ class test_CBF(unittest.TestCase):
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
-
