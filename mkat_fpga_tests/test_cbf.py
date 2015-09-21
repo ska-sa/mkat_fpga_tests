@@ -61,9 +61,15 @@ def get_and_restore_initial_eqs(test_instance, correlator):
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
 
+def get_bit_flag(packed, flag_bit):
+    flag_mask = 1 << flag_bit
+    flag = bool(packed & flag_mask)
+    return flag
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
+    DEFAULT_ACCUMULATION_TIME = 0.2
+
     def setUp(self):
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
@@ -75,7 +81,7 @@ class test_CBF(unittest.TestCase):
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
         # Increase the dump rate so tests can run faster
-        xengops.xeng_set_acc_time(self.correlator, 0.2)
+        xengops.xeng_set_acc_time(self.correlator, self.DEFAULT_ACCUMULATION_TIME)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.receiver = CorrRx(port=8888)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
@@ -801,3 +807,59 @@ class test_CBF(unittest.TestCase):
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
+
+
+    def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
+                       accumulation_time=1.):
+        Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
+        xengops.xeng_set_acc_time(self.correlator, accumulation_time)
+        Aqf.step('Getting correlator dump 1 before setting {}.'
+                .format(flag_description))
+        dump1 = self.receiver.get_clean_dump(dump_timeout=5)
+        start_time = time.time()
+        Aqf.wait(0.1*accumulation_time, 'Waiting 10% of accumulation length')
+        Aqf.step('Setting {}'.format(flag_description))
+        flag_enable_fn()
+        elapsed = time.time() - start_time
+        wait_time = accumulation_time*0.8 - elapsed
+        Aqf.is_true(wait_time > 0, 'Check that wait time {} is larger than zero'
+                    .format(wait_time))
+        Aqf.wait(wait_time, 'Waiting until 80% of accumulation length has elapsed')
+        Aqf.step('Clearing {}'.format(flag_description))
+        flag_disable_fn()
+        Aqf.step('Getting correlator dump 2 after setting and clearing {}.'
+                .format(flag_description))
+        dump2 = self.receiver.data_queue.get(timeout=5)
+        Aqf.step('Getting correlator dump 3.')
+        dump3 = self.receiver.data_queue.get(timeout=5)
+        return (dump1, dump2, dump3)
+
+    @aqf_vr('TP.C.1.38')
+    def test_adc_overflow_flag(self):
+        """CBF flagging of data -- ADC overflow"""
+        def enable_adc_overflow():
+            self.dhost.registers.flag_setup.write(adc_flag=1)
+            self.dhost.registers.flag_setup.write(load_flags='pulse')
+
+        def disable_adc_overflow():
+            self.dhost.registers.flag_setup.write(adc_flag=0)
+            self.dhost.registers.flag_setup.write(load_flags='pulse')
+
+        condition = 'ADC overflow flag on the digitiser simulator'
+        dump1, dump2, dump3, = self.get_flag_dumps(
+            enable_adc_overflow, disable_adc_overflow, condition)
+        flag_bit = 33
+        flag_descr = 'overrange in data path, bit 33,'
+        flag_condition = 'ADC overrange'
+        flag1 = get_bit_flag(dump1['flags_xeng_raw'], flag_bit)
+        Aqf.is_false(flag1, 'Check that {} is not set in dump 1 before setting {}.'
+                     .format(flag_descr, condition))
+        flag2 = get_bit_flag(dump2['flags_xeng_raw'], flag_bit)
+        Aqf.is_true(flag2, 'Check that {} is set in dump 2 while toggeling {}.'
+                    .format(flag_descr, condition))
+        flag3 = get_bit_flag(dump3['flags_xeng_raw'], flag_bit)
+        Aqf.is_false(flag3, 'Check that {} is not set in dump 3 after clearing {}.'
+                     .format(flag_descr, condition))
+        # TODO Test if any other flags are set (ignoring flags 0 - 31 since they are for
+        # internal use)
+        #import IPython; IPython.embed()
