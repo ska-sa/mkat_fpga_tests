@@ -608,18 +608,28 @@ class test_CBF(unittest.TestCase):
         Report sensor values (AR1)
         """
         sensors_req = correlator_fixture.rct.req
+        array_sensors_req = correlator_fixture.katcp_rct.req
         # 1. Request a list of available sensors using KATCP command
         # 2. Confirm the CBF replies with a number of sensor-list inform messages
-        LOGGER.info (sensors_req.sensor_list)
+        LOGGER.info (sensors_req.sensor_list())
+        LOGGER.info (array_sensors_req.sensor_list())
 
         # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
         #    where numSensors is the number of sensor-list informs sent.
         list_reply, list_informs = sensors_req.sensor_list()
         sens_lst_stat, numSensors = list_reply.arguments
 
+        array_list_reply, array_list_informs = array_sensors_req.sensor_list()
+        array_sens_lst_stat, array_numSensors = array_list_reply.arguments
+
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
-            'Check that the number of sensors are equal to the'
+            "Check that the instrument's number of sensors are equal to the"
+                 "number of sensors in the list.")
+
+        array_numSensors = int(array_numSensors)
+        Aqf.equals(array_numSensors, len(array_list_informs),
+            'Check that the number of array sensors are equal to the'
                  'number of sensors in the list.')
 
         # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
@@ -627,7 +637,12 @@ class test_CBF(unittest.TestCase):
         sensor_value = sensors_req.sensor_value()
         sens_val_stat, sens_val_cnt = sensor_value.reply.arguments
         Aqf.equals(int(sens_val_cnt), numSensors,
-            'Check that the sensor-value and sensor-list counts are the same')
+            'Check that the instrument sensor-value and sensor-list counts are the same')
+
+        array_sensor_value = array_sensors_req.sensor_value()
+        array_sens_val_stat, array_sens_val_cnt = array_sensor_value.reply.arguments
+        Aqf.equals(int(array_sens_val_cnt), array_numSensors,
+            'Check that the array sensor-value and sensor-list counts are the same')
 
         # 4.2 Request the time synchronisation status using KATCP command
         # "?sensor-value time.synchronised
@@ -648,8 +663,6 @@ class test_CBF(unittest.TestCase):
             self.assertEqual(sensor.get_status(), 'nominal',
                 msg='Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
-
-        #roaches = self.correlator.fhosts + self.correlator.xhosts
 
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
