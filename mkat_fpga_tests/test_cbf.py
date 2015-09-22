@@ -392,9 +392,9 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps)/initial_max_freq)
             Aqf.less(dumps_comp, self.threshold,
-                     'Check that back-to-back dumps with the same frequency '
+                     'Check that back-to-back dumps({}) with the same frequency '
                      'input differ by no more than {} threshold[dB].'
-                     .format(10*np.log10(self.threshold)))
+                     .format(dumps_comp, 10*np.log10(self.threshold)))
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
@@ -678,7 +678,6 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(len(sensors_list), int(values_reply.arguments[1])
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
-
 
     @aqf_vr('TP.C.dummy_vr_4')
     def test_roach_sensors_status(self):
