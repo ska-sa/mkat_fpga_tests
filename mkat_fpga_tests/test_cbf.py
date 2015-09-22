@@ -480,9 +480,9 @@ class test_CBF(unittest.TestCase):
                 # correlator_fixture.katcp_rct.req.delays time.time+somethign
                 # See page 22 on ICD ?delays on CBF-CAM ICD
                 reply = correlator_fixture.katcp_rct.req.input_labels()
-                source_name = reply.arguments[1].split()
+                source_name = reply[0].arguments[1].split()
                 # Set coarse delay using cmc
-                correlator_fixture.katcp_rct.req.delays
+                # correlator_fixture.katcp_rct.req.delays()
                 # Set coarse delay using corr2 library
                 fengops.feng_set_delay(self.correlator, source_name[1], delay=delay,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
@@ -607,27 +607,16 @@ class test_CBF(unittest.TestCase):
         """
         Report sensor values (AR1)
         """
-        iom = ioloop_manager.IOLoopManager()
-        iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
-        iom.start()
-        self.addCleanup(iom.stop)
-
-        rc = resource_client.KATCPClientResource(
-            dict(name='localhost', address=('localhost', '7147'),
-                controlled=True))
-        rc.set_ioloop(iom.get_ioloop())
-        rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
-        rct.start()
-        rct.until_synced()
-
+        sensors_req = correlator_fixture.rct.req
         # 1. Request a list of available sensors using KATCP command
         # 2. Confirm the CBF replies with a number of sensor-list inform messages
-        LOGGER.info (rct.req.sensor_list())
+        LOGGER.info (sensors_req.sensor_list)
 
         # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
         #    where numSensors is the number of sensor-list informs sent.
-        list_reply, list_informs = rct.req.sensor_list()
+        list_reply, list_informs = sensors_req.sensor_list()
         sens_lst_stat, numSensors = list_reply.arguments
+
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
             'Check that the number of sensors are equal to the'
@@ -635,35 +624,36 @@ class test_CBF(unittest.TestCase):
 
         # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
-        sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
+        sensor_value = sensors_req.sensor_value()
+        sens_val_stat, sens_val_cnt = sensor_value.reply.arguments
         Aqf.equals(int(sens_val_cnt), numSensors,
             'Check that the sensor-value and sensor-list counts are the same')
 
         # 4.2 Request the time synchronisation status using KATCP command
         # "?sensor-value time.synchronised
-        self.assertTrue(rct.req.sensor_value('time.synchronised').reply.reply_ok(),
-                msg='Reading time synchronisation sensor failed!')
+        Aqf.is_true(sensors_req.sensor_value('time.synchronised').reply.reply_ok(),
+            'Reading time synchronisation sensor failed!')
+
 
         # 5. Confirm the CBF replies with " #sensor-value <time>
         # time.synchronised [status value], followed by a "!sensor-value ok 1"
         # message.
-        Aqf.equals(str(rct.req.sensor_value('time.synchronised')[0]),
+        Aqf.equals(str(sensors_req.sensor_value('time.synchronised')[0]),
             '!sensor-value ok 1', 'Check that the time synchronised sensor values'
                 ' replies with !sensor-value ok 1')
 
         # Check all sensors statuses
-        for sensor in rct.sensor.values():
+        for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ':'+ str(sensor.get_value()))
             self.assertEqual(sensor.get_status(), 'nominal',
                 msg='Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
-        roaches = self.correlator.fhosts + self.correlator.xhosts
+        #roaches = self.correlator.fhosts + self.correlator.xhosts
 
-        for roach in roaches:
+        for roach in (self.correlator.fhosts + self.correlator.xhosts):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
-
             # Verify the number of sensors received with
             # number of sensors in the list.
             Aqf.is_true((values_reply.reply_ok() == list_reply.reply_ok())
@@ -675,6 +665,7 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(len(sensors_list), int(values_reply.arguments[1])
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
+
 
     @aqf_vr('TP.C.dummy_vr_4')
     def test_roach_sensors_status(self):
