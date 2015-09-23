@@ -18,6 +18,8 @@ from corr2.corr_rx import CorrRx
 import corr2.fxcorrelator_fengops as fengops
 import corr2.fxcorrelator_xengops as xengops
 
+from collections import namedtuple
+
 from corr2 import utils
 from casperfpga import utils as fpgautils
 
@@ -38,6 +40,19 @@ from mkat_fpga_tests.utils import get_source_object_and_index
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
+
+
+# From
+# https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
+# SPEAD Identifier listing we see that the field flags_xeng_raw is a bitfield
+# variable with bits 0 to 31 reserved for internal debugging and
+
+# bit 34 - corruption or data missing during integration
+# bit 33 - overrange in data path
+# bit 32 - noise diode on during integration
+
+flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
+    34, 33, 32)
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
@@ -65,6 +80,16 @@ def get_bit_flag(packed, flag_bit):
     flag_mask = 1 << flag_bit
     flag = bool(packed & flag_mask)
     return flag
+
+def get_set_bits(packed, consider_bits=None):
+    packed = int(packed)
+    set_bits = set()
+    for bit in range(packed.bit_length()):
+        if get_bit_flag(packed, bit):
+            set_bits.add(bit)
+    if filter is not None:
+        set_bits = set_bits.intersection(consider_bits)
+    return set_bits
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -837,6 +862,10 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.38')
     def test_adc_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
+
+        # TODO 2015-09-22 (NM): Test is currently failing since the noise diode flag is
+        # also set when the overange occurs. Needs to check if the dsim is doing this or
+        # if it is an error in the CBF.
         def enable_adc_overflow():
             self.dhost.registers.flag_setup.write(adc_flag=1)
             self.dhost.registers.flag_setup.write(load_flags='pulse')
@@ -848,18 +877,93 @@ class test_CBF(unittest.TestCase):
         condition = 'ADC overflow flag on the digitiser simulator'
         dump1, dump2, dump3, = self.get_flag_dumps(
             enable_adc_overflow, disable_adc_overflow, condition)
-        flag_bit = 33
-        flag_descr = 'overrange in data path, bit 33,'
+        flag_bit = flags_xeng_raw_bits.overrange
+        # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
+        all_bits = set(flags_xeng_raw_bits)
+        other_bits = all_bits - set([flag_bit])
+        flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'ADC overrange'
-        flag1 = get_bit_flag(dump1['flags_xeng_raw'], flag_bit)
-        Aqf.is_false(flag1, 'Check that {} is not set in dump 1 before setting {}.'
+
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
+        Aqf.is_false(flag_bit in set_bits1,
+                     'Check that {} is not set in dump 1 before setting {}.'
                      .format(flag_descr, condition))
-        flag2 = get_bit_flag(dump2['flags_xeng_raw'], flag_bit)
-        Aqf.is_true(flag2, 'Check that {} is set in dump 2 while toggeling {}.'
+        # Bits that should not be set
+        other_set_bits1 = set_bits1.intersection(other_bits)
+        Aqf.is_false(other_set_bits1, 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits2 = set_bits2.intersection(other_bits)
+        Aqf.is_true(flag_bit in set_bits2,
+                    'Check that {} is set in dump 2 while toggeling {}.'
                     .format(flag_descr, condition))
-        flag3 = get_bit_flag(dump3['flags_xeng_raw'], flag_bit)
-        Aqf.is_false(flag3, 'Check that {} is not set in dump 3 after clearing {}.'
+        Aqf.equals(other_set_bits2, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits3 = set_bits3.intersection(other_bits)
+        Aqf.is_false(flag_bit in set_bits3,
+                     'Check that {} is not set in dump 3 after clearing {}.'
                      .format(flag_descr, condition))
-        # TODO Test if any other flags are set (ignoring flags 0 - 31 since they are for
-        # internal use)
-        #import IPython; IPython.embed()
+        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+
+    @aqf_vr('TP.C.1.38')
+    def test_fft_overflow_flag(self):
+        """CBF flagging of data -- ADC overflow"""
+        freq = self.corr_freqs.bandwidth/2.
+
+        def enable_fft_overflow():
+            # TODO 2015-09-22 (NM) There seems to be some issue with the dsim sin_corr
+            # source that results in it producing all zeros... So using sin_0 and sin_1
+            # instead
+            # self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=1.)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=1.)
+            self.dhost.sine_sources.sin_1.set(frequency=freq, scale=1.)
+            # Set FFT to never shift, ensuring an FFT overflow with the large tone we are
+            # putting in.
+            fengops.feng_set_fft_shift_all(self.correlator, 0)
+
+        def disable_fft_overflow():
+            self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=0)
+            # Restore the default FFT shifts as per the correlator config.
+            fengops.feng_set_fft_shift_all(self.correlator)
+
+        condition = ('FFT overflow by setting an agressive FFT shift with '
+                     'a pure tone input')
+        dump1, dump2, dump3, = self.get_flag_dumps(
+            enable_fft_overflow, disable_fft_overflow, condition)
+        flag_bit = flags_xeng_raw_bits.overrange
+        # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
+        all_bits = set(flags_xeng_raw_bits)
+        other_bits = all_bits - set([flag_bit])
+        flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
+        flag_condition = 'FFT overrange'
+
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
+        Aqf.is_false(flag_bit in set_bits1,
+                     'Check that {} is not set in dump 1 before setting {}.'
+                     .format(flag_descr, condition))
+        # Bits that should not be set
+        other_set_bits1 = set_bits1.intersection(other_bits)
+        Aqf.is_false(other_set_bits1, 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits2 = set_bits2.intersection(other_bits)
+        Aqf.is_true(flag_bit in set_bits2,
+                    'Check that {} is set in dump 2 while toggeling {}.'
+                    .format(flag_descr, condition))
+        Aqf.equals(other_set_bits2, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits3 = set_bits3.intersection(other_bits)
+        Aqf.is_false(flag_bit in set_bits3,
+                     'Check that {} is not set in dump 3 after clearing {}.'
+                     .format(flag_descr, condition))
+        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
