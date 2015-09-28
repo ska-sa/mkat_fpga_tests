@@ -657,13 +657,16 @@ class test_CBF(unittest.TestCase):
             '!sensor-value ok 1', 'Check that the time synchronised sensor values'
                 ' replies with !sensor-value ok 1')
 
-        # Check all sensors statuses
+        # Check all sensors statuses if they are nominal
         for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ':'+ str(sensor.get_value()))
             Aqf.equals(sensor.get_status(), 'nominal',
                 'Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
+    @aqf_vr('TP.C.dummy_vr_4')
+    def test_roach_sensors_status(self):
+        """ Test all roach sensors status are not failing and count verification."""
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
@@ -679,11 +682,6 @@ class test_CBF(unittest.TestCase):
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
 
-    @aqf_vr('TP.C.dummy_vr_4')
-    def test_roach_sensors_status(self):
-        """ Test all roach sensors status are not failing """
-        for roach in (self.correlator.fhosts + self.correlator.xhosts):
-            values_reply, sensors_values = roach.katcprequest('sensor-value')
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = (
                     sensor.arguments[2:])
