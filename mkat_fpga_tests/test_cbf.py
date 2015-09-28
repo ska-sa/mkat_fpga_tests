@@ -190,7 +190,7 @@ class test_CBF(unittest.TestCase):
         test_fftoverflow_qdrstatus()
 
         for i, freq in enumerate(requested_test_freqs):
-            LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
@@ -207,7 +207,7 @@ class test_CBF(unittest.TestCase):
             try:
                 snapshots = get_snapshots(self.correlator)
             except Exception:
-                print ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
+                Logger.info ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
                     i+1, len(requested_test_freqs), freq/1e6))
                 LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz."
                     .format(i+1, len(requested_test_freqs), freq/1e6))
