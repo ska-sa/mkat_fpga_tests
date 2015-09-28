@@ -207,7 +207,7 @@ class test_CBF(unittest.TestCase):
             try:
                 snapshots = get_snapshots(self.correlator)
             except Exception:
-                Logger.info ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
+                LOGGER.info("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
                     i+1, len(requested_test_freqs), freq/1e6))
                 LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz."
                     .format(i+1, len(requested_test_freqs), freq/1e6))
