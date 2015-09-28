@@ -848,6 +848,9 @@ class test_CBF(unittest.TestCase):
         Aqf.wait(0.1*accumulation_time, 'Waiting 10% of accumulation length')
         Aqf.step('Setting {}'.format(flag_description))
         flag_enable_fn()
+        # Ensure that the flag is disabled even if the test fails to avoid contaminating
+        # other tests
+        self.addCleanup(flag_disable_fn)
         elapsed = time.time() - start_time
         wait_time = accumulation_time*0.8 - elapsed
         Aqf.is_true(wait_time > 0, 'Check that wait time {} is larger than zero'
@@ -893,7 +896,7 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         # Bits that should not be set
         other_set_bits1 = set_bits1.intersection(other_bits)
-        Aqf.is_false(other_set_bits1, 'Check that no other flag bits (any of {}) '
+        Aqf.equals(other_set_bits1, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
         set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
@@ -930,7 +933,12 @@ class test_CBF(unittest.TestCase):
             fengops.feng_set_fft_shift_all(self.correlator, 0)
 
         def disable_fft_overflow():
-            self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=0)
+            # TODO 2015-09-22 (NM) There seems to be some issue with the dsim sin_corr
+            # source that results in it producing all zeros... So using sin_0 and sin_1
+            # instead
+            # self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=0)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.)
+            self.dhost.sine_sources.sin_1.set(frequency=freq, scale=0.)
             # Restore the default FFT shifts as per the correlator config.
             fengops.feng_set_fft_shift_all(self.correlator)
 
@@ -951,7 +959,7 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         # Bits that should not be set
         other_set_bits1 = set_bits1.intersection(other_bits)
-        Aqf.is_false(other_set_bits1, 'Check that no other flag bits (any of {}) '
+        Aqf.equals(other_set_bits1, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
         set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
