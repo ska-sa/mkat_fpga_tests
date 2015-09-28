@@ -20,8 +20,6 @@ from collections import namedtuple
 from corr2 import utils
 from casperfpga import utils as fpgautils
 
-from katcp import resource_client
-from katcp import ioloop_manager
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
