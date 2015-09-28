@@ -479,8 +479,8 @@ class test_CBF(unittest.TestCase):
                 # use correlator_fixture.corr_conf[]
                 # correlator_fixture.katcp_rct.req.delays time.time+somethign
                 # See page 22 on ICD ?delays on CBF-CAM ICD
-                reply = correlator_fixture.katcp_rct.req.input_labels()
-                source_name = reply[0].arguments[1].split()
+                reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+                source_name = informs.arguments[1].split()
                 # Set coarse delay using cmc
                 # correlator_fixture.katcp_rct.req.delays()
                 # Set coarse delay using corr2 library
@@ -607,21 +607,21 @@ class test_CBF(unittest.TestCase):
         """
         Report sensor values (AR1)
         """
+        # Request a list of available sensors using KATCP command
         sensors_req = correlator_fixture.rct.req
         array_sensors_req = correlator_fixture.katcp_rct.req
-        # 1. Request a list of available sensors using KATCP command
-        # 2. Confirm the CBF replies with a number of sensor-list inform messages
-        LOGGER.info (sensors_req.sensor_list())
-        LOGGER.info (array_sensors_req.sensor_list())
 
-        # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-        #    where numSensors is the number of sensor-list informs sent.
         list_reply, list_informs = sensors_req.sensor_list()
+        # Confirm the CBF replies with a number of sensor-list inform messages
+        LOGGER.info (list_reply)
+        LOGGER.info (list_informs)
         sens_lst_stat, numSensors = list_reply.arguments
 
         array_list_reply, array_list_informs = array_sensors_req.sensor_list()
         array_sens_lst_stat, array_numSensors = array_list_reply.arguments
 
+        # Confirm the CBF replies with "!sensor-list ok numSensors"
+        # where numSensors is the number of sensor-list informs sent.
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
             "Check that the instrument's number of sensors are equal to the"
@@ -632,7 +632,7 @@ class test_CBF(unittest.TestCase):
             'Check that the number of array sensors are equal to the'
                  'number of sensors in the list.')
 
-        # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
+        # Check that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
         sensor_value = sensors_req.sensor_value()
         sens_val_stat, sens_val_cnt = sensor_value.reply.arguments
@@ -644,13 +644,13 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(int(array_sens_val_cnt), array_numSensors,
             'Check that the array sensor-value and sensor-list counts are the same')
 
-        # 4.2 Request the time synchronisation status using KATCP command
+        # Request the time synchronisation status using KATCP command
         # "?sensor-value time.synchronised
         Aqf.is_true(sensors_req.sensor_value('time.synchronised').reply.reply_ok(),
             'Reading time synchronisation sensor failed!')
 
 
-        # 5. Confirm the CBF replies with " #sensor-value <time>
+        # Confirm the CBF replies with " #sensor-value <time>
         # time.synchronised [status value], followed by a "!sensor-value ok 1"
         # message.
         Aqf.equals(str(sensors_req.sensor_value('time.synchronised')[0]),
