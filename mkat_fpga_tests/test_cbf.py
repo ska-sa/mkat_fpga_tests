@@ -660,8 +660,8 @@ class test_CBF(unittest.TestCase):
         # Check all sensors statuses
         for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ':'+ str(sensor.get_value()))
-            self.assertEqual(sensor.get_status(), 'nominal',
-                msg='Sensor status fail: {}, {} '
+            Aqf.equals(sensor.get_status(), 'nominal',
+                'Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
