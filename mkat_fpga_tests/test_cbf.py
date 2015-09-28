@@ -69,10 +69,10 @@ def get_vacc_offset(xeng_raw):
 
 def get_and_restore_initial_eqs(test_instance, correlator):
     initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                             in fengops.feng_eq_get(correlator).items()}
+                             in fengops.eq_get().items()}
     def restore_initial_equalisations():
         for input, eq in initial_equalisations.items():
-            fengops.feng_eq_set(correlator, source_name=input, new_eq=eq)
+            fengops.eq_set(source_name=input, new_eq=eq)
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
 
@@ -348,7 +348,7 @@ class test_CBF(unittest.TestCase):
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
-            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
+            fengops.eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
                      "Check that all baseline visibilities are zero")
@@ -372,7 +372,7 @@ class test_CBF(unittest.TestCase):
 
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
-            fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eq)
+            fengops.eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
             expected_z_bls, expected_nz_bls = (
@@ -517,7 +517,7 @@ class test_CBF(unittest.TestCase):
                 # Set coarse delay using cmc
                 correlator_fixture.katcp_rct.req.delays
                 # Set coarse delay using corr2 library
-                fengops.feng_set_delay(self.correlator, source_name[1], delay=delay,
+                fengops.set_delay(source_name[1], delay=delay,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
                         ld_time=None, ld_check=True)
 
@@ -740,8 +740,7 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        fengops.feng_eq_set(self.correlator, source_name=test_input,
-                            new_eq=list(eqs))
+        fengops.eq_set(source_name=test_input, new_eq=list(eqs))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
         # Make dsim output periodic in FFT-length so that each FFT is identical
                                           repeatN=self.corr_freqs.n_chans*2)
@@ -929,7 +928,7 @@ class test_CBF(unittest.TestCase):
             self.dhost.sine_sources.sin_1.set(frequency=freq, scale=1.)
             # Set FFT to never shift, ensuring an FFT overflow with the large tone we are
             # putting in.
-            fengops.feng_set_fft_shift_all(self.correlator, 0)
+            fengops.set_fft_shift_all(shift_value=0)
 
         def disable_fft_overflow():
             # TODO 2015-09-22 (NM) There seems to be some issue with the dsim sin_corr
@@ -939,7 +938,7 @@ class test_CBF(unittest.TestCase):
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.)
             self.dhost.sine_sources.sin_1.set(frequency=freq, scale=0.)
             # Restore the default FFT shifts as per the correlator config.
-            fengops.feng_set_fft_shift_all(self.correlator)
+            fengops.set_fft_shift_all()
 
         condition = ('FFT overflow by setting an agressive FFT shift with '
                      'a pure tone input')
