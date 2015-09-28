@@ -513,7 +513,7 @@ class test_CBF(unittest.TestCase):
                 # correlator_fixture.katcp_rct.req.delays time.time+somethign
                 # See page 22 on ICD ?delays on CBF-CAM ICD
                 reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-                source_name = informs.arguments[1].split()
+                source_name = reply.arguments[1:][0].split()
                 # Set coarse delay using cmc
                 # correlator_fixture.katcp_rct.req.delays()
                 # Set coarse delay using corr2 library
