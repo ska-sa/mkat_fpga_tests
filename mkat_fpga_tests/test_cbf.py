@@ -15,9 +15,6 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
-import corr2.fxcorrelator_fengops as fengops
-import corr2.fxcorrelator_xengops as xengops
-
 from collections import namedtuple
 
 from corr2 import utils
@@ -108,8 +105,10 @@ class test_CBF(unittest.TestCase):
         self.dhost.get_system_information()
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
+        xengops = self.correlator.xops
+        fengops = self.correlator.fops
         # Increase the dump rate so tests can run faster
-        xengops.xeng_set_acc_time(self.correlator, self.DEFAULT_ACCUMULATION_TIME)
+        xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.receiver = CorrRx(port=8888)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
@@ -764,7 +763,7 @@ class test_CBF(unittest.TestCase):
             'Check that the spectrum is zero except in the test channel')
 
         for vacc_accumulations in test_acc_lens:
-            xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
+            xengops.set_acc_len(vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum)**2  * no_accs
             response = complexise(
@@ -840,7 +839,7 @@ class test_CBF(unittest.TestCase):
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
-        xengops.xeng_set_acc_time(self.correlator, accumulation_time)
+        xengops.set_acc_time(accumulation_time)
         Aqf.step('Getting correlator dump 1 before setting {}.'
                 .format(flag_description))
         dump1 = self.receiver.get_clean_dump(dump_timeout=5)
@@ -977,4 +976,3 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
-
