@@ -46,10 +46,13 @@ DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arriv
 # https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
 # SPEAD Identifier listing we see that the field flags_xeng_raw is a bitfield
 # variable with bits 0 to 31 reserved for internal debugging and
-
+#
 # bit 34 - corruption or data missing during integration
 # bit 33 - overrange in data path
 # bit 32 - noise diode on during integration
+#
+# Also see the digitser end of the story in table 4, word 7 here:
+# https://drive.google.com/a/ska.ac.za/file/d/0BzImdYPNWrAkV1hCR0hzQTYzQlE/view
 
 flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
     34, 33, 32)
@@ -87,7 +90,7 @@ def get_set_bits(packed, consider_bits=None):
     for bit in range(packed.bit_length()):
         if get_bit_flag(packed, bit):
             set_bits.add(bit)
-    if filter is not None:
+    if consider_bits is not None:
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
 
