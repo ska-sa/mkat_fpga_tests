@@ -613,8 +613,7 @@ class test_CBF(unittest.TestCase):
 
         list_reply, list_informs = sensors_req.sensor_list()
         # Confirm the CBF replies with a number of sensor-list inform messages
-        LOGGER.info (list_reply)
-        LOGGER.info (list_informs)
+        LOGGER.info (list_reply, list_informs)
         sens_lst_stat, numSensors = list_reply.arguments
 
         array_list_reply, array_list_informs = array_sensors_req.sensor_list()
