@@ -128,7 +128,6 @@ class CorrelatorFixture(object):
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
             except IndexError:
-                LOGGER.error('Failed to assign katcp array port number.')
                 raise RuntimeError('Failed to assign katcp array port number.')
 
             katcp_rc = resource_client.KATCPClientResource(
@@ -168,7 +167,6 @@ class CorrelatorFixture(object):
                 self.array_number = array_list_messages[0].arguments[0]
                 self.rct.req.array_halt(self.array_number)
         except IndexError:
-            LOGGER.error("Unable to halt array due to empty array number")
             raise RuntimeError("Unable to halt array due to empty array number")
 
         while retries and not success:
@@ -194,7 +192,6 @@ class CorrelatorFixture(object):
                 try:
                     self.rct.req.array_halt(self.array_number)
                 except IndexError:
-                    LOGGER.error("Unable to halt array due to empty array number")
                     raise RuntimeError("Unable to halt array due to empty array"
                         "number")
 

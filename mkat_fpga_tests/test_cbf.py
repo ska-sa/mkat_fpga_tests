@@ -5,7 +5,6 @@ import logging
 import time
 import itertools
 
-
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -16,8 +15,7 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
-import corr2.fxcorrelator_fengops as fengops
-import corr2.fxcorrelator_xengops as xengops
+from collections import namedtuple
 
 from corr2 import utils
 from casperfpga import utils as fpgautils
@@ -40,6 +38,22 @@ LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
 
+
+# From
+# https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
+# SPEAD Identifier listing we see that the field flags_xeng_raw is a bitfield
+# variable with bits 0 to 31 reserved for internal debugging and
+#
+# bit 34 - corruption or data missing during integration
+# bit 33 - overrange in data path
+# bit 32 - noise diode on during integration
+#
+# Also see the digitser end of the story in table 4, word 7 here:
+# https://drive.google.com/a/ska.ac.za/file/d/0BzImdYPNWrAkV1hCR0hzQTYzQlE/view
+
+flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
+    34, 33, 32)
+
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
     b0 = np.abs(complexise(xeng_raw[:,0]))
@@ -55,16 +69,32 @@ def get_vacc_offset(xeng_raw):
 
 def get_and_restore_initial_eqs(test_instance, correlator):
     initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                             in fengops.feng_eq_get(correlator).items()}
+                             in correlator.fops.eq_get().items()}
     def restore_initial_equalisations():
         for input, eq in initial_equalisations.items():
-            fengops.feng_eq_set(correlator, source_name=input, new_eq=eq)
+            correlator.fops.eq_set(source_name=input, new_eq=eq)
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
 
+def get_bit_flag(packed, flag_bit):
+    flag_mask = 1 << flag_bit
+    flag = bool(packed & flag_mask)
+    return flag
+
+def get_set_bits(packed, consider_bits=None):
+    packed = int(packed)
+    set_bits = set()
+    for bit in range(packed.bit_length()):
+        if get_bit_flag(packed, bit):
+            set_bits.add(bit)
+    if consider_bits is not None:
+        set_bits = set_bits.intersection(consider_bits)
+    return set_bits
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
+    DEFAULT_ACCUMULATION_TIME = 0.2
+
     def setUp(self):
         self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
@@ -75,8 +105,10 @@ class test_CBF(unittest.TestCase):
         self.dhost.get_system_information()
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
+        self.xengops = self.correlator.xops
+        self.fengops = self.correlator.fops
         # Increase the dump rate so tests can run faster
-        xengops.xeng_set_acc_time(self.correlator, 0.2)
+        self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.receiver = CorrRx(port=8888)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
@@ -158,7 +190,7 @@ class test_CBF(unittest.TestCase):
         test_fftoverflow_qdrstatus()
 
         for i, freq in enumerate(requested_test_freqs):
-            LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+            print ('Getting channel response for freq {}/{}: {} MHz.'.format(
                 i+1, len(requested_test_freqs), freq/1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
@@ -175,7 +207,7 @@ class test_CBF(unittest.TestCase):
             try:
                 snapshots = get_snapshots(self.correlator)
             except Exception:
-                print ("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
+                LOGGER.info("Error retrieving snapshot at {}/{}: {} MHz.\n".format(
                     i+1, len(requested_test_freqs), freq/1e6))
                 LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz."
                     .format(i+1, len(requested_test_freqs), freq/1e6))
@@ -316,7 +348,7 @@ class test_CBF(unittest.TestCase):
 
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
-            fengops.feng_eq_set(self.correlator, source_name=input, new_eq=0)
+            self.fengops.eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
                      "Check that all baseline visibilities are zero")
@@ -340,7 +372,7 @@ class test_CBF(unittest.TestCase):
 
         for inp in input_labels:
             old_eq = initial_equalisations[inp]
-            fengops.feng_eq_set(self.correlator, source_name=inp, new_eq=old_eq)
+            self.fengops.eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
             nonzero_inputs.add(inp)
             expected_z_bls, expected_nz_bls = (
@@ -506,8 +538,8 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, 2*sampling_period,
-            3*sampling_period, 4*sampling_period]
+        test_delays = [0, sampling_period, 1.5*sampling_period,
+            2*sampling_period]
 
         def get_expected_phases():
             expected_phases = []
@@ -524,7 +556,12 @@ class test_CBF(unittest.TestCase):
                 # use correlator_fixture.corr_conf[]
                 # correlator_fixture.katcp_rct.req.delays time.time+somethign
                 # See page 22 on ICD ?delays on CBF-CAM ICD
-                fengops.feng_set_delay(self.correlator, 'm000_y', delay=delay,
+                reply = correlator_fixture.katcp_rct.req.input_labels()
+                source_name = reply.arguments[1].split()
+                # Set coarse delay using cmc
+                correlator_fixture.katcp_rct.req.delays
+                # Set coarse delay using corr2 library
+                self.fengops.set_delay(source_name[1], delay=delay,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
                         ld_time=None, ld_check=True)
 
@@ -536,8 +573,8 @@ class test_CBF(unittest.TestCase):
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
-
-        def plot_and_save(freqs, actual_data, expected_data, plot_filename, show=False):
+        def plot_and_save(freqs, actual_data, expected_data, plot_filename,
+            show=False):
             plt.gca().set_color_cycle(None)
             for delay, phases in actual_data:
                 plt.plot(freqs, phases, label='{}ns'.format(delay*1e9))
@@ -565,20 +602,36 @@ class test_CBF(unittest.TestCase):
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
         for i, delay in enumerate(test_delays):
-            delta_actual = np.max(actual_phases[i][1]) - np.min(actual_phases[i][1])
-            delta_expected = np.max(expected_phases[i][1]) - np.min(expected_phases[i][1])
-            print "delay: {}ns, expected phase delta: {}, actual_phase_delta: {}".format(
-                delay*1e9, delta_expected, delta_actual)
+            delta_actual = round(np.max(actual_phases[i][1]) - np.min(
+                actual_phases[i][1]),2)
+            delta_expected = round(np.max(expected_phases[i][1]) - np.min(
+                expected_phases[i][1]),2)
+            LOGGER.debug( "delay: {}ns, expected phase delta: {},"
+                " actual_phase_delta: {}".format(
+                delay*1e9, delta_expected, delta_actual))
+            Aqf.equals(delta_expected,delta_actual,
+                'Check if difference expected({0:.3f}) and actual({1:.3f}) '
+                    'phases are equal at delay {2:.3f}ns.'
+                        .format(delta_expected, delta_actual, delay*1e9))
 
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
-                      'delay_phase_response.svg', show=True)
+                      'delay_phase_response.svg', show=False)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
-        aqf_numpy_almost_equal(actual_phases()[1][0], expected_phases()[1][0],
-                               "Check that phases are as expected to within 3 "
-                               "decimal places", decimal=3)
-        Aqf.equals(np.min(actual_phases()[0][0]), np.max(actual_phases()[0][0]),
-                   "Check if the phase-slope with delay = 0 is zero.")
+        Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
+            "Check if the phase-slope with delay = 0 is zero.")
+        aqf_numpy_almost_equal(actual_phases[1][0], expected_phases[1][0],
+            'Check that when one clock cycle is introduced (0.584ns),'
+                ' the is a change in phases at 180 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
+        aqf_numpy_almost_equal(actual_phases[2][1], expected_phases[2][1],
+            'Check that when 1.5 clock cycle is introduced (0.876ns),'
+                ' the is a change in phases at 270 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
+        aqf_numpy_almost_equal(actual_phases[3][1], expected_phases[3][1],
+            'Check that when 2 clock cycle is introduced (1.168ns),'
+                ' the is a change in phases at 360 degrees as expected '
+                    'to within 3 decimal places', decimal=3)
 
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
@@ -586,7 +639,6 @@ class test_CBF(unittest.TestCase):
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
-
         """
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
@@ -714,7 +766,6 @@ class test_CBF(unittest.TestCase):
                     'Roach {}, Sensor name: {}, status: {}'
                         .format(roach.host, sensor_name, sensor_status))
 
-    # TODO NM 2015-09-04: Needs to be AQFized
     @aqf_vr('TP.C.1.31')
     def test_vacc(self):
         """Test vector accumulator"""
@@ -733,8 +784,7 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        fengops.feng_eq_set(self.correlator, source_name=test_input,
-                            new_eq=list(eqs))
+        self.fengops.eq_set(source_name=test_input, new_eq=list(eqs))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
         # Make dsim output periodic in FFT-length so that each FFT is identical
                                           repeatN=self.corr_freqs.n_chans*2)
@@ -756,7 +806,7 @@ class test_CBF(unittest.TestCase):
             'Check that the spectrum is zero except in the test channel')
 
         for vacc_accumulations in test_acc_lens:
-            xengops.xeng_set_acc_len(self.correlator, vacc_accumulations)
+            self.xengops.set_acc_len(vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum)**2  * no_accs
             response = complexise(
@@ -822,9 +872,149 @@ class test_CBF(unittest.TestCase):
         Aqf.less(final_time, minute,
             'Check that product switching time is less than one minute')
 
-
         # TODO: MM 2015-09-14, Still need more info
 
         # 6. Repeat for all combinations of available data products,
         # including the case where the "new" data product is the same as the
         # "old" one.
+
+    def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
+                       accumulation_time=1.):
+        Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
+        self.xengops.set_acc_time(accumulation_time)
+        Aqf.step('Getting correlator dump 1 before setting {}.'
+                .format(flag_description))
+        dump1 = self.receiver.get_clean_dump(dump_timeout=5)
+        start_time = time.time()
+        Aqf.wait(0.1*accumulation_time, 'Waiting 10% of accumulation length')
+        Aqf.step('Setting {}'.format(flag_description))
+        flag_enable_fn()
+        # Ensure that the flag is disabled even if the test fails to avoid contaminating
+        # other tests
+        self.addCleanup(flag_disable_fn)
+        elapsed = time.time() - start_time
+        wait_time = accumulation_time*0.8 - elapsed
+        Aqf.is_true(wait_time > 0, 'Check that wait time {} is larger than zero'
+                    .format(wait_time))
+        Aqf.wait(wait_time, 'Waiting until 80% of accumulation length has elapsed')
+        Aqf.step('Clearing {}'.format(flag_description))
+        flag_disable_fn()
+        Aqf.step('Getting correlator dump 2 after setting and clearing {}.'
+                .format(flag_description))
+        dump2 = self.receiver.data_queue.get(timeout=5)
+        Aqf.step('Getting correlator dump 3.')
+        dump3 = self.receiver.data_queue.get(timeout=5)
+        return (dump1, dump2, dump3)
+
+    @aqf_vr('TP.C.1.38')
+    def test_adc_overflow_flag(self):
+        """CBF flagging of data -- ADC overflow"""
+
+        # TODO 2015-09-22 (NM): Test is currently failing since the noise diode flag is
+        # also set when the overange occurs. Needs to check if the dsim is doing this or
+        # if it is an error in the CBF.
+        def enable_adc_overflow():
+            self.dhost.registers.flag_setup.write(adc_flag=1)
+            self.dhost.registers.flag_setup.write(load_flags='pulse')
+
+        def disable_adc_overflow():
+            self.dhost.registers.flag_setup.write(adc_flag=0)
+            self.dhost.registers.flag_setup.write(load_flags='pulse')
+
+        condition = 'ADC overflow flag on the digitiser simulator'
+        dump1, dump2, dump3, = self.get_flag_dumps(
+            enable_adc_overflow, disable_adc_overflow, condition)
+        flag_bit = flags_xeng_raw_bits.overrange
+        # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
+        all_bits = set(flags_xeng_raw_bits)
+        other_bits = all_bits - set([flag_bit])
+        flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
+        flag_condition = 'ADC overrange'
+
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
+        Aqf.is_false(flag_bit in set_bits1,
+                     'Check that {} is not set in dump 1 before setting {}.'
+                     .format(flag_descr, condition))
+        # Bits that should not be set
+        other_set_bits1 = set_bits1.intersection(other_bits)
+        Aqf.equals(other_set_bits1, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits2 = set_bits2.intersection(other_bits)
+        Aqf.is_true(flag_bit in set_bits2,
+                    'Check that {} is set in dump 2 while toggeling {}.'
+                    .format(flag_descr, condition))
+        Aqf.equals(other_set_bits2, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits3 = set_bits3.intersection(other_bits)
+        Aqf.is_false(flag_bit in set_bits3,
+                     'Check that {} is not set in dump 3 after clearing {}.'
+                     .format(flag_descr, condition))
+        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+
+    @aqf_vr('TP.C.1.38')
+    def test_fft_overflow_flag(self):
+        """CBF flagging of data -- ADC overflow"""
+        freq = self.corr_freqs.bandwidth/2.
+
+        def enable_fft_overflow():
+            # TODO 2015-09-22 (NM) There seems to be some issue with the dsim sin_corr
+            # source that results in it producing all zeros... So using sin_0 and sin_1
+            # instead
+            # self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=1.)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=1.)
+            self.dhost.sine_sources.sin_1.set(frequency=freq, scale=1.)
+            # Set FFT to never shift, ensuring an FFT overflow with the large tone we are
+            # putting in.
+            self.fengops.set_fft_shift_all(shift_value=0)
+
+        def disable_fft_overflow():
+            # TODO 2015-09-22 (NM) There seems to be some issue with the dsim sin_corr
+            # source that results in it producing all zeros... So using sin_0 and sin_1
+            # instead
+            # self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=0)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.)
+            self.dhost.sine_sources.sin_1.set(frequency=freq, scale=0.)
+            # Restore the default FFT shifts as per the correlator config.
+            self.fengops.set_fft_shift_all()
+
+        condition = ('FFT overflow by setting an agressive FFT shift with '
+                     'a pure tone input')
+        dump1, dump2, dump3, = self.get_flag_dumps(
+            enable_fft_overflow, disable_fft_overflow, condition)
+        flag_bit = flags_xeng_raw_bits.overrange
+        # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
+        all_bits = set(flags_xeng_raw_bits)
+        other_bits = all_bits - set([flag_bit])
+        flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
+        flag_condition = 'FFT overrange'
+
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
+        Aqf.is_false(flag_bit in set_bits1,
+                     'Check that {} is not set in dump 1 before setting {}.'
+                     .format(flag_descr, condition))
+        # Bits that should not be set
+        other_set_bits1 = set_bits1.intersection(other_bits)
+        Aqf.equals(other_set_bits1, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits2 = set_bits2.intersection(other_bits)
+        Aqf.is_true(flag_bit in set_bits2,
+                    'Check that {} is set in dump 2 while toggeling {}.'
+                    .format(flag_descr, condition))
+        Aqf.equals(other_set_bits2, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits3 = set_bits3.intersection(other_bits)
+        Aqf.is_false(flag_bit in set_bits3,
+                     'Check that {} is not set in dump 3 after clearing {}.'
+                     .format(flag_descr, condition))
+        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
