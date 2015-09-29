@@ -4,6 +4,8 @@ import unittest
 import logging
 import time
 import itertools
+import threading
+from functools import partial
 
 import numpy as np
 import matplotlib
@@ -693,6 +695,46 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(sensor.get_status(), 'nominal',
                 'Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
+
+
+    @aqf_vr('TP.C.dummy_vr_5')
+    def test_roach_qdr_sensors(self):
+        """ """
+        an_e = threading.Event()
+        def event_(an_e, *args):
+            print 'Event occured'
+            try:
+                an_e.set()
+            except Exception, exc:
+                print exc
+        an_event = partial(event_, an_e)
+
+        array_sensors = correlator_fixture.katcp_rct.sensor
+        xhost = self.correlator.xhosts[0]
+        xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
+        Aqf.is_true(
+            array_sensors.roach020a0a_xeng_qdr.get_value() == xhost.qdr_okay(),
+                'Check that the memory is corrupted.')
+
+        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
+            'Check that the memory recovered successfully.')
+        array_sensors.roach020a0a_xeng_qdr.set_strategy('auto')
+        array_sensors.roach020a0a_xeng_qdr.register_listener(an_event)
+
+        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
+            'Check that the memory recovered successfully.')
+
+        xhost.vacc_get_error_detail()[1]['parity']
+
+        self.addCleanup(array_sensors.roach020a0a_xeng_qdr.unregister_listener(an_event))
+        import IPython;IPython.embed()
+
+
+    @aqf_vr('TP.C.dummy_vr_6')
+    def test_roach_pfb_sensors(self):
+        array_sensors = correlator_fixture.katcp_rct.sensor
+
+        import IPython;IPython.embed()
 
     @aqf_vr('TP.C.dummy_vr_4')
     def test_roach_sensors_status(self):
