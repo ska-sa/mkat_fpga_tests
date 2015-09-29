@@ -481,19 +481,28 @@ class test_CBF(unittest.TestCase):
             test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
         initial_max_freq_list = []
         scans = []
         for scan_i in range(3):
             if scan_i:
-                #correlator_fixture.halt_array()
-                #correlator_fixture.start_correlator()
+                print 'Restart Correlator'
+                self.corr_fix.stop_x_data()
+                correlator_fixture.halt_array()
+                correlator_fixture.start_correlator()
+                self.corr_fix.start_x_data()
             scan_dumps = []
             scans.append(scan_dumps)
             for i, freq in enumerate(requested_test_freqs):
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    #try:
+                        #self.corr_fix.start_x_data()
+                        #this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    #except:
+                        #import IPython;IPython.embed()
+                        #raise RuntimeError('capture not started')
                     initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     this_freq_data = this_freq_dump['xeng_raw']
                     initial_max_freq_list.append(initial_max_freq)
@@ -503,7 +512,6 @@ class test_CBF(unittest.TestCase):
                     this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 # still need to fix
-
         diff_scans_dumps = []
         for comparison in range(1, len(scans)):
             s0 = np.array(scans[comparison - 1])
@@ -521,6 +529,7 @@ class test_CBF(unittest.TestCase):
             'Results are not consequenct after correlator restart!!!\n\
                 scans comparison {} >= {} threshold[dB].'
                     .format(diff_scans_comp, self.threshold))
+        #import IPython;IPython.embed()
 
     @aqf_vr('TP.C.1.27')
     def test_delay_tracking(self):
