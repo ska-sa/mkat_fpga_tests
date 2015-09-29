@@ -167,7 +167,7 @@ class CorrelatorFixture(object):
                 self.array_number = array_list_messages[0].arguments[0]
                 self.rct.req.array_halt(self.array_number)
         except IndexError:
-            pass #raise RuntimeError("Unable to halt array due to empty array number")
+            raise RuntimeError("Unable to halt array due to empty array number")
 
         while retries and not success:
             try:
@@ -178,7 +178,7 @@ class CorrelatorFixture(object):
                 reply, informs = self.katcp_rct.req.instrument_activate(
                     instrument, timeout=500)
                 success = reply.reply_ok()
-                retdasries -= 1
+                retries -= 1
 
                 if success == True:
                     LOGGER.info('Correlator started succesfully')
