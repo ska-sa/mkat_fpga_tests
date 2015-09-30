@@ -54,7 +54,13 @@ def all_nonzero_baselines(xeng_raw):
                     bldata.astype(np.float64), axis=1) != 0))
 
 def init_dsim_sources(dhost):
-    """Select dsim signal output, zero all sources, output scalings to 0.5"""
+    """Select dsim signal output, zero all sources, output scalings to 0.5
+
+    Also clear noise diode and adc overrange flags
+    """
+    # Reset flags
+    dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0,
+                                     load_flags='pulse')
     for sin_source in dhost.sine_sources:
         sin_source.set(frequency=0, scale=0)
         try:
