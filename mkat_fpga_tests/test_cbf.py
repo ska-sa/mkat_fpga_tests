@@ -36,7 +36,8 @@ from mkat_fpga_tests.utils import get_source_object_and_index
 
 LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
+# How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 10
 
 
 # From
@@ -56,8 +57,8 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
-    b0 = np.abs(complexise(xeng_raw[:,0]))
-    b1 = np.abs(complexise(xeng_raw[:,1]))
+    b0 = np.abs(complexise(xeng_raw[:, 0]))
+    b1 = np.abs(complexise(xeng_raw[:, 1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
@@ -262,7 +263,7 @@ class test_CBF(unittest.TestCase):
             plt.close()
 
         graph_name_all = test_name + '.channel_response.svg'
-        plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
                       caption='Channel 1500 response vs source frequency')
 
@@ -275,7 +276,7 @@ class test_CBF(unittest.TestCase):
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
         graph_name_central = test_name + '.channel_response_central.svg'
-        plot_data_central  = loggerise(central_chan_responses[:, test_chan],
+        plot_data_central = loggerise(central_chan_responses[:, test_chan],
             dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
                       caption='Channel 1500 central response vs source frequency')
@@ -310,7 +311,7 @@ class test_CBF(unittest.TestCase):
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
         # Get list of all the correlator input labels
-        input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
+        input_labels = sorted(tuple(test_dump['input_labelling'][:, 0]))
         # Get list of all the baselines present in the correlator output
         bls_ordering = test_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
@@ -337,10 +338,10 @@ class test_CBF(unittest.TestCase):
         test_data = test_dump['xeng_raw']
         # Expect all baselines and all channels to be non-zero
         Aqf.is_false(zero_baselines(test_data),
-                     'Check that no baselines have all-zero visibilities')
+                     'Check that no baselines have all-zero visibilities.')
         Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
-                  "Check that all baseline visibilities are non-zero accross "
-                    "all channels")
+            "Check that all baseline visibilities are non-zero accross "
+                "all channels.")
 
         # Save initial f-engine equalisations, and ensure they are restored
         # at the end of the test
@@ -351,8 +352,8 @@ class test_CBF(unittest.TestCase):
             self.fengops.eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
-                     "Check that all baseline visibilities are zero")
-        #-----------------------------------
+                     "Check that all baseline visibilities are zero.")
+        # -----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
         nonzero_inputs = set()
@@ -371,6 +372,7 @@ class test_CBF(unittest.TestCase):
             return zeros, nonzeros
 
         for inp in input_labels:
+            # Sweeping throught all inputs and setting them on one-by-one.
             old_eq = initial_equalisations[inp]
             self.fengops.eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
@@ -657,7 +659,7 @@ class test_CBF(unittest.TestCase):
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
             "Check that the instrument's number of sensors are equal to the"
-                 "number of sensors in the list.")
+                 " number of sensors in the list.")
 
         array_numSensors = int(array_numSensors)
         Aqf.equals(array_numSensors, len(array_list_informs),
@@ -693,10 +695,10 @@ class test_CBF(unittest.TestCase):
         for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ':'+ str(sensor.get_value()))
             Aqf.equals(sensor.get_status(), 'nominal',
-                'Sensor status fail: {}, {} '
+                'Sensor: {}: status: {}'
                     .format(sensor.name, sensor.get_status()))
 
-
+    @unittest.skip('Test incomplete.')
     @aqf_vr('TP.C.dummy_vr_5')
     def test_roach_qdr_sensors(self):
         """ """
@@ -729,7 +731,7 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(array_sensors.roach020a0a_xeng_qdr.unregister_listener(an_event))
         import IPython;IPython.embed()
 
-
+    @unittest.skip('Test incomplete.')
     @aqf_vr('TP.C.dummy_vr_6')
     def test_roach_pfb_sensors(self):
         array_sensors = correlator_fixture.katcp_rct.sensor
@@ -804,7 +806,7 @@ class test_CBF(unittest.TestCase):
         for vacc_accumulations in test_acc_lens:
             self.xengops.set_acc_len(vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
-            expected_response = np.abs(quantiser_spectrum)**2  * no_accs
+            expected_response = np.abs(quantiser_spectrum)**2 * no_accs
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
@@ -832,7 +834,7 @@ class test_CBF(unittest.TestCase):
         # Deprogramming xhosts first then fhosts avoid reorder timeout errors
         fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
         fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
-        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+        [Aqf.is_false(host.is_running(), '{} Deprogrammed'.format(host.host))
             for host in hosts]
         # Confirm that SPEAD packets are either no longer being produced, or
         # that the data content is at least affected.
@@ -849,20 +851,20 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.start_x_data()
         # Confirm that the instrument is initialised by checking if roaches
         # are programmed.
-        [Aqf.is_true(host.is_running(),'{} programmed and running'
+        [Aqf.is_true(host.is_running(), '{} programmed and running'
             .format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced, with the selected data
         # product(s) The receiver won't return a dump if the correlator is not
         # producing well-formed SPEAD data.
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+        Aqf.is_true(re_dump, 'Check that SPEAD parkets are being produced after '
             ' instrument re-initialisation.')
 
         # Stop timer.
         end_time = time.time()
         # Data Product switching time = End time - Start time.
-        final_time =  round((end_time - start_time), 2)
+        final_time = round((end_time - start_time), 2)
         minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
@@ -874,9 +876,8 @@ class test_CBF(unittest.TestCase):
         # including the case where the "new" data product is the same as the
         # "old" one.
 
-
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
-                       accumulation_time=1.):
+                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
         self.xengops.set_acc_time(accumulation_time)
         Aqf.step('Getting correlator dump 1 before setting {}.'
@@ -952,7 +953,6 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
-
 
     @aqf_vr('TP.C.1.38')
     def test_noise_diode_flag(self):
