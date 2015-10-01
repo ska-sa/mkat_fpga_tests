@@ -909,14 +909,14 @@ class test_CBF(unittest.TestCase):
 
         # TODO 2015-09-22 (NM): Test is currently failing since the noise diode flag is
         # also set when the overange occurs. Needs to check if the dsim is doing this or
-        # if it is an error in the CBF.
+        # if it is an error in the CBF. 2015-09-30 update: Nope, Dsim seems to be fine,
+        # only the adc bit is set in the SPEAD header, checked many packets by network
+        # packet capture.
         def enable_adc_overflow():
-            self.dhost.registers.flag_setup.write(adc_flag=1)
-            self.dhost.registers.flag_setup.write(load_flags='pulse')
+            self.dhost.registers.flag_setup.write(adc_flag=1, load_flags='pulse')
 
         def disable_adc_overflow():
-            self.dhost.registers.flag_setup.write(adc_flag=0)
-            self.dhost.registers.flag_setup.write(load_flags='pulse')
+            self.dhost.registers.flag_setup.write(adc_flag=0, load_flags='pulse')
 
         condition = 'ADC overflow flag on the digitiser simulator'
         dump1, dump2, dump3, = self.get_flag_dumps(
@@ -953,6 +953,50 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
+
+    @aqf_vr('TP.C.1.38')
+    def test_noise_diode_flag(self):
+        """CBF flagging of data -- noise diode fired"""
+        def enable_noise_diode():
+            self.dhost.registers.flag_setup.write(ndiode_flag=1, load_flags='pulse')
+
+        def disable_noise_diode():
+            self.dhost.registers.flag_setup.write(ndiode_flag=0, load_flags='pulse')
+
+        condition = 'Noise diode flag on the digitiser simulator'
+        dump1, dump2, dump3, = self.get_flag_dumps(
+            enable_noise_diode, disable_noise_diode, condition)
+        flag_bit = flags_xeng_raw_bits.noise_diode
+        # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
+        all_bits = set(flags_xeng_raw_bits)
+        other_bits = all_bits - set([flag_bit])
+        flag_descr = 'noise diode fired, bit {},'.format(flag_bit)
+        flag_condition = 'digitiser noise diode fired flag'
+
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
+        Aqf.is_false(flag_bit in set_bits1,
+                     'Check that {} is not set in dump 1 before setting {}.'
+                     .format(flag_descr, condition))
+        # Bits that should not be set
+        other_set_bits1 = set_bits1.intersection(other_bits)
+        Aqf.equals(other_set_bits1, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits2 = set_bits2.intersection(other_bits)
+        Aqf.is_true(flag_bit in set_bits2,
+                    'Check that {} is set in dump 2 while toggeling {}.'
+                    .format(flag_descr, condition))
+        Aqf.equals(other_set_bits2, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
+
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
+        other_set_bits3 = set_bits3.intersection(other_bits)
+        Aqf.is_false(flag_bit in set_bits3,
+                     'Check that {} is not set in dump 3 after clearing {}.'
+                     .format(flag_descr, condition))
+        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
 
     @aqf_vr('TP.C.1.38')
     def test_fft_overflow_flag(self):
