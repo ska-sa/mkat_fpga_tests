@@ -4,6 +4,8 @@ import unittest
 import logging
 import time
 import itertools
+import threading
+from functools import partial
 
 import numpy as np
 import matplotlib
@@ -20,8 +22,6 @@ from collections import namedtuple
 from corr2 import utils
 from casperfpga import utils as fpgautils
 
-from katcp import resource_client
-from katcp import ioloop_manager
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
@@ -36,7 +36,8 @@ from mkat_fpga_tests.utils import get_source_object_and_index
 
 LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
+# How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 10
 
 
 # From
@@ -56,8 +57,8 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
-    b0 = np.abs(complexise(xeng_raw[:,0]))
-    b1 = np.abs(complexise(xeng_raw[:,1]))
+    b0 = np.abs(complexise(xeng_raw[:, 0]))
+    b1 = np.abs(complexise(xeng_raw[:, 1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
@@ -262,7 +263,7 @@ class test_CBF(unittest.TestCase):
             plt.close()
 
         graph_name_all = test_name + '.channel_response.svg'
-        plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
                       caption='Channel 1500 response vs source frequency')
 
@@ -275,7 +276,7 @@ class test_CBF(unittest.TestCase):
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
         graph_name_central = test_name + '.channel_response_central.svg'
-        plot_data_central  = loggerise(central_chan_responses[:, test_chan],
+        plot_data_central = loggerise(central_chan_responses[:, test_chan],
             dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
                       caption='Channel 1500 central response vs source frequency')
@@ -310,7 +311,7 @@ class test_CBF(unittest.TestCase):
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
         # Get list of all the correlator input labels
-        input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
+        input_labels = sorted(tuple(test_dump['input_labelling'][:, 0]))
         # Get list of all the baselines present in the correlator output
         bls_ordering = test_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
@@ -337,10 +338,10 @@ class test_CBF(unittest.TestCase):
         test_data = test_dump['xeng_raw']
         # Expect all baselines and all channels to be non-zero
         Aqf.is_false(zero_baselines(test_data),
-                     'Check that no baselines have all-zero visibilities')
+                     'Check that no baselines have all-zero visibilities.')
         Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
-                  "Check that all baseline visibilities are non-zero accross "
-                    "all channels")
+            "Check that all baseline visibilities are non-zero accross "
+                "all channels.")
 
         # Save initial f-engine equalisations, and ensure they are restored
         # at the end of the test
@@ -351,8 +352,8 @@ class test_CBF(unittest.TestCase):
             self.fengops.eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
-                     "Check that all baseline visibilities are zero")
-        #-----------------------------------
+                     "Check that all baseline visibilities are zero.")
+        # -----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
         nonzero_inputs = set()
@@ -371,6 +372,7 @@ class test_CBF(unittest.TestCase):
             return zeros, nonzeros
 
         for inp in input_labels:
+            # Sweeping throught all inputs and setting them on one-by-one.
             old_eq = initial_equalisations[inp]
             self.fengops.eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
@@ -425,9 +427,9 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps)/initial_max_freq)
             Aqf.less(dumps_comp, self.threshold,
-                     'Check that back-to-back dumps with the same frequency '
+                     'Check that back-to-back dumps({}) with the same frequency '
                      'input differ by no more than {} threshold[dB].'
-                     .format(10*np.log10(self.threshold)))
+                     .format(dumps_comp, 10*np.log10(self.threshold)))
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
@@ -565,10 +567,10 @@ class test_CBF(unittest.TestCase):
                 # use correlator_fixture.corr_conf[]
                 # correlator_fixture.katcp_rct.req.delays time.time+somethign
                 # See page 22 on ICD ?delays on CBF-CAM ICD
-                reply = correlator_fixture.katcp_rct.req.input_labels()
-                source_name = reply.arguments[1].split()
+                reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+                source_name = reply.arguments[1:][0].split()
                 # Set coarse delay using cmc
-                correlator_fixture.katcp_rct.req.delays
+                # correlator_fixture.katcp_rct.req.delays()
                 # Set coarse delay using corr2 library
                 self.fengops.set_delay(source_name[1], delay=delay,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
@@ -693,63 +695,108 @@ class test_CBF(unittest.TestCase):
         """
         Report sensor values (AR1)
         """
-        iom = ioloop_manager.IOLoopManager()
-        iow = resource_client.IOLoopThreadWrapper(iom.get_ioloop())
-        iom.start()
-        self.addCleanup(iom.stop)
+        # Request a list of available sensors using KATCP command
+        sensors_req = correlator_fixture.rct.req
+        array_sensors_req = correlator_fixture.katcp_rct.req
 
-        rc = resource_client.KATCPClientResource(
-            dict(name='localhost', address=('localhost', '7147'),
-                controlled=True))
-        rc.set_ioloop(iom.get_ioloop())
-        rct = resource_client.ThreadSafeKATCPClientResourceWrapper(rc, iow)
-        rct.start()
-        rct.until_synced()
-
-        # 1. Request a list of available sensors using KATCP command
-        # 2. Confirm the CBF replies with a number of sensor-list inform messages
-        LOGGER.info (rct.req.sensor_list())
-
-        # 3. Confirm the CBF replies with "!sensor-list ok numSensors"
-        #    where numSensors is the number of sensor-list informs sent.
-        list_reply, list_informs = rct.req.sensor_list()
+        list_reply, list_informs = sensors_req.sensor_list()
+        # Confirm the CBF replies with a number of sensor-list inform messages
+        LOGGER.info (list_reply, list_informs)
         sens_lst_stat, numSensors = list_reply.arguments
+
+        array_list_reply, array_list_informs = array_sensors_req.sensor_list()
+        array_sens_lst_stat, array_numSensors = array_list_reply.arguments
+
+        # Confirm the CBF replies with "!sensor-list ok numSensors"
+        # where numSensors is the number of sensor-list informs sent.
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
-            'Check that the number of sensors are equal to the'
+            "Check that the instrument's number of sensors are equal to the"
+                 " number of sensors in the list.")
+
+        array_numSensors = int(array_numSensors)
+        Aqf.equals(array_numSensors, len(array_list_informs),
+            'Check that the number of array sensors are equal to the'
                  'number of sensors in the list.')
 
-        # 4.1 Test that ?sensor-value and ?sensor-list agree about the number
+        # Check that ?sensor-value and ?sensor-list agree about the number
         # of sensors.
-        sens_val_stat, sens_val_cnt = rct.req.sensor_value().reply.arguments
+        sensor_value = sensors_req.sensor_value()
+        sens_val_stat, sens_val_cnt = sensor_value.reply.arguments
         Aqf.equals(int(sens_val_cnt), numSensors,
-            'Check that the sensor-value and sensor-list counts are the same')
+            'Check that the instrument sensor-value and sensor-list counts are the same')
 
-        # 4.2 Request the time synchronisation status using KATCP command
+        array_sensor_value = array_sensors_req.sensor_value()
+        array_sens_val_stat, array_sens_val_cnt = array_sensor_value.reply.arguments
+        Aqf.equals(int(array_sens_val_cnt), array_numSensors,
+            'Check that the array sensor-value and sensor-list counts are the same')
+
+        # Request the time synchronisation status using KATCP command
         # "?sensor-value time.synchronised
-        self.assertTrue(rct.req.sensor_value('time.synchronised').reply.reply_ok(),
-                msg='Reading time synchronisation sensor failed!')
+        Aqf.is_true(sensors_req.sensor_value('time.synchronised').reply.reply_ok(),
+            'Reading time synchronisation sensor failed!')
 
-        # 5. Confirm the CBF replies with " #sensor-value <time>
+
+        # Confirm the CBF replies with " #sensor-value <time>
         # time.synchronised [status value], followed by a "!sensor-value ok 1"
         # message.
-        Aqf.equals(str(rct.req.sensor_value('time.synchronised')[0]),
+        Aqf.equals(str(sensors_req.sensor_value('time.synchronised')[0]),
             '!sensor-value ok 1', 'Check that the time synchronised sensor values'
                 ' replies with !sensor-value ok 1')
 
-        # Check all sensors statuses
-        for sensor in rct.sensor.values():
+        # Check all sensors statuses if they are nominal
+        for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ':'+ str(sensor.get_value()))
-            self.assertEqual(sensor.get_status(), 'nominal',
-                msg='Sensor status fail: {}, {} '
+            Aqf.equals(sensor.get_status(), 'nominal',
+                'Sensor: {}: status: {}'
                     .format(sensor.name, sensor.get_status()))
 
-        roaches = self.correlator.fhosts + self.correlator.xhosts
+    @unittest.skip('Test incomplete.')
+    @aqf_vr('TP.C.dummy_vr_5')
+    def test_roach_qdr_sensors(self):
+        """ """
+        an_e = threading.Event()
+        def event_(an_e, *args):
+            print 'Event occured'
+            try:
+                an_e.set()
+            except Exception, exc:
+                print exc
+        an_event = partial(event_, an_e)
 
-        for roach in roaches:
+        array_sensors = correlator_fixture.katcp_rct.sensor
+        xhost = self.correlator.xhosts[0]
+        xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
+        Aqf.is_true(
+            array_sensors.roach020a0a_xeng_qdr.get_value() == xhost.qdr_okay(),
+                'Check that the memory is corrupted.')
+
+        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
+            'Check that the memory recovered successfully.')
+        array_sensors.roach020a0a_xeng_qdr.set_strategy('auto')
+        array_sensors.roach020a0a_xeng_qdr.register_listener(an_event)
+
+        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
+            'Check that the memory recovered successfully.')
+
+        xhost.vacc_get_error_detail()[1]['parity']
+
+        self.addCleanup(array_sensors.roach020a0a_xeng_qdr.unregister_listener(an_event))
+        import IPython;IPython.embed()
+
+    @unittest.skip('Test incomplete.')
+    @aqf_vr('TP.C.dummy_vr_6')
+    def test_roach_pfb_sensors(self):
+        array_sensors = correlator_fixture.katcp_rct.sensor
+
+        import IPython;IPython.embed()
+
+    @aqf_vr('TP.C.dummy_vr_4')
+    def test_roach_sensors_status(self):
+        """ Test all roach sensors status are not failing and count verification."""
+        for roach in (self.correlator.fhosts + self.correlator.xhosts):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')
-
             # Verify the number of sensors received with
             # number of sensors in the list.
             Aqf.is_true((values_reply.reply_ok() == list_reply.reply_ok())
@@ -762,11 +809,6 @@ class test_CBF(unittest.TestCase):
                 , 'Check the number of sensors in the list is equal to the '
                     'list of values received for {}'.format(roach.host))
 
-    @aqf_vr('TP.C.dummy_vr_4')
-    def test_roach_sensors_status(self):
-        """ Test all roach sensors status are not failing """
-        for roach in (self.correlator.fhosts + self.correlator.xhosts):
-            values_reply, sensors_values = roach.katcprequest('sensor-value')
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = (
                     sensor.arguments[2:])
@@ -817,7 +859,7 @@ class test_CBF(unittest.TestCase):
         for vacc_accumulations in test_acc_lens:
             self.xengops.set_acc_len(vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
-            expected_response = np.abs(quantiser_spectrum)**2  * no_accs
+            expected_response = np.abs(quantiser_spectrum)**2 * no_accs
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
@@ -845,7 +887,7 @@ class test_CBF(unittest.TestCase):
         # Deprogramming xhosts first then fhosts avoid reorder timeout errors
         fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
         fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
-        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+        [Aqf.is_false(host.is_running(), '{} Deprogrammed'.format(host.host))
             for host in hosts]
         # Confirm that SPEAD packets are either no longer being produced, or
         # that the data content is at least affected.
@@ -862,20 +904,20 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.start_x_data()
         # Confirm that the instrument is initialised by checking if roaches
         # are programmed.
-        [Aqf.is_true(host.is_running(),'{} programmed and running'
+        [Aqf.is_true(host.is_running(), '{} programmed and running'
             .format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced, with the selected data
         # product(s) The receiver won't return a dump if the correlator is not
         # producing well-formed SPEAD data.
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+        Aqf.is_true(re_dump, 'Check that SPEAD parkets are being produced after '
             ' instrument re-initialisation.')
 
         # Stop timer.
         end_time = time.time()
         # Data Product switching time = End time - Start time.
-        final_time =  round((end_time - start_time), 2)
+        final_time = round((end_time - start_time), 2)
         minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
@@ -888,7 +930,7 @@ class test_CBF(unittest.TestCase):
         # "old" one.
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
-                       accumulation_time=1.):
+                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
         self.xengops.set_acc_time(accumulation_time)
         Aqf.step('Getting correlator dump 1 before setting {}.'
@@ -964,7 +1006,6 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
-
 
     @aqf_vr('TP.C.1.38')
     def test_noise_diode_flag(self):
