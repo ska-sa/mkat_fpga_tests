@@ -1019,3 +1019,9 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
+
+    @aqf_vr('TP.C.1.27')
+    def test_fringe_stopping(self):
+        """ CBF LO fringe stopping"""
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
