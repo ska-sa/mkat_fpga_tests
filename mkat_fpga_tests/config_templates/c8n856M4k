@@ -24,22 +24,22 @@
 # 38      - roach02095B - 4 ports  -- F
 # 37      - roach02095C - 4 ports  -- F
 # 36      - roach020944 - 4 ports  -- F
-# 35      - roach020921 - 4 ports  --
+# 35      - roach020921 - 4 ports  -- Unused
 # 34      - roach02091E - 4 ports  -- X
-# 33 -- removed, previously:      - roach020A05 - 4 ports  -- (QDR errors, swapped with 20921)
-# 33      - roach020A01 -- 4 ports -- to be tested
+# 33 -- removed, previously: - roach020A05 - 4 ports  -- (QDR errors, swapped with 20921)
+# 33      - roach020A01 -- 4 ports -- Andrews D-Eng
 # 32      - roach020959 - 4 ports  -- D  (QDR errors, QDR not used by D)
 # 31      - roach020958 - 4 ports  -- F
 # 30      - Brush panel
 # 29      - + top data switch
-# 28      - roach020A0A - 2 ports
-# 27      - roach020A0C - 2 ports
-# 26      - roach020937 - 2 ports
-# 25      - roach020936 - 2 ports
-# 24      - roach020948 - 2 ports  (gbe0 dhcp tap)
-# 23      - roach02092E - 2 ports
-# 22      - roach020951 - 2 ports
-# 21      - roach020950 - 2 ports
+# 28      - roach020A0A - 2 ports   -- X
+# 27      - roach020A0C - 2 ports   -- X
+# 26      - roach020937 - 2 ports   -- X
+# 25      - roach020936 - 2 ports   -- X
+# 24      - roach020948 - 2 ports   -- Unused (gbe0 dhcp tap)
+# 23      - roach02092E - 2 ports   -- X
+# 22      - roach020951 - 2 ports   -- X
+# 21      - roach020950 - 2 ports   -- X
 
 # 20      - empty
 
