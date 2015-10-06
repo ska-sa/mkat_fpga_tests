@@ -1038,6 +1038,7 @@ class test_CBF(unittest.TestCase):
         num_inputs = len(source_names)
         m000_y_ind = source_names.index('m000_y')
 
+        # make global function for baseline index
         bls_ordering = this_freq_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
@@ -1047,9 +1048,33 @@ class test_CBF(unittest.TestCase):
         fringe_rates = [0]*num_inputs
         dump_rate = 1/int_time
         # Adjust fringe phase by 0.5 rad per dump for m000_y
-        fringe_rates[m000_y_ind] = 0.5*dump_rate
-        delay_coeffients = ['0,0:0,{}'.format(fringe_rate)
-            for fringe_rate in fringe_rates]
+        fringe_rate = 0.5*dump_rate
+        fringe_rates[m000_y_ind] = fringe_rate
+        delay_coeffients = ['0,0:0,{}'.format(fr)
+            for fr in fringe_rates]
         reply = correlator_fixture.katcp_rct.req.delays(
             t_apply, *delay_coeffients)
-        Aqf.is_true(reply.succeeded, 'please input a better string here')
+        Aqf.is_true(reply.succeeded,
+            'Successfully set fringe rate on m000_y to {} rad/s, which is equal '
+            'to {} rad/accumulation to apply at unix timestamp {}.'
+            .format(fringe_rate, fringe_rate/dump_rate, t_apply))
+        # --
+        last_discard = t_apply - int_time
+        while True:
+            dump = self.receiver.data_queue.get(timeout=5)
+            dump_timestamp = (sync_time + dump['time_stamp']
+                / scale_factor_timestamp)
+
+            if np.abs(dump_timestamp - last_discard) < 0.05*int_time:
+                Aqf.step('Discarding final accumulation before fringe '
+                'application with timestamp {}'.format(dump_timestamp))
+                break
+            if time.time() > t_apply + 5*int_time:
+                Aqf.fail('Could not get accumation with corrrect timestamp '
+                    'within 5 accumulation periods')
+                break
+            else:
+                Aqf.step('Discarding accumulation with timestamp {}'
+                    .format(dump_timestamp))
+        data = complexise(dump['xeng_raw'][:, baseline_index, :])
+        phases = np.angle(data)
