@@ -776,7 +776,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        init_dsim_sources(self.dhost)
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Confirm that SPEAD packets are being produced,
@@ -1019,3 +1018,17 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
+
+    @aqf_vr('TP.C.1.27')
+    def test_fringe_stopping(self):
+        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+        sync_time = this_freq_dump['sync_time']
+        scale_factor_timestamp = this_freq_dump['scale_factor_timestamp']
+        time_stamp = this_freq_dump['timestamp']
+        int_time = this_freq_dump['int_time']
+        dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
+
+        t_apply = dump_1_timestamp + 5*int_time
