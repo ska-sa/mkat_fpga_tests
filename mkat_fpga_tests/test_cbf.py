@@ -1032,3 +1032,24 @@ class test_CBF(unittest.TestCase):
         dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
 
         t_apply = dump_1_timestamp + 5*int_time
+
+        reply = correlator_fixture.katcp_rct.req.input_labels()
+        source_names = reply.arguments[1].split()
+        num_inputs = len(source_names)
+        m000_y_ind = source_names.index('m000_y')
+
+        bls_ordering = this_freq_dump['bls_ordering']
+        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
+            bls_ordering)}
+        # Choose baseline for phase comparison
+        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+
+        fringe_rates = [0]*num_inputs
+        dump_rate = 1/int_time
+        # Adjust fringe phase by 0.5 rad per dump for m000_y
+        fringe_rates[m000_y_ind] = 0.5*dump_rate
+        delay_coeffients = ['0,0:0,{}'.format(fringe_rate)
+            for fringe_rate in fringe_rates]
+        reply = correlator_fixture.katcp_rct.req.delays(
+            t_apply, *delay_coeffients)
+        Aqf.is_true(reply.succeeded, 'please input a better string here')
