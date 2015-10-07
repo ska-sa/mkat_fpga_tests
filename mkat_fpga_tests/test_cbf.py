@@ -107,12 +107,13 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         self.xengops = self.correlator.xops
         self.fengops = self.correlator.fops
-        # Increase the dump rate so tests can run faster
+        # Increase the dump rate so tests can run faster \
+        # To Do:(MM) 2015-10-07: We should be applying acc time using the CMC
         #correlator_fixture.katcp_rct.req.accumulation_length(
             #self.DEFAULT_ACCUMULATION_TIME)
         self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
         self.addCleanup(self.corr_fix.stop_x_data)
-        self.receiver = CorrRx(port=8888)
+        self.receiver = CorrRx(port=8888, queue_size=1000)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
@@ -503,6 +504,7 @@ class test_CBF(unittest.TestCase):
             expected_phases = []
             for delay in test_delays:
                 phases = self.corr_freqs.chan_freqs * 2 * np.pi * delay
+                phases -= np.max(phases)/2.
                 expected_phases.append(phases)
 
             return zip(test_delays, expected_phases)
@@ -514,12 +516,16 @@ class test_CBF(unittest.TestCase):
                 # use correlator_fixture.corr_conf[]
                 # correlator_fixture.katcp_rct.req.delays time.time+somethign
                 # See page 22 on ICD ?delays on CBF-CAM ICD
-                reply = correlator_fixture.katcp_rct.req.input_labels()
+                reply,informs = correlator_fixture.katcp_rct.req.input_labels()
                 source_name = reply.arguments[1].split()
                 # Set coarse delay using cmc
-                correlator_fixture.katcp_rct.req.delays
+                # correlator_fixture.katcp_rct.req.delays
                 # Set coarse delay using corr2 library
                 self.fengops.set_delay(source_name[1], delay=delay,
+                    delta_delay=0, phase_offset=0, delta_phase_offset=0,
+                        ld_time=None, ld_check=True)
+
+                self.fengops.set_delay(source_name[0], delay=0,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
                         ld_time=None, ld_check=True)
 
@@ -527,7 +533,7 @@ class test_CBF(unittest.TestCase):
                 data = complexise(this_freq_dump['xeng_raw']
                     [:, baseline_index, :])
 
-                phases = np.unwrap(np.angle(data))
+                phases = np.angle(data)
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
@@ -573,7 +579,7 @@ class test_CBF(unittest.TestCase):
                         .format(delta_expected, delta_actual, delay*1e9))
 
         plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
-                      'delay_phase_response.svg', show=False)
+                      'delay_phase_response.svg', show=True)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
@@ -1025,27 +1031,38 @@ class test_CBF(unittest.TestCase):
     def test_fringe_stopping(self):
         """ CBF LO fringe stopping"""
         # 1. Configure one of the ROACHs in the CBF to generate noise.
-        #import IPython;IPython.embed()
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
-        sync_time = this_freq_dump['sync_time']
-        scale_factor_timestamp = this_freq_dump['scale_factor_timestamp']
-        time_stamp = this_freq_dump['timestamp']
-        int_time = this_freq_dump['int_time']
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        source_names = reply.arguments[1].split1()
+        for source_name in source_names:
+            self.fengops.set_delay(source_name, delay=0, delta_delay=0,
+                phase_offset=0, delta_phase_offset=0,
+                    ld_time=None, ld_check=True)
+
+        Aqf.step('Getting Initial dump')
+        init_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+        sync_time = init_dump['sync_time']
+        scale_factor_timestamp = init_dump['scale_factor_timestamp']
+        time_stamp = init_dump['timestamp']
+        # To do(MM) 2015-10-07, get int time from dump
+        # (int_time = init_dump['int_time'])
+        int_time = self.xengops.get_acc_time()
         dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
 
-        int_time = self.xengops.get_acc_time()
-
         t_apply = dump_1_timestamp + 5*int_time
+        Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, t_apply: {}'
+            .format(int_time, time.time(), dump_1_timestamp, t_apply))
 
+        Aqf.step('Getting input labels')
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         source_names = reply.arguments[1].split()
         num_inputs = len(source_names)
         m000_y_ind = source_names.index('m000_y')
-
-        # make global function for baseline index
-        bls_ordering = this_freq_dump['bls_ordering']
+        Aqf.step('Got input labels')
+        # Todo (MM): make global function for baseline index
+        bls_ordering = init_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
         # Choose baseline for phase comparison
@@ -1061,10 +1078,14 @@ class test_CBF(unittest.TestCase):
         #reply = correlator_fixture.katcp_rct.req.delays(
             #t_apply, *delay_coeffients)
         delay = self.corr_freqs.sample_period
-        self.fengops.set_delay('m000_y', delay=0,
-                delta_delay=delay/self.xengops.get_acc_time(),
-                    phase_offset=0, delta_phase_offset=0,
-                        ld_time=t_apply, ld_check=True)
+        Aqf.step('Setting delay')
+        # Todo (MM), Do not hard code source name
+        self.fengops.set_delay('m000_y', delay=0, delta_delay=0,
+            phase_offset=90, # Need to parse in degrees, #confusing
+            delta_phase_offset=0.1, # 0.1=2.5(dump_rate)
+                ld_time=None, ld_check=True)
+
+        Aqf.step('Done setting delay')
         #Aqf.is_true(reply.succeeded,
             #'Successfully set fringe rate on m000_y to {} rad/s, which is equal '
             #'to {} rad/accumulation to apply at unix timestamp {}. \n'
@@ -1072,18 +1093,14 @@ class test_CBF(unittest.TestCase):
             #.format(fringe_rate, fringe_rate/dump_rate, t_apply, reply))
         # --
         last_discard = t_apply - int_time
-        while True:
-            try:
-                dump = self.receiver.data_queue.get(timeout=0)
-            except Exception:
-                time.sleep(self.DEFAULT_ACCUMULATION_TIME)
-                pass
-
+        for x in range(1):
+            Aqf.step('Waiting for dump')
+            dump = self.receiver.data_queue.get(timeout=5)
             dump_timestamp = (sync_time + dump['timestamp']
                 / scale_factor_timestamp)
 
             if np.abs(dump_timestamp - last_discard) < 0.05*int_time:
-                Aqf.step('Discarding final accumulation before fringe '
+                Aqf.step('Received final accumulation before fringe '
                 'application with timestamp {}'.format(dump_timestamp))
                 break
             print time.time()
@@ -1094,6 +1111,21 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.step('Discarding accumulation with timestamp {}'
                     .format(dump_timestamp))
-        data = complexise(dump['xeng_raw'][:, baseline_index, :])
-        phases = np.angle(data)
-        import IPython;IPython.embed()
+        fringe_dumps = []
+        for i in range(3):
+            Aqf.step('Getting subsequent dump {}'.format(i+1))
+            fringe_dumps.append(self.receiver.data_queue.get(timeout=5))
+
+        Aqf.step('Finished capture.')
+        phases = []
+        for acc in fringe_dumps:
+            data = complexise(acc['xeng_raw'][:, baseline_index, :])
+            phases.append(np.angle(data))
+
+
+        for i, p in enumerate(phases, 1):
+            plt.plot(p, label='{}'.format(i))
+            print np.max(p)
+        plt.legend()
+        plt.show()
+        #import IPython;IPython.embed()
