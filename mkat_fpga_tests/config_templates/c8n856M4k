@@ -139,7 +139,7 @@ xeng_outbits = 32
 # data product names and destinations
 output_products = c856M4k
 #output_destination_ip = 239.2.1.100
-output_destination_ip = 10.100.201.1
+output_destination_ip = 10.100.1.1
 output_destination_port = 8888
 # what is the outgoing interface address? i.e. the eth interface that will send the meta information
 multicast_interface_address = 127.0.0.1
