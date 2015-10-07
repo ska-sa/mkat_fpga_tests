@@ -1021,6 +1021,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.27')
     def test_fringe_stopping(self):
+        """ CBF LO fringe stopping"""
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
