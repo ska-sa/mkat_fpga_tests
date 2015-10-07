@@ -1034,12 +1034,14 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-        source_names = reply.arguments[1].split1()
-        for source_name in source_names:
-            self.fengops.set_delay(source_name, delay=0, delta_delay=0,
-                phase_offset=0, delta_phase_offset=0,
-                    ld_time=None, ld_check=True)
+        source_names = reply.arguments[1].split()
+        def zeroing_delays():
+            for source_name in source_names:
+                self.fengops.set_delay(source_name, delay=0, delta_delay=0,
+                    phase_offset=0, delta_phase_offset=0,
+                        ld_time=None, ld_check=True)
 
+        self.addCleanup(zeroing_delays)
         Aqf.step('Getting Initial dump')
         init_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
@@ -1061,7 +1063,7 @@ class test_CBF(unittest.TestCase):
         num_inputs = len(source_names)
         m000_y_ind = source_names.index('m000_y')
         Aqf.step('Got input labels')
-        # Todo (MM): make global function for baseline index
+        # Todo (MM): 2015-10-07 make global function for baseline index
         bls_ordering = init_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
             bls_ordering)}
