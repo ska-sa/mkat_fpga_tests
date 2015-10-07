@@ -108,6 +108,8 @@ class test_CBF(unittest.TestCase):
         self.xengops = self.correlator.xops
         self.fengops = self.correlator.fops
         # Increase the dump rate so tests can run faster
+        #correlator_fixture.katcp_rct.req.accumulation_length(
+            #self.DEFAULT_ACCUMULATION_TIME)
         self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
         self.addCleanup(self.corr_fix.stop_x_data)
         self.receiver = CorrRx(port=8888)
@@ -1023,6 +1025,7 @@ class test_CBF(unittest.TestCase):
     def test_fringe_stopping(self):
         """ CBF LO fringe stopping"""
         # 1. Configure one of the ROACHs in the CBF to generate noise.
+        #import IPython;IPython.embed()
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
@@ -1032,9 +1035,11 @@ class test_CBF(unittest.TestCase):
         int_time = this_freq_dump['int_time']
         dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
 
+        int_time = self.xengops.get_acc_time()
+
         t_apply = dump_1_timestamp + 5*int_time
 
-        reply = correlator_fixture.katcp_rct.req.input_labels()
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         source_names = reply.arguments[1].split()
         num_inputs = len(source_names)
         m000_y_ind = source_names.index('m000_y')
@@ -1053,25 +1058,37 @@ class test_CBF(unittest.TestCase):
         fringe_rates[m000_y_ind] = fringe_rate
         delay_coeffients = ['0,0:0,{}'.format(fr)
             for fr in fringe_rates]
-        reply = correlator_fixture.katcp_rct.req.delays(
-            t_apply, *delay_coeffients)
-        Aqf.is_true(reply.succeeded,
-            'Successfully set fringe rate on m000_y to {} rad/s, which is equal '
-            'to {} rad/accumulation to apply at unix timestamp {}.'
-            .format(fringe_rate, fringe_rate/dump_rate, t_apply))
+        #reply = correlator_fixture.katcp_rct.req.delays(
+            #t_apply, *delay_coeffients)
+        delay = self.corr_freqs.sample_period
+        self.fengops.set_delay('m000_y', delay=0,
+                delta_delay=delay/self.xengops.get_acc_time(),
+                    phase_offset=0, delta_phase_offset=0,
+                        ld_time=t_apply, ld_check=True)
+        #Aqf.is_true(reply.succeeded,
+            #'Successfully set fringe rate on m000_y to {} rad/s, which is equal '
+            #'to {} rad/accumulation to apply at unix timestamp {}. \n'
+            #'Message received: {}'
+            #.format(fringe_rate, fringe_rate/dump_rate, t_apply, reply))
         # --
         last_discard = t_apply - int_time
         while True:
-            dump = self.receiver.data_queue.get(timeout=5)
-            dump_timestamp = (sync_time + dump['time_stamp']
+            try:
+                dump = self.receiver.data_queue.get(timeout=0)
+            except Exception:
+                time.sleep(self.DEFAULT_ACCUMULATION_TIME)
+                pass
+
+            dump_timestamp = (sync_time + dump['timestamp']
                 / scale_factor_timestamp)
 
             if np.abs(dump_timestamp - last_discard) < 0.05*int_time:
                 Aqf.step('Discarding final accumulation before fringe '
                 'application with timestamp {}'.format(dump_timestamp))
                 break
+            print time.time()
             if time.time() > t_apply + 5*int_time:
-                Aqf.fail('Could not get accumation with corrrect timestamp '
+                Aqf.failed('Could not get accumulation with corrrect timestamp '
                     'within 5 accumulation periods')
                 break
             else:
@@ -1079,3 +1096,4 @@ class test_CBF(unittest.TestCase):
                     .format(dump_timestamp))
         data = complexise(dump['xeng_raw'][:, baseline_index, :])
         phases = np.angle(data)
+        import IPython;IPython.embed()
