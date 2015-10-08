@@ -311,3 +311,19 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     imag = rearrange_snapblock(get_part(snap_data, 'imag'))
     quantiser_spectrum = real + 1j*imag
     return quantiser_spectrum
+
+def get_baselines_index(spead, baselines ):
+   """Get baselines present index in the correlator
+      Parameters
+      =========
+        spead: spead_dump
+        baselines: tuple
+            tuple containing either cross or auto correlation baselines
+      Return: int:
+        baseline index number
+    """
+        bls_ordering = spead['bls_ordering']
+        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
+            bls_ordering)}
+        baseline_index = baseline_lookup[baselines]
+        return baseline_index
