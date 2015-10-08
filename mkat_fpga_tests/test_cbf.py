@@ -308,6 +308,7 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
