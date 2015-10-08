@@ -26,6 +26,7 @@ from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
+from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
@@ -496,6 +497,7 @@ class test_CBF(unittest.TestCase):
             expected_phases = []
             for delay in test_delays:
                 phases = self.corr_freqs.chan_freqs * 2 * np.pi * delay
+                phases -= np.max(phases)/2.
                 expected_phases.append(phases)
 
             return zip(test_delays, expected_phases)
@@ -520,7 +522,7 @@ class test_CBF(unittest.TestCase):
                 data = complexise(this_freq_dump['xeng_raw']
                     [:, baseline_index, :])
 
-                phases = np.unwrap(np.angle(data))
+                phases = np.angle(data)
                 actual_phases_list.append(phases)
             return zip(test_delays, actual_phases_list)
 
@@ -570,19 +572,20 @@ class test_CBF(unittest.TestCase):
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
-            "Check if the phase-slope with delay = 0 is zero.")
-        aqf_numpy_almost_equal(actual_phases[1][0], expected_phases[1][0],
+            "Check if the phase-slope with delay = 0 is zero.", )
+
+        aqf_array_abs_error_less(actual_phases[1][1], expected_phases[1][1],
             'Check that when one clock cycle is introduced (0.584ns),'
                 ' the is a change in phases at 180 degrees as expected '
-                    'to within 3 decimal places', decimal=3)
-        aqf_numpy_almost_equal(actual_phases[2][1], expected_phases[2][1],
+                    'to within 3 decimal places', .01)
+        aqf_array_abs_error_less(actual_phases[2][1], expected_phases[2][1],
             'Check that when 1.5 clock cycle is introduced (0.876ns),'
                 ' the is a change in phases at 270 degrees as expected '
-                    'to within 3 decimal places', decimal=3)
-        aqf_numpy_almost_equal(actual_phases[3][1], expected_phases[3][1],
+                    'to within 3 decimal places', .01)
+        aqf_array_abs_error_less(actual_phases[3][1], expected_phases[3][1],
             'Check that when 2 clock cycle is introduced (1.168ns),'
                 ' the is a change in phases at 360 degrees as expected '
-                    'to within 3 decimal places', decimal=3)
+                    'to within 3 decimal places', .01)
 
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
@@ -1052,11 +1055,4 @@ class test_CBF(unittest.TestCase):
         Aqf.is_false(flag_bit in set_bits3,
                      'Check that {} is not set in dump 3 after clearing {}.'
                      .format(flag_descr, condition))
-        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
-                     'are set.'.format(sorted(other_bits)))
-
-    @aqf_vr('TP.C.1.27')
-    def test_fringe_stopping(self):
-        """ CBF LO fringe stopping"""
-        # Put some correlated noise on both outputs
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        Aqf.equals(other_set_bits3, set(), 'Check that n
