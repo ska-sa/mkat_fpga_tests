@@ -308,14 +308,11 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        import IPython;IPython.embed()
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
-        bls_ordering = test_dump['bls_ordering']
-        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
-            bls_ordering)}
-        present_baselines = sorted(baseline_lookup.keys())
+        get_baselines_lookup(test_dump)
+        present_baselines = sorted(get_baselines_lookup(test_dump).keys())
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
         possible_baselines = set()
@@ -487,11 +484,9 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Get list of all the baselines present in the correlator output
-        bls_ordering = initial_dump['bls_ordering']
-        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
-            bls_ordering)}
+        get_baselines_lookup(initial_dump)
         # Choose baseline for phase comparison
-        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+        baseline_index = get_baselines_lookup(initial_dump)[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
         test_delays = [0, sampling_period, 1.5*sampling_period,
