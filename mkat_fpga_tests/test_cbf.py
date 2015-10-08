@@ -1035,14 +1035,17 @@ class test_CBF(unittest.TestCase):
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         source_names = reply.arguments[1].split()
+        num_inputs = len(source_names)
+
         def zeroing_delays():
+            Aqf.step('Resetting all source delays and fringes.')
             for source_name in source_names:
                 self.fengops.set_delay(source_name, delay=0, delta_delay=0,
                     phase_offset=0, delta_phase_offset=0,
                         ld_time=None, ld_check=True)
 
         self.addCleanup(zeroing_delays)
-        Aqf.step('Getting Initial dump')
+        Aqf.step('Getting Initial dump.')
         init_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
         sync_time = init_dump['sync_time']
@@ -1054,15 +1057,12 @@ class test_CBF(unittest.TestCase):
         dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
 
         t_apply = dump_1_timestamp + 5*int_time
-        Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, t_apply: {}'
-            .format(int_time, time.time(), dump_1_timestamp, t_apply))
+        Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, '
+            't_apply: {}'.format(int_time, time.time(), dump_1_timestamp, t_apply))
 
-        Aqf.step('Getting input labels')
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-        source_names = reply.arguments[1].split()
-        num_inputs = len(source_names)
         m000_y_ind = source_names.index('m000_y')
         Aqf.step('Got input labels')
+
         # Todo (MM): 2015-10-07 make global function for baseline index
         bls_ordering = init_dump['bls_ordering']
         baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
@@ -1075,25 +1075,34 @@ class test_CBF(unittest.TestCase):
         # Adjust fringe phase by 0.5 rad per dump for m000_y
         fringe_rate = 0.5*dump_rate
         fringe_rates[m000_y_ind] = fringe_rate
-        delay_coeffients = ['0,0:0,{}'.format(fr)
-            for fr in fringe_rates]
+        #delay_coeffients = ['0,0:0,{}'.format(fr)
+            #for fr in fringe_rates]
         #reply = correlator_fixture.katcp_rct.req.delays(
             #t_apply, *delay_coeffients)
-        delay = self.corr_freqs.sample_period
-        Aqf.step('Setting delay')
-        # Todo (MM), Do not hard code source name
-        self.fengops.set_delay('m000_y', delay=0, delta_delay=0,
-            phase_offset=90, # Need to parse in degrees, #confusing
-            delta_phase_offset=0.1, # 0.1=2.5(dump_rate)
-                ld_time=None, ld_check=True)
+        #delay = self.corr_freqs.sample_period
 
-        Aqf.step('Done setting delay')
-        #Aqf.is_true(reply.succeeded,
-            #'Successfully set fringe rate on m000_y to {} rad/s, which is equal '
-            #'to {} rad/accumulation to apply at unix timestamp {}. \n'
-            #'Message received: {}'
-            #.format(fringe_rate, fringe_rate/dump_rate, t_apply, reply))
-        # --
+        def set_fringe(source_name, delay_value, delay_rate, fringe_offset,
+                        fringe_rate, load_time=None, load_check=None):
+            """ Sets delays"""
+            Aqf.step('Setting Delays')
+            try:
+                self.fengops.set_delay(source_name, delay=delay_value,
+                    delta_delay=delay_rate, phase_offset=fringe_offset,
+                        delta_phase_offset=fringe_rate, # 0.1=2.5(dump_rate)
+                            ld_time=load_time, ld_check=load_check)
+                Aqf.passed('Successfully set fringe rate on {} to {} rad/s,'
+                    'which is equal to {} rad/acc to apply at unix timestamp {}.'
+                        .format(source_name, fringe_offset,
+                            fringe_rate, load_time ))
+
+            except Exception as e:
+                LOGGER.error("Failed to set delays: {}".format(e))
+                Aqf.failed('Failed to set delays with error: {}.'.format(e))
+
+        # fringe_offset needs to be in degrees
+        set_fringe('m000_y', delay_value, delay_rate, fringe_offset,
+                        fringe_rate, load_time=None, load_check=None)
+
         last_discard = t_apply - int_time
         for x in range(1):
             Aqf.step('Waiting for dump')
