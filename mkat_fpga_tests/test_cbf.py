@@ -32,7 +32,7 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
-from mkat_fpga_tests.utils import get_source_object_and_index
+from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -312,10 +312,7 @@ class test_CBF(unittest.TestCase):
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
-        bls_ordering = test_dump['bls_ordering']
-        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
-            bls_ordering)}
-        present_baselines = sorted(baseline_lookup.keys())
+        present_baselines = sorted(get_baselines_lookup(test_dump).keys())
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
         possible_baselines = set()
@@ -487,9 +484,7 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Get list of all the baselines present in the correlator output
-        bls_ordering = initial_dump['bls_ordering']
-        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(
-            bls_ordering)}
+        baseline_lookup = get_baselines_lookup(initial_dump)
         # Choose baseline for phase comparison
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
