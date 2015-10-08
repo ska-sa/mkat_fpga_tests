@@ -1055,4 +1055,5 @@ class test_CBF(unittest.TestCase):
         Aqf.is_false(flag_bit in set_bits3,
                      'Check that {} is not set in dump 3 after clearing {}.'
                      .format(flag_descr, condition))
-        Aqf.equals(other_set_bits3, set(), 'Check that n
+        Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
+                     'are set.'.format(sorted(other_bits)))
