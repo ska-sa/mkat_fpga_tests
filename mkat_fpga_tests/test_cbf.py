@@ -33,6 +33,7 @@ from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
+from mkat_fpga_tests.utils import clear_all_delays
 
 LOGGER = logging.getLogger(__name__)
 
@@ -117,6 +118,7 @@ class test_CBF(unittest.TestCase):
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
+        self.addCleanup(clear_all_delays)
         # Threshold: -70dB
         self.threshold = 1e-7
 
@@ -1028,18 +1030,6 @@ class test_CBF(unittest.TestCase):
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-        source_names = reply.arguments[1].split()
-        num_inputs = len(source_names)
-
-        def zeroing_delays():
-            Aqf.step('Resetting all source delays and fringes.')
-            for source_name in source_names:
-                self.fengops.set_delay(source_name, delay=0, delta_delay=0,
-                    phase_offset=0, delta_phase_offset=0,
-                        ld_time=None, ld_check=True)
-
-        self.addCleanup(zeroing_delays)
         Aqf.step('Getting Initial dump.')
         init_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
@@ -1055,6 +1045,9 @@ class test_CBF(unittest.TestCase):
         Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, '
             't_apply: {}'.format(int_time, time.time(), dump_1_timestamp, t_apply))
 
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        source_names = reply.arguments[1].split()
+        num_inputs = len(source_names)
         m000_y_ind = source_names.index('m000_y')
         Aqf.step('Got input labels')
 
