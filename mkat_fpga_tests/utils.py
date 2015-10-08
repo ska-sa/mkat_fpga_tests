@@ -313,8 +313,8 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     return quantiser_spectrum
 
 def get_baselines_lookup(spead):
-   """Get baselines present index in the correlator
-    Parameters:
+   """Get list of all the baselines present in the correlator output.
+    Param:
       spead: spead_dump
     Return: dict:
         baseline lookup
