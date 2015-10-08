@@ -322,3 +322,12 @@ def get_baselines_lookup(spead):
     bls_ordering = spead['bls_ordering']
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
+
+def clear_all_delays(instrument):
+    """Clears all delays on all fhosts.
+    Param: Correlator object
+    """
+    for source_name in instrument.fhosts:
+        instrument.fops.set_delay(source_name, delay=0, delta_delay=0,
+            phase_offset=0, delta_phase_offset=0,
+                ld_time=None, ld_check=True)
