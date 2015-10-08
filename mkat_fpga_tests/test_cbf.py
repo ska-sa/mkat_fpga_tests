@@ -493,8 +493,8 @@ class test_CBF(unittest.TestCase):
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
-        test_delays = [0, sampling_period, 1.5*sampling_period,
-            2*sampling_period]
+        test_delays = [0, sampling_period, .8*sampling_period,1.47*sampling_period,1.8*sampling_period,
+            2.66*sampling_period, 3.6*sampling_period, 4.21*sampling_period,5.16*sampling_period]
 
         def get_expected_phases():
             expected_phases = []
@@ -574,24 +574,25 @@ class test_CBF(unittest.TestCase):
                     'phases are equal at delay {2:.3f}ns.'
                         .format(delta_expected, delta_actual, delay*1e9))
 
-        plot_and_save(self.corr_freqs.chan_freqs, actual_phases, expected_phases,
+        plot_and_save(range(len(self.corr_freqs.chan_freqs)), actual_phases, expected_phases,
                       'delay_phase_response.svg', show=True)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
-            "Check if the phase-slope with delay = 0 is zero.")
-        aqf_numpy_almost_equal(actual_phases[1][0], expected_phases[1][0],
+            "Check if the phase-slope with delay = 0 is zero.", )
+        aqf_array_abs_error_less(actual_phases[1][0], expected_phases[1][0],
             'Check that when one clock cycle is introduced (0.584ns),'
                 ' the is a change in phases at 180 degrees as expected '
                     'to within 3 decimal places', decimal=3)
-        aqf_numpy_almost_equal(actual_phases[2][1], expected_phases[2][1],
+        aqf_array_abs_error_less(actual_phases[2][1], expected_phases[2][1],
             'Check that when 1.5 clock cycle is introduced (0.876ns),'
                 ' the is a change in phases at 270 degrees as expected '
                     'to within 3 decimal places', decimal=3)
-        aqf_numpy_almost_equal(actual_phases[3][1], expected_phases[3][1],
+        aqf_array_abs_error_less(actual_phases[3][1], expected_phases[3][1],
             'Check that when 2 clock cycle is introduced (1.168ns),'
                 ' the is a change in phases at 360 degrees as expected '
                     'to within 3 decimal places', decimal=3)
+        import IPython;IPython.embed()
 
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
@@ -1076,21 +1077,27 @@ class test_CBF(unittest.TestCase):
 
 
         def get_actual_fringes(source_name, delay_value, delay_rate, fringe_offset,
-                        fringe_rate_value, load_time=None, load_check=None):
-            """ Sets delays"""
+                        fringe_rate, load_time=None, load_check=None):
+
             Aqf.step('Setting Delays')
             try:
                 self.fengops.set_delay(source_name, delay=delay_value,
                     delta_delay=delay_rate, phase_offset=fringe_offset,
-                        delta_phase_offset=fringe_rate_value, # 0.1=2.5(dump_rate)
+                        delta_phase_offset=fringe_rate, # 0.1=2.5(dump_rate)
                             ld_time=load_time, ld_check=load_check)
+
+                print 'Delay = {}'.format(delay_value)
+                print 'Delay rate = {}'.format(delay_rate)
+                print 'Fringe offset = {}'.format(fringe_offset)
+                print 'Fringe rate : {}'.format(fringe_rate)
+
                 #Aqf.passed('Successfully set fringe rate on {} to {} rad/s,'
                     #'which is equal to {} rad/acc to apply at unix timestamp {}.'
                         #.format(source_name, fringe_offset,
                             #fringe_rate, load_time ))
 
                 # Code has no effect
-                """last_discard = t_apply - int_time
+                last_discard = t_apply - int_time
                 for x in range(1):
                     Aqf.step('Waiting for dump')
                     dump = self.receiver.data_queue.get(timeout=5)
@@ -1109,9 +1116,9 @@ class test_CBF(unittest.TestCase):
                     else:
                         Aqf.step('Discarding accumulation with timestamp {}'
                             .format(dump_timestamp))
-                """
+
                 fringe_dumps = []
-                for i in range(3):
+                for i in range(5):
                     Aqf.step('Getting subsequent dump {}'.format(i+1))
                     fringe_dumps.append(self.receiver.data_queue.get(timeout=5))
 
@@ -1127,12 +1134,36 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to set delays with error: {}.'.format(e))
 
         # Note: fringe_offset needs to be in degrees
-        phases = get_actual_fringes('m000_y', 0, 0, 0, fringe_rate)
+        delay_rate_val = delay/int_time
+        phases = get_actual_fringes('m000_y', 0, 0 , 0, .1/int_time)
+
+        pc = len(phases[0])/2
+        phase_grads = [(p[pc+100] - p[pc-100])/200. for p in phases]
+        phase_c = [p[pc-100] for p in phases]
+        xs = np.arange(len(p)) - pc + 100
+        phase_lines = [pcv + xs*pg for pg, pcv in zip(phase_grads, phase_c)]
+        # Wrap our lines
+        phase_lines = [(pl + np.pi) % (2 * np.pi) - np.pi for pl in phase_lines]
+
+        plt.gca().set_color_cycle(None)
+        minprev = 0
+        maxprev = 0
         for i, p in enumerate(phases, 1):
             plt.plot(p, label='min:{} rad ,max:{} rad'
                     .format(round(np.min(p),2), round(np.max(p), 2)))
+            print ('Minimum phase difference: {0}'.format(np.min(p) - minprev))
+            print ('Maximum phase difference: {0}'.format(np.max(p) - maxprev))
+            minprev = np.min(p)
+            maxprev = np.max(p)
+            print np.max(p)
+            print np.min(p)
+        #plt.gca().set_color_cycle(None)
+        #for i, pl in enumerate(phase_lines, 1):
+            #plt.plot(np.arange(len(pl)), pl, '--')
         plt.legend()
+        plt.grid('on')
         plt.show()
+        #import IPython ; IPython.embed()
 
         # ToDo(MM) 2015-10-08 function to plot expected and actual fringe offsets
         def plot_and_save(freqs, actual_data, expected_data, plot_filename,
