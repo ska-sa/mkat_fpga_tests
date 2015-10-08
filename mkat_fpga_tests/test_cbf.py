@@ -311,7 +311,6 @@ class test_CBF(unittest.TestCase):
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
-        get_baselines_lookup(test_dump)
         present_baselines = sorted(get_baselines_lookup(test_dump).keys())
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
