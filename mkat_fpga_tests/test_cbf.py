@@ -32,7 +32,7 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
-from mkat_fpga_tests.utils import get_source_object_and_index
+from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -308,7 +308,7 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
+        import IPython;IPython.embed()
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output

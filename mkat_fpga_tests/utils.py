@@ -319,6 +319,6 @@ def get_baselines_lookup(spead):
     Return: dict:
         baseline lookup
     """
-        bls_ordering = spead['bls_ordering']
-        baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
-        return baseline_lookup
+    bls_ordering = spead['bls_ordering']
+    baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
+    return baseline_lookup
