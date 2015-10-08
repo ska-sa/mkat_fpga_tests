@@ -484,9 +484,9 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Get list of all the baselines present in the correlator output
-        get_baselines_lookup(initial_dump)
+        baseline_lookup = get_baselines_lookup(initial_dump)
         # Choose baseline for phase comparison
-        baseline_index = get_baselines_lookup(initial_dump)[('m000_x', 'm000_y')]
+        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
         sampling_period = self.corr_freqs.sample_period
         test_delays = [0, sampling_period, 1.5*sampling_period,
