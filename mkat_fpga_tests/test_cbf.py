@@ -1026,6 +1026,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.27')
     def test_fringe_stopping(self):
         """ CBF LO fringe stopping"""
+        self.correlator.est_sync_epoch()
         Aqf.step('Configured the CBF to generate noise.')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         Aqf.step('Getting Initial dump.')
@@ -1039,7 +1040,10 @@ class test_CBF(unittest.TestCase):
         int_time = self.xengops.get_acc_time()
         dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
 
-        t_apply = dump_1_timestamp + 5*int_time
+        t_apply = dump_1_timestamp + 5*int_time + 1
+        #print t_apply
+        corr_time = (sync_time + self.correlator.fhosts[0].get_local_time()/ scale_factor_timestamp)
+        #print t_apply - corr_time
         # -------------
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         source_names = reply.arguments[1].split()
@@ -1057,10 +1061,9 @@ class test_CBF(unittest.TestCase):
         def get_expected_fringes():
             expected_fringes = []
             pass
-        clear_all_delays(self.correlator)
+        #clear_all_delays(self.correlator)
         def get_actual_fringes(source_name, delay_value, delay_rate, fringe_offset,
                         fringe_rate, load_time=None, load_check=None):
-
             Aqf.step('Setting Delays')
             try:
                 self.fengops.set_delay(source_name, delay=delay_value,
@@ -1072,14 +1075,11 @@ class test_CBF(unittest.TestCase):
                 print 'Delay rate = {}'.format(delay_rate)
                 print 'Fringe offset = {}'.format(fringe_offset)
                 print 'Fringe rate : {}'.format(fringe_rate)
-
-                #Aqf.passed('Successfully set fringe rate on {} to {} rad/s,'
-                    #'which is equal to {} rad/acc to apply at unix timestamp {}.'
-                        #.format(source_name, fringe_offset,
-                            #fringe_rate, load_time ))
+                print 't_apply : {}'.format(t_apply)
 
                 last_discard = t_apply - int_time
-                for x in range(1):
+                while True:
+                #for x in range(1):
                     Aqf.step('Waiting for dump')
                     dump = self.receiver.data_queue.get(timeout=5)
                     dump_timestamp = (sync_time + dump['timestamp']
@@ -1099,9 +1099,13 @@ class test_CBF(unittest.TestCase):
                             .format(dump_timestamp))
 
                 fringe_dumps = []
+
                 for i in range(5):
-                    Aqf.step('Getting subsequent dump {}'.format(i+1))
-                    fringe_dumps.append(self.receiver.data_queue.get(timeout=5))
+                    dump = self.receiver.data_queue.get(timeout=5)
+                    fringe_dumps.append(dump)
+                    Aqf.step('Getting subsequent dump {} with timestamp {}'.
+                        format(i+1, (sync_time + dump['timestamp']
+                        / scale_factor_timestamp)))
 
                 Aqf.step('Finished capture.')
                 phases = []
@@ -1135,7 +1139,7 @@ class test_CBF(unittest.TestCase):
             't_apply: {}, fringe_rate'.format(int_time, time.time(),
                 dump_1_timestamp, t_apply, fringe_rate_val))
 
-        phases = get_actual_fringes('m000_y', 0, 0, np.pi*.9999, 0)
+        phases = get_actual_fringes('m000_y', delay_val, 0, 0, 0,t_apply,True)
         #phases = get_actual_fringes('m000_y',
             #delay_val, delay_rate_val, fringe_offset_val, fringe_rate_val)
 
