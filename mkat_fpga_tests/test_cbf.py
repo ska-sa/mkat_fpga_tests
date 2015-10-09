@@ -30,10 +30,9 @@ from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
-from mkat_fpga_tests.utils import get_snapshots
+from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
-from mkat_fpga_tests.utils import clear_all_delays
 
 LOGGER = logging.getLogger(__name__)
 
