@@ -1089,20 +1089,9 @@ class test_CBF(unittest.TestCase):
         """ CBF LO fringe stopping"""
         setup_data = self._delays_setup()
 
-        Aqf.step('Configured the CBF to generate noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        Aqf.step('Getting Initial dump.')
-        init_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        dump_1_timestamp = setup_data['sync_time'] + setup_data['time_stamp'] / setup_data['scale_factor_timestamp']
 
-        sync_time = init_dump['sync_time']
-        scale_factor_timestamp = init_dump['scale_factor_timestamp']
-        time_stamp = init_dump['timestamp']
-        # To do(MM) 2015-10-07, get int time from dump
-        # (int_time = init_dump['int_time'])
-        int_time = self.xengops.get_acc_time()
-        dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
-
-        t_apply = dump_1_timestamp + 5*int_time
+        t_apply = dump_1_timestamp + 5*setup_data['int_time']
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         source_names = reply.arguments[1].split()
@@ -1117,13 +1106,13 @@ class test_CBF(unittest.TestCase):
 
         fringe_rates = [0]*num_inputs
         # dump rate: 1 dump per accumulation length
-        dump_rate = 1/int_time
+        dump_rate = 1/setup_data['int_time']
         # Adjust fringe phase by 0.5 rad per dump for m000_y
         fringe_rate = 0.5*dump_rate
         fringe_rates[m000_y_ind] = fringe_rate
 
-        Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, '
-            't_apply: {}, fringe_rate'.format(int_time, time.time(),
+        Aqf.step('setup_data['int_time']: {}, current time: {}, dump_1_timestamp: {}, '
+            't_apply: {}, fringe_rate'.format(setup_data['int_time'], time.time(),
                 dump_1_timestamp, t_apply, fringe_rate))
 
         delay_coeffients = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
@@ -1151,19 +1140,19 @@ class test_CBF(unittest.TestCase):
                         #.format(source_name, fringe_offset,
                             #fringe_rate, load_time ))
 
-                last_discard = t_apply - int_time
+                last_discard = t_apply - setup_data['int_time']
                 for x in range(1):
                     Aqf.step('Waiting for dump')
                     dump = self.receiver.data_queue.get(timeout=5)
-                    dump_timestamp = (sync_time + dump['timestamp']
-                        / scale_factor_timestamp)
+                    dump_timestamp = (setup_data['sync_time'] + dump['timestamp']
+                        / setup_data['scale_factor_timestamp'])
 
-                    if np.abs(dump_timestamp - last_discard) < 0.05*int_time:
+                    if np.abs(dump_timestamp - last_discard) < 0.05*setup_data['int_time']:
                         Aqf.step('Received final accumulation before fringe '
                         'application with timestamp {}'.format(dump_timestamp))
                         break
                     print time.time()
-                    if time.time() > t_apply + 5*int_time:
+                    if time.time() > t_apply + 5*setup_data['int_time']:
                         Aqf.failed('Could not get accumulation with corrrect timestamp '
                             'within 5 accumulation periods')
                         break
