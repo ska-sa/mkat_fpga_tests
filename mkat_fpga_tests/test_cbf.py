@@ -1100,9 +1100,8 @@ class test_CBF(unittest.TestCase):
         m000_y_ind = source_names.index(source_names[1])
 
         # Get list of all the baselines present in the correlator output
-        baseline_lookup = get_baselines_lookup(init_dump)
         Aqf.step('Got baseline for phase comparison')
-        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+        baseline_index = setup_data['baseline_index']
 
         fringe_rates = [0]*num_inputs
         # dump rate: 1 dump per accumulation length
@@ -1111,7 +1110,7 @@ class test_CBF(unittest.TestCase):
         fringe_rate = 0.5*dump_rate
         fringe_rates[m000_y_ind] = fringe_rate
 
-        Aqf.step('setup_data['int_time']: {}, current time: {}, dump_1_timestamp: {}, '
+        Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, '
             't_apply: {}, fringe_rate'.format(setup_data['int_time'], time.time(),
                 dump_1_timestamp, t_apply, fringe_rate))
 
