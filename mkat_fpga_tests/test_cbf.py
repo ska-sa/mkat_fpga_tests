@@ -31,7 +31,7 @@ from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
-from mkat_fpga_tests.utils import get_snapshots
+from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 
@@ -1065,7 +1065,6 @@ class test_CBF(unittest.TestCase):
                      .format(flag_descr, condition))
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
-
     @aqf_vr('TP.C.1.27')
     def test_fringe_stopping(self):
         """ CBF LO fringe stopping"""
