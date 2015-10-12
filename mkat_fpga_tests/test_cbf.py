@@ -1085,83 +1085,100 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
-    @aqf_vr('TP.C.1.27')
     def test_fringe_stopping(self):
         """ CBF LO fringe stopping"""
-        self.correlator.est_sync_epoch()
         setup_data = self._delays_setup()
-        dump_1_timestamp = (setup_data['sync_time'] + setup_data['time_stamp']
-            / setup_data['scale_factor_timestamp'])
 
-        t_apply = dump_1_timestamp + 5*setup_data['int_time']
-        #print t_apply
-        corr_time = (setup_data['sync_time'] + self.correlator.fhosts[0].get_local_time()
-            / setup_data['scale_factor_timestamp'])
-        #print t_apply - corr_time
-        # -------------
+        Aqf.step('Configured the CBF to generate noise.')
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        Aqf.step('Getting Initial dump.')
+        init_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+        sync_time = init_dump['sync_time']
+        scale_factor_timestamp = init_dump['scale_factor_timestamp']
+        time_stamp = init_dump['timestamp']
+        # To do(MM) 2015-10-07, get int time from dump
+        # (int_time = init_dump['int_time'])
+        int_time = self.xengops.get_acc_time()
+        dump_1_timestamp = sync_time + time_stamp / scale_factor_timestamp
+
+        t_apply = dump_1_timestamp + 5*int_time
+
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         source_names = reply.arguments[1].split()
         num_inputs = len(source_names)
         # Get input (m000_y) index number
         m000_y_ind = source_names.index(source_names[1])
 
+        # Get list of all the baselines present in the correlator output
+        baseline_lookup = get_baselines_lookup(init_dump)
+        Aqf.step('Got baseline for phase comparison')
+        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+
+        fringe_rates = [0]*num_inputs
+        # dump rate: 1 dump per accumulation length
+        dump_rate = 1/int_time
+        # Adjust fringe phase by 0.5 rad per dump for m000_y
+        fringe_rate = 0.5*dump_rate
+        fringe_rates[m000_y_ind] = fringe_rate
+
+        Aqf.step('int_time: {}, current time: {}, dump_1_timestamp: {}, '
+            't_apply: {}, fringe_rate'.format(int_time, time.time(),
+                dump_1_timestamp, t_apply, fringe_rate))
+
+        delay_coeffients = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
+        #reply = correlator_fixture.katcp_rct.req.delays(
+            #t_apply, *delay_coeffients)
+        delay = self.corr_freqs.sample_period
+
         # ToDo (MM) 2015-10-28
         def get_expected_fringes():
             expected_fringes = []
             pass
 
-        clear_all_delays(self.correlator)
-        Dump_Counts = 5
 
         def get_actual_fringes(source_name, delay_value, delay_rate, fringe_offset,
-                        fringe_rate, load_time=None, load_check=None):
-            Aqf.step('Setting Delays.')
+                        fringe_rate_value, load_time=None, load_check=None):
+            """ Sets delays"""
+            Aqf.step('Setting Delays')
             try:
                 self.fengops.set_delay(source_name, delay=delay_value,
                     delta_delay=delay_rate, phase_offset=fringe_offset,
-                        delta_phase_offset=fringe_rate, ld_time=load_time,
-                            ld_check=load_check)
+                        delta_phase_offset=fringe_rate_value, # 0.1=2.5(dump_rate)
+                            ld_time=load_time, ld_check=load_check)
+                #Aqf.passed('Successfully set fringe rate on {} to {} rad/s,'
+                    #'which is equal to {} rad/acc to apply at unix timestamp {}.'
+                        #.format(source_name, fringe_offset,
+                            #fringe_rate, load_time ))
 
-                print 'Delay = {}'.format(delay_value)
-                print 'Delay rate = {}'.format(delay_rate)
-                print 'Fringe offset = {}'.format(fringe_offset)
-                print 'Fringe rate : {}'.format(fringe_rate)
-                print 't_apply : {}'.format(t_apply)
-
-                last_discard = t_apply - setup_data['int_time']
-               # while True:
+                last_discard = t_apply - int_time
                 for x in range(1):
-                    Aqf.step('Waiting for dump.')
+                    Aqf.step('Waiting for dump')
                     dump = self.receiver.data_queue.get(timeout=5)
-                    dump_timestamp = (setup_data['sync_time'] + dump['timestamp']
-                        / setup_data['scale_factor_timestamp'])
+                    dump_timestamp = (sync_time + dump['timestamp']
+                        / scale_factor_timestamp)
 
-                    if np.abs(dump_timestamp - last_discard) < 0.05*setup_data['int_time']:
+                    if np.abs(dump_timestamp - last_discard) < 0.05*int_time:
                         Aqf.step('Received final accumulation before fringe '
-                        'application with timestamp {}.'.format(dump_timestamp))
+                        'application with timestamp {}'.format(dump_timestamp))
                         break
-
-                    if time.time() > t_apply + 5*setup_data['int_time']:
-                        Aqf.failed('Could not get accumulation with corrrect '
-                            'timestamp within 5 accumulation periods.')
+                    print time.time()
+                    if time.time() > t_apply + 5*int_time:
+                        Aqf.failed('Could not get accumulation with corrrect timestamp '
+                            'within 5 accumulation periods')
                         break
                     else:
-                        Aqf.step('Discarding accumulation with timestamp {}.'
+                        Aqf.step('Discarding accumulation with timestamp {}'
                             .format(dump_timestamp))
-
                 fringe_dumps = []
-                for i in range(Dump_Counts):
-                    dump = self.receiver.data_queue.get(timeout=5)
-                    fringe_dumps.append(dump)
-                    Aqf.step('Getting subsequent dump {} with timestamp {}'.
-                        format(i+1, (setup_data['sync_time'] + dump['timestamp']
-                        / setup_data['scale_factor_timestamp'])))
+                for i in range(3):
+                    Aqf.step('Getting subsequent dump {}'.format(i+1))
+                    fringe_dumps.append(self.receiver.data_queue.get(timeout=5))
 
-                Aqf.step('Finished capture and getting phases.')
+                Aqf.step('Finished capture.')
                 phases = []
                 for acc in fringe_dumps:
-                    data = complexise(acc['xeng_raw'][:,
-                        setup_data['baseline_index'], :])
+                    data = complexise(acc['xeng_raw'][:, baseline_index, :])
                     phases.append(np.angle(data))
                 return phases
 
@@ -1169,88 +1186,10 @@ class test_CBF(unittest.TestCase):
                 LOGGER.error("Failed to set delays: {}".format(e))
                 Aqf.failed('Failed to set delays with error: {}.'.format(e))
 
-        delay_val = self.corr_freqs.sample_period*1.5
-        delay_rate_val = delay_val/setup_data['int_time']
-
-        fringe_rates = [0]*num_inputs
-        # dump rate: 1 dump per accumulation length
-        dump_rate = 1/setup_data['int_time']
-        # Adjust fringe phase by 0.5 rad per dump for m000_y
-
-        fringe_rate_val = 0.5*dump_rate
-        # Note: fringe_offset needs to be in radians
-        fringe_offset_val = np.pi /4
-
-        fringe_rates[m000_y_ind] = fringe_rate_val
-        #delay_coeffients = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
-        #reply = correlator_fixture.katcp_rct.req.delays(
-            #t_apply, *delay_coeffients)
-
-        #Aqf.step('setup_data['int_time']: {}, current time: {}, dump_1_timestamp: {}, '
-            #'t_apply: {}, fringe_rate'.format(setup_data['int_time'], time.time(),
-                #dump_1_timestamp, t_apply, fringe_rate_val))
-
-        phases = get_actual_fringes('m000_y', 0,0,fringe_offset_val,0)
-        #phases = get_actual_fringes('m000_y', 0, delay_rate, 0, 0)
-        #phases = get_actual_fringes('m000_y', 0, 0, fringe_offset, 0)
-        #phases = get_actual_fringes('m000_y', 0, 0, 0, fringe_rate_val)
-        #phases = get_actual_fringes('m000_y',
-            #delay_val, delay_rate_val, fringe_offset_val, fringe_rate_val)
-
-        def set_linear_reg():
-            pc = len(phases[0])/2
-            phase_grads = [(p[pc+100] - p[pc-100])/200. for p in phases]
-            phase_c = [p[pc-100] for p in phases]
-            xs = np.arange(len(p)) - pc + 100
-            phase_lines = [pcv + xs*pg for pg, pcv in zip(phase_grads, phase_c)]
-            # Wrap our lines
-            phase_lines = [(pl + np.pi) % (2 * np.pi) - np.pi for pl in phase_lines]
-            return phase_lines
-
-        minprev = 0
-        maxprev = 0
+        # Note: fringe_offset needs to be in degrees
+        phases = get_actual_fringes('m000_y', 0, 0, 0, fringe_rate)
         for i, p in enumerate(phases, 1):
             plt.plot(p, label='min:{} rad ,max:{} rad'
                     .format(round(np.min(p),2), round(np.max(p), 2)))
-            print ('Minimum phase difference: {0}'.format(np.min(p) - minprev))
-            print ('Maximum phase difference: {0}'.format(np.max(p) - maxprev))
-            minprev = np.min(p)
-            maxprev = np.max(p)
-            #print np.max(p)
-            #print np.min(p)
-        plt.gca().set_color_cycle(None)
-        #for i, pl in enumerate(set_linear_req(), 1):
-            #plt.plot(np.arange(len(pl)), pl, '--')
         plt.legend()
-        plt.grid('on')
         plt.show()
-
-        # ToDo(MM) 2015-10-08 function to plot expected and actual fringe offsets
-        plot_filename = ''
-
-        # freqs = range(len(self.corr_freqs.chan_freqs))
-        def plot_and_save(freqs, actual_data, expected_data, plot_filename,
-            show=False):
-            plt.gca().set_color_cycle(None)
-            for delay, phases in actual_data:
-                plt.plot(freqs, phases, label='{}ns'.format(delay*1e9))
-            plt.gca().set_color_cycle(None)
-            for delay, phases in expected_data:
-                fig = plt.plot(freqs, phases, '--')[0]
-
-            axes = fig.get_axes()
-            ybound = axes.get_ybound()
-            yb_diff = abs(ybound[1] - ybound[0])
-            new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-            plt.legend()
-            plt.title('Unwrapped Correlation Phase')
-            axes.set_ybound(*new_ybound)
-            plt.grid(True)
-            plt.ylabel('Phase [radians]')
-            plt.xlabel('Frequency (Hz)')
-            caption=("Actual and expected Unwrapped Correlation Phase, "
-                     "dashed line indicates expected value.")
-            Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
-            if show:
-                plt.show()
-            plt.close()
