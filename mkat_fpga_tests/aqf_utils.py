@@ -28,7 +28,7 @@ def cls_end_aqf(cls):
     return cls
 
 def aqf_numpy_almost_equal(result, expected, description, **kwargs):
-    """Compares result to an expected value and logs to Aqf.
+    """Compares numerical result to an expected value and logs to Aqf.
 
     Using numpy.testing.assert_almost_equal for the comparison
 
@@ -49,5 +49,30 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
         np.testing.assert_almost_equal(result, expected, **kwargs)
     except AssertionError, e:
         Aqf.failed('{} - {}'.format(str(e), description))
+    else:
+        Aqf.passed(description)
+
+def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
+    """Compares absolute error in numeric result and logs to Aqf.
+
+    Parameters
+    ----------
+    result: numeric type or array of type
+        Actual result to be checked.
+    expected: Same as result
+        Expected result
+    description: String
+        Message describing the purpose of the comparison.
+    abs_err: float, optional
+        Fail if absolute error is not less than this abs_err for all array
+        elements
+
+    """
+    err = np.array(expected) - np.array(result)
+    max_err_ind = np.argmax(np.abs(err))
+    max_err = err[max_err_ind]
+    if max_err >= abs_error:
+        Aqf.failed('Absolute error larger than {abs_error}, max error at'
+        ' index {max_err_ind}, error: {max_err} - {description}'.format(**locals()))
     else:
         Aqf.passed(description)

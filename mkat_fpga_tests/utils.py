@@ -327,6 +327,7 @@ def get_baselines_lookup(spead):
 def clear_all_delays(instrument):
     """Clears all delays on all fhosts.
     Param: Correlator object
+    Return: None
     """
     for source in instrument.fengine_sources:
         instrument.fops.set_delay(source.name, delay=0, delta_delay=0,
