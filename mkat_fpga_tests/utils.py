@@ -1,7 +1,6 @@
 import collections
 import h5py
 import numpy as np
-from nosekatreport import Aqf
 
 from casperfpga.utils import threaded_fpga_operation
 
