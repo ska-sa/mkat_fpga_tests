@@ -1280,7 +1280,7 @@ class test_CBF(unittest.TestCase):
         fringe_rate = (np.pi/4.)/setup_data['int_time']
         fringe_offset = np.pi/4.
         delay_rate = (sample_period/4.)/setup_data['int_time']
-        graph_title = 'Fringe rate at {} rads/sec.'.format(round(fringe_rate, 3))
+        graph_title = 'All Delays Responses'
         graph_name = 'all_delays_response.svg'
 
         delay_phase_dict = {'delay_value': sample_period*1.5,
