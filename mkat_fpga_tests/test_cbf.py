@@ -1086,7 +1086,6 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
-
     def _delay_phase(self, delay_phase_dict, setup_data):
 
         """
@@ -1293,4 +1292,3 @@ class test_CBF(unittest.TestCase):
                             'dump_counts' : dump_counts
                            }
         self._delay_phase(delay_phase_dict, setup_data)
-
