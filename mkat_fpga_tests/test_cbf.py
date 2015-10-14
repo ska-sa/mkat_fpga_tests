@@ -1164,7 +1164,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_offset(self):
-
+        """Fringe Offset Test"""
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
         dump_counts = 1
@@ -1200,7 +1200,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
         """
-
+        Fringe Rate Test
         """
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
@@ -1243,7 +1243,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.28')
     def test_all_delays(self):
         """
-
+        Test Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
