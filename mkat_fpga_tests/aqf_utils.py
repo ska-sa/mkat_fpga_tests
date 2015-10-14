@@ -77,15 +77,15 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
     else:
         Aqf.passed(description)
 
-def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
-                            plot_units, plot_title, show=False):
+def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
+            plot_filename, plot_title, show=False):
         """
 
         """
         plt.gca().set_color_cycle(None)
         for delay, phases in actual_data:
             assert isinstance(delay, float)
-            plt.plot(freqs, phases, label='{}{}'.format(delay, plot_units))
+            plt.plot(freqs, phases, label='{} {}'.format(delay, plot_units))
         plt.gca().set_color_cycle(None)
         for delay, phases in expected_data:
             fig = plt.plot(freqs, phases, '--')[0]
