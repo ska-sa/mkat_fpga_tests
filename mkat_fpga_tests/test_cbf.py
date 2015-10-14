@@ -785,8 +785,9 @@ class test_CBF(unittest.TestCase):
     def test_vacc(self):
         """Test vector accumulator"""
         # Choose a test freqency around the centre of the band.
-        test_freq = 856e6/2
-        test_input = 'm000_x'
+        test_freq = self.corr_freqs.bandwidth/2.
+        sources = [input.name for input in self.correlator.fengine_sources]
+        test_input = sources[0]
         eq_scaling = 30
         acc_times = [0.05, 0.1, 0.5, 1]
 
@@ -1122,9 +1123,7 @@ class test_CBF(unittest.TestCase):
             data = complexise(acc['xeng_raw'][:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
 
-        rads = []
-        for phase in phases:
-            rads.append(np.abs((np.min(phase) - np.max(phase))/2.))
+        rads = [np.abs((np.min(phase) - np.max(phase))/2.) for phase in phases]
 
         return zip(rads, phases)
 
