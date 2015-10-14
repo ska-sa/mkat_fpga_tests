@@ -1238,3 +1238,6 @@ class test_CBF(unittest.TestCase):
             if show:
                 plt.show()
             plt.close()
+
+    def test_sync(self):
+        import IPython;IPython.embed()
