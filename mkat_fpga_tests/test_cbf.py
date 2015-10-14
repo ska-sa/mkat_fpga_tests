@@ -1139,9 +1139,9 @@ class test_CBF(unittest.TestCase):
         delay_rate = (sample_period/2.)/setup_data['int_time']
         delay_value = 0
         fringe_offset = 0
-        fringe_rate= 0
-        load_time=None
-        load_check=None
+        fringe_rate = 0
+        load_time = setup_data['t_apply']
+        load_check = False
         # TODO (MM) 2015-10-28 get expected data
         def get_expected_data():
             expected_fringes = []
@@ -1152,7 +1152,7 @@ class test_CBF(unittest.TestCase):
 
         actual_phases = self._get_actual_data(
             dump_counts, test_source, delay_value, delay_rate, fringe_offset,
-                fringe_rate)
+                fringe_rate, load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
