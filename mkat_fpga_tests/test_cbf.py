@@ -1149,7 +1149,6 @@ class test_CBF(unittest.TestCase):
 
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-
         actual_phases = self._get_actual_data(
             dump_counts, test_source, delay_value, delay_rate, fringe_offset,
                 fringe_rate)
