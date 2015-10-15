@@ -496,7 +496,7 @@ class test_CBF(unittest.TestCase):
         sync_time = initial_dump['sync_time']
         scale_factor_timestamp = initial_dump['scale_factor_timestamp']
         time_stamp = initial_dump['timestamp']
-        # To do(MM) 2015-10-07, get int time from dump
+        # TODO: (MM) 2015-10-07, get int time from dump
         # (int_time = initial_dump['int_time'])
         int_time = self.xengops.get_acc_time()
         dump_1_timestamp = (sync_time + time_stamp/scale_factor_timestamp)
@@ -1077,8 +1077,9 @@ class test_CBF(unittest.TestCase):
                      'are set.'.format(sorted(other_bits)))
 
     def _get_actual_data(self, dump_counts, source_name, delay_value,
-            delay_rate, fringe_offset, fringe_rate,
-                load_time=None, load_check=None):
+                        delay_rate, fringe_offset, fringe_rate,
+                        load_time=None, load_check=None):
+
         setup_data = self._delays_setup()
         try:
             self.fengops.set_delay(source_name, delay=delay_value,
@@ -1142,6 +1143,7 @@ class test_CBF(unittest.TestCase):
         fringe_rate = 0
         load_time = setup_data['t_apply']
         load_check = False
+
         # TODO (MM) 2015-10-28 get expected data
         def get_expected_data():
             expected_fringes = []
@@ -1172,9 +1174,9 @@ class test_CBF(unittest.TestCase):
         delay_rate = 0
         delay_value = 0
         fringe_offset = np.pi/2.
-        fringe_rate= 0
-        load_time=None
-        load_check=None
+        fringe_rate = 0
+        load_time = None
+        load_check = None
 
         # TODO (MM) 2015-10-28 get expected data
         def get_expected_data():
@@ -1250,12 +1252,12 @@ class test_CBF(unittest.TestCase):
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
         dump_counts = 5
-        fringe_rate = (np.pi/4.)/setup_data['int_time']
-        fringe_offset = np.pi/4.
+        delay_value = sample_period * 1.5
         delay_rate = (sample_period/4.)/setup_data['int_time']
-
-        load_time=None
-        load_check=None
+        fringe_offset = np.pi/4.
+        fringe_rate = (np.pi/4.)/setup_data['int_time']
+        load_time = None
+        load_check = None
 
         # TODO (MM) 2015-10-28 get expected data
         def get_expected_data():
@@ -1270,6 +1272,7 @@ class test_CBF(unittest.TestCase):
                 fringe_rate)
 
         no_chans = setup_data['no_chans']
+        graph_units = None
         graph_title = 'All Delays Responses'
         graph_name = 'All_Delays_Response.svg'
 

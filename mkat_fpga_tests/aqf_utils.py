@@ -2,6 +2,7 @@ import functools
 
 import numpy as np
 import matplotlib.pyplot as plt
+
 from nosekatreport import Aqf
 
 def meth_end_aqf(meth):
