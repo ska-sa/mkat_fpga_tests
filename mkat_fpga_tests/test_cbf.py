@@ -785,8 +785,9 @@ class test_CBF(unittest.TestCase):
     def test_vacc(self):
         """Test vector accumulator"""
         # Choose a test freqency around the centre of the band.
-        test_freq = 856e6/2
-        test_input = 'm000_x'
+        test_freq = self.corr_freqs.bandwidth/2.
+        sources = [input.name for input in self.correlator.fengine_sources]
+        test_input = sources[0]
         eq_scaling = 30
         acc_times = [0.05, 0.1, 0.5, 1]
 
@@ -1123,9 +1124,7 @@ class test_CBF(unittest.TestCase):
             data = complexise(acc['xeng_raw'][:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
 
-        rads = []
-        for phase in phases:
-            rads.append(np.abs((np.min(phase) - np.max(phase))/2.))
+        rads = [np.abs((np.min(phase) - np.max(phase))/2.) for phase in phases]
 
         return zip(rads, phases)
 
@@ -1151,7 +1150,6 @@ class test_CBF(unittest.TestCase):
 
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-
         actual_phases = self._get_actual_data(
             dump_counts, test_source, delay_value, delay_rate, fringe_offset,
                 fringe_rate, load_time, load_check)
@@ -1167,7 +1165,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_offset(self):
-
+        """Fringe Offset Test"""
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
         dump_counts = 1
@@ -1203,7 +1201,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
         """
-
+        Fringe Rate Test
         """
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
@@ -1229,7 +1227,6 @@ class test_CBF(unittest.TestCase):
 
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-
         actual_phases = self._get_actual_data(
             dump_counts, test_source, delay_value, delay_rate, fringe_offset,
                 fringe_rate)
@@ -1247,7 +1244,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.28')
     def test_all_delays(self):
         """
-
+        Test Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
@@ -1279,3 +1276,6 @@ class test_CBF(unittest.TestCase):
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, actual_phases,
             graph_units, graph_name, graph_title, True)
+
+    def test_sync(self):
+        import IPython;IPython.embed()
