@@ -720,34 +720,30 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_5')
     def test_roach_qdr_sensors(self):
         """ """
-        an_e = threading.Event()
-        def event_(an_e, *args):
-            print 'Event occured'
-            try:
-                an_e.set()
-            except Exception, exc:
-                print exc
-        an_event = partial(event_, an_e)
+        import IPython;IPython.embed()
 
         array_sensors = correlator_fixture.katcp_rct.sensor
+        # Select a host
         xhost = self.correlator.xhosts[0]
+        # Check if qdr is okay
+        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR has not failed.')
+        Aqf.step("Writing junk to {} memory.".format(xhost.host))
+        # Write junk to memory
         xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
-        Aqf.is_true(
-            array_sensors.roach020a0a_xeng_qdr.get_value() == xhost.qdr_okay(),
-                'Check that the memory is corrupted.')
-
+        # Verify that qdr corrupted or unreadable
+        Aqf.is_false(array_sensors.roach020a0a_xeng_qdr.get_value(),
+            'Check that the memory on {} is unreadable.'.format(xhost.host))
+        # Check that the error counter increments
+        # xhost.vacc_get_status()[1]['errors']
+        # wait/step code and recheck error counter if they haven't been incremented again
+        # xhost.vacc_get_error_detail()[1]['parity']
+        # Check that the memory recovered successfully
         Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
             'Check that the memory recovered successfully.')
-        array_sensors.roach020a0a_xeng_qdr.set_strategy('auto')
-        array_sensors.roach020a0a_xeng_qdr.register_listener(an_event)
-
-        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
-            'Check that the memory recovered successfully.')
-
-        xhost.vacc_get_error_detail()[1]['parity']
-
-        self.addCleanup(array_sensors.roach020a0a_xeng_qdr.unregister_listener(an_event))
-        import IPython;IPython.embed()
+        # Clear and confirm error counters
+        xhost.clear_status()
+        Aqf.is_false(xhost.vacc_get_status()[1]['errors'],
+                'Confirm that the counters have been reset.')
 
     @aqf_vr('TP.C.dummy_vr_6')
     def test_roach_pfb_sensors(self):
