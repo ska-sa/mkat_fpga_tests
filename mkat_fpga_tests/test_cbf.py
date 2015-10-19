@@ -719,31 +719,37 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.dummy_vr_5')
     def test_roach_qdr_sensors(self):
-        """ """
-        import IPython;IPython.embed()
-
         array_sensors = correlator_fixture.katcp_rct.sensor
         # Select a host
         xhost = self.correlator.xhosts[0]
         # Check if qdr is okay
-        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR has not failed.')
+        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay!')
         Aqf.step("Writing junk to {} memory.".format(xhost.host))
         # Write junk to memory
         xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
+        Aqf.step('Wait before checking is memory is corrupted.')
         # Verify that qdr corrupted or unreadable
         Aqf.is_false(array_sensors.roach020a0a_xeng_qdr.get_value(),
             'Check that the memory on {} is unreadable.'.format(xhost.host))
         # Check that the error counter increments
-        # xhost.vacc_get_status()[1]['errors']
-        # wait/step code and recheck error counter if they haven't been incremented again
-        # xhost.vacc_get_error_detail()[1]['parity']
+        current_errors = xhost.vacc_get_status()[1]['errors']
+        Aqf.step("Check if error counters are incrementing.")
+        if current_errors == xhost.vacc_get_status()[1]['errors']:
+            Aqf.passed('Confirm that the counters are unchanging: {}'
+                .format(current_errors))
+        else:
+            Aqf.failed('Error counters still incrementing.')
         # Check that the memory recovered successfully
         Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
             'Check that the memory recovered successfully.')
         # Clear and confirm error counters
         xhost.clear_status()
-        Aqf.is_false(xhost.vacc_get_status()[1]['errors'],
-                'Confirm that the counters have been reset.')
+        final_errors = xhost.vacc_get_status()[1]['errors']
+        Aqf.is_false(final_errors,
+                'Confirm that the counters have been reset,\nFrom {} to {}'
+                    .format(current_errors, final_errors))
+        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay.')
+
 
     @aqf_vr('TP.C.dummy_vr_6')
     def test_roach_pfb_sensors(self):
