@@ -591,7 +591,7 @@ class test_CBF(unittest.TestCase):
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                                file_name, units, title, True)
+                                units, file_name, title, True)
         # TODO NM 2015-09-04: We are only checking one of the results here?
         # This structure needs a bit of unpacking :)
         Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
@@ -1186,7 +1186,7 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
-        graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_title)
+        graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
         graph_name = 'Fringe_Offset_Response.svg'
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
