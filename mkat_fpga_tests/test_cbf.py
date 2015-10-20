@@ -496,6 +496,7 @@ class test_CBF(unittest.TestCase):
         sync_time = initial_dump['sync_time']
         scale_factor_timestamp = initial_dump['scale_factor_timestamp']
         time_stamp = initial_dump['timestamp']
+        n_accs = initial_dump['n_accs']
         # TODO: (MM) 2015-10-07, get int time from dump
         # (int_time = initial_dump['int_time'])
         int_time = self.xengops.get_acc_time()
@@ -522,7 +523,8 @@ class test_CBF(unittest.TestCase):
             'dump_1_timestamp' : dump_1_timestamp,
             't_apply' : t_apply,
             'no_chans' : no_chans,
-            'test_source' : test_source
+            'test_source' : test_source,
+            'n_accs' : n_accs
             }
 
     @aqf_vr('TP.C.1.27')
@@ -717,25 +719,27 @@ class test_CBF(unittest.TestCase):
                 'Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
-    @aqf_vr('TP.C.dummy_vr_5')
+    @aqf_vr('TP.C.1.16')
     def test_roach_qdr_sensors(self):
         array_sensors = correlator_fixture.katcp_rct.sensor
         # Select a host
         xhost = self.correlator.xhosts[0]
+        Aqf.step("Selected host: {}".format(xhost.host))
         # Check if qdr is okay
-        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay!')
+        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR has not failed.')
         Aqf.step("Writing junk to {} memory.".format(xhost.host))
         # Write junk to memory
-        xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
-        Aqf.step('Wait before checking is memory is corrupted.')
+
+        for i in range(5):
+            xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
+            Aqf.wait(.1,'Wait before checking is memory is corrupted.')
         # Verify that qdr corrupted or unreadable
         Aqf.is_false(array_sensors.roach020a0a_xeng_qdr.get_value(),
             'Check that the memory on {} is unreadable.'.format(xhost.host))
-        # Check that the error counter increments
-        current_errors = xhost.vacc_get_status()[1]['errors']
-        Aqf.step("Check if error counters are incrementing.")
-        if current_errors == xhost.vacc_get_status()[1]['errors']:
-            Aqf.passed('Confirm that the counters are unchanging: {}'
+        current_errors = xhost.registers.vacc_errors1.read()['data']['parity']
+        Aqf.is_not_equals(current_errors, 0, "Error counters are not incrementing.")
+        if current_errors == xhost.registers.vacc_errors1.read()['data']['parity']:
+            Aqf.passed('Confirm that the counters are incrementing: {} increments.'
                 .format(current_errors))
         else:
             Aqf.failed('Error counters still incrementing.')
@@ -744,9 +748,10 @@ class test_CBF(unittest.TestCase):
             'Check that the memory recovered successfully.')
         # Clear and confirm error counters
         xhost.clear_status()
-        final_errors = xhost.vacc_get_status()[1]['errors']
+
+        final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
         Aqf.is_false(final_errors,
-                'Confirm that the counters have been reset,\nFrom {} to {}'
+                'Confirm that the counters have been reset,\nFrom count {} to {}'
                     .format(current_errors, final_errors))
         Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay.')
 
@@ -754,8 +759,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_6')
     def test_roach_pfb_sensors(self):
         array_sensors = correlator_fixture.katcp_rct.sensor
-
-        import IPython;IPython.embed()
+        pass
 
     @aqf_vr('TP.C.dummy_vr_4')
     def test_roach_sensors_status(self):
@@ -1079,6 +1083,7 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
+
     def _get_actual_data(self, dump_counts, source_name, delay_value,
                         delay_rate, fringe_offset, fringe_rate,
                         load_time=None, load_check=None):
@@ -1125,8 +1130,14 @@ class test_CBF(unittest.TestCase):
         for acc in fringe_dumps:
             data = complexise(acc['xeng_raw'][:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
+            amp = np.mean(np.abs(data))/setup_data['n_accs']
 
-        rads = [np.abs((np.min(phase) - np.max(phase))/2.) for phase in phases]
+        if (fringe_rate or fringe_offset) != 0:
+            rads = [np.abs((np.min(phase) + np.max(phase))/2.)
+                    for phase in phases]
+        else:
+            rads = [np.abs((np.min(phase) - np.max(phase))/2.)
+                    for phase in phases]
 
         return zip(rads, phases)
 
@@ -1138,7 +1149,7 @@ class test_CBF(unittest.TestCase):
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
         dump_counts = 5
-        delay_rate = (sample_period/2.)/setup_data['int_time']
+        delay_rate = (sample_period/5.)/setup_data['int_time']
         delay_value = 0
         fringe_offset = 0
         fringe_rate = 0
@@ -1152,18 +1163,17 @@ class test_CBF(unittest.TestCase):
 
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-        actual_phases = self._get_actual_data(
-            dump_counts, test_source, delay_value, delay_rate, fringe_offset,
-                fringe_rate, load_time, load_check)
+        actual_phases = self._get_actual_data(dump_counts, test_source,
+            delay_value, delay_rate, fringe_offset, fringe_rate)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
-        graph_title = 'Delay Rate Response at {}'.format(delay_rate*1e9)
+        graph_title = 'Delay Rate at {} n'.format(delay_rate*1e9)
         graph_name = 'Delay_Rate_Response.svg'
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, actual_phases,
-            graph_units, graph_name, graph_title, True)
+            graph_units, graph_name, graph_title,show=True)
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_offset(self):
@@ -1186,9 +1196,8 @@ class test_CBF(unittest.TestCase):
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
 
-        actual_phases = self._get_actual_data(
-            dump_counts, test_source, delay_value, delay_rate, fringe_offset,
-                fringe_rate)
+        actual_phases = self._get_actual_data(dump_counts, test_source,
+            delay_value, delay_rate, fringe_offset, fringe_rate)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
@@ -1199,7 +1208,6 @@ class test_CBF(unittest.TestCase):
         aqf_plot_phase_results(no_chans, actual_phases, actual_phases,
             graph_units, graph_name, graph_title, True)
 
-
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
         """
@@ -1207,11 +1215,12 @@ class test_CBF(unittest.TestCase):
         """
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
-        dump_counts = 5
+        dump_counts = 3
         delay_rate = 0
         delay_value = 0
         fringe_offset = 0
-        fringe_rate = (np.pi/2.)/setup_data['int_time']
+        fringe_rate = (np.pi/8)/setup_data['int_time']
+        print fringe_rate
         # fringe_rates = [0]*setup_data['num_inputs']
         # dump rate: 1 dump per accumulation length
         # dump_rate = 1/setup_data['int_time']
@@ -1229,14 +1238,12 @@ class test_CBF(unittest.TestCase):
 
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-        actual_phases = self._get_actual_data(
-            dump_counts, test_source, delay_value, delay_rate, fringe_offset,
-                fringe_rate)
+        actual_phases = self._get_actual_data(dump_counts, test_source,
+            delay_value, delay_rate, fringe_offset, fringe_rate)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
-        graph_title = 'Fringe Rate at {} {}.'.format(
-            round(fringe_rate, 3), graph_units)
+        graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
@@ -1252,7 +1259,7 @@ class test_CBF(unittest.TestCase):
         sample_period = self.corr_freqs.sample_period
         dump_counts = 5
         delay_value = sample_period * 1.5
-        delay_rate = (sample_period/4.)/setup_data['int_time']
+        delay_rate = sample_period/setup_data['int_time']
         fringe_offset = np.pi/4.
         fringe_rate = (np.pi/4.)/setup_data['int_time']
         load_time = None
@@ -1266,9 +1273,8 @@ class test_CBF(unittest.TestCase):
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
 
-        actual_phases = self._get_actual_data(
-            dump_counts, test_source, delay_value, delay_rate, fringe_offset,
-                fringe_rate)
+        actual_phases = self._get_actual_data(dump_counts, test_source,
+            delay_value, delay_rate, fringe_offset, fringe_rate)
 
         no_chans = setup_data['no_chans']
         graph_units = None
@@ -1280,4 +1286,5 @@ class test_CBF(unittest.TestCase):
             graph_units, graph_name, graph_title, True)
 
     def test_sync(self):
+
         import IPython;IPython.embed()
