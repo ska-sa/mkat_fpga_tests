@@ -480,7 +480,7 @@ class test_CBF(unittest.TestCase):
         pass
 
     def _delays_setup(self):
-
+        Aqf.step('Estimating synch epoch')
         self.correlator.est_sync_epoch()
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
@@ -493,14 +493,20 @@ class test_CBF(unittest.TestCase):
         # Choose baseline for phase comparison
         baseline_index = baseline_lookup[('m000_x', 'm000_y')]
 
-        sync_time = initial_dump['sync_time']
+        # TODO: (MM) 2015-10-21 get sync time from digitiser
+        # We believe that sync time should be the digitiser sync epoch but
+        # in the dsim this is not an int, so we using correlator value for now
+        # sync_time = initial_dump['sync_time']
+        sync_time = self.correlator.synchronisation_epoch
         scale_factor_timestamp = initial_dump['scale_factor_timestamp']
         time_stamp = initial_dump['timestamp']
+
         n_accs = initial_dump['n_accs']
         # TODO: (MM) 2015-10-07, get int time from dump
         # (int_time = initial_dump['int_time'])
         int_time = self.xengops.get_acc_time()
         dump_1_timestamp = (sync_time + time_stamp/scale_factor_timestamp)
+        Aqf.step('dump_1_timestamp: {}'.format(dump_1_timestamp))
         t_apply = dump_1_timestamp + 5*int_time
         no_chans = range(self.corr_freqs.n_chans)
 
@@ -510,7 +516,7 @@ class test_CBF(unittest.TestCase):
         test_source = source_names[1]
         num_inputs = len(source_names)
         # Get input (m000_y) index number
-        m000_y_ind = source_names.index(test_source)
+        test_source_ind = source_names.index(test_source)
 
         return {
             'baseline_index' : baseline_index,
@@ -524,7 +530,11 @@ class test_CBF(unittest.TestCase):
             't_apply' : t_apply,
             'no_chans' : no_chans,
             'test_source' : test_source,
-            'n_accs' : n_accs
+            'n_accs' : n_accs,
+            'sample_period' : self.corr_freqs.sample_period,
+            'num_inputs' : num_inputs,
+            'test_source_ind' : test_source_ind
+
             }
 
     @aqf_vr('TP.C.1.27')
@@ -1083,18 +1093,17 @@ class test_CBF(unittest.TestCase):
                      'are set.'.format(sorted(other_bits)))
 
 
-    def _get_actual_data(self, dump_counts, source_name, delay_value,
-                        delay_rate, fringe_offset, fringe_rate,
-                        load_time=None, load_check=None):
+    def _get_actual_data(self, setup_data, dump_counts, delay_value, delay_rate,
+                        fringe_offset, fringe_rate, load_time=None,
+                        load_check=None):
 
-        setup_data = self._delays_setup()
         try:
-            self.fengops.set_delay(source_name, delay=delay_value,
+            self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
                 delta_delay=delay_rate, phase_offset=fringe_offset,
                     delta_phase_offset=fringe_rate, ld_time=load_time,
                         ld_check=load_check)
-            # reply = correlator_fixture.katcp_rct.req.delays(
-                # t_apply, *delay_coeffients)
+            #reply = correlator_fixture.katcp_rct.req.delays(
+                #setup_data['t_apply'], *delay_coeffients)
 
         except Exception as e:
             Aqf.failed('Failed to set delays with error: {}.'.format(e))
@@ -1145,17 +1154,14 @@ class test_CBF(unittest.TestCase):
         """
         Delay Rate Test
         """
-        correlator_fixture.katcp_rct.req.digitiser_synch_epoch(100000)
-        #import IPython;IPython.embed()
         setup_data = self._delays_setup()
-        sample_period = self.corr_freqs.sample_period
         dump_counts = 5
-        delay_rate = (sample_period/3.5)/setup_data['int_time']
+        delay_rate = (setup_data['sample_period']/3.5)/setup_data['int_time']
         delay_value = 0
         fringe_offset = 0
         fringe_rate = 0
-        load_time = setup_data['t_apply']  + 20
-        print load_time
+        load_time = setup_data['t_apply']
+        Aqf.step('Time apply: {0}'.format(load_time))
         load_check = False
 
         # TODO (MM) 2015-10-28 get expected data
@@ -1163,10 +1169,10 @@ class test_CBF(unittest.TestCase):
             expected_fringes = []
             pass
 
-        test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-        actual_phases = self._get_actual_data(dump_counts, test_source,
-            delay_value, delay_rate, fringe_offset, fringe_rate, load_time, load_check)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                        delay_value, delay_rate, fringe_offset, fringe_rate,
+                        load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
@@ -1181,7 +1187,6 @@ class test_CBF(unittest.TestCase):
     def test_fringe_offset(self):
         """Fringe Offset Test"""
         setup_data = self._delays_setup()
-        sample_period = self.corr_freqs.sample_period
         dump_counts = 1
         delay_rate = 0
         delay_value = 0
@@ -1198,8 +1203,8 @@ class test_CBF(unittest.TestCase):
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
 
-        actual_phases = self._get_actual_data(dump_counts, test_source,
-            delay_value, delay_rate, fringe_offset, fringe_rate)
+        actual_phases = self._get_actual_data(setup_data, dump_counts, test_source,
+            delay_value, delay_rate, fringe_offset, fringe_rate, load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
@@ -1216,20 +1221,19 @@ class test_CBF(unittest.TestCase):
         Fringe Rate Test
         """
         setup_data = self._delays_setup()
-        sample_period = self.corr_freqs.sample_period
         dump_counts = 3
         delay_rate = 0
         delay_value = 0
         fringe_offset = 0
         fringe_rate = (np.pi/8)/setup_data['int_time']
-        print fringe_rate
-        # fringe_rates = [0]*setup_data['num_inputs']
-        # dump rate: 1 dump per accumulation length
-        # dump_rate = 1/setup_data['int_time']
-        # Adjust fringe phase by 0.5 rad per dump for m000_y
-        # fringe_rate = 0.5*dump_rate
-        # fringe_rates[m000_y_ind] = fringe_rate
-        # delay_coeffients = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
+        Aqf.step('fringe_rate: {}'.format(fringe_rate))
+        #fringe_rates = [0]*setup_data['num_inputs']
+        ## dump rate: 1 dump per accumulation length
+        #dump_rate = 1/setup_data['int_time']
+        ## Adjust fringe phase by 0.5 rad per dump for m000_y
+        #fringe_rate = 0.5*dump_rate
+        #fringe_rates[setup_data['test_source_ind']] = fringe_rate
+        #delay_coeffients = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
         load_time=None
         load_check=None
 
@@ -1240,8 +1244,9 @@ class test_CBF(unittest.TestCase):
 
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
-        actual_phases = self._get_actual_data(dump_counts, test_source,
-            delay_value, delay_rate, fringe_offset, fringe_rate)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                        delay_value, delay_rate, fringe_offset, fringe_rate,
+                        load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
@@ -1258,10 +1263,9 @@ class test_CBF(unittest.TestCase):
         Test Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
         setup_data = self._delays_setup()
-        sample_period = self.corr_freqs.sample_period
         dump_counts = 5
-        delay_value = sample_period * 1.5
-        delay_rate = sample_period/setup_data['int_time']
+        delay_value = setup_data['sample_period'] * 1.5
+        delay_rate = setup_data['sample_period']/setup_data['int_time']
         fringe_offset = np.pi/4.
         fringe_rate = (np.pi/4.)/setup_data['int_time']
         load_time = None
@@ -1275,8 +1279,9 @@ class test_CBF(unittest.TestCase):
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
 
-        actual_phases = self._get_actual_data(dump_counts, test_source,
-            delay_value, delay_rate, fringe_offset, fringe_rate)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                        delay_value, delay_rate, fringe_offset, fringe_rate,
+                        load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = None
