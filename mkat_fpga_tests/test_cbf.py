@@ -1,5 +1,7 @@
 from __future__ import division
 
+import IPython
+
 import unittest
 import logging
 import time
@@ -1102,6 +1104,7 @@ class test_CBF(unittest.TestCase):
                 delta_delay=delay_rate, phase_offset=fringe_offset,
                     delta_phase_offset=fringe_rate, ld_time=load_time,
                         ld_check=load_check)
+
             #reply = correlator_fixture.katcp_rct.req.delays(
                 #setup_data['t_apply'], *delay_coeffients)
 
@@ -1140,6 +1143,15 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data))/setup_data['n_accs']
 
+        pc = len(phases[1])/2
+        phase_grads = [(p[pc+100] - p[pc-100])/200. for p in phases]
+        phase_c = [p[pc-100] for p in phases]
+        xs =np.arange(len(p)) - pc + 100
+        phase_lines_ = [pcv + xs*pg for pg, pcv in zip(phase_grads, phase_c)]
+        phase_lines = [(pl + np.pi) % (2 * np.pi) - np.pi for pl in phase_lines_]
+
+
+
         if (fringe_rate or fringe_offset) != 0:
             rads = [np.abs((np.min(phase) + np.max(phase))/2.)
                     for phase in phases]
@@ -1147,7 +1159,7 @@ class test_CBF(unittest.TestCase):
             rads = [np.abs((np.min(phase) - np.max(phase))/2.)
                     for phase in phases]
 
-        return zip(rads, phases)
+        return zip(rads, phases, phase_lines)
 
     @aqf_vr('TP.C.1.28')
     def test_delay_rate(self):
@@ -1156,7 +1168,7 @@ class test_CBF(unittest.TestCase):
         """
         setup_data = self._delays_setup()
         dump_counts = 5
-        delay_rate = (setup_data['sample_period']/3.5)/setup_data['int_time']
+        delay_rate = (setup_data['sample_period']/2.5)/setup_data['int_time']
         delay_value = 0
         fringe_offset = 0
         fringe_rate = 0

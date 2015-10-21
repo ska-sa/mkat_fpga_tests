@@ -85,12 +85,20 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         return: None
         """
         plt.gca().set_color_cycle(None)
-        for delay, phases in actual_data:
+        minprev = 0
+        maxprev = 0
+        for delay, phases, phase_lines in actual_data:
             assert isinstance(delay, float)
             plt.plot(freqs, phases, label='{} {}'.format(delay, plot_units))
+            print ('Minimum phase difference: {0}'.format(np.min(phases) - minprev))
+            print ('Maximum phase difference: {0}'.format(np.max(phases) - maxprev))
+            minprev = np.min(phases)
+            maxprev = np.max(phases)
+
         plt.gca().set_color_cycle(None)
-        for delay, phases in expected_data:
-            fig = plt.plot(freqs, phases, '--')[0]
+        for delay, phases, pl in expected_data:
+            #fig = plt.plot(freqs, phases, '--')[0]
+            fig = plt.plot(freqs, pl, '--')[0]
 
         axes = fig.get_axes()
         ybound = axes.get_ybound()
