@@ -1145,14 +1145,17 @@ class test_CBF(unittest.TestCase):
         """
         Delay Rate Test
         """
+        correlator_fixture.katcp_rct.req.digitiser_synch_epoch(100000)
+        #import IPython;IPython.embed()
         setup_data = self._delays_setup()
         sample_period = self.corr_freqs.sample_period
         dump_counts = 5
-        delay_rate = (sample_period/5.)/setup_data['int_time']
+        delay_rate = (sample_period/3.5)/setup_data['int_time']
         delay_value = 0
         fringe_offset = 0
         fringe_rate = 0
-        load_time = setup_data['t_apply']
+        load_time = setup_data['t_apply']  + 20
+        print load_time
         load_check = False
 
         # TODO (MM) 2015-10-28 get expected data
@@ -1163,7 +1166,7 @@ class test_CBF(unittest.TestCase):
         test_source = setup_data['test_source']
         expected_phases = get_expected_data()
         actual_phases = self._get_actual_data(dump_counts, test_source,
-            delay_value, delay_rate, fringe_offset, fringe_rate)
+            delay_value, delay_rate, fringe_offset, fringe_rate, load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
