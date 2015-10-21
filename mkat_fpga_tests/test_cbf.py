@@ -734,12 +734,12 @@ class test_CBF(unittest.TestCase):
             xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
             Aqf.wait(.1,'Wait before checking is memory is corrupted.')
         # Verify that qdr corrupted or unreadable
-        Aqf.is_false(array_sensors.roach020a0a_xeng_qdr.get_value(),
-            'Check that the memory on {} is unreadable.'.format(xhost.host))
+        Aqf.is_false(xhost.qdr_okay(),
+            'Check that the memory on {} is unreadable/corrupted.'.format(xhost.host))
         current_errors = xhost.registers.vacc_errors1.read()['data']['parity']
-        Aqf.is_not_equals(current_errors, 0, "Error counters are not incrementing.")
+        Aqf.is_not_equals(current_errors, 0, "Error counters are incrementing.")
         if current_errors == xhost.registers.vacc_errors1.read()['data']['parity']:
-            Aqf.passed('Confirm that the counters are incrementing: {} increments.'
+            Aqf.passed('Confirm that the counters have stopped incrementing: {} increments.'
                 .format(current_errors))
         else:
             Aqf.failed('Error counters still incrementing.')
@@ -748,11 +748,10 @@ class test_CBF(unittest.TestCase):
             'Check that the memory recovered successfully.')
         # Clear and confirm error counters
         xhost.clear_status()
-
         final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
         Aqf.is_false(final_errors,
-                'Confirm that the counters have been reset,\nFrom count {} to {}'
-                    .format(current_errors, final_errors))
+            'Confirm that the counters have been reset, count {} to {}'
+                .format(current_errors, final_errors))
         Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay.')
 
 

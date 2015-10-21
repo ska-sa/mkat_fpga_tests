@@ -328,7 +328,7 @@ def clear_all_delays(instrument):
     Param: Correlator object
     Return: None
     """
-    for source in instrument.fengine_sources:
-        instrument.fops.set_delay(source.name, delay=0, delta_delay=0,
+    for host in instrument.fengine_sources:
+        instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
             phase_offset=0, delta_phase_offset=0,
                 ld_time=None, ld_check=True)
