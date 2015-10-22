@@ -512,7 +512,7 @@ class test_CBF(unittest.TestCase):
         # TODO (MM) 2015-10-20
         # 3ms added for the network round trip
         dump_1_timestamp = (sync_time + 0.003 + time_stamp/scale_factor_timestamp)
-        t_apply = dump_1_timestamp + 60*int_time
+        t_apply = dump_1_timestamp + 20*int_time
         no_chans = range(self.corr_freqs.n_chans)
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
@@ -1099,18 +1099,19 @@ class test_CBF(unittest.TestCase):
                      'are set.'.format(sorted(other_bits)))
 
 
-    def _get_actual_data(self, setup_data, dump_counts, delay_value, delay_rate,
+    def _get_actual_data(self, delay_coefficients, setup_data, dump_counts, delay_value, delay_rate,
                         fringe_offset, fringe_rate, load_time=None,
                         load_check=None):
 
         try:
-            self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
-                delta_delay=delay_rate, phase_offset=fringe_offset,
-                    delta_phase_offset=fringe_rate, ld_time=load_time,
-                        ld_check=load_check)
+            #self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
+            #    delta_delay=delay_rate, phase_offset=fringe_offset,
+            #        delta_phase_offset=fringe_rate, ld_time=load_time,
+            #            ld_check=load_check)
 
-            #reply = correlator_fixture.katcp_rct.req.delays(
-                #setup_data['t_apply'], *delay_coeffients)
+            reply = correlator_fixture.katcp_rct.req.delays(
+                setup_data['t_apply'], *delay_coefficients)
+            print reply
 
         except Exception as e:
             Aqf.failed('Failed to set delays with error: {}.'.format(e))
@@ -1265,10 +1266,7 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
             delay_coefficients)
 
-        delay_rate = setup_data['sample_period']/setup_data['int_time']
-        #reply = correlator_fixture.katcp_rct.req.delays(
-                #setup_data['t_apply'], *delay_coeffients)
-        actual_phases = self._get_actual_data(setup_data, dump_counts,
+        actual_phases = self._get_actual_data(delay_coefficients, setup_data, dump_counts,
                         delay_value, delay_rate, fringe_offset, fringe_rate,
                         load_time, load_check)
         no_chans = setup_data['no_chans']
