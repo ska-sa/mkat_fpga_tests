@@ -91,25 +91,19 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         #for delay, phases in actual_data:
             assert isinstance(delay, float)
             plt.plot(freqs, phases, label='{} {}'.format(delay, plot_units))
-            Aqf.step(('Actual Minimum phase difference: {} deg'.format(
-                round((np.rad2deg(np.min(phases) - minprev)),3))))
-            Aqf.step(('Actual Maximum phase difference: {} deg'.format(
-                round((np.rad2deg(np.max(phases) - maxprev)),3))))
-            minprev = np.min(phases)
-            maxprev = np.max(phases)
 
         plt.gca().set_color_cycle(None)
-        for delay, phases, pl in expected_data:
-        #for delay, phases in expected_data:
-            #fig = plt.plot(freqs, phases, '--')[0]
-            fig = plt.plot(freqs, pl, '--')[0]
+        #for delay, phases, pl in expected_data:
+        for phases in expected_data:
+            fig = plt.plot(freqs, phases, '--')[0]
+            #fig = plt.plot(freqs, pl, '--')[0]
 
         axes = fig.get_axes()
         ybound = axes.get_ybound()
         yb_diff = abs(ybound[1] - ybound[0])
         new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-        plt.vlines((len(expected_data[0][1])-1)/2., *new_ybound, colors='b',
-            linestyles='dotted',label='fc')
+        plt.vlines((len(actual_data[0][1]))/2., *new_ybound, colors='b',
+            linestyles='dotted',label='Center Chan.')
         plt.legend()
         plt.title('{}'.format(plot_title))
         axes.set_ybound(*new_ybound)

@@ -314,7 +314,9 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
+        # TODO (MM) 2015-10-22
+        # Get bls ordering from get baseline lookup helper functions
+        bls_ordering = test_dump['bls_ordering']
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
@@ -365,7 +367,7 @@ class test_CBF(unittest.TestCase):
             zeros = set()
             for inp_i in all_inputs:
                 for inp_j in all_inputs:
-                    if (inp_i, inp_j) not in baseline_lookup:
+                    if (inp_i, inp_j) not in present_baselines:
                         continue
                     if inp_i in nonzero_inputs and inp_j in nonzero_inputs:
                         nonzeros.add((inp_i, inp_j))
@@ -507,8 +509,10 @@ class test_CBF(unittest.TestCase):
         # TODO: (MM) 2015-10-07, get int time from dump
         # (int_time = initial_dump['int_time'])
         int_time = self.xengops.get_acc_time()
-        dump_1_timestamp = (sync_time + time_stamp/scale_factor_timestamp)
-        t_apply = dump_1_timestamp + 5*int_time
+        # TODO (MM) 2015-10-20
+        # 3ms added for the network round trip
+        dump_1_timestamp = (sync_time + 0.003 + time_stamp/scale_factor_timestamp)
+        t_apply = dump_1_timestamp + 60*int_time
         no_chans = range(self.corr_freqs.n_chans)
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
@@ -802,7 +806,8 @@ class test_CBF(unittest.TestCase):
         """Test vector accumulator"""
         # Choose a test freqency around the centre of the band.
         test_freq = self.corr_freqs.bandwidth/2.
-        sources = [input.name for input in self.correlator.fengine_sources]
+        sources =  [input['source'].name
+                    for input in self.correlator.fengine_sources]
         test_input = sources[0]
         eq_scaling = 30
         acc_times = [0.05, 0.1, 0.5, 1]
@@ -1142,35 +1147,97 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data))/setup_data['n_accs']
 
-        pc = len(phases[0])/2
-        phase_grads = [(p[pc+100] - p[pc-100])/200. for p in phases]
-        phase_c = [p[pc-100] for p in phases]
-        xs =np.arange(len(p)) - pc + 100
-        phase_lines_ = [pcv + xs*pg for pg, pcv in zip(phase_grads, phase_c)]
-        phase_lines = [(pl + np.pi) % (2 * np.pi) - np.pi for pl in phase_lines_]
-        linear_fit = []
-        for i in range(0, len(phase_lines)):
-            linear_fit.append(np.rad2deg(np.abs((
-                phase_lines[i][pc - 15] - phase_lines[i][pc + 15])/2)))
-
         Aqf.step('Maximum step size :{} deg.'.format(
             round(np.max(linear_fit), 4)))
         Aqf.step('Minimum step size :{} deg.'.format(
             round(np.min(linear_fit), 4)))
         Aqf.less(np.average(linear_fit), 1,
-            'Average step value :{} degrees, should be less than 1 degree.'
+            'Actual average step value :{} degrees, should be less than 1 degree.'
             .format(round(np.average(linear_fit), 4)))
 
         if (fringe_rate or fringe_offset) != 0:
-            rads = [np.abs((np.min(phase) + np.max(phase))/2.)
-                    for phase in phases]
+            minprev = 0
+            maxprev = 0
+            rads = []
+            for phase in phases:
+                Aqf.step(('Actual Minimum phase difference: {} deg'.format(
+                    round((np.rad2deg(np.min(phase) - minprev)),3))))
+                Aqf.step(('Actual Maximum phase difference: {} deg'.format(
+                    round((np.rad2deg(np.max(phase) - maxprev)),3))))
+                minprev = np.min(phase)
+                maxprev = np.max(phase)
+                rads.append(np.abs((np.min(phase) + np.max(phase))/2.))
+
         else:
-            rads = [np.abs((np.min(phase) - np.max(phase))/2.)
-                    for phase in phases]
+            minprev = 0
+            maxprev = 0
+            rads = []
+            for phase in phases:
+                Aqf.step(('Actual Minimum phase difference: {} deg'.format(
+                    round((np.rad2deg(np.min(phase) - minprev)),3))))
+                Aqf.step(('Actual Maximum phase difference: {} deg'.format(
+                    round((np.rad2deg(np.max(phase) - maxprev)),3))))
+                minprev = np.min(phase)
+                maxprev = np.max(phase)
+                rads.append(np.abs((np.min(phase) - np.max(phase))/2.))
 
         return zip(rads, phases, phase_lines)
 
 
+    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
+
+        def gen_delay_vector(delay, setup_data):
+            res = []
+            no_ch = len(setup_data['no_chans'])
+            delay_slope = np.pi*(delay/setup_data['sample_period'])
+            c = delay_slope/2
+            for i in range(0,no_ch):
+                m = i/float(no_ch)
+                res.append(delay_slope*m - c)
+            return res
+
+        def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
+            expected_phases = []
+            for dump in range(1,dump_counts+1):
+                tot_delay = (delay + dump*delay_rate*setup_data['int_time'] -
+                .5*delay_rate*setup_data['int_time'])
+                expected_phases.append(gen_delay_vector(tot_delay, setup_data))
+            return expected_phases
+
+        def gen_fringe_vector(offset, setup_data):
+            return [offset] * len(setup_data['no_chans'])
+
+        def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
+            expected_phases = []
+            for dump in range(1,dump_counts+1):
+                offset = fringe_offset + dump*fringe_rate*setup_data['int_time']
+                expected_phases.append(gen_fringe_vector(offset, setup_data))
+            return expected_phases
+
+        ant_delay = []
+        for delay in delay_coefficients:
+            bits = delay.strip().split(':')
+            if len(bits) != 2:
+                raise ValueError('%s is not a valid delay setting' % delay)
+            delay = bits[0]
+            delay = delay.split(',')
+            delay = (float(delay[0]), float(delay[1]))
+            fringe = bits[1]
+            fringe = fringe.split(',')
+            fringe = (float(fringe[0]), float(fringe[1]))
+            ant_delay.append((delay, fringe))
+
+
+        delay         =  ant_delay[setup_data['test_source_ind']][0][0]
+        delay_rate    =  ant_delay[setup_data['test_source_ind']][0][1]
+        fringe_offset =  ant_delay[setup_data['test_source_ind']][1][0]
+        fringe_rate   =  ant_delay[setup_data['test_source_ind']][1][1]
+
+        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts, setup_data)))
+        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data))
+        result = delay_data + fringe_data
+
+        return (( result + np.pi) % (2 * np.pi ) - np.pi)
 
     @aqf_vr('TP.C.1.28')
     def test_delay_rate(self):
@@ -1179,12 +1246,21 @@ class test_CBF(unittest.TestCase):
         """
         setup_data = self._delays_setup()
         dump_counts = 5
-        delay_rate = (setup_data['sample_period']/2.5)/setup_data['int_time']
+
         delay_value = 0
         fringe_offset = 0
         fringe_rate = 0
         load_time = setup_data['t_apply']
         load_check = False
+        delay_rates = [0]*setup_data['num_inputs']
+        ## dump rate: 1 dump per accumulation length
+        #dump_rate = 1/setup_data['int_time']
+        ## Adjust fringe phase by 0.5 rad per dump for m000_y
+
+        # TODO Randomise delay rate value
+        delay_rate = setup_data['sample_period']/setup_data['int_time']
+        delay_rates[setup_data['test_source_ind']] = delay_rate
+        delay_coefficients  = ['0,{}:0,0'.format(fr) for fr in delay_rates]
 
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
@@ -1193,23 +1269,30 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
         # TODO (MM) 2015-10-28 get expected data
-        def get_expected_data():
-            expected_fringes = []
-            pass
 
-        expected_phases = get_expected_data()
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+            delay_coefficients)
+
+        delay_rate = setup_data['sample_period']/setup_data['int_time']
+        #reply = correlator_fixture.katcp_rct.req.delays(
+                #setup_data['t_apply'], *delay_coeffients)
         actual_phases = self._get_actual_data(setup_data, dump_counts,
                         delay_value, delay_rate, fringe_offset, fringe_rate,
                         load_time, load_check)
-
         no_chans = setup_data['no_chans']
         graph_units = ' '
         graph_title = 'Delay Rate at {} n'.format(delay_rate*1e9)
         graph_name = 'Delay_Rate_Response.svg'
 
+
+        Aqf.less(np.average(linear_fit), 1,
+            'Actual average step value :{} degrees, should be less than 1 degree.'
+            .format(round(np.average(linear_fit), 4)))
+
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
-        aqf_plot_phase_results(no_chans, actual_phases, actual_phases,
+        aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title,show=True)
+        #np.rad2deg(np.max(expected_phases[0] - actual_phases[0][1]))
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_offset(self):

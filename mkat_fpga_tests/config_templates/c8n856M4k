@@ -46,7 +46,7 @@
 
 [FxCorrelator]
 katcp_port = 7147
-sample_rate_hz = 1712000000
+sample_rate_hz = 1714304392
 # Number of bits used in the F engine for timekeeping (the master counter)
 timestamp_bits = 48
 # mcnt_bits = 48
@@ -83,7 +83,7 @@ sample_bits = 10
 # how many parallel ADC samples do we get per digitiser clock?
 adc_demux_factor = 8
 # The processed analogue bandwidth
-bandwidth = 856000000
+bandwidth = 857152196
 # the centre frequency on the sky
 true_cf = 1284000000
 # Number of channels produced by the f-engine
@@ -146,7 +146,7 @@ multicast_interface_address = 127.0.0.1
 10gbe_pkt_len = 512
 
 [dsimengine]
-sample_rate_hz = 1712000000
+sample_rate_hz = 1714304392
 bitstream = /usr/local/lib/cmc/bitstreams/deng/r2_deng_tvg.fpg
 host = roach020959
 10gbe_start_mac = 02:02:00:00:50:01
