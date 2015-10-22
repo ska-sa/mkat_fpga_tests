@@ -85,10 +85,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         return: None
         """
         plt.gca().set_color_cycle(None)
-        minprev = 0
-        maxprev = 0
-        for delay, phases, phase_lines in actual_data:
-        #for delay, phases in actual_data:
+        for delay, phases in actual_data:
             assert isinstance(delay, float)
             plt.plot(freqs, phases, label='{} {}'.format(delay, plot_units))
 

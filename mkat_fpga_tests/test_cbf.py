@@ -511,8 +511,8 @@ class test_CBF(unittest.TestCase):
         int_time = self.xengops.get_acc_time()
         # TODO (MM) 2015-10-20
         # 3ms added for the network round trip
-        dump_1_timestamp = (sync_time + 0.003 + time_stamp/scale_factor_timestamp)
-        t_apply = dump_1_timestamp + 20*int_time
+        dump_1_timestamp = (sync_time +.003 + time_stamp/scale_factor_timestamp)
+        t_apply = dump_1_timestamp + 30*int_time
         no_chans = range(self.corr_freqs.n_chans)
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
@@ -1104,14 +1104,16 @@ class test_CBF(unittest.TestCase):
                         load_check=None):
 
         try:
-            #self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
-            #    delta_delay=delay_rate, phase_offset=fringe_offset,
-            #        delta_phase_offset=fringe_rate, ld_time=load_time,
-            #            ld_check=load_check)
+            import IPython;IPython.embed()
 
-            reply = correlator_fixture.katcp_rct.req.delays(
-                setup_data['t_apply'], *delay_coefficients)
-            print reply
+
+            self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
+                delta_delay=delay_rate, phase_offset=fringe_offset,
+                    delta_phase_offset=fringe_rate, ld_time=load_time,
+                        ld_check=load_check)
+
+            #reply = correlator_fixture.katcp_rct.req.delays(
+                #setup_data['t_apply'], *delay_coefficients)
 
         except Exception as e:
             Aqf.failed('Failed to set delays with error: {}.'.format(e))
@@ -1149,32 +1151,14 @@ class test_CBF(unittest.TestCase):
             amp = np.mean(np.abs(data))/setup_data['n_accs']
 
         if (fringe_rate or fringe_offset) != 0:
-            minprev = 0
-            maxprev = 0
-            rads = []
-            for phase in phases:
-                Aqf.step(('Actual Minimum phase difference: {} deg'.format(
-                    round((np.rad2deg(np.min(phase) - minprev)),3))))
-                Aqf.step(('Actual Maximum phase difference: {} deg'.format(
-                    round((np.rad2deg(np.max(phase) - maxprev)),3))))
-                minprev = np.min(phase)
-                maxprev = np.max(phase)
-                rads.append(np.abs((np.min(phase) + np.max(phase))/2.))
+            rads = [np.abs((np.min(phase) + np.max(phase))/2.)
+                for phase in phases]
 
         else:
-            minprev = 0
-            maxprev = 0
-            rads = []
-            for phase in phases:
-                Aqf.step(('Actual Minimum phase difference: {} deg'.format(
-                    round((np.rad2deg(np.min(phase) - minprev)),3))))
-                Aqf.step(('Actual Maximum phase difference: {} deg'.format(
-                    round((np.rad2deg(np.max(phase) - maxprev)),3))))
-                minprev = np.min(phase)
-                maxprev = np.max(phase)
-                rads.append(np.abs((np.min(phase) - np.max(phase))/2.))
+            rads = [np.abs((np.min(phase) - np.max(phase))/2.)
+                for phase in phases]
 
-        return zip(rads, phases, phase_lines)
+        return zip(rads, phases)
 
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
@@ -1254,7 +1238,7 @@ class test_CBF(unittest.TestCase):
         delay_rate = setup_data['sample_period']/setup_data['int_time']
         delay_rates[setup_data['test_source_ind']] = delay_rate
         delay_coefficients  = ['0,{}:0,0'.format(fr) for fr in delay_rates]
-
+        Aqf.step('Setting Parameters')
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
         Aqf.step('Delay Value: {}'.format(delay_value))
@@ -1278,11 +1262,14 @@ class test_CBF(unittest.TestCase):
         #Aqf.less(np.average(linear_fit), 1,
             #'Actual average step value :{} degrees, should be less than 1 degree.'
             #.format(round(np.average(linear_fit), 4)))
-
+        actual_diff = np.rad2deg(
+            np.max(expected_phases[0] - actual_phases[0][1]))
+        print actual_diff
+        #import IPython;IPython.embed()
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title,show=True)
-        #np.rad2deg(np.max(expected_phases[0] - actual_phases[0][1]))
+        Aqf.less(actual_diff, 1,'{}'.format(actual_diff ))
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_offset(self):
