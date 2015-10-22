@@ -90,10 +90,8 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
             plt.plot(freqs, phases, label='{} {}'.format(delay, plot_units))
 
         plt.gca().set_color_cycle(None)
-        #for delay, phases, pl in expected_data:
         for phases in expected_data:
             fig = plt.plot(freqs, phases, '--')[0]
-            #fig = plt.plot(freqs, pl, '--')[0]
 
         axes = fig.get_axes()
         ybound = axes.get_ybound()
