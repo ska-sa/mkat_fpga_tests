@@ -1147,14 +1147,6 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data))/setup_data['n_accs']
 
-        Aqf.step('Maximum step size :{} deg.'.format(
-            round(np.max(linear_fit), 4)))
-        Aqf.step('Minimum step size :{} deg.'.format(
-            round(np.min(linear_fit), 4)))
-        Aqf.less(np.average(linear_fit), 1,
-            'Actual average step value :{} degrees, should be less than 1 degree.'
-            .format(round(np.average(linear_fit), 4)))
-
         if (fringe_rate or fringe_offset) != 0:
             minprev = 0
             maxprev = 0
@@ -1284,10 +1276,10 @@ class test_CBF(unittest.TestCase):
         graph_title = 'Delay Rate at {} n'.format(delay_rate*1e9)
         graph_name = 'Delay_Rate_Response.svg'
 
-
-        Aqf.less(np.average(linear_fit), 1,
-            'Actual average step value :{} degrees, should be less than 1 degree.'
-            .format(round(np.average(linear_fit), 4)))
+        # Todo Alec or later
+        #Aqf.less(np.average(linear_fit), 1,
+            #'Actual average step value :{} degrees, should be less than 1 degree.'
+            #.format(round(np.average(linear_fit), 4)))
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
