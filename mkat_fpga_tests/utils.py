@@ -1,6 +1,7 @@
 import collections
 import h5py
 import numpy as np
+import time
 
 from casperfpga.utils import threaded_fpga_operation
 
@@ -336,7 +337,9 @@ def clear_all_delays(instrument):
     Param: Correlator object
     Return: None
     """
+    start = time.time()
     for host in instrument.fengine_sources:
         instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
             phase_offset=0, delta_phase_offset=0,
-                ld_time=None, ld_check=True)
+                ld_time=time.time() + .5, ld_check=False)
+        print time.time() - start

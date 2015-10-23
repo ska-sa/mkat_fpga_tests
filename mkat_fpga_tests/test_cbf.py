@@ -490,8 +490,6 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator)
-        Aqf.step('Re-clearing all coarse and fine delays for all inputs.')
-        clear_all_delays(self.correlator)
         Aqf.step('Getting initial SPEAD dump.')
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Get list of all the baselines present in the correlator output
@@ -514,7 +512,7 @@ class test_CBF(unittest.TestCase):
         # TODO (MM) 2015-10-20
         # 3ms added for the network round trip
         dump_1_timestamp = (sync_time +.003 + time_stamp/scale_factor_timestamp)
-        t_apply = dump_1_timestamp + 30*int_time
+        t_apply = dump_1_timestamp + 60*int_time
         no_chans = range(self.corr_freqs.n_chans)
 
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
@@ -579,6 +577,7 @@ class test_CBF(unittest.TestCase):
                 # Set coarse delay using cmc
                 # correlator_fixture.katcp_rct.req.delays
                 # Set coarse delay using corr2 library
+                print source_name[1]
                 self.fengops.set_delay(source_name[1], delay=delay,
                     delta_delay=0, phase_offset=0, delta_phase_offset=0,
                         ld_time=None, ld_check=True)
@@ -1110,28 +1109,28 @@ class test_CBF(unittest.TestCase):
             #delta_delay=delay_rate, phase_offset=fringe_offset,
                     #delta_phase_offset=fringe_rate, ld_time=load_time,
                         #ld_check=load_check)
-            masked_coefficients = []
-            for delay in delay_coefficients:
-                bits = delay.strip().split(':')
-                if len(bits) != 2:
-                    raise ValueError('%s is not a valid delay setting' % delay)
-                delay = bits[0]
-                delay = delay.split(',')
-                delay = (float(delay[0]), float(delay[1]))
-                fringe = bits[1]
-                fringe = fringe.split(',')
-                fringe = (float(fringe[0]), float(fringe[1]))
-                masked_coefficients.append(
-                                    '{0},0:{1},0'.format(delay[0],fringe[0]))
-            print masked_coefficients
-            print delay_coefficients
-            reply1 = correlator_fixture.katcp_rct.req.delays(
-                setup_data['t_apply'] -4, *masked_coefficients)
-            while time.time() < (load_time - 4):
-                time.sleep(.2)
+            #masked_coefficients = []
+            #for delay in delay_coefficients:
+                #bits = delay.strip().split(':')
+                #if len(bits) != 2:
+                    #raise ValueError('%s is not a valid delay setting' % delay)
+                #delay = bits[0]
+                #delay = delay.split(',')
+                #delay = (float(delay[0]), float(delay[1]))
+                #fringe = bits[1]
+                #fringe = fringe.split(',')
+                #fringe = (float(fringe[0]), float(fringe[1]))
+                #masked_coefficients.append(
+                                    #'{0},0:{1},0'.format(delay[0],fringe[0]))
+            #print masked_coefficients
+            #print delay_coefficients
+            #reply1 = correlator_fixture.katcp_rct.req.delays(
+                #setup_data['t_apply'] -4, *masked_coefficients)
+            #while time.time() < (load_time - 4):
+                #time.sleep(.2)
             reply = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
-            Aqf.step('Reply1: {}'.format(reply1))
+            #Aqf.step('Reply1: {}'.format(reply1))
             Aqf.step('Reply: {}'.format(reply))
 
         except Exception as e:
@@ -1402,7 +1401,7 @@ class test_CBF(unittest.TestCase):
         dump_counts = 5
         delay_value   = setup_data['sample_period'] *2
         delay_rate    = setup_data['sample_period']/setup_data['int_time']
-        fringe_offset = np.pi/4.
+        fringe_offset = np.pi/4.*0
         fringe_rate   = (np.pi/4.)/setup_data['int_time']
         load_time   = setup_data['t_apply']
         load_check  = True
