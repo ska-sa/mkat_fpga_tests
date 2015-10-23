@@ -484,6 +484,9 @@ class test_CBF(unittest.TestCase):
         pass
 
     def _delays_setup(self):
+        local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7']
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(*local_src_names)
+        Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Estimating synch epoch')
         self.correlator.est_sync_epoch()
         # Put some correlated noise on both outputs
@@ -495,7 +498,8 @@ class test_CBF(unittest.TestCase):
         # Get list of all the baselines present in the correlator output
         baseline_lookup = get_baselines_lookup(initial_dump)
         # Choose baseline for phase comparison
-        baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+        # baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+        baseline_index = baseline_lookup[('input0', 'input1')]
 
         # TODO: (MM) 2015-10-21 get sync time from digitiser
         # We believe that sync time should be the digitiser sync epoch but
@@ -514,8 +518,8 @@ class test_CBF(unittest.TestCase):
         dump_1_timestamp = (sync_time +.003 + time_stamp/scale_factor_timestamp)
         t_apply = dump_1_timestamp + 60*int_time
         no_chans = range(self.corr_freqs.n_chans)
-
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        Aqf.step('Source names changed to: ' + str(reply))
         source_names = reply.arguments[1].split()
         # Get input m000_y
         test_source = source_names[1]
@@ -1417,8 +1421,6 @@ class test_CBF(unittest.TestCase):
         for idx in range(len(delay_values)):
             delay_coefficients.append('{},{}:{},{}'.format(delay_values[idx],
                     delay_rates[idx], fringe_offsets[idx], fringe_rates[idx]))
-
-        print delay_coefficients
 
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
