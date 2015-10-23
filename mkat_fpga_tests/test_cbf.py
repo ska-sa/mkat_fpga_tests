@@ -490,6 +490,8 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator)
+        Aqf.step('Re-clearing all coarse and fine delays for all inputs.')
+        clear_all_delays(self.correlator)
         Aqf.step('Getting initial SPEAD dump.')
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Get list of all the baselines present in the correlator output
@@ -770,13 +772,12 @@ class test_CBF(unittest.TestCase):
                 .format(current_errors, final_errors))
         Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay.')
 
-
-    @aqf_vr('TP.C.dummy_vr_6')
+    @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
         array_sensors = correlator_fixture.katcp_rct.sensor
         pass
 
-    @aqf_vr('TP.C.dummy_vr_4')
+    @aqf_vr('TP.C.1.16')
     def test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
@@ -1100,19 +1101,39 @@ class test_CBF(unittest.TestCase):
                      'are set.'.format(sorted(other_bits)))
 
 
-    def _get_actual_data(self, delay_coefficients, setup_data, dump_counts, delay_value, delay_rate,
-                        fringe_offset, fringe_rate, load_time=None,
-                        load_check=None):
+    def _get_actual_data(self, delay_coefficients, setup_data, dump_counts,
+                        delay_value, delay_rate, fringe_offset,
+                        fringe_rate, load_time=None, load_check=None):
 
         try:
             #self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
-                #delta_delay=delay_rate, phase_offset=fringe_offset,
+            #delta_delay=delay_rate, phase_offset=fringe_offset,
                     #delta_phase_offset=fringe_rate, ld_time=load_time,
                         #ld_check=load_check)
-
+            masked_coefficients = []
+            for delay in delay_coefficients:
+                bits = delay.strip().split(':')
+                if len(bits) != 2:
+                    raise ValueError('%s is not a valid delay setting' % delay)
+                delay = bits[0]
+                delay = delay.split(',')
+                delay = (float(delay[0]), float(delay[1]))
+                fringe = bits[1]
+                fringe = fringe.split(',')
+                fringe = (float(fringe[0]), float(fringe[1]))
+                masked_coefficients.append(
+                                    '{0},0:{1},0'.format(delay[0],fringe[0]))
+            print masked_coefficients
             print delay_coefficients
+            reply1 = correlator_fixture.katcp_rct.req.delays(
+                setup_data['t_apply'] -4, *masked_coefficients)
+            while time.time() < (load_time - 4):
+                time.sleep(.2)
             reply = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
+            Aqf.step('Reply1: {}'.format(reply1))
+            Aqf.step('Reply: {}'.format(reply))
+
         except Exception as e:
             Aqf.failed('Failed to set delays with error: {}.'.format(e))
 
@@ -1266,7 +1287,6 @@ class test_CBF(unittest.TestCase):
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected-actual))))
 
-
     @aqf_vr('TP.C.1.28')
     def test_fringe_offset(self):
         """Fringe Offset Test"""
@@ -1277,7 +1297,7 @@ class test_CBF(unittest.TestCase):
         delay_rate    = 0
         fringe_offset = np.pi/2.
         fringe_rate   = 0
-        load_time = None#setup_data['t_apply']
+        load_time = setup_data['t_apply']
         load_check = False
         fringe_offsets = [0]*setup_data['num_inputs']
         fringe_offsets[setup_data['test_source_ind']] = fringe_offset
@@ -1302,7 +1322,7 @@ class test_CBF(unittest.TestCase):
         graph_name = 'Fringe_Offset_Response.svg'
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
-        aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
+        aqf_plot_phase_results(no_chans, actual_phases[1:], expected_phases,
             graph_units, graph_name, graph_title,show=True)
 
         expected_phases = np.unwrap(expected_phases)
@@ -1316,7 +1336,7 @@ class test_CBF(unittest.TestCase):
             Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
             'Degree difference between expected and actual phase differences '
             'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+                np.rad2deg(np.max(expected - actual))))
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
@@ -1381,10 +1401,10 @@ class test_CBF(unittest.TestCase):
         setup_data = self._delays_setup()
         dump_counts = 5
         delay_value   = setup_data['sample_period'] *2
-        delay_rate    = 0#setup_data['sample_period']/setup_data['int_time']
-        fringe_offset = 0#np.pi/4.
-        fringe_rate   = 0#(np.pi/4.)/setup_data['int_time']
-        load_time   = None#setup_data['t_apply']
+        delay_rate    = setup_data['sample_period']/setup_data['int_time']
+        fringe_offset = np.pi/4.
+        fringe_rate   = (np.pi/4.)/setup_data['int_time']
+        load_time   = setup_data['t_apply']
         load_check  = True
         delay_values   = [0]*setup_data['num_inputs']
         delay_rates    = [0]*setup_data['num_inputs']
