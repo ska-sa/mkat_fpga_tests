@@ -484,13 +484,16 @@ class test_CBF(unittest.TestCase):
         pass
 
     def _delays_setup(self):
-        local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7']
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels(*local_src_names)
-        Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Estimating synch epoch')
         self.correlator.est_sync_epoch()
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4',
+                          'input5', 'input6', 'input7']
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
+        Aqf.step('Source names changed to: ' + str(reply))
+
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator)
         Aqf.step('Getting initial SPEAD dump.')
@@ -508,7 +511,6 @@ class test_CBF(unittest.TestCase):
         sync_time = self.correlator.synchronisation_epoch
         scale_factor_timestamp = initial_dump['scale_factor_timestamp']
         time_stamp = initial_dump['timestamp']
-
         n_accs = initial_dump['n_accs']
         # TODO: (MM) 2015-10-07, get int time from dump
         # (int_time = initial_dump['int_time'])
@@ -523,6 +525,7 @@ class test_CBF(unittest.TestCase):
         source_names = reply.arguments[1].split()
         # Get input m000_y
         test_source = source_names[1]
+        print test_source
         num_inputs = len(source_names)
         # Get input (m000_y) index number
         test_source_ind = source_names.index(test_source)
@@ -558,6 +561,7 @@ class test_CBF(unittest.TestCase):
         test_delays = [0., sampling_period, 1.5*sampling_period,
             2*sampling_period]
         test_delays_ns = map(lambda delay: delay*1e9, test_delays)
+        delays = [0]*setup_data['num_inputs']
 
         def get_expected_phases():
             expected_phases = []
@@ -571,20 +575,19 @@ class test_CBF(unittest.TestCase):
             actual_phases_list = []
             for delay in test_delays:
                 # set coarse delay on correlator input m000_y
-                # correlator_fixture.katcp_rct.req.delays time.time+somethign
-                # See page 22 on ICD ?delays on CBF-CAM ICD
-                reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-                # Note : informs returns an empty list
-                # reply returns katcp message with status and message "Merged"
-                # hence, below code.
-                source_name = reply.arguments[1].split()
-                # Set coarse delay using cmc
+                delays[setup_data['test_source_ind']] = delay
+                delay_coefficients  = ['{},0:0,0'.format(dv) for dv in delays]
+                print  delay_coefficients
+                reply = correlator_fixture.katcp_rct.req.delays(
+                    time.time()+5, *delay_coefficients)
+                Aqf.step('Reply: {}'.format(reply))
+                Aqf.wait(.5,'D')
                 # correlator_fixture.katcp_rct.req.delays
                 # Set coarse delay using corr2 library
-                print source_name[1]
-                self.fengops.set_delay(source_name[1], delay=delay,
-                    delta_delay=0, phase_offset=0, delta_phase_offset=0,
-                        ld_time=None, ld_check=True)
+                #print source_name[1]
+                #self.fengops.set_delay(setup_data['test_source'], delay=delay,
+                    #delta_delay=0, phase_offset=0, delta_phase_offset=0,
+                        #ld_time=None, ld_check=True)
 
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw']
