@@ -318,6 +318,10 @@ class test_CBF(unittest.TestCase):
         # Get bls ordering from get baseline lookup helper functions
         bls_ordering = test_dump['bls_ordering']
         # Get list of all the correlator input labels
+        local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 'm002_x',
+                          'm002_y', 'm003_x', 'm003_y']
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
         present_baselines = sorted(get_baselines_lookup(test_dump).keys())
@@ -493,7 +497,6 @@ class test_CBF(unittest.TestCase):
         reply, informs = correlator_fixture.katcp_rct.req.input_labels(
             *local_src_names)
         Aqf.step('Source names changed to: ' + str(reply))
-
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator)
         Aqf.step('Getting initial SPEAD dump.')
@@ -528,7 +531,7 @@ class test_CBF(unittest.TestCase):
         source_names = reply.arguments[1].split()
         # Get input m000_y
         test_source = source_names[1]
-        print test_source
+        Aqf.step('Source input selected: {}'.format(test_source))
         num_inputs = len(source_names)
         # Get input (m000_y) index number
         test_source_ind = source_names.index(test_source)
@@ -598,6 +601,7 @@ class test_CBF(unittest.TestCase):
 
                 phases = np.angle(data)
                 actual_phases_list.append(phases)
+
             return zip(test_delays_ns, actual_phases_list)
 
         actual_phases = get_actual_phases()
@@ -849,9 +853,9 @@ class test_CBF(unittest.TestCase):
             'Check that the spectrum is not zero in the test channel')
         # Check that the spectrum is zero except in the test channel
         Aqf.is_true(np.all(quantiser_spectrum[0:test_freq_channel] == 0),
-            'Check that the spectrum is zero except in the test channel')
+            'Check that the spectrum is zero except in the test channel: [0:test_freq_channel]')
         Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel+1:] == 0),
-            'Check that the spectrum is zero except in the test channel')
+            'Check that the spectrum is zero except in the test channel: [test_freq_channel+1:]')
 
         for vacc_accumulations in test_acc_lens:
             self.xengops.set_acc_len(vacc_accumulations)
@@ -1110,39 +1114,13 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
-
     def _get_actual_data(self, delay_coefficients, setup_data, dump_counts,
                         delay_value, delay_rate, fringe_offset,
                         fringe_rate, load_time=None, load_check=None):
 
         try:
-            #self.fengops.set_delay(setup_data['test_source'], delay=delay_value,
-            #                       delta_delay=delay_rate, phase_offset=fringe_offset,
-            #                       delta_phase_offset=fringe_rate, ld_time=load_time,
-            #                       ld_check=load_check)
-            #masked_coefficients = []
-            #for delay in delay_coefficients:
-                #bits = delay.strip().split(':')
-                #if len(bits) != 2:
-                    #raise ValueError('%s is not a valid delay setting' % delay)
-                #delay = bits[0]
-                #delay = delay.split(',')
-                #delay = (float(delay[0]), float(delay[1]))
-                #fringe = bits[1]
-                #fringe = fringe.split(',')
-                #fringe = (float(fringe[0]), float(fringe[1]))
-                #masked_coefficients.append(
-                                    #'{0},0:{1},0'.format(delay[0],fringe[0]))
-            #print masked_coefficients
-            #print delay_coefficients
-            #reply1 = correlator_fixture.katcp_rct.req.delays(
-                #setup_data['t_apply'] -4, *masked_coefficients)
-            #while time.time() < (load_time - 4):
-                #time.sleep(.2)
             reply = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
-            #Aqf.step('Reply1: {}'.format(reply1))
-            Aqf.step('Reply: {}'.format(reply))
 
         except Exception as e:
             Aqf.failed('Failed to set delays with error: {}.'.format(e))
@@ -1303,16 +1281,17 @@ class test_CBF(unittest.TestCase):
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
-        delay_value   = 0
-        delay_rate    = 0
+        delay_value = 0
+        delay_rate = 0
         fringe_offset = np.pi/2.
-        fringe_rate   = 0
+        fringe_rate = 0
         load_time = setup_data['t_apply']
         load_check = False
         fringe_offsets = [0]*setup_data['num_inputs']
         fringe_offsets[setup_data['test_source_ind']] = fringe_offset
         delay_coefficients  = ['0,0:{},0'.format(fo) for fo in fringe_offsets]
 
+        Aqf.step('Setting Parameters')
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
         Aqf.step('Delay Value: {}'.format(delay_value))
@@ -1356,16 +1335,17 @@ class test_CBF(unittest.TestCase):
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
-        delay_value   = 0
-        delay_rate    = 0
+        delay_value = 0
+        delay_rate = 0
         fringe_offset = 0
-        fringe_rate   = (np.pi/8.)/setup_data['int_time']
+        fringe_rate = (np.pi/8.)/setup_data['int_time']
         load_time = setup_data['t_apply']
         load_check = False
         fringe_rates = [0]*setup_data['num_inputs']
         fringe_rates[setup_data['test_source_ind']] = fringe_rate
         delay_coefficients  = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
 
+        Aqf.step('Setting Parameters')
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
         Aqf.step('Delay Value: {}'.format(delay_value))
@@ -1386,7 +1366,7 @@ class test_CBF(unittest.TestCase):
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-            graph_units, graph_name, graph_title, show=False)
+            graph_units, graph_name, graph_title)
 
         expected_phases = np.unwrap(expected_phases)
         actual_phases = np.unwrap([phase for rads, phase in actual_phases])
@@ -1410,16 +1390,17 @@ class test_CBF(unittest.TestCase):
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
-        delay_value   = setup_data['sample_period'] * 2
-        delay_rate    = (setup_data['sample_period']/setup_data['int_time'])*0
-        fringe_offset = (np.pi/4.)*0
-        fringe_rate   = ((np.pi/4.)/setup_data['int_time'])*0
-        load_time   = setup_data['t_apply']
-        load_check  = True
-        delay_values   = [0]*setup_data['num_inputs']
-        delay_rates    = [0]*setup_data['num_inputs']
+        delay_value = setup_data['sample_period'] *1.5
+        delay_rate = setup_data['sample_period']/setup_data['int_time']
+        fringe_offset = np.pi/4.
+        fringe_rate = (np.pi/4.)/setup_data['int_time']
+        load_time = setup_data['t_apply']
+        load_check = False
+        delay_values = [0]*setup_data['num_inputs']
+        delay_rates = [0]*setup_data['num_inputs']
         fringe_offsets = [0]*setup_data['num_inputs']
-        fringe_rates   = [0]*setup_data['num_inputs']
+        fringe_rates = [0]*setup_data['num_inputs']
+
         delay_values[setup_data['test_source_ind']] = delay_value
         delay_rates[setup_data['test_source_ind']] = delay_rate
         fringe_offsets[setup_data['test_source_ind']] = fringe_offset
@@ -1429,17 +1410,19 @@ class test_CBF(unittest.TestCase):
             delay_coefficients.append('{},{}:{},{}'.format(delay_values[idx],
                     delay_rates[idx], fringe_offsets[idx], fringe_rates[idx]))
 
+        Aqf.step('Setting Parameters')
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
         Aqf.step('Delay Value: {}'.format(delay_value))
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
+
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                           delay_coefficients)
 
-        actual_phases = self._get_actual_data(delay_coefficients, setup_data, dump_counts,
-                        delay_value, delay_rate, fringe_offset, fringe_rate,
-                        load_time, load_check)
+        actual_phases = self._get_actual_data(delay_coefficients, setup_data,
+                        dump_counts, delay_value, delay_rate, fringe_offset,
+                        fringe_rate, load_time, load_check)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
@@ -1449,6 +1432,19 @@ class test_CBF(unittest.TestCase):
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
+
+        expected_phases = np.unwrap(expected_phases)
+        actual_phases = np.unwrap([phase for rads, phase in actual_phases])
+        # TODO MM 2015-10-22
+        # Ignoring first dump because the delays might not be set for full
+        # intergration.
+        for i in range(1, len(expected_phases)-1):
+            expected = expected_phases[i+1] - expected_phases[i]
+            actual = actual_phases[i+1] - actual_phases[i]
+            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
+            'Degree difference between expected and actual phase differences '
+            'between integrations :{} deg'.format(
+                np.rad2deg(np.max(expected-actual))))
 
     def test_sync(self):
 

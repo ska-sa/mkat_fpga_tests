@@ -97,7 +97,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         ybound = axes.get_ybound()
         yb_diff = abs(ybound[1] - ybound[0])
         new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-        plt.vlines((len(actual_data[0][1]))/2., *new_ybound, colors='b',
+        plt.vlines(len(freqs)/2, *new_ybound, colors='b',
             linestyles='dotted',label='Center Chan.')
         plt.legend()
         plt.title('{}'.format(plot_title))
