@@ -142,7 +142,7 @@ def core_xml_to_dict(node, depth=1, path=''):
                 'depth': depth}
 
         if node.text:
-            data['text'] = node.text.strip()
+            data['text'] = ''.join(node.xpath('text()')).strip()
         if node.attrib:
             data.update(node.attrib)
         if hasattr(node, 'value'):
@@ -182,7 +182,7 @@ def extract_data(base_data, node, depth=1, path=''):
                 'depth': depth}
 
         if node.text:
-            data['text'] = node.text.strip()
+            data['text'] = ''.join(node.xpath('text()')).strip()
         if node.attrib:
             data.update(node.attrib)
         if hasattr(node, 'value'):
@@ -215,7 +215,8 @@ def extract_data(base_data, node, depth=1, path=''):
                 if (number and
                    (number.startswith('VR.CM.') or
                         number.startswith('VE.CM.') or
-                        number.startswith('R.CM.'))):
+                        number.startswith('R.CM.') or
+                        number.startswith('TP.C.'))):
                     # If its not a CAM VR or R, drop it.
                     del_entry = False
             elif definition == 'category':
