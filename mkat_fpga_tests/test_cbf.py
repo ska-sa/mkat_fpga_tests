@@ -514,17 +514,12 @@ class test_CBF(unittest.TestCase):
         def get_actual_phases():
             actual_phases_list = []
             for delay in test_delays:
-                # set coarse delay on correlator input m000_y
-                # correlator_fixture.katcp_rct.req.delays time.time+somethign
-                # See page 22 on ICD ?delays on CBF-CAM ICD
-                reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-                source_name = reply.arguments[1:][0].split()
-                # Set coarse delay using cmc
-                # correlator_fixture.katcp_rct.req.delays()
-                # Set coarse delay using corr2 library
-                self.fengops.set_delay(source_name[1], delay=delay,
-                    delta_delay=0, phase_offset=0, delta_phase_offset=0,
-                        ld_time=None, ld_check=True)
+                delays[setup_data['test_source_ind']] = delay
+                delay_coefficients  = ['{},0:0,0'.format(dv) for dv in delays]
+                reply = correlator_fixture.katcp_rct.req.delays(
+                    time.time()+delay, *delay_coefficients)
+                Aqf.wait(.5, 'Settling time in order to set delay: {} ns.'
+                              .format(delay*1e9))
 
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 data = complexise(this_freq_dump['xeng_raw']
