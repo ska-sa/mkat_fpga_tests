@@ -499,11 +499,11 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator)
+        Aqf.step('Issuing metadata')
+        self.corr_fix.issue_metadata()
         Aqf.step('Getting initial SPEAD dump.')
-        # Repeat 3 times to get new meta data for source names
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
         # Get list of all the baselines present in the correlator output
         baseline_lookup = get_baselines_lookup(initial_dump)
         # Choose baseline for phase comparison
