@@ -27,7 +27,7 @@
 # 35      - roach020921 - 4 ports  -- Unused
 # 34      - roach02091E - 4 ports  -- X
 # 33 -- removed, previously: - roach020A05 - 4 ports  -- (QDR errors, swapped with 20921)
-# 33      - roach020A01 -- 4 ports -- X new (Andrews D-Eng)
+# 33      - roach020A01 -- 4 ports -- Andrews D-Eng
 # 32      - roach020959 - 4 ports  -- D  (QDR errors, QDR not used by D)
 # 31      - roach020958 - 4 ports  -- F
 # 30      - Brush panel
@@ -39,7 +39,7 @@
 # 24      - roach020948 - 2 ports   -- Unused (gbe0 dhcp tap)
 # 23      - roach02092E - 2 ports   -- X
 # 22      - roach020951 - 2 ports   -- X
-# 21      - roach020950 - 2 ports   --  (Gbe2 dhcp tap errors)
+# 21      - roach020950 - 2 ports   -- X
 
 # 20      - empty
 
@@ -61,6 +61,7 @@ igmp_version = 2
 
 [fengine]
 # Need to have 4 ports
+#hosts = ROACH0,ROACH1,ROACH2,ROACH3
 hosts = roach02095C,roach020944,roach02095B,roach020958
 
 bitstream = /usr/local/lib/cmc/bitstreams/feng_wide/r2_c8n856m4k.fpg
@@ -117,7 +118,8 @@ network_latency_adjust = 0
 
 [xengine]
 #hosts = ROACH4,ROACH5,ROACH6,ROACH7,ROACH8,ROACH9,ROACH10,ROACH11
-hosts = roach020A0A,roach020A0C,roach020937,roach020936,roach02091E,roach02092E,roach020951,roach020A01
+hosts = roach020A0A,roach020A0C,roach020A01,roach020936,roach02091E,roach02092E,roach020951,roach020950
+#roach020937
 bitstream = /usr/local/lib/cmc/bitstreams/xeng_wide/r2_4a4x128f.fpg
 
 # x fpga clock speed
