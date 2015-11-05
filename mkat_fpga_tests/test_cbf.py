@@ -308,12 +308,13 @@ class test_CBF(unittest.TestCase):
         """CBF Baseline Correlation Products - AR1"""
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
-        test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Set list for all the correlator input labels
         local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 'm002_x',
                           'm002_y', 'm003_x', 'm003_y']
         reply, informs = correlator_fixture.katcp_rct.req.input_labels(
             *local_src_names)
+        self.corr_fix.issue_metadata()
+        test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
         bls_ordering = test_dump['bls_ordering']
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
