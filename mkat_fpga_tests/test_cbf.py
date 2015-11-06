@@ -1099,12 +1099,10 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(), 'Check that no other flag bits (any of {}) '
                      'are set.'.format(sorted(other_bits)))
 
-    def _get_actual_data(self, delay_coefficients, setup_data, dump_counts,
-                        delay_value, delay_rate, fringe_offset,
-                        fringe_rate, load_time=None, load_check=None):
+    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients):
 
         try:
-            reply = correlator_fixture.katcp_rct.req.delays(
+            reply, informs = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
 
         except Exception as e:
@@ -1142,16 +1140,10 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data))/setup_data['n_accs']
 
-        if (fringe_rate or fringe_offset) != 0:
-            rads = [np.abs((np.min(phase) + np.max(phase))/2.)
-                for phase in phases]
-
-        else:
-            rads = [np.abs((np.min(phase) - np.max(phase))/2.)
-                for phase in phases]
+        rads = [np.abs((np.min(phase) + np.max(phase))/2.)
+            for phase in phases]
 
         return zip(rads, phases)
-
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
 
@@ -1160,14 +1152,14 @@ class test_CBF(unittest.TestCase):
             no_ch = len(setup_data['no_chans'])
             delay_slope = np.pi*(delay/setup_data['sample_period'])
             c = delay_slope/2
-            for i in range(0,no_ch):
+            for i in range(0, no_ch):
                 m = i/float(no_ch)
                 res.append(delay_slope*m - c)
             return res
 
         def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
             expected_phases = []
-            for dump in range(1,dump_counts+1):
+            for dump in range(1, dump_counts+1):
                 tot_delay = (delay + dump*delay_rate*setup_data['int_time'] -
                 .5*delay_rate*setup_data['int_time'])
                 expected_phases.append(gen_delay_vector(tot_delay, setup_data))
@@ -1178,7 +1170,7 @@ class test_CBF(unittest.TestCase):
 
         def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
             expected_phases = []
-            for dump in range(1,dump_counts+1):
+            for dump in range(1, dump_counts+1):
                 offset = -(fringe_offset + dump*fringe_rate*setup_data['int_time'])
                 expected_phases.append(gen_fringe_vector(offset, setup_data))
             return expected_phases
@@ -1196,17 +1188,18 @@ class test_CBF(unittest.TestCase):
             fringe = (float(fringe[0]), float(fringe[1]))
             ant_delay.append((delay, fringe))
 
+        delay = ant_delay[setup_data['test_source_ind']][0][0]
+        delay_rate = ant_delay[setup_data['test_source_ind']][0][1]
+        fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
+        fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
 
-        delay         =  ant_delay[setup_data['test_source_ind']][0][0]
-        delay_rate    =  ant_delay[setup_data['test_source_ind']][0][1]
-        fringe_offset =  ant_delay[setup_data['test_source_ind']][1][0]
-        fringe_rate   =  ant_delay[setup_data['test_source_ind']][1][1]
-
-        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts, setup_data)))
-        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data))
+        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
+                                setup_data)))
+        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
+                                dump_counts, setup_data))
         result = delay_data + fringe_data
 
-        return (( result + np.pi) % (2 * np.pi ) - np.pi)
+        return ((result + np.pi) % (2 * np.pi ) - np.pi)
 
     @aqf_vr('TP.C.1.28')
     def test_delay_rate(self):
@@ -1216,15 +1209,15 @@ class test_CBF(unittest.TestCase):
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
-        delay_value   = 0
-        delay_rate    = setup_data['sample_period']/setup_data['int_time']
+        delay_value = 0
+        delay_rate = setup_data['sample_period']/setup_data['int_time']
         fringe_offset = 0
-        fringe_rate   = 0
+        fringe_rate = 0
         load_time = setup_data['t_apply']
         load_check = False
         delay_rates = [0]*setup_data['num_inputs']
         delay_rates[setup_data['test_source_ind']] = delay_rate
-        delay_coefficients  = ['0,{}:0,0'.format(fr) for fr in delay_rates]
+        delay_coefficients = ['0,{}:0,0'.format(fr) for fr in delay_rates]
         Aqf.step('Setting Parameters')
         Aqf.step('Time apply: {}'.format(load_time))
         Aqf.step('Delay Rate: {}'.format(delay_rate))
@@ -1235,9 +1228,8 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                           delay_coefficients)
 
-        actual_phases = self._get_actual_data(delay_coefficients, setup_data, dump_counts,
-                        delay_value, delay_rate, fringe_offset, fringe_rate,
-                        load_time, load_check)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                          delay_coefficients)
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
@@ -1286,25 +1278,23 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                           delay_coefficients)
 
-        actual_phases = self._get_actual_data(delay_coefficients, setup_data, dump_counts,
-                        delay_value, delay_rate, fringe_offset, fringe_rate,
-                        load_time, load_check)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                          delay_coefficients)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
         graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
         graph_name = 'Fringe_Offset_Response.svg'
 
-        # TODO (MM) 2015-10-12: Replace actual_phases with expected
-        aqf_plot_phase_results(no_chans, actual_phases[1:], expected_phases,
-            graph_units, graph_name, graph_title)
+        aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
+            graph_units, graph_name, graph_title, True)
 
         expected_phases = np.unwrap(expected_phases)
         actual_phases = np.unwrap([phase for rads, phase in actual_phases])
         # TODO MM 2015-10-22
-        # Ignoring first dump because the delays might not be set for full
-        # intergration.
-        for i in range(1, len(expected_phases)-1):
+        # Ignoring first and second dump because the delays might not be set
+        # for full intergration.
+        for i in range(2, len(expected_phases)):
             expected = expected_phases[i]
             actual = actual_phases[i]
             Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
@@ -1328,7 +1318,7 @@ class test_CBF(unittest.TestCase):
         load_check = False
         fringe_rates = [0]*setup_data['num_inputs']
         fringe_rates[setup_data['test_source_ind']] = fringe_rate
-        delay_coefficients  = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
+        delay_coefficients = ['0,0:0,{}'.format(fr) for fr in fringe_rates]
 
         Aqf.step('Setting Parameters')
         Aqf.step('Time apply: {}'.format(load_time))
@@ -1340,16 +1330,14 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                           delay_coefficients)
 
-        actual_phases = self._get_actual_data(delay_coefficients, setup_data, dump_counts,
-                        delay_value, delay_rate, fringe_offset, fringe_rate,
-                        load_time, load_check)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                          delay_coefficients)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
 
-        # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
 
@@ -1366,7 +1354,6 @@ class test_CBF(unittest.TestCase):
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected-actual))))
 
-
     @aqf_vr('TP.C.1.28')
     def test_all_delays(self):
         """
@@ -1381,6 +1368,7 @@ class test_CBF(unittest.TestCase):
         fringe_rate = (np.pi/4.)/setup_data['int_time']
         load_time = setup_data['t_apply']
         load_check = False
+
         delay_values = [0]*setup_data['num_inputs']
         delay_rates = [0]*setup_data['num_inputs']
         fringe_offsets = [0]*setup_data['num_inputs']
@@ -1405,16 +1393,14 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                           delay_coefficients)
 
-        actual_phases = self._get_actual_data(delay_coefficients, setup_data,
-                        dump_counts, delay_value, delay_rate, fringe_offset,
-                        fringe_rate, load_time, load_check)
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                          delay_coefficients)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
         graph_title = 'All Delays Responses'
         graph_name = 'All_Delays_Response.svg'
 
-        # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
 
