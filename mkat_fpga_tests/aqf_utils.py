@@ -1,6 +1,7 @@
 import functools
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from nosekatreport import Aqf
 
@@ -76,3 +77,35 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
         ' index {max_err_ind}, error: {max_err} - {description}'.format(**locals()))
     else:
         Aqf.passed(description)
+
+def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
+            plot_filename, plot_title, show=False):
+        """
+        Gets actual and expected phase plots.
+        return: None
+        """
+        plt.gca().set_color_cycle(None)
+        for delay, phases in actual_data:
+            assert isinstance(delay, float)
+            plt.plot(freqs, phases, label='{} {}'.format(delay, plot_units))
+
+        plt.gca().set_color_cycle(None)
+        for phases in expected_data:
+            fig = plt.plot(freqs, phases, '--')[0]
+
+        axes = fig.get_axes()
+        ybound = axes.get_ybound()
+        yb_diff = abs(ybound[1] - ybound[0])
+        new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+        plt.vlines(len(freqs)/2, *new_ybound, colors='b',
+            linestyles='dotted',label='Center Chan.')
+        plt.legend()
+        plt.title('{}'.format(plot_title))
+        axes.set_ybound(*new_ybound)
+        plt.grid(True)
+        plt.ylabel('Phase [radians]')
+        plt.xlabel('No. of Channels')
+        Aqf.matplotlib_fig(plot_filename, close_fig=False)
+        if show:
+            plt.show()
+        plt.close()
