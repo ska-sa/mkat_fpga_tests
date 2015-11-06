@@ -313,6 +313,12 @@ class test_CBF(unittest.TestCase):
         """CBF Baseline Correlation Products - AR1"""
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
+        # Set list for all the correlator input labels
+        local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 'm002_x',
+                          'm002_y', 'm003_x', 'm003_y']
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
+        self.corr_fix.issue_metadata()
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # TODO (MM) 2015-10-22
         # Get bls ordering from get baseline lookup helper functions
@@ -320,7 +326,9 @@ class test_CBF(unittest.TestCase):
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
-        present_baselines = sorted(get_baselines_lookup(test_dump).keys())
+        present_baselines = sorted(
+            get_baselines_lookup(test_dump).keys())
+
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
         possible_baselines = set()
