@@ -438,7 +438,7 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps)/initial_max_freq)
             Aqf.less(dumps_comp, self.threshold,
-                     'Check that back-to-back dumps({}) with the same frequency '
+                     'Check that back-to-back dumps({} dB) with the same frequency '
                      'input differ by no more than {} threshold[dB].'
                      .format(dumps_comp, 10*np.log10(self.threshold)))
 
@@ -489,7 +489,7 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        pass
+        Aqf.failed('Correlator restart consistency test not implemented yet.')
 
     def _delays_setup(self):
         Aqf.step('Estimating synch epoch')
@@ -589,7 +589,7 @@ class test_CBF(unittest.TestCase):
                 delays[setup_data['test_source_ind']] = delay
                 delay_coefficients  = ['{},0:0,0'.format(dv) for dv in delays]
                 reply = correlator_fixture.katcp_rct.req.delays(
-                    time.time()+delay, *delay_coefficients)
+                    time.time()+.5, *delay_coefficients)
                 Aqf.wait(.5, 'Settling time in order to set delay: {} ns.'
                               .format(delay*1e9))
 
@@ -604,6 +604,7 @@ class test_CBF(unittest.TestCase):
 
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
+
         for i, delay in enumerate(test_delays):
             delta_actual = round(np.max(actual_phases[i][1]) - np.min(
                 actual_phases[i][1]),2)
@@ -612,6 +613,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.debug( "delay: {}ns, expected phase delta: {},"
                 " actual_phase_delta: {}".format(
                 delay*1e9, delta_expected, delta_actual))
+
             Aqf.equals(delta_expected,delta_actual,
                 'Check if difference expected({0:.3f}) and actual({1:.3f}) '
                     'phases are equal at delay {2:.3f}ns.'
@@ -623,25 +625,17 @@ class test_CBF(unittest.TestCase):
         expected_phases = [phase for rads, phase in get_expected_phases()]
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                 units, file_name, title)
-        # TODO NM 2015-09-04: We are only checking one of the results here?
-        # This structure needs a bit of unpacking :)
-        Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
-            "Check if the phase-slope with delay = 0 is zero.", )
 
-        # TODO MM 2015-10-12: Factorize below code, turn to a loop
-        aqf_array_abs_error_less(actual_phases[1][1], expected_phases[1][1],
-            'Check that when one clock cycle is introduced (0.584ns),'
-                ' the is a change in phases at 180 degrees as expected '
-                    'to within 3 decimal places', .01)
-        aqf_array_abs_error_less(actual_phases[2][1], expected_phases[2][1],
-            'Check that when 1.5 clock cycle is introduced (0.876ns),'
-                ' the is a change in phases at 270 degrees as expected '
-                    'to within 3 decimal places', .01)
-        aqf_array_abs_error_less(actual_phases[3][1], expected_phases[3][1],
-            'Check that when 2 clock cycle is introduced (1.168ns),'
-                ' the is a change in phases at 360 degrees as expected '
-                    'to within 3 decimal places', .01)
+        actual = [phases for delays, phases in actual_phases]
 
+        for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
+            aqf_array_abs_error_less(actual[count], expected_phases[count],
+                'Check that when {} clock cycle({} ns) is introduced the is a '
+                'change in phases at {} degrees as expected to within '
+                '3 decimal places'.format((count+1)*.5, delay*1e9,
+                    np.rad2deg(np.pi)*(count+1)*.5), 0.01)
+
+    @unittest.skip('Test takes a long time to run.')
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
         """Test spurious free dynamic range
@@ -778,7 +772,6 @@ class test_CBF(unittest.TestCase):
         xhost.vacc_get_error_detail()[1]['parity']
 
         self.addCleanup(array_sensors.roach020a0a_xeng_qdr.unregister_listener(an_event))
-        import IPython;IPython.embed()
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
@@ -1158,7 +1151,7 @@ class test_CBF(unittest.TestCase):
         rads = [np.abs((np.min(phase) + np.max(phase))/2.)
             for phase in phases]
 
-        return zip(rads, phases)
+        return phases
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
 
@@ -1262,7 +1255,7 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)-1):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
+            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
             'Degree difference between expected and actual phase differences '
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected-actual))))
@@ -1364,11 +1357,12 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)-1):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
+            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
             'Degree difference between expected and actual phase differences '
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected-actual))))
 
+    @unittest.skip('Values still needs to be defined.')
     @aqf_vr('TP.C.1.28')
     def test_all_delays(self):
         """
@@ -1427,11 +1421,10 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)-1):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
+            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
             'Degree difference between expected and actual phase differences '
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected-actual))))
 
     def test_sync(self):
-
-        import IPython;IPython.embed()
+        Aqf.failed('Time Sync test not implemented.')
