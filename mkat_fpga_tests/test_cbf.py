@@ -738,7 +738,7 @@ class test_CBF(unittest.TestCase):
                 'Sensor status fail: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
-        @aqf_vr('TP.C.dummy_vr_5')
+    @aqf_vr('TP.C.dummy_vr_5')
     def test_roach_qdr_sensors(self):
         """ """
         an_e = threading.Event()
@@ -773,7 +773,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
         array_sensors = correlator_fixture.katcp_rct.sensor
-        pass
+        Aqf.failed('PFB sensor test not yet implemented.')
 
     @aqf_vr('TP.C.1.16')
     def test_roach_sensors_status(self):
