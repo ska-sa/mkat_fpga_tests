@@ -772,21 +772,18 @@ class test_CBF(unittest.TestCase):
                 .format(current_errors))
         else:
             Aqf.failed('Error counters still incrementing.')
-        # TODO MM 2015/11/06
-        # Avoid hardcoding the roaches, rather get roach name from correlator object
         # Check that the memory recovered successfully
-        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
+        host_sensor =  getattr(array_sensors, '{}_xeng_qdr'.format(
+                            xhost.host.lower()))
+        Aqf.is_true(host_sensor.get_value(),
             'Check that the memory recovered successfully.')
-        array_sensors.roach020a0a_xeng_qdr.set_strategy('auto')
-        array_sensors.roach020a0a_xeng_qdr.register_listener(an_event)
-
-        Aqf.is_true(array_sensors.roach020a0a_xeng_qdr.get_value(),
-            'Check that the memory recovered successfully.')
-
-        xhost.vacc_get_error_detail()[1]['parity']
-
-        self.addCleanup(array_sensors.roach020a0a_xeng_qdr.unregister_listener(an_event))
-        import IPython;IPython.embed()
+        # Clear and confirm error counters
+        xhost.clear_status()
+        final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
+        Aqf.is_false(final_errors,
+            'Confirm that the counters have been reset, count {} to {}'
+                .format(current_errors, final_errors))
+        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay.')
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
