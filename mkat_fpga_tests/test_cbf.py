@@ -438,7 +438,7 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps)/initial_max_freq)
             Aqf.less(dumps_comp, self.threshold,
-                     'Check that back-to-back dumps({} dB) with the same frequency '
+                     'Check that back-to-back dumps({}) with the same frequency '
                      'input differ by no more than {} threshold[dB].'
                      .format(dumps_comp, 10*np.log10(self.threshold)))
 
@@ -589,7 +589,7 @@ class test_CBF(unittest.TestCase):
                 delays[setup_data['test_source_ind']] = delay
                 delay_coefficients  = ['{},0:0,0'.format(dv) for dv in delays]
                 reply = correlator_fixture.katcp_rct.req.delays(
-                    time.time()+.5, *delay_coefficients)
+                    time.time()+.2, *delay_coefficients)
                 Aqf.wait(.5, 'Settling time in order to set delay: {} ns.'
                               .format(delay*1e9))
 
@@ -1151,7 +1151,7 @@ class test_CBF(unittest.TestCase):
         rads = [np.abs((np.min(phase) + np.max(phase))/2.)
             for phase in phases]
 
-        return phases
+        return zip(rads, phases)
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
 
