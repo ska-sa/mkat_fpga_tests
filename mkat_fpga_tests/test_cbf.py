@@ -509,8 +509,8 @@ class test_CBF(unittest.TestCase):
         # TODO: (MM) 2015-10-21 get sync time from digitiser
         # We believe that sync time should be the digitiser sync epoch but
         # in the dsim this is not an int, so we using correlator value for now
-        # sync_time = initial_dump['sync_time']
-        sync_time = self.correlator.synchronisation_epoch
+        sync_time = initial_dump['sync_time']
+        # sync_time = self.correlator.synchronisation_epoch
         scale_factor_timestamp = initial_dump['scale_factor_timestamp']
         time_stamp = initial_dump['timestamp']
         n_accs = initial_dump['n_accs']
@@ -519,8 +519,10 @@ class test_CBF(unittest.TestCase):
         int_time = self.xengops.get_acc_time()
         # TODO (MM) 2015-10-20
         # 3ms added for the network round trip
-        dump_1_timestamp = (sync_time +.003 + time_stamp/scale_factor_timestamp)
-        t_apply = dump_1_timestamp + 30*int_time
+        roundtrip = 0.003
+        dump_1_timestamp = (sync_time + roundtrip +
+            time_stamp/scale_factor_timestamp)
+        t_apply = dump_1_timestamp + 10*int_time
         no_chans = range(self.corr_freqs.n_chans)
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         Aqf.step('Source names changed to: ' + str(reply))
@@ -1101,7 +1103,8 @@ class test_CBF(unittest.TestCase):
 
     def _get_actual_data(self, delay_coefficients, setup_data, dump_counts,
                         delay_value, delay_rate, fringe_offset,
-                        fringe_rate, load_time=None, load_check=None):
+                        fringe_rate, load_time=None, load_check=None,
+                        max_wait_dumps=20):
 
         try:
             reply = correlator_fixture.katcp_rct.req.delays(
@@ -1111,7 +1114,10 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to set delays with error: {}.'.format(e))
 
         last_discard = setup_data['t_apply'] - setup_data['int_time']
+
+        num_discards = 0
         while True:
+            num_discards += 1
             dump = self.receiver.data_queue.get(timeout=5)
             dump_timestamp = (setup_data['sync_time'] + dump['timestamp']
                 / setup_data['scale_factor_timestamp'])
@@ -1123,9 +1129,10 @@ class test_CBF(unittest.TestCase):
                 'application with timestamp {}.'.format(dump_timestamp))
                 break
 
-            if time.time() > setup_data['t_apply'] + 5*setup_data['int_time']:
+            if num_discards > max_wait_dumps:
                 Aqf.failed('Could not get accumulation with corrrect '
-                    'timestamp within 5 accumulation periods.')
+                    'timestamp within {} accumulation periods.'.format(
+                    max_wait_dumps))
                 break
             else:
                 Aqf.step('Discarding accumulation with timestamp {}.'
@@ -1297,7 +1304,7 @@ class test_CBF(unittest.TestCase):
 
         # TODO (MM) 2015-10-12: Replace actual_phases with expected
         aqf_plot_phase_results(no_chans, actual_phases[1:], expected_phases,
-            graph_units, graph_name, graph_title)
+            graph_units, graph_name, graph_title, show=True)
 
         expected_phases = np.unwrap(expected_phases)
         actual_phases = np.unwrap([phase for rads, phase in actual_phases])
@@ -1307,7 +1314,7 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)-1):
             expected = expected_phases[i]
             actual = actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
+            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
             'Degree difference between expected and actual phase differences '
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected - actual))))
