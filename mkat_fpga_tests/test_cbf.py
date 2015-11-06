@@ -318,10 +318,6 @@ class test_CBF(unittest.TestCase):
         # Get bls ordering from get baseline lookup helper functions
         bls_ordering = test_dump['bls_ordering']
         # Get list of all the correlator input labels
-        local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 'm002_x',
-                          'm002_y', 'm003_x', 'm003_y']
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
-            *local_src_names)
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
         present_baselines = sorted(get_baselines_lookup(test_dump).keys())
