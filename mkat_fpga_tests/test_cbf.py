@@ -753,18 +753,23 @@ class test_CBF(unittest.TestCase):
         array_sensors = correlator_fixture.katcp_rct.sensor
         # Select a host
         xhost = self.correlator.xhosts[0]
+        host_sensor =  getattr(array_sensors, '{}_xeng_qdr'.format(
+                            xhost.host.lower()))
         Aqf.step("Selected host: {}".format(xhost.host))
         # Check if qdr is okay
-        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR has not failed.')
+        Aqf.is_true(host_sensor.get_value(), 'Check the QDR status: {} on {}.'
+            .format(host_sensor.get_status(),xhost.host))
         Aqf.step("Writing junk to {} memory.".format(xhost.host))
         # Write junk to memory
-
-        for i in range(5):
-            xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
-            Aqf.wait(.1,'Wait before checking is memory is corrupted.')
+        xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
+        # Note: It takes time for the sensor to report that the QDR failed
+        # TODO MM 2015-11-09
+        # Use katcp set strategy
+        while host_sensor.get_value() != False:
+            pass
         # Verify that qdr corrupted or unreadable
-        Aqf.is_false(xhost.qdr_okay(),
-            'Check that the memory on {} is unreadable/corrupted.'.format(xhost.host))
+        Aqf.equals(host_sensor.get_status(), 'error', 'Confirm that the memory on {} is '
+           'unreadable/corrupted.'.format(xhost.host))
         current_errors = xhost.registers.vacc_errors1.read()['data']['parity']
         Aqf.is_not_equals(current_errors, 0, "Error counters are incrementing.")
         if current_errors == xhost.registers.vacc_errors1.read()['data']['parity']:
@@ -773,17 +778,18 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.failed('Error counters still incrementing.')
         # Check that the memory recovered successfully
-        host_sensor =  getattr(array_sensors, '{}_xeng_qdr'.format(
-                            xhost.host.lower()))
-        Aqf.is_true(host_sensor.get_value(),
-            'Check that the memory recovered successfully.')
+        # Aqf.is_true(host_sensor.get_value(),
+        #     'Check that the memory recovered successfully.')
         # Clear and confirm error counters
         xhost.clear_status()
         final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
         Aqf.is_false(final_errors,
             'Confirm that the counters have been reset, count {} to {}'
                 .format(current_errors, final_errors))
-        Aqf.is_true(xhost.qdr_okay(), 'Check that the QDR is okay.')
+        while host_sensor.get_value() == False:
+            pass
+        Aqf.is_true(host_sensor.get_value(), 'Check that the QDR recovered. Status: {} on {}.'
+            .format(host_sensor.get_status(),xhost.host))
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
