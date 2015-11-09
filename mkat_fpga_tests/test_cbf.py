@@ -604,22 +604,6 @@ class test_CBF(unittest.TestCase):
 
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
-
-        for i, delay in enumerate(test_delays):
-            delta_actual = round(np.max(actual_phases[i][1]) - np.min(
-                actual_phases[i][1]),2)
-            delta_expected = round(np.max(expected_phases[i][1]) - np.min(
-                expected_phases[i][1]),2)
-            LOGGER.debug( "delay: {}ns, expected phase delta: {},"
-                " actual_phase_delta: {}".format(
-                delay*1e9, delta_expected, delta_actual))
-
-            Aqf.equals(delta_expected,delta_actual,
-                'Check if difference expected({0:.3f}) and actual({1:.3f}) '
-                    'phases are equal at delay {2:.3f}ns.'
-                        .format(delta_expected, delta_actual, delay*1e9))
-
-        title = 'Correlation Delay Phase'
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
         expected_phases = [phase for rads, phase in get_expected_phases()]
@@ -627,6 +611,16 @@ class test_CBF(unittest.TestCase):
                                 units, file_name, title)
 
         actual = [phases for delays, phases in actual_phases]
+
+        for i, delay in enumerate(test_delays):
+            delta_actual = round(np.max(actual[i]) - np.min(actual[i]),2)
+            delta_expected = round(np.max(expected_phases[i][1]) - np.min(
+                expected_phases[i][1]),2)
+            print delta_expected
+            Aqf.equals(delta_expected,delta_actual,
+                'Check if difference expected({0:.3f}) and actual({1:.3f}) '
+                    'phases are equal at delay {2:.3f}ns.'
+                        .format(delta_expected, delta_actual, delay*1e9))
 
         for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
             aqf_array_abs_error_less(actual[count], expected_phases[count],
