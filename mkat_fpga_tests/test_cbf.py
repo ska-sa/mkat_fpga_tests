@@ -563,9 +563,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.27')
     def test_delay_tracking(self):
-        """
-        CBF Delay Compensation/LO Fringe stopping polynomial
-        """
+        """CBF Delay Compensation/LO Fringe stopping polynomial"""
         setup_data = self._delays_setup()
         sampling_period = self.corr_freqs.sample_period
         no_chans = range(len(self.corr_freqs.chan_freqs))
@@ -616,7 +614,6 @@ class test_CBF(unittest.TestCase):
             delta_actual = round(np.max(actual[i]) - np.min(actual[i]),2)
             delta_expected = round(np.max(expected_phases[i][1]) - np.min(
                 expected_phases[i][1]),2)
-            print delta_expected
             Aqf.equals(delta_expected,delta_actual,
                 'Check if difference expected({0:.3f}) and actual({1:.3f}) '
                     'phases are equal at delay {2:.3f}ns.'
@@ -1203,11 +1200,9 @@ class test_CBF(unittest.TestCase):
 
         return ((result + np.pi) % (2 * np.pi ) - np.pi)
 
-    @aqf_vr('TP.C.1.28')
+    @aqf_vr('TP.C.1.27')
     def test_delay_rate(self):
-        """
-        Delay Rate Test
-        """
+        """CBF Delay Compensation/LO Fringe stopping polynomial"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
@@ -1241,12 +1236,11 @@ class test_CBF(unittest.TestCase):
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
 
-        expected_phases = np.unwrap(expected_phases)
         actual_phases = np.unwrap([phase for rads, phase in actual_phases])
         # TODO MM 2015-10-22
         # Ignoring first dump because the delays might not be set for full
         # intergration.
-        for i in range(1, len(expected_phases)-1):
+        for i in range(1, len(expected_phases)):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
             Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
@@ -1254,9 +1248,9 @@ class test_CBF(unittest.TestCase):
             'between integrations :{} deg'.format(
                 np.rad2deg(np.max(expected-actual))))
 
-    @aqf_vr('TP.C.1.28')
+    @aqf_vr('TP.C.1.24')
     def test_fringe_offset(self):
-        """Fringe Offset Test"""
+        """CBF per-antenna phase error"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
@@ -1306,9 +1300,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
-        """
-        Fringe Rate Test
-        """
+        """CBF per-antenna phase error"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
