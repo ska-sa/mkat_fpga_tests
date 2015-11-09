@@ -697,12 +697,12 @@ class test_CBF(unittest.TestCase):
         # where numSensors is the number of sensor-list informs sent.
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
-            "Check that the instrument's number of sensors are equal to the"
+            "Check that the instrument's number of sensors are equal to the "
                  "number of sensors in the list.")
 
         array_numSensors = int(array_numSensors)
         Aqf.equals(array_numSensors, len(array_list_informs),
-            'Check that the number of array sensors are equal to the'
+            'Check that the number of array sensors are equal to the '
                  'number of sensors in the list.')
 
         # Check that ?sensor-value and ?sensor-list agree about the number
@@ -733,7 +733,7 @@ class test_CBF(unittest.TestCase):
         for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ' :'+ str(sensor.get_value()))
             Aqf.equals(sensor.get_status(), 'nominal',
-                'Sensor status fail: {}, {} '
+                'Sensor status: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
     @aqf_vr('TP.C.dummy_vr_5')
