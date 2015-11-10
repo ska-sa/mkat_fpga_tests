@@ -533,6 +533,7 @@ class test_CBF(unittest.TestCase):
         t_apply = dump_1_timestamp + 10*int_time
         no_chans = range(self.corr_freqs.n_chans)
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        import IPython;IPython.embed()
         Aqf.step('Source names changed to: ' + str(reply))
         source_names = reply.arguments[1].split()
         # Get input m000_y
@@ -591,7 +592,6 @@ class test_CBF(unittest.TestCase):
 
                 future_time = 200e-3
                 settling_time = 500e-3
-
                 dump_timestamp = (this_freq_dump['sync_time'] +
                                   this_freq_dump['timestamp']/
                                   this_freq_dump['scale_factor_timestamp'])
@@ -601,6 +601,8 @@ class test_CBF(unittest.TestCase):
                 reply = correlator_fixture.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
                 # TODO MM 2015-11-10
+                # Rather than waiting for a random time, rather use the discard
+                # data dump method used in fringe test
                 Aqf.wait(settling_time,
                     'Settling time in order to set delay: {} ns.'.format(delay*1e9))
 
@@ -611,34 +613,33 @@ class test_CBF(unittest.TestCase):
                 phases = np.angle(data)
                 actual_phases_list.append(phases)
 
-            return zip(test_delays_ns, actual_phases_list)
+            return actual_phases_list
 
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
-        title = ''
-        expected_phases = [phase for rads, phase in get_expected_phases()]
+        title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
+
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                 units, file_name, title)
-
-        actual = [phases for delays, phases in actual_phases]
-
+        expected_phases = [phase for rads, phase in get_expected_phases()]
+        tolerance = 1e-2
         for i, delay in enumerate(test_delays):
-            delta_actual = np.max(actual[i]) - np.min(actual[i])
-            delta_expected = np.max(expected_phases[i][1]) - np.min(
-                expected_phases[i][1])
-            Aqf.equals(delta_expected, delta_actual,
-                'Check if difference expected({0:.3f}) and actual({1:.3f}) '
-                    'phases are equal at delay {2:.3f}ns.'
-                        .format(delta_expected, delta_actual, delay*1e9))
+            delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
+            delta_expected = np.max(expected_phases[i]) - np.min(
+                expected_phases[i])
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                    'phases are equal at delay {2:.5f}ns withing {3} tolerance.'
+                        .format(delta_expected, delta_actual, delay*1e9, tolerance))
 
         for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
-            aqf_array_abs_error_less(actual[count], expected_phases[count],
+            aqf_array_abs_error_less(actual_phases[count], expected_phases[count],
                 'Check that when {} clock cycle({} ns) is introduced the is a '
                 'change in phases at {} degrees as expected to within '
                 '3 decimal places'.format((count+1)*.5, delay*1e9,
-                    np.rad2deg(np.pi)*(count+1)*.5), 0.01)
+                    np.rad2deg(np.pi)*(count+1)*.5), tolerance)
 
     @unittest.skip('Test takes a long time to run.')
     @aqf_vr('TP.C.1.19')
