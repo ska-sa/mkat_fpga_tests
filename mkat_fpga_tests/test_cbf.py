@@ -586,13 +586,26 @@ class test_CBF(unittest.TestCase):
             for delay in test_delays:
                 delays[setup_data['test_source_ind']] = delay
                 delay_coefficients  = ['{},0:0,0'.format(dv) for dv in delays]
-                reply = correlator_fixture.katcp_rct.req.delays(
-                    time.time()+.2, *delay_coefficients)
-                Aqf.wait(.5, 'Settling time in order to set delay: {} ns.'
-                              .format(delay*1e9))
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
+                    discard=0)
 
-                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(this_freq_dump['xeng_raw']
+                future_time = 200e-3
+                settling_time = 500e-3
+
+                dump_timestamp = (this_freq_dump['sync_time'] +
+                                  this_freq_dump['timestamp']/
+                                  this_freq_dump['scale_factor_timestamp'])
+                t_apply = (dump_timestamp + this_freq_dump['int_time'] +
+                          future_time)
+
+                reply = correlator_fixture.katcp_rct.req.delays(
+                    t_apply, *delay_coefficients)
+                # TODO MM 2015-11-10
+                Aqf.wait(settling_time,
+                    'Settling time in order to set delay: {} ns.'.format(delay*1e9))
+
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                data = complexise(dump['xeng_raw']
                     [:, setup_data['baseline_index'], :])
 
                 phases = np.angle(data)
@@ -604,6 +617,7 @@ class test_CBF(unittest.TestCase):
         expected_phases = get_expected_phases()
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
+        title = ''
         expected_phases = [phase for rads, phase in get_expected_phases()]
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                 units, file_name, title)
@@ -611,10 +625,10 @@ class test_CBF(unittest.TestCase):
         actual = [phases for delays, phases in actual_phases]
 
         for i, delay in enumerate(test_delays):
-            delta_actual = round(np.max(actual[i]) - np.min(actual[i]),2)
-            delta_expected = round(np.max(expected_phases[i][1]) - np.min(
-                expected_phases[i][1]),2)
-            Aqf.equals(delta_expected,delta_actual,
+            delta_actual = np.max(actual[i]) - np.min(actual[i])
+            delta_expected = np.max(expected_phases[i][1]) - np.min(
+                expected_phases[i][1])
+            Aqf.equals(delta_expected, delta_actual,
                 'Check if difference expected({0:.3f}) and actual({1:.3f}) '
                     'phases are equal at delay {2:.3f}ns.'
                         .format(delta_expected, delta_actual, delay*1e9))
@@ -1243,10 +1257,10 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+            aqf_array_abs_error_less(np.abs(np.rad2deg(np.max(expected-actual))),
+                'Degree difference between expected and actual phase differences '
+                    'between integrations :{} deg'.format(
+                        np.rad2deg(np.max(expected-actual))), 1)
 
     @aqf_vr('TP.C.1.24')
     def test_fringe_offset(self):
@@ -1293,10 +1307,10 @@ class test_CBF(unittest.TestCase):
         for i in range(2, len(expected_phases)):
             expected = expected_phases[i]
             actual = actual_phases[i]
-            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected - actual))))
+            aqf_array_abs_error_less(np.abs(np.rad2deg(np.max(expected-actual))),
+                'Degree difference between expected and actual phase differences '
+                    'between integrations :{} deg'.format(
+                        np.rad2deg(np.max(expected - actual))), 1)
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
@@ -1343,10 +1357,10 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)-1):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+            aqf_array_abs_error_less(np.abs(np.rad2deg(np.max(expected-actual))),
+                'Degree difference between expected and actual phase differences '
+                    'between integrations :{} deg'.format(
+                        np.rad2deg(np.max(expected-actual))), 1)
 
     @unittest.skip('Values still needs to be defined.')
     @aqf_vr('TP.C.1.28')
@@ -1407,10 +1421,10 @@ class test_CBF(unittest.TestCase):
         for i in range(1, len(expected_phases)-1):
             expected = expected_phases[i+1] - expected_phases[i]
             actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+            aqf_array_abs_error_less(np.abs(np.rad2deg(np.max(expected-actual))),
+                'Degree difference between expected and actual phase differences '
+                    'between integrations :{} deg'.format(
+                        np.rad2deg(np.max(expected-actual))), 1)
 
     def test_sync(self):
         Aqf.failed('Time Sync test not implemented.')
