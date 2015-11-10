@@ -771,25 +771,22 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(host_sensor.get_status(), 'error', 'Confirm that the memory on {} is '
            'unreadable/corrupted.'.format(xhost.host))
         current_errors = xhost.registers.vacc_errors1.read()['data']['parity']
-        Aqf.is_not_equals(current_errors, 0, "Error counters are incrementing.")
+        Aqf.is_not_equals(current_errors, 0, "Error counters incremented.")
         if current_errors == xhost.registers.vacc_errors1.read()['data']['parity']:
             Aqf.passed('Confirm that the counters have stopped incrementing: {} increments.'
                 .format(current_errors))
+            # Clear and confirm error counters
+            xhost.clear_status()
+            final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
+            Aqf.is_false(final_errors,
+                'Confirm that the counters have been reset, count {} to {}'
+                    .format(current_errors, final_errors))
         else:
-            Aqf.failed('Error counters still incrementing.')
-        # Check that the memory recovered successfully
-        # Aqf.is_true(host_sensor.get_value(),
-        #     'Check that the memory recovered successfully.')
-        # Clear and confirm error counters
-        xhost.clear_status()
-        final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
-        Aqf.is_false(final_errors,
-            'Confirm that the counters have been reset, count {} to {}'
-                .format(current_errors, final_errors))
+            Aqf.failed('Error counters still incrementing. QDR did not recover')
         while host_sensor.get_value() == False:
             pass
-        Aqf.is_true(host_sensor.get_value(), 'Check that the QDR recovered. Status: {} on {}.'
-            .format(host_sensor.get_status(),xhost.host))
+        Aqf.is_true(host_sensor.get_value(), 'Check that the QDR recovered. '
+            'Status: {} on {}.'.format(host_sensor.get_status(),xhost.host))
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
