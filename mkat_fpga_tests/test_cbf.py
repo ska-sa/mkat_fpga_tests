@@ -630,13 +630,13 @@ class test_CBF(unittest.TestCase):
                 expected_phases[i])
             Aqf.almost_equals(delta_expected, delta_actual, tolerance,
                 'Check if difference expected({0:.5f}) and actual({1:.5f}) '
-                    'phases are equal at delay {2:.5f}ns withing {3} tolerance.'
+                    'phases are equal at delay {2:.5f}ns within {3} tolerance.'
                         .format(delta_expected, delta_actual, delay*1e9, tolerance))
 
         for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
             aqf_array_abs_error_less(actual_phases[count], expected_phases[count],
-                'Check that when {0} clock cycle({1:.5f} ns) is introduced the is a '
-                'change in phases at {2:.5f} degrees as expected to within '
+                'Check that when a delay of {0} clock cycle({1:.5f} ns) is introduced '
+                'there is a change of phase of {2:.5f} degrees as expected to within '
                 '{3} tolerance.'.format((count+1)*.5, delay*1e9,
                     np.rad2deg(np.pi)*(count+1)*.5, tolerance), tolerance)
 
