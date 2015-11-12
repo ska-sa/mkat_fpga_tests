@@ -762,6 +762,8 @@ class test_CBF(unittest.TestCase):
             .format(host_sensor.get_status(),xhost.host))
         sensor_timeout = 10
         host_sensor.set_strategy('auto')
+        self.addCleanup(host_sensor.set_sampling_strategy, 'none')
+
         Aqf.step("Writing junk to {} memory.".format(xhost.host))
         # Write junk to memory
         xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
@@ -796,7 +798,6 @@ class test_CBF(unittest.TestCase):
                     'Status: {} on {}.'.format(host_sensor.get_status(),xhost.host))
         else:
             Aqf.failed('Error counters still incrementing. QDR did not recover')
-        self.addCleanup(host_sensor.set_sampling_strategy, 'none')
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
