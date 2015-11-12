@@ -750,7 +750,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.16')
     def test_roach_qdr_sensors(self):
-        """CBF flagging of data : Memory error"""
+        """Sensor QDR memory error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
         # Select a host
         xhost = self.correlator.xhosts[0]
