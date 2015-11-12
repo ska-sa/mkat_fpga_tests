@@ -759,7 +759,7 @@ class test_CBF(unittest.TestCase):
                             xhost.host.lower()))
         # Check if qdr is okay
         Aqf.is_true(host_sensor.get_value(), 'Check the QDR status: {} on {}.'
-            .format(host_sensor.get_status(),xhost.host))
+            .format(host_sensor.status(),xhost.host))
         sensor_timeout = 10
         host_sensor.set_strategy('auto')
         self.addCleanup(host_sensor.set_sampling_strategy, 'none')
