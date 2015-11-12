@@ -758,7 +758,7 @@ class test_CBF(unittest.TestCase):
         host_sensor =  getattr(array_sensors, '{}_xeng_qdr'.format(
                             xhost.host.lower()))
         # Check if qdr is okay
-        Aqf.is_true(host_sensor.get_value(), 'Check the QDR status: {} on {}.'
+        Aqf.is_true(host_sensor.get_value(), 'Confirm that sensor indicates QDR status: {} on {}.'
             .format(host_sensor.status(),xhost.host))
         sensor_timeout = 10
         host_sensor.set_strategy('auto')
@@ -771,17 +771,17 @@ class test_CBF(unittest.TestCase):
             if host_sensor.wait(False, timeout=10):
                 # Verify that qdr corrupted or unreadable
                 Aqf.equals(host_sensor.get_status(), 'error',
-                    'Confirm that the memory on {} is unreadable/corrupted.'
+                    'Confirm that sensor indicates that the memory on {} is unreadable/corrupted.'
                         .format(xhost.host))
             else:
-                Aqf.failed('The memory is not unreadable/corrupted.')
+                Aqf.failed('Confirm that sensor indicates that memory is unreadable/corrupted.')
         except Exception as errmsg:
             Aqf.failed('Failed due to error: {}'.format(errmsg))
 
         current_errors = xhost.registers.vacc_errors1.read()['data']['parity']
-        Aqf.is_not_equals(current_errors, 0, "Error counters incremented.")
+        Aqf.is_not_equals(current_errors, 0, "Confirm that the error counters incremented.")
         if current_errors == xhost.registers.vacc_errors1.read()['data']['parity']:
-            Aqf.passed('Confirm that the counters have stopped incrementing: '
+            Aqf.passed('Confirm that the error counters have stopped incrementing: '
                 '{} increments.'.format(current_errors))
             # Clear and confirm error counters
             xhost.clear_status()
@@ -791,7 +791,7 @@ class test_CBF(unittest.TestCase):
                     current_errors, final_errors))
 
             if host_sensor.wait(True):
-                Aqf.is_true(host_sensor.get_value(), 'Check that the QDR recovered. '
+                Aqf.is_true(host_sensor.get_value(), 'Confirm that sensor indicates that the QDR memory recovered. '
                     'Status: {} on {}.'.format(host_sensor.status(),xhost.host))
             else:
                 Aqf.failed('QDR failed to recover. '
