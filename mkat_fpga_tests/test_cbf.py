@@ -599,9 +599,6 @@ class test_CBF(unittest.TestCase):
 
                 reply = correlator_fixture.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
-                # TODO MM 2015-11-10
-                # Rather than waiting for a random time, rather use the discard
-                # data dump method used in fringe test
                 Aqf.wait(settling_time,
                     'Settling time in order to set delay: {} ns.'.format(delay*1e9))
 
