@@ -1,6 +1,7 @@
 import collections
 import h5py
 import numpy as np
+import time
 
 from casperfpga.utils import threaded_fpga_operation
 
@@ -266,9 +267,12 @@ def get_snapshots(instrument):
 
 def get_source_object_and_index(instrument, input_name):
     """Return the DataSource object and local roach source index for a given input"""
-    source = [s for s in instrument.fengine_sources if s.name == input_name][0]
-    source_index = [i for i, s in enumerate(source.host.data_sources)
-                    if s.name == source.name][0]
+    # Todo MM 2015-10-22
+    # Check and fix the hardcoded stuffs
+    source = [s['source'].name for s in instrument.fengine_sources
+              if s['source'].name == input_name][0]
+    source_index = 0 #[i for i, s in enumerate(source.host.data_sources)
+                    #if s.name == source.name][0]
     return source, source_index
 
 def set_coarse_delay(instrument, input_name, value=0):
@@ -299,9 +303,14 @@ def rearrange_snapblock(snap_data, reverse=False):
 
 def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
-    source, source_index = get_source_object_and_index(instrument, input_name)
+    #import IPython;IPython.embed()
+
+    # TODO MM 2015-10-22
+    # Hardcoded shit. fix it
+    host = [i['host'] for i in instrument.fengine_sources][0]
+    source, source_index = ('m000_x', 0)#get_source_object_and_index(instrument, input_name)
     snap_name = 'snap_quant{}_ss'.format(source_index)
-    snap = source.host.snapshots[snap_name]
+    snap = host.snapshots[snap_name] # source.host.snapshots[snap_name]
     snap_data = snap.read(
         man_valid=False, man_trig=False, timeout=timeout)['data']
 
@@ -311,3 +320,24 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     imag = rearrange_snapblock(get_part(snap_data, 'imag'))
     quantiser_spectrum = real + 1j*imag
     return quantiser_spectrum
+
+def get_baselines_lookup(spead):
+    """Get list of all the baselines present in the correlator output.
+    Param:
+      spead: spead_dump
+    Return: dict:
+        baseline lookup
+    """
+    bls_ordering = spead['bls_ordering']
+    baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
+    return baseline_lookup
+
+def clear_all_delays(instrument):
+    """Clears all delays on all fhosts.
+    Param: Correlator object
+    Return: None
+    """
+    for host in instrument.fengine_sources:
+        instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
+            phase_offset=0, delta_phase_offset=0,
+                ld_time=time.time() + .2, ld_check=True)

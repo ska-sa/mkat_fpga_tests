@@ -17,7 +17,9 @@ setup(name='mkat_fpga_tests',
         'License :: OSI Approved :: GNU General Public License (GPL)',
         'Topic :: Scientific/Engineering :: Astronomy',
         ],
-    install_requires=['casperfpga', 'corr2', 'katcp', 'matplotlib', 'iniparse', 'numpy', 'spead', 'h5py'],
+
+    install_requires=['casperfpga', 'corr2', 'katcp', 'matplotlib', 'iniparse',
+                      'numpy', 'spead', 'h5py', 'lxml', 'nose-testconfig'],
     provides=['mkat_fpga_tests'],
     packages=['mkat_fpga_tests'],
     scripts=glob.glob('scripts/*')

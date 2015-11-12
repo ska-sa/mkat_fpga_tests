@@ -434,9 +434,9 @@ def generate_report(settings, log_func):
         report.write_to_file(filename, report_type)
 
     report.clear()
-    report.write_rst_cam_files(os.path.join(settings['me_dir'], katreport_dir),
+    report.write_rst_cbf_files(os.path.join(settings['me_dir'], katreport_dir),
                                settings['build_dir'], settings["katreport_dir"],
-                               'cam')
+                               'cbf')
     # import IPython ; IPython.embed()
 
 def show_test_results(settings, log_func):
