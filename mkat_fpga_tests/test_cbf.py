@@ -792,10 +792,10 @@ class test_CBF(unittest.TestCase):
 
             if host_sensor.wait(True):
                 Aqf.is_true(host_sensor.get_value(), 'Check that the QDR recovered. '
-                    'Status: {} on {}.'.format(host_sensor.get_status(),xhost.host))
+                    'Status: {} on {}.'.format(host_sensor.status(),xhost.host))
             else:
                 Aqf.failed('QDR failed to recover. '
-                    'Status: {} on {}.'.format(host_sensor.get_status(),xhost.host))
+                    'Status: {} on {}.'.format(host_sensor.status(),xhost.host))
         else:
             Aqf.failed('Error counters still incrementing. QDR did not recover')
 
