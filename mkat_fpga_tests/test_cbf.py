@@ -489,7 +489,7 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        pass
+        Aqf.failed('Correlator restart consistency test not implemented yet.')
 
     def _delays_setup(self):
         Aqf.step('Estimating synch epoch')
@@ -563,9 +563,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.27')
     def test_delay_tracking(self):
-        """
-        CBF Delay Compensation/LO Fringe stopping polynomial
-        """
+        """CBF Delay Compensation/LO Fringe stopping polynomial"""
         setup_data = self._delays_setup()
         sampling_period = self.corr_freqs.sample_period
         no_chans = range(len(self.corr_freqs.chan_freqs))
@@ -588,60 +586,58 @@ class test_CBF(unittest.TestCase):
             for delay in test_delays:
                 delays[setup_data['test_source_ind']] = delay
                 delay_coefficients  = ['{},0:0,0'.format(dv) for dv in delays]
-                reply = correlator_fixture.katcp_rct.req.delays(
-                    time.time()+delay, *delay_coefficients)
-                Aqf.wait(.5, 'Settling time in order to set delay: {} ns.'
-                              .format(delay*1e9))
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
+                    discard=0)
 
-                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(this_freq_dump['xeng_raw']
+                future_time = 200e-3
+                settling_time = 500e-3
+                dump_timestamp = (this_freq_dump['sync_time'] +
+                                  this_freq_dump['timestamp']/
+                                  this_freq_dump['scale_factor_timestamp'])
+                t_apply = (dump_timestamp + this_freq_dump['int_time'] +
+                          future_time)
+
+                reply = correlator_fixture.katcp_rct.req.delays(
+                    t_apply, *delay_coefficients)
+                Aqf.wait(settling_time,
+                    'Settling time in order to set delay: {} ns.'.format(delay*1e9))
+
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                data = complexise(dump['xeng_raw']
                     [:, setup_data['baseline_index'], :])
 
                 phases = np.angle(data)
                 actual_phases_list.append(phases)
 
-            return zip(test_delays_ns, actual_phases_list)
+            return actual_phases_list
 
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
-        for i, delay in enumerate(test_delays):
-            delta_actual = round(np.max(actual_phases[i][1]) - np.min(
-                actual_phases[i][1]),2)
-            delta_expected = round(np.max(expected_phases[i][1]) - np.min(
-                expected_phases[i][1]),2)
-            LOGGER.debug( "delay: {}ns, expected phase delta: {},"
-                " actual_phase_delta: {}".format(
-                delay*1e9, delta_expected, delta_actual))
-            Aqf.equals(delta_expected,delta_actual,
-                'Check if difference expected({0:.3f}) and actual({1:.3f}) '
-                    'phases are equal at delay {2:.3f}ns.'
-                        .format(delta_expected, delta_actual, delay*1e9))
-
-        title = 'Correlation Delay Phase'
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
-        expected_phases = [phase for rads, phase in get_expected_phases()]
+        title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
+
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                 units, file_name, title)
-        # TODO NM 2015-09-04: We are only checking one of the results here?
-        # This structure needs a bit of unpacking :)
-        Aqf.equals(np.min(actual_phases[0][0]), np.max(actual_phases[0][0]),
-            "Check if the phase-slope with delay = 0 is zero.", )
+        expected_phases = [phase for rads, phase in get_expected_phases()]
+        tolerance = 1e-2
+        for i, delay in enumerate(test_delays):
+            delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
+            delta_expected = np.max(expected_phases[i]) - np.min(
+                expected_phases[i])
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                    'phases are equal at delay {2:.5f}ns within {3} tolerance.'
+                        .format(delta_expected, delta_actual, delay*1e9, tolerance))
 
-        # TODO MM 2015-10-12: Factorize below code, turn to a loop
-        aqf_array_abs_error_less(actual_phases[1][1], expected_phases[1][1],
-            'Check that when one clock cycle is introduced (0.584ns),'
-                ' the is a change in phases at 180 degrees as expected '
-                    'to within 3 decimal places', .01)
-        aqf_array_abs_error_less(actual_phases[2][1], expected_phases[2][1],
-            'Check that when 1.5 clock cycle is introduced (0.876ns),'
-                ' the is a change in phases at 270 degrees as expected '
-                    'to within 3 decimal places', .01)
-        aqf_array_abs_error_less(actual_phases[3][1], expected_phases[3][1],
-            'Check that when 2 clock cycle is introduced (1.168ns),'
-                ' the is a change in phases at 360 degrees as expected '
-                    'to within 3 decimal places', .01)
+        for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
+            aqf_array_abs_error_less(actual_phases[count], expected_phases[count],
+                'Check that when a delay of {0} clock cycle({1:.5f} ns) is introduced '
+                'there is a change of phase of {2:.5f} degrees as expected to within '
+                '{3} tolerance.'.format((count+1)*.5, delay*1e9,
+                    np.rad2deg(np.pi)*(count+1)*.5, tolerance), tolerance)
 
+    @unittest.skip('Test takes a long time to run.')
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
         """Test spurious free dynamic range
@@ -709,12 +705,12 @@ class test_CBF(unittest.TestCase):
         # where numSensors is the number of sensor-list informs sent.
         numSensors = int(numSensors)
         Aqf.equals(numSensors, len(list_informs),
-            "Check that the instrument's number of sensors are equal to the"
+            "Check that the instrument's number of sensors are equal to the "
                  "number of sensors in the list.")
 
         array_numSensors = int(array_numSensors)
         Aqf.equals(array_numSensors, len(array_list_informs),
-            'Check that the number of array sensors are equal to the'
+            'Check that the number of array sensors are equal to the '
                  'number of sensors in the list.')
 
         # Check that ?sensor-value and ?sensor-list agree about the number
@@ -745,7 +741,7 @@ class test_CBF(unittest.TestCase):
         for sensor in correlator_fixture.rct.sensor.values():
             LOGGER.info(sensor.name + ' :'+ str(sensor.get_value()))
             Aqf.equals(sensor.get_status(), 'nominal',
-                'Sensor status fail: {}, {} '
+                'Sensor status: {}, {} '
                     .format(sensor.name, sensor.get_status()))
 
     @aqf_vr('TP.C.1.16')
@@ -768,7 +764,7 @@ class test_CBF(unittest.TestCase):
         # Write junk to memory
         xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
         try:
-            if host_sensor.wait(False, timeout=10):
+            if host_sensor.wait(False, sensor_timeout):
                 # Verify that qdr corrupted or unreadable
                 Aqf.equals(host_sensor.get_status(), 'error',
                     'Confirm that sensor indicates that the memory on {} is unreadable/corrupted.'
@@ -1130,7 +1126,6 @@ class test_CBF(unittest.TestCase):
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients,
                         max_wait_dumps=20):
-
         try:
             reply, informs = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
@@ -1174,10 +1169,7 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data))/setup_data['n_accs']
 
-        rads = [np.abs((np.min(phase) + np.max(phase))/2.)
-            for phase in phases]
-
-        return zip(rads, phases)
+        return phases
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
 
@@ -1233,13 +1225,18 @@ class test_CBF(unittest.TestCase):
                                 dump_counts, setup_data))
         result = delay_data + fringe_data
 
-        return ((result + np.pi) % (2 * np.pi ) - np.pi)
+        if (fringe_offset or fringe_rate) != 0:
+            fringe_phase = [np.abs((np.min(phase) + np.max(phase))/2.)
+                           for phase in fringe_data]
+            return zip(fringe_phase, ((result + np.pi) % (2 * np.pi ) - np.pi))
+        else:
+            delay_phase = [np.abs((np.min(phase) - np.max(phase))/2.)
+                           for phase in delay_data]
+            return zip(delay_phase, ((result + np.pi) % (2 * np.pi ) - np.pi))
 
-    @aqf_vr('TP.C.1.28')
+    @aqf_vr('TP.C.1.27')
     def test_delay_rate(self):
-        """
-        Delay Rate Test
-        """
+        """CBF Delay Compensation/LO Fringe stopping polynomial"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
@@ -1267,28 +1264,35 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
-        graph_title = 'Delay Rate at {} n'.format(delay_rate*1e9)
+        graph_title = 'Delay Rate at {} ns/s'.format(delay_rate*1e9)
         graph_name = 'Delay_Rate_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
 
-        expected_phases = np.unwrap(expected_phases)
-        actual_phases = np.unwrap([phase for rads, phase in actual_phases])
+        actual_phases = np.unwrap(actual_phases)
         # TODO MM 2015-10-22
         # Ignoring first dump because the delays might not be set for full
         # intergration.
+        tolerance = 0.01
+        expected_phases = np.unwrap([phase for label, phase in expected_phases])
         for i in range(1, len(expected_phases)-1):
-            expected = expected_phases[i+1] - expected_phases[i]
-            actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+            delta_expected = np.max(expected_phases[i+1] - expected_phases[i])
+            delta_actual = np.max(actual_phases[i+1] - actual_phases[i])
+            abs_diff = np.rad2deg(np.abs(delta_expected-delta_actual))
 
-    @aqf_vr('TP.C.1.28')
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                'phases are equal withing {2} tolerance when delay rate is {}.'
+                .format(delta_expected, delta_actual, tolerance, delay_rate))
+
+            Aqf.less(abs_diff, 1,'Check that the maximum degree between '
+                'expected and actual phase difference between intergrations '
+                'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
+
+    @aqf_vr('TP.C.1.24')
     def test_fringe_offset(self):
-        """Fringe Offset Test"""
+        """CBF per-antenna phase error"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
@@ -1321,26 +1325,30 @@ class test_CBF(unittest.TestCase):
         graph_name = 'Fringe_Offset_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-            graph_units, graph_name, graph_title, True)
+            graph_units, graph_name, graph_title)
 
-        expected_phases = np.unwrap(expected_phases)
-        actual_phases = np.unwrap([phase for rads, phase in actual_phases])
-        # TODO MM 2015-10-22
-        # Ignoring first and second dump because the delays might not be set
-        # for full intergration.
-        for i in range(2, len(expected_phases)):
-            expected = expected_phases[i]
-            actual = actual_phases[i]
-            Aqf.less(np.abs(np.rad2deg(np.max(expected-actual))), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected - actual))))
+        # Ignoring first dump because the delays might not be set for full
+        # intergration.
+        tolerance = 0.01
+        actual_phases = np.unwrap(actual_phases)
+        expected_phases = np.unwrap([phase for label, phase in expected_phases])
+        for i in range(1, len(expected_phases)-1):
+            delta_expected = np.max(expected_phases[i])
+            delta_actual = np.max(actual_phases[i])
+            abs_diff = np.rad2deg(np.abs(delta_expected-delta_actual))
+
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                'Check if difference expected({}) and actual({}) '
+                'phases are equal withing {} tolerance when fringe offset is {}.'
+                 .format(delta_expected, delta_actual, tolerance, fringe_offset))
+
+            Aqf.less(abs_diff, 1,'Check that the maximum degree between '
+                'expected and actual phase difference between intergrations '
+                'is below 1 degree: {} degree\n'.format(abs_diff))
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
-        """
-        Fringe Rate Test
-        """
+        """CBF per-antenna phase error"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
         dump_counts = 5
@@ -1371,23 +1379,29 @@ class test_CBF(unittest.TestCase):
         graph_units = 'rads/sec'
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
-
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
 
-        expected_phases = np.unwrap(expected_phases)
-        actual_phases = np.unwrap([phase for rads, phase in actual_phases])
-        # TODO MM 2015-10-22
         # Ignoring first dump because the delays might not be set for full
         # intergration.
+        tolerance = 0.01
+        actual_phases = np.unwrap(actual_phases)
+        expected_phases = np.unwrap([phase for label, phase in expected_phases])
         for i in range(1, len(expected_phases)-1):
-            expected = expected_phases[i+1] - expected_phases[i]
-            actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+            delta_expected = np.max(expected_phases[i+1] - expected_phases[i])
+            delta_actual = np.max(actual_phases[i+1] - actual_phases[i])
+            abs_diff = np.rad2deg(np.abs(delta_expected-delta_actual))
 
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                'phases are equal within {2} tolerance when fringe rate is {3}.'
+                .format(delta_expected, delta_actual, tolerance, fringe_rate))
+
+            Aqf.less(abs_diff, 1,'Check that the maximum degree between '
+                'expected and actual phase difference between intergrations '
+                'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
+
+    @unittest.skip('Values still needs to be defined.')
     @aqf_vr('TP.C.1.28')
     def test_all_delays(self):
         """
@@ -1438,19 +1452,21 @@ class test_CBF(unittest.TestCase):
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
             graph_units, graph_name, graph_title)
 
-        expected_phases = np.unwrap(expected_phases)
-        actual_phases = np.unwrap([phase for rads, phase in actual_phases])
-        # TODO MM 2015-10-22
         # Ignoring first dump because the delays might not be set for full
         # intergration.
+        tolerance = 0.01
+        actual_phases = np.unwrap(actual_phases)
+        expected_phases = np.unwrap([phase for label, phase in expected_phases])
         for i in range(1, len(expected_phases)-1):
-            expected = expected_phases[i+1] - expected_phases[i]
-            actual = actual_phases[i+1] - actual_phases[i]
-            Aqf.less(np.rad2deg(np.max(expected-actual)), 1,
-            'Degree difference between expected and actual phase differences '
-            'between integrations :{} deg'.format(
-                np.rad2deg(np.max(expected-actual))))
+            delta_expected = np.max(expected_phases[i+1] - expected_phases[i])
+            delta_actual = np.max(actual_phases[i+1] - actual_phases[i])
+            abs_diff = np.rad2deg(np.abs(delta_expected-delta_actual))
 
-    def test_sync(self):
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                'phases are equal withing {2} tolerance when delay rate is {}.'
+                .format(delta_expected, delta_actual, tolerance, delay_rate))
 
-        import IPython;IPython.embed()
+            Aqf.less(abs_diff, 1,'Check that the maximum degree between '
+                'expected and actual phase difference between intergrations '
+                'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
