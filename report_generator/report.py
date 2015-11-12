@@ -88,13 +88,15 @@ class Report(object):
 
         """
 
-        return sorted(set([self.requirements[r]['timescale']
-                           for r in self.requirements
-                           if self.requirements[r].get('timescale')] +
-                      ['Timescale Unlinked']))
+        # return sorted(set([self.requirements[r]['timescale']
+        #                    for r in self.requirements
+        #                    if self.requirements[r].get('timescale')] +
+        #               ['Timescale Unlinked']))
+        # Uncomment above to have tests separated out by timescale
+        return ['Timescale Unlinked']
 
-    def write_rst_cam_files(self, base_dir, build_dir, katreport_dir, prefix):
-        """Generate a set of reports for CAM."""
+    def write_rst_cbf_files(self, base_dir, build_dir, katreport_dir, prefix):
+        """Generate a set of reports for CBF."""
         self.base_dir = base_dir
         self.build_dir = build_dir
         self.katreport_dir = katreport_dir
@@ -103,7 +105,7 @@ class Report(object):
                 # Create a fake Core entry.
                 self.requirements[test_req] = \
                     {'definition': 'VerificationRequirement',
-                     'category-list': ["1500 CAM"],
+                     'category-list': ["1200 CBF"],
                      'method': 'test'}
         self.generate_include_documents(base_dir)
         timescales = self.get_timescales()
@@ -111,7 +113,7 @@ class Report(object):
         scheme = 'acceptance' if self.acceptance_report else 'qualification'
         demo = False
         number = 0
-        documents = ['CAM %s Summary' % scheme.capitalize(),
+        documents = ['CBF %s Summary' % scheme.capitalize(),
                      'System Information']
         for timescale in nsort(timescales):
             for demo in [False, True]: # for Testing and Demonstration
@@ -119,7 +121,7 @@ class Report(object):
 
                     self.clear()
                     number += 1
-                    title = self.generate_cam_report(
+                    title = self.generate_cbf_report(
                         base_dir, timescale, scheme, demo, procedure,
                         number='AQF.{0}'.format(number))
                     if not title:
@@ -130,6 +132,8 @@ class Report(object):
                                             title.lower().replace(' ', '_'))
                     with open(filename, 'w') as fh:
                         for line in self.docproducer.output:
+                            if isinstance(line, unicode):
+                                line = line.encode('utf-8')
                             fh.write(line + '\n')
         if documents:
             filename = os.path.join(base_dir, 'doc_list.inc')
@@ -224,9 +228,9 @@ class Report(object):
             if in_demo_doc:
                 return True
 
-    def generate_cam_report(self, base_dir, timescale, scheme,
+    def generate_cbf_report(self, base_dir, timescale, scheme,
                             demo=False, procedure=True, number=None):
-        """Generate the cam reports.
+        """Generate the cbf reports.
 
         :param timescale: String. Timescale for the report.
         :param scheme: String. Scheme for the report.
@@ -241,11 +245,11 @@ class Report(object):
         results_doc = not procedure_doc
         demo_test_title = 'Demonstration' if demo else 'Testing'
         proc_result_title = 'Procedure' if procedure else 'Results'
-        title_l = ['CAM', timescale.title(), scheme.title()]
+        title_l = ['CBF', timescale.title(), scheme.title()]
         title_l.append(demo_test_title)
         title_l.append(proc_result_title)
         title = ' '.join(title_l)
-        # This produces "CAM Timescale N Demonstration/Testing Procedure/Results"
+        # This produces "CBF Timescale N Demonstration/Testing Procedure/Results"
 
         if number:
             key = title.lower()
@@ -256,12 +260,12 @@ class Report(object):
         self.docproducer.add_heading('chapter', title, anchor=True)
 
         # Include stats and tables.
-        inc_title = "CAM %s %s %s %s Summary" % \
+        inc_title = "CBF %s %s %s %s Summary" % \
                     (timescale, scheme, demo_test_title, proc_result_title)
         inc_filename = inc_title.lower().replace(" ", "_") + ".inc"
         self.docproducer.add_include(inc_filename)
 
-        inc_title = "CAM %s %s %s %s" % \
+        inc_title = "CBF %s %s %s %s" % \
                     (timescale, scheme, demo_test_title, proc_result_title)
         inc_filename = inc_title.lower().replace(" ", "_") + "_table.inc"
         self.docproducer.add_include(inc_filename)
@@ -271,15 +275,17 @@ class Report(object):
         for item in self.requirements:
             requirement = self.requirements[item]
             # Build up a list of verification requirements.
-            if (requirement.get('definition') != 'VerificationRequirement'):
+            if (requirement.get('definition') not in ('VerificationRequirement'
+                                                      'TestProcedure')):
                 # Only verification requirements.
                 continue
             if (requirement.get('timescale',
                                 'Timescale Unlinked') != timescale):
                 # Only for the selected timescale.
                 continue
-            if ("1500 CAM" not in requirement.get('category-list', [])):
-                # Only Cam requirements.
+
+            if not (item.startswith('TP.C.') or
+                    item.startswith('R.C.')):
                 continue
             if self.acceptance_report:
                 if not self.is_acceptance(item):
@@ -312,6 +318,9 @@ class Report(object):
             demo_script.append(('requirement', item))
             count += 1
             aqf_number = "{0}.{1}".format(number, count)
+            # Ignore test procedures that were not tested for the text of the test report.
+            if item not in self._requirements_from_tests():
+                continue
             self.add_requirement(item, ['description', 'relationship'],
                                  title=inc_title,
                                  number=aqf_number)
@@ -458,7 +467,9 @@ class Report(object):
         """Write report to a file."""
         with open(filename, 'w') as fh:
             for line in self.as_list(report_type):
-                fh.write(str(line) + "\n")
+                if isinstance(line, unicode):
+                    line = line.encode('utf-8')
+                fh.write(line + "\n")
 
     def prepare_dict(self, data, path):
         t_data = data
@@ -489,11 +500,10 @@ class Report(object):
         data = {}
         for item in self.requirements:
             requirement = self.requirements[item]
-            if ("1500 CAM" not in requirement.get('category-list', [])):
-                # Only Cam requirements.
-                continue
-            definition = requirement.get('definition', 'CAM Verification Test')
-            timescale = requirement.get('timescale', 'Timescale Unlinked')
+            definition = requirement.get('definition', 'CBF Verification Test')
+            # Treat all things as being of unlinked timescale
+            #timescale = requirement.get('timescale', 'Timescale Unlinked')
+            timescale = 'Timescale Unlinked'
             if False:
                 # is_demo = requirement.get('method') == 'Demonstration'
                 method = requirement.get('method', "".join(item.split(".")[-2:-1]))
@@ -530,7 +540,7 @@ class Report(object):
         dp = docproducer
         # Generate the score card.
         scheme = 'acceptance' if self.acceptance_report else 'qualification'
-        dp.add_heading('chapter', 'CAM %s Summary' % scheme.capitalize(),
+        dp.add_heading('chapter', 'CBF %s Summary' % scheme.capitalize(),
                        anchor=True)
         dp.add_include('summary_info.inc')
         reqs = self.grouped_requirements(self.status_of_requirements)
@@ -539,9 +549,10 @@ class Report(object):
         table = []
         for ts in nsort(reqs):
             for desc in nsort([t for t in reqs[ts]
-                             if t == 'VerificationRequirement']):
+                               if t in ('VerificationRequirement',
+                                        'TestProcedure')]):
                 for demo_or_test in reversed(nsort(reqs[ts][desc])):
-                    title = "cam %s %s %s results" % (ts, scheme, demo_or_test)
+                    title = "cbf %s %s %s results" % (ts, scheme, demo_or_test)
                     label = dp.add_link(self.document_lookup.get(
                         title.lower(), title))
                     row_data = self.sum_status(reqs[ts][desc][demo_or_test])
@@ -560,18 +571,18 @@ class Report(object):
         timescales = dict([(n, []) for n in self.get_timescales()])
         for timescale in nsort(timescales.keys()):
             ts_string = " ".join([ts.capitalize() for ts in timescale.split(' ')])
-            dp.add_heading('chapter', 'CAM %s %s Testing Results'
+            dp.add_heading('chapter', 'CBF %s %s Testing Results'
                         % (ts_string, scheme.capitalize()), anchor=True)
-            dp.add_include('cam_%s_%s_testing_results_summary.inc'
+            dp.add_include('cbf_%s_%s_testing_results_summary.inc'
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
-            dp.add_include('cam_%s_%s_testing_results_table.inc'
+            dp.add_include('cbf_%s_%s_testing_results_table.inc'
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
 
-            dp.add_heading('chapter', 'CAM %s %s Demonstration Results'
+            dp.add_heading('chapter', 'CBF %s %s Demonstration Results'
                         % (ts_string, scheme.capitalize()), anchor=True)
-            dp.add_include('cam_%s_%s_demonstration_results_summary.inc'
+            dp.add_include('cbf_%s_%s_demonstration_results_summary.inc'
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
-            dp.add_include('cam_%s_%s_demonstration_results_table.inc'
+            dp.add_include('cbf_%s_%s_demonstration_results_table.inc'
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
         
     def write_report_system_info(self, base_dir):
@@ -610,7 +621,8 @@ class Report(object):
         reqs = self.grouped_requirements(self.status_of_requirements)
         for timescale, scheme in itertools.product(reqs, [QUAL, ACCEPT]):
             for vreq in [t for t in reqs[timescale]
-                         if t == 'VerificationRequirement']:
+                         if t in ('VerificationRequirement',
+                                  'TestProcedure')]:
                 for demo in reqs[timescale][vreq]:
                     is_demo = demo == 'Demonstration'
                     for result in ['Results', 'Procedure']:
@@ -626,15 +638,19 @@ class Report(object):
                                     # the requirements do not have a test
                                     # flagged as acceptance.
                                     continue
+                            if not (item.startswith('TP.C.') or
+                                    item.startswith('R.C.')):
+                                continue
+
                             items[item] = \
                                 self.status_of_requirements(item, is_demo)
                             if result == 'Results' and items[item] == 'Exists':
                                 items[item] = 'PASSED / FAILED'
 
-                        title = "CAM %s %s %s %s Summary" % \
+                        title = "CBF %s %s %s %s Summary" % \
                                 (timescale, scheme, demo, result)
                         self.generate_include_summary(title, items, basedir)
-                        title = "CAM %s %s %s %s" % \
+                        title = "CBF %s %s %s %s" % \
                                 (timescale, scheme, demo, result)
                         self.generate_include_table(title, items, basedir)
 
@@ -763,7 +779,14 @@ class Report(object):
         else:
             dp.add_heading('section', stitle)
         self._rst_add_data(dp, req_data, fields, ['id'])
-        relationships = req_data.get('relationship', {}).get('verifies', [])
+        relationship = req_data.get('relationship', {})
+        relationships = []
+        for rtype in ('verifies', 'X-referenced by', 'X-references',
+                      'referenced by', 'references'):
+            for r in  relationship.get(rtype, []):
+                if r.startswith('R.C.'):
+                    relationships.append(r)
+
         dp.add_heading('subsection', 'Requirements Verified')
         if relationships:
             for rel in nsort(relationships):
@@ -792,11 +815,15 @@ class Report(object):
         for vr in nsort(list_of_requirements):
             _req = self.requirements.get(vr, {})
             if verification_requirement:
-                condition = _req.get("definition") == "VerificationRequirement"
+                condition = _req.get("definition") in ("VerificationRequirement",
+                                                       'TestProcedure')
             else:
-                condition = _req.get("definition") != "VerificationRequirement"
+                condition = _req.get("definition") not in (
+                    "VerificationRequirement", 'TestProcedure')
 
-            if (condition and "1500 CAM" in _req.get('category-list', [])):
+            # if (condition and ("1500 CAM" in _req.get('category-list', [])
+            #                    or "1200 CBF" in requirement.get('category-list', []))):
+            if True:
                 docproducer.add_anchor("procedure_%s" % vr)
                 docproducer.add_heading('section', "%s: %s" %
                                         (vr, self.requirements.get(
@@ -866,25 +893,28 @@ class Report(object):
         """Create a report for a timescale."""
         docproducer.add_heading('chapter', "Timescale Report")
         test_requirements = self._requirements_from_tests()
-        cam_timescale = 'Timescale Unlinked'
+        cbf_timescale = 'Timescale Unlinked'
         if not timescales:
             timescales = dict([(n, []) for n in self.get_timescales()])
-            timescales[cam_timescale] = []
+            timescales[cbf_timescale] = []
         elif not isinstance(timescales, list):
             timescales = {timescales: []}
         table_head = ['VR', 'Status', 'Description']
         for req_id in self.requirements:
             req = self.requirements[req_id]
-            if (req.get("definition") == "VerificationRequirement"
-                    and "1500 CAM" in req.get('category-list', [])):
-                req_timescale = req.get('timescale', cam_timescale)
+            if (req.get("definition") in ("VerificationRequirement",
+                                          'TestProcedure')
+                # and ("1500 CAM" in req.get('category-list', []) or
+                #      "1200 CBF" in req.get('category-list', []))
+            ):
+                req_timescale = req.get('timescale', cbf_timescale)
                 if timescales.get(req_timescale) is not None:
                     timescales[req_timescale].append(req_id)
 
-        if cam_timescale in timescales:
+        if cbf_timescale in timescales:
             for req in test_requirements:
                 if req not in self.requirements:
-                    timescales[cam_timescale].append(req)
+                    timescales[cbf_timescale].append(req)
         ######################
         for timescale in nsort(timescales.keys()):
             counter = {'error': 0, 'failed': 0, 'passed': 0}
@@ -971,14 +1001,14 @@ class Report(object):
         if filter_name == "vr":
             heading_title = "AQF Verification Requirements Table"
             for key in nsort(requirements.keys()):
-                if (self.requirements.get(key, {}).get("definition") ==
-                        "VerificationRequirement"):
+                if (self.requirements.get(key, {}).get("definition") in
+                        ("VerificationRequirement", 'TestProcedure')):
                     requirement_keys.append(key)
         elif filter_name == "not_vr":
             heading_title = "AQF Requirements Table (excluding VR)"
             for key in nsort(requirements.keys()):
-                if not (self.requirements.get(key, {}).get("definition") ==
-                        "VerificationRequirement"):
+                if not (self.requirements.get(key, {}).get("definition") in
+                        ("VerificationRequirement", 'TestProcedure')):
                     requirement_keys.append(key)
         else:
             requirement_keys = nsort(requirements.keys())
@@ -1035,16 +1065,19 @@ class Report(object):
                     title_str = 'category'
                     data_str = '>'.join(data[item])
                 else:
-                    data_str = docproducer.clean_text_block(str(data[item]))
+                    data_str = docproducer.clean_text_block(unicode(data[item]))
             if title_str and data_str:
                 docproducer.add_line(":%s: %s" % (title_str.title(), data_str))
 
     def _rst_core(self, docproducer):
         """Generate a report of the entities from Core."""
         definitions = {}
-        for item in [d for d in self.requirements
-                     if "1500 CAM" in
-                        self.requirements[d].get('category-list', [])]:
+        for item in self.requirements: # [d for d in self.requirements
+            if not (item.startswith('TP.C') or
+                    item.startswith('VR.C') or
+                    item.startswith('R.C')):
+                continue
+
             req_def = self.requirements[item].get('definition', self.UNKNOWN)
             if req_def not in definitions:
                 definitions[req_def] = []
