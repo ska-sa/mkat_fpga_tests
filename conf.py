@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.abspath('./exts'))
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo',
-              'sphinx.ext.ifconfig', 'sphinx.ext.jsmath']
+              'sphinx.ext.ifconfig', 'sphinx.ext.mathjax']
 
 [extensions]
 todo_include_todos=True

@@ -437,11 +437,10 @@ def generate_report(settings, log_func):
     report.write_rst_cbf_files(os.path.join(settings['me_dir'], katreport_dir),
                                settings['build_dir'], settings["katreport_dir"],
                                'cbf')
-    # import IPython ; IPython.embed()
 
 def show_test_results(settings, log_func):
     """Helper function to print test results
-    
+
     test_data['Meta'] typically
         {u'end': u'2015-08-18 05:30:17.308133',
          u'sitename': u'devl_mkat',
