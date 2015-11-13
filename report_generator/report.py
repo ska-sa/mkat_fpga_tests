@@ -9,7 +9,6 @@ import itertools
 
 from report_generator.rest_producer import ReStProducer
 
-
 class Report(object):
 
     """

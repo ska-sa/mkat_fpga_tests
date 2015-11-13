@@ -10,7 +10,47 @@ import xml.etree.ElementTree
 import re
 import json
 import datetime
+import hashlib
 
+math_escape_re = re.compile(r'(?P<leading>\s*)\$\$(?P<maths>.+?)\$\$(?P<trailing>\s*)')
+
+def process_latex_escapes(text):
+    """Change  $$ latex math $$ text to inline RST math
+
+    Returns (hashed_txt, dict with keys/values {math_hash: rst_math_string})
+
+    hashed_txt : Original text with $$ ... $$ replaced with unique hash strings
+    math_hash : Each equation in text is replaced with this string in `hashed_txt`
+    rst_math_string : Replace math_hash with this string to get RST after all
+                      other RTF processing is done
+
+    """
+    replacements = {}
+    def replace(m):
+        # RST maths barfs if there is leading or trailing whitespace in the
+        # :math:`..` role
+        math_txt = m.group('maths').strip()
+        # Remove RTF garbage (all instances of \RTFGARBAGE, but not \\blah, since \\blah
+        # should be unescaped to \blah eventually)
+        math_txt = re.sub(r'(?<=[^\\])\\[a-zA-Z0-9]+', '', math_txt)
+        # Unescape backslashes and curly braces
+        math_txt = math_txt.replace(r'\\', '\\'
+            ).replace(r'\{', '{').replace(r'\}', '}')
+        math_hash = 'mathhashup' + hashlib.md5(math_txt).hexdigest()
+        replacement_txt = '{}:math:`{}`{}'.format(
+            m.group('leading'), math_txt, m.group('trailing'))
+        leading_space = replacement_txt[0].isspace()
+        trailing_space = replacement_txt[-1].isspace()
+        # RST maths barfs if there is not leading or trailing whitespace around
+        # the :math:`..` role
+        if not leading_space:
+            replacement_txt = ' ' + replacement_txt
+        if not trailing_space:
+            replacement_txt = replacement_txt + ' '
+        replacements[math_hash] = replacement_txt
+        return math_hash
+
+    return math_escape_re.sub(replace, text), replacements
 
 def _clean_xml_tag(input_str):
     """Cleanup the XML tags produced by CORE.
@@ -64,6 +104,9 @@ def _build_entity(data):
 
     ## UnRTF the text.
     data['description'] = _unrtf(data.get('description', ''))
+    rationale = data.get('rationale')
+    if rationale:
+        data['rationale'] = _unrtf(rationale)
 
     for key in data:
         if not data.get(key) or data.get(key) == 'nil':
@@ -81,14 +124,22 @@ def _unrtf(text):
     :return: String. Text with formating removed.
 
     """
-
-    out_text = re.sub(r'{\\[\\\w\s;]+;}', '', text.strip()).strip()
+    # Convert math stuff to hashes
+    out_text, maths_dict = process_latex_escapes(text)
+    # Convert \par's into newlines
+    out_text = re.sub(r'\\par ', '\n\n', out_text)
+    # Kill rest of rtf
+    out_text = re.sub(r'{\\[\\\w\s;]+;}', '', out_text.strip()).strip()
     out_text = re.sub(r'\\\w+\d*', '', out_text).strip()
     out_text = re.sub(r'\$\$f_\\\{([\w\d]+)\\\}\$\$', r'\1', out_text).strip()
 
     ## Strip:
     for n in ['{', '}']:
         out_text = out_text.strip(n).strip()
+
+    # Substitute the hashed math thingies back
+    for math_hash, math_rst in maths_dict.items():
+        out_text = out_text.replace(math_hash, math_rst)
 
     return out_text
 
