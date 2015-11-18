@@ -1470,3 +1470,51 @@ class test_CBF(unittest.TestCase):
             Aqf.less(abs_diff, 1,'Check that the maximum degree between '
                 'expected and actual phase difference between intergrations '
                 'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
+    @aqf_vr('TP.C.1.17')
+    def test_config_report(self):
+        """CBF Report configuration"""
+
+        repos = ['corr2', 'mkat_fpga', 'casperfpga', 'mkat_fpga_tests',
+                 'katcp-python']
+        src_dir = '/usr/local/src'
+        CMD = subprocess.check_output
+        Aqf.step('CMC CBF Package Software version information')
+        for repo in repos:
+            git_hash = CMD(['git', '--git-dir={}/{}/.git'.format(src_dir, repo),
+                            'rev-parse', '--short', 'HEAD']).strip()
+            git_branch = CMD(['git', '--git-dir={}/{}/.git'.format(src_dir, repo),
+                              'rev-parse','--abbrev-ref', 'HEAD']).strip()
+            Aqf.passed('Repo: {}, Branch: {}, Hash: {}'.format(repo.capitalize(),
+                                                            git_branch.capitalize(),
+                                                            git_hash))
+
+        fhosts = [fhost.host for fhost in self.correlator.fhosts]
+        xhosts = [xhost.host for xhost in self.correlator.xhosts]
+        Aqf.step('Roach Status\n')
+        Aqf.passed('DEngines :{}'.format(self.dhost.host))
+        Aqf.passed('Gateware :{}\n'.format(' ,Date: '.join(
+                                        self.dhost.system_info.values()[1::2])))
+        Aqf.passed('FEngines :{}'.format(', '.join(fhosts)))
+        Aqf.passed('Gateware :{}\n'.format(' ,Date: '.join(
+                                        fhost.system_info.values()[1::2])))
+        Aqf.passed('XEngines :{}'.format(', '.join(xhosts)))
+        Aqf.passed('Gateware :{}\n'.format(' ,Date: '.join(
+                                        xhost.system_info.values()[1::2])))
+        romfs = (subprocess.Popen(
+            "ssh root@{} 'cat /dev/mtdblock1 | less | strings | head -2 | tail -1'"
+            .format(fhost.host)  , shell=True, stdout=subprocess.PIPE,)
+            .communicate()[0].strip())
+        Aqf.passed('Current ROMFS Version: {}'.format(romfs))
+
+        uboot = (subprocess.Popen(
+            "ssh root@{} 'cat /dev/mtdblock5 | less | strings | head -1'".format(
+            fhost.host)  , shell=True, stdout=subprocess.PIPE,).communicate()[0]
+                                                                        .strip())
+        Aqf.passed('Current UBoot Version: {}'.format(uboot))
+
+        linux_ver = (subprocess.Popen(
+            "ssh root@{} 'cat /dev/mtdblock0 | less | strings | head -1'".format(
+            fhost.host)  , shell=True, stdout=subprocess.PIPE,).communicate()[0]
+                                                                        .strip())
+        Aqf.passed('Linux Version: {}'.format(linux_ver))
+        Aqf.passed('Test ran by: {} on {}'.format(getlogin(), time.ctime()))
