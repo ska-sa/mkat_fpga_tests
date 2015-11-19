@@ -583,7 +583,7 @@ class Report(object):
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
             dp.add_include('cbf_%s_%s_demonstration_results_table.inc'
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
-        
+
     def write_report_system_info(self, base_dir):
         dp = self.docproducer
         self.clear()
@@ -1179,8 +1179,8 @@ class Report(object):
                     docproducer.add_line("  ".join([l for l in line if l]))
                 if action_type == 'CHECKBOX':
                     docproducer.add_line('        **PASSED / FAILED** ')
-                if action.get('stack'):
-                    docproducer.add_sourcecode(''.join(action['stack']))
+                #if action.get('stack'):
+                    #docproducer.add_sourcecode(''.join(action['stack']))
                 if action_type == 'IMAGE':
                     docproducer.add_figure(
                         action['filename'], action['caption'], action['alt'])

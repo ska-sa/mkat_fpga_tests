@@ -1473,6 +1473,24 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.17')
     def test_config_report(self):
         """CBF Report configuration"""
+        import subprocess
+        import paramiko
+        import os
+
+        import IPython.embed()
+        hostname = os.uname()[1]
+        username = os.getlogin()
+        privatekeyfile = os.path.expanduser('~/.ssh/id_rsa')
+        pvt_key = paramiko.RSAKey.from_private_key_file(privatekeyfile)
+        ssh = paramiko.SSHClient()
+        # Automatically add untrusted hosts
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            ssh.connect(hostname=hostname, username=username, pkey=pvt_key)
+        except Exception as errmsg:
+            raise RuntimeError('{}'.format(errmsg))
+
+
 
         repos = ['corr2', 'mkat_fpga', 'casperfpga', 'mkat_fpga_tests',
                  'katcp-python']
@@ -1517,4 +1535,5 @@ class test_CBF(unittest.TestCase):
             fhost.host)  , shell=True, stdout=subprocess.PIPE,).communicate()[0]
                                                                         .strip())
         Aqf.passed('Linux Version: {}'.format(linux_ver))
-        Aqf.passed('Test ran by: {} on {}'.format(getlogin(), time.ctime()))
+        Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        import IPython;IPython.embed()
