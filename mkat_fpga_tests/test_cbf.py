@@ -8,6 +8,7 @@ import threading
 import os
 import paramiko
 import subprocess
+
 from functools import partial
 from random import randrange
 
@@ -18,12 +19,14 @@ import matplotlib.pyplot as plt
 from unittest.util import strclass
 
 from katcp.testutils import start_thread_with_cleanup
+
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
 from collections import namedtuple
 
 from corr2 import utils
+
 from casperfpga import utils as fpgautils
 
 from nosekatreport import Aqf, aqf_vr
