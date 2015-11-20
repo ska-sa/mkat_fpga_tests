@@ -6,8 +6,10 @@ import time
 import itertools
 import subprocess
 import threading
+import os
+import paramiko
+import subprocess
 from functools import partial
-from os import getlogin
 from random import randrange
 
 import numpy as np
@@ -206,7 +208,7 @@ class test_CBF(unittest.TestCase):
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
                             'Digitiser frequency is same as previous.'.format(
-                                i+1, len(requested_test_freqs), freq/1e6))
+                            i+1, len(requested_test_freqs), freq/1e6))
                 continue    # Already calculated this one
             else:
                 last_source_freq = this_source_freq
@@ -295,6 +297,7 @@ class test_CBF(unittest.TestCase):
             self.assertEqual(max_chan, test_chan,
                 'Source freq {} peak in correct channel.'
                     .format(freq, test_chan, max_chan))
+
         Aqf.less(
             np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
             'Check that VACC output is at < 99% of maximum value, otherwise '
@@ -328,8 +331,7 @@ class test_CBF(unittest.TestCase):
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
         # Get list of all the baselines present in the correlator output
-        present_baselines = sorted(
-                            get_baselines_lookup(test_dump).keys())
+        present_baselines = sorted(get_baselines_lookup(test_dump).keys())
 
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
@@ -355,7 +357,7 @@ class test_CBF(unittest.TestCase):
                      'Check that no baselines have all-zero visibilities')
         Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
                   'Check that all baseline visibilities are non-zero accross '
-                   'all channels')
+                  'all channels')
 
         # Save initial f-engine equalisations, and ensure they are restored
         # at the end of the test
@@ -377,8 +379,8 @@ class test_CBF(unittest.TestCase):
             zeros = set()
             for inp_i in all_inputs:
                 for inp_j in all_inputs:
-                    if (inp_i, inp_j) not in present_baselines: continue
-
+                    if (inp_i, inp_j) not in present_baselines:
+                        continue
                     if inp_i in nonzero_inputs and inp_j in nonzero_inputs:
                         nonzeros.add((inp_i, inp_j))
                     else:
@@ -455,11 +457,13 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
-        test_chan = 1500
+        test_chan = randrange(0, self.corr_freqs.n_chans)
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        Aqf.step('Selected test channel {} and Frequency {}MHz'.format(
+            test_chan, expected_fc/1e6))
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         chan_responses = []
@@ -492,9 +496,9 @@ class test_CBF(unittest.TestCase):
                 # E.g. test all the frequencies and only save the error cases,
                 # then have a final Aqf-check so that there is only one step
                 # (not n_chan) in the report.
-                self.assertLess(np.max(np.abs(s1 - s0))/norm_fac, self.threshold,
-                    'frequency scan comparison({}) is >= {} threshold[dB].'
-                        .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
+                Aqf.less(np.max(np.abs(s1 - s0))/norm_fac, self.threshold,
+                    'Check that the frequency scan comparison({}) is less than {} dB.'
+                    .format(np.max(np.abs(s1 - s0))/norm_fac, self.threshold))
 
     @aqf_vr('TP.C.dummy_vr_3')
     def test_restart_consistency(self):
