@@ -39,7 +39,8 @@ from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_loo
 
 LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 10              # How long to wait for a correlator dump to arrive in tests
+# How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 10
 
 
 # From
@@ -59,8 +60,8 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
-    b0 = np.abs(complexise(xeng_raw[:,0]))
-    b1 = np.abs(complexise(xeng_raw[:,1]))
+    b0 = np.abs(complexise(xeng_raw[:, 0]))
+    b1 = np.abs(complexise(xeng_raw[:, 1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
@@ -268,7 +269,7 @@ class test_CBF(unittest.TestCase):
             plt.close()
 
         graph_name_all = test_name + '.channel_response.svg'
-        plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
                       caption='Channel 1500 response vs source frequency')
 
@@ -281,7 +282,7 @@ class test_CBF(unittest.TestCase):
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
         graph_name_central = test_name + '.channel_response_central.svg'
-        plot_data_central  = loggerise(central_chan_responses[:, test_chan],
+        plot_data_central = loggerise(central_chan_responses[:, test_chan],
             dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
                       caption='Channel 1500 central response vs source frequency')
@@ -324,7 +325,7 @@ class test_CBF(unittest.TestCase):
         # Get bls ordering from get baseline lookup helper functions
         bls_ordering = test_dump['bls_ordering']
         # Get list of all the correlator input labels
-        input_labels = sorted(tuple(test_dump['input_labelling'][:,0]))
+        input_labels = sorted(tuple(test_dump['input_labelling'][:, 0]))
         # Get list of all the baselines present in the correlator output
         present_baselines = sorted(
             get_baselines_lookup(test_dump).keys())
@@ -350,10 +351,10 @@ class test_CBF(unittest.TestCase):
         test_data = test_dump['xeng_raw']
         # Expect all baselines and all channels to be non-zero
         Aqf.is_false(zero_baselines(test_data),
-                     'Check that no baselines have all-zero visibilities')
+                     'Check that no baselines have all-zero visibilities.')
         Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
-                  "Check that all baseline visibilities are non-zero accross "
-                    "all channels")
+            "Check that all baseline visibilities are non-zero accross "
+                "all channels.")
 
         # Save initial f-engine equalisations, and ensure they are restored
         # at the end of the test
@@ -364,8 +365,8 @@ class test_CBF(unittest.TestCase):
             self.fengops.eq_set(source_name=input, new_eq=0)
         test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
-                     "Check that all baseline visibilities are zero")
-        #-----------------------------------
+                     "Check that all baseline visibilities are zero.")
+        # -----------------------------------
         all_inputs = sorted(set(input_labels))
         zero_inputs = set(input_labels)
         nonzero_inputs = set()
@@ -384,6 +385,7 @@ class test_CBF(unittest.TestCase):
             return zeros, nonzeros
 
         for inp in input_labels:
+            # Sweeping throught all inputs and setting them on one-by-one.
             old_eq = initial_equalisations[inp]
             self.fengops.eq_set(source_name=inp, new_eq=old_eq)
             zero_inputs.remove(inp)
@@ -489,7 +491,60 @@ class test_CBF(unittest.TestCase):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        Aqf.failed('Correlator restart consistency test not implemented yet.')
+        test_chan = 1000
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(
+            test_chan, samples_per_chan=3, chans_around=1)
+        expected_fc = self.corr_freqs.chan_freqs[test_chan]
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
+        this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+        initial_max_freq_list = []
+        scans = []
+        for scan_i in range(3):
+            if scan_i:
+                print 'Restart Correlator'
+                self.corr_fix.stop_x_data()
+                correlator_fixture.halt_array()
+                correlator_fixture.start_correlator()
+                self.corr_fix.start_x_data()
+            scan_dumps = []
+            scans.append(scan_dumps)
+            for i, freq in enumerate(requested_test_freqs):
+                if scan_i == 0:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    #try:
+                        #self.corr_fix.start_x_data()
+                        #this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    #except:
+                        #import IPython;IPython.embed()
+                        #raise RuntimeError('capture not started')
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
+                    initial_max_freq_list.append(initial_max_freq)
+                else:
+                    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    this_freq_data = this_freq_dump['xeng_raw']
+                scan_dumps.append(this_freq_data)
+# still need to fix
+        diff_scans_dumps = []
+        for comparison in range(1, len(scans)):
+            s0 = np.array(scans[comparison - 1])
+            s1 = np.array(scans[comparison])
+            diff_scans_dumps.append(np.max(s0 - s1))
+
+        normalised_init_freq = np.array(initial_max_freq_list)
+        for comp in range(1, len(normalised_init_freq)):
+            v0 = np.array(normalised_init_freq[comp - 1])
+            v1 = np.array(normalised_init_freq[comp])
+
+        correct_init_freq = np.abs(np.max(v0 - v1))
+        diff_scans_comp = np.max(np.array(diff_scans_dumps)/correct_init_freq)
+        self.assertLess(diff_scans_comp, self.threshold,
+            'Results are not consequenct after correlator restart!!!\n\
+                scans comparison {} >= {} threshold[dB].'
+                    .format(diff_scans_comp, self.threshold))
+        #import IPython;IPython.embed()
 
     def _delays_setup(self):
         Aqf.step('Estimating synch epoch')
@@ -870,7 +925,7 @@ class test_CBF(unittest.TestCase):
         for vacc_accumulations in test_acc_lens:
             self.xengops.set_acc_len(vacc_accumulations)
             no_accs = internal_accumulations * vacc_accumulations
-            expected_response = np.abs(quantiser_spectrum)**2  * no_accs
+            expected_response = np.abs(quantiser_spectrum)**2 * no_accs
             response = complexise(
                 self.receiver.get_clean_dump(dump_timeout=5)['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
@@ -898,7 +953,7 @@ class test_CBF(unittest.TestCase):
         # Deprogramming xhosts first then fhosts avoid reorder timeout errors
         fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
         fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
-        [Aqf.is_false(host.is_running(),'{} Deprogrammed'.format(host.host))
+        [Aqf.is_false(host.is_running(), '{} Deprogrammed'.format(host.host))
             for host in hosts]
         # Confirm that SPEAD packets are either no longer being produced, or
         # that the data content is at least affected.
@@ -915,20 +970,20 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.start_x_data()
         # Confirm that the instrument is initialised by checking if roaches
         # are programmed.
-        [Aqf.is_true(host.is_running(),'{} programmed and running'
+        [Aqf.is_true(host.is_running(), '{} programmed and running'
             .format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced, with the selected data
         # product(s) The receiver won't return a dump if the correlator is not
         # producing well-formed SPEAD data.
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        Aqf.is_true(re_dump,'Check that SPEAD parkets are being produced after '
+        Aqf.is_true(re_dump, 'Check that SPEAD parkets are being produced after '
             ' instrument re-initialisation.')
 
         # Stop timer.
         end_time = time.time()
         # Data Product switching time = End time - Start time.
-        final_time =  round((end_time - start_time), 2)
+        final_time = round((end_time - start_time), 2)
         minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
@@ -941,7 +996,7 @@ class test_CBF(unittest.TestCase):
         # "old" one.
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
-                       accumulation_time=1.):
+                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
         self.xengops.set_acc_time(accumulation_time)
         Aqf.step('Getting correlator dump 1 before setting {}.'

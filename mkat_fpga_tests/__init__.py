@@ -190,10 +190,13 @@ class CorrelatorFixture(object):
 
             except Exception:
                 try:
+                    self.array_number = self.rct.req.array_list()[1][0].arguments[0]
                     self.rct.req.array_halt(self.array_number)
                 except IndexError:
                     raise RuntimeError("Unable to halt array due to empty array"
-                        "number")
+                        "number.")
+                except AttributeError:
+                    raise RuntimeError("Array number not found.")
 
                 self.katcp_rct.stop()
                 retries -= 1
