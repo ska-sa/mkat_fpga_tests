@@ -1598,12 +1598,11 @@ class test_CBF(unittest.TestCase):
             Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
                         .format(name, git_branch, git_hash))
 
-            #if bool(subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir), '--work-tree={}'.format(repo_dir), 'diff'])):
+            if bool(subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir), '--work-tree={}'.format(repo_dir), 'diff'])):
 
-                #Aqf.failed('Repo {}: Contains changes not staged for commit.\n'
-                          #.format(name))
-            #else:
-                #Aqf.passed('Repo {}: Up-to-date.\n'.format(name))
+                Aqf.failed('Repo {}: Contains changes not staged for commit.\n'
+                          .format(name))
+            else:
+                Aqf.passed('Repo {}: Up-to-date.\n'.format(name))
 
         Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
-
