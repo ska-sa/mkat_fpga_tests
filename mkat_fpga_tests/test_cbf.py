@@ -1187,7 +1187,7 @@ class test_CBF(unittest.TestCase):
             if num_discards > max_wait_dumps:
                 Aqf.failed('Could not get accumulation with corrrect '
                            'timestamp within {} accumulation periods.'
-                            .format(max_wait_dumps))
+                           .format(max_wait_dumps))
                 break
             else:
                 Aqf.step('Discarding accumulation with timestamp {}.'
@@ -1382,9 +1382,9 @@ class test_CBF(unittest.TestCase):
                               .format(delta_expected, delta_actual, tolerance, fringe_offset))
 
             Aqf.less(abs_diff, 1,
-                    'Check that the maximum degree between '
-                    'expected and actual phase difference between integrations '
-                    'is below 1 degree: {} degree\n'.format(abs_diff))
+                     'Check that the maximum degree between '
+                     'expected and actual phase difference between integrations '
+                     'is below 1 degree: {} degree\n'.format(abs_diff))
 
     @aqf_vr('TP.C.1.28')
     def test_fringe_rate(self):
@@ -1438,9 +1438,9 @@ class test_CBF(unittest.TestCase):
                               .format(delta_expected, delta_actual, tolerance, fringe_rate))
 
             Aqf.less(abs_diff, 1,
-                    'Check that the maximum degree between '
-                    'expected and actual phase difference between integrations '
-                    'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
+                     'Check that the maximum degree between '
+                     'expected and actual phase difference between integrations '
+                     'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
 
     @unittest.skip('Values still needs to be defined.')
     @aqf_vr('TP.C.1.28')
@@ -1532,8 +1532,7 @@ class test_CBF(unittest.TestCase):
         lnx_cmd = 'cat /dev/mtdblock0 | less | strings | head -1\n'
 
         for count, host in enumerate((self.correlator.fhosts +
-                                    self.correlator.xhosts), start=1):
-
+                                          self.correlator.xhosts), start=1):
             hostname = host.host
             Aqf.step('Host {}: {}'.format(count, hostname))
             user = 'root\n'
@@ -1575,7 +1574,7 @@ class test_CBF(unittest.TestCase):
             katcp_dir = katcp.__file__.replace('katcp/__init__.pyc', '')
             katcp_name = katcp.__name__
 
-            bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace('/xeng_wide/r2_4a4x128f.fpg',''))
+            bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace('/xeng_wide/r2_4a4x128f.fpg', ''))
             mkat_dir = os.readlink(bitstream_dir).replace('bitstreams', '')
             mkat_name = mkat_dir.rsplit('/')[-2]
 
@@ -1583,25 +1582,29 @@ class test_CBF(unittest.TestCase):
             test_name = os.getcwd().split('/')[-1]
 
             return {corr2_name: corr2_dir,
-             casper_name: casper_dir,
-             katcp_name: katcp_dir,
-              mkat_name: mkat_dir}
-              #,              test_name: test_dir}
+                    casper_name: casper_dir,
+                    katcp_name: katcp_dir,
+                    mkat_name: mkat_dir,
+                    test_name: test_dir}
 
         Aqf.step('CMC CBF Package Software version information')
         for name, repo_dir in get_src_dir(self).iteritems():
             git_hash = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
-              '--work-tree={}'.format(repo_dir), 'rev-parse', '--short', 'HEAD']).strip()
+                                                '--work-tree={}'.format(repo_dir), 'rev-parse', '--short',
+                                                'HEAD']).strip()
 
             git_branch = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
-                '--work-tree={}'.format(repo_dir), 'rev-parse', '--abbrev-ref', 'HEAD']).strip()
-            Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
-                        .format(name, git_branch, git_hash))
+                                                  '--work-tree={}'.format(repo_dir), 'rev-parse', '--abbrev-ref',
+                                                  'HEAD']).strip()
 
-            if bool(subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir), '--work-tree={}'.format(repo_dir), 'diff'])):
+            Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
+                       .format(name, git_branch, git_hash))
+
+            if bool(subprocess.check_output(
+                    ['git', '--git-dir={}/.git'.format(repo_dir), '--work-tree={}'.format(repo_dir), 'diff'])):
 
                 Aqf.failed('Repo {}: Contains changes not staged for commit.\n'
-                          .format(name))
+                           .format(name))
             else:
                 Aqf.passed('Repo {}: Up-to-date.\n'.format(name))
 
