@@ -1575,7 +1575,7 @@ class test_CBF(unittest.TestCase):
             katcp_name = katcp.__name__
 
             bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace(
-                '/xeng_wide/r2_4a4x128f.fpg', ''))
+                            '/xeng_wide/r2_4a4x128f.fpg', ''))
             mkat_dir = os.readlink(bitstream_dir).replace('bitstreams', '')
             mkat_name = mkat_dir.rsplit('/')[-2]
 
