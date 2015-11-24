@@ -1519,45 +1519,47 @@ class test_CBF(unittest.TestCase):
     def test_config_report(self):
         """CBF Report configuration"""
 
-        Aqf.passed('DEngines :{}'.format(self.dhost.host))
+        def get_roach_config():
 
-        fhosts = [fhost.host for fhost in self.correlator.fhosts]
-        Aqf.passed('Available FEngines :{}'.format(', '.join(fhosts)))
+            Aqf.passed('DEngines :{}'.format(self.dhost.host))
 
-        xhosts = [xhost.host for xhost in self.correlator.xhosts]
-        Aqf.passed('Available XEngines :{}\n'.format(', '.join(xhosts)))
+            fhosts = [fhost.host for fhost in self.correlator.fhosts]
+            Aqf.passed('Available FEngines :{}'.format(', '.join(fhosts)))
 
-        uboot_cmd = 'cat /dev/mtdblock5 | less | strings | head -1\n'
-        romfs_cmd = 'cat /dev/mtdblock1 | less | strings | head -2 | tail -1\n'
-        lnx_cmd = 'cat /dev/mtdblock0 | less | strings | head -1\n'
+            xhosts = [xhost.host for xhost in self.correlator.xhosts]
+            Aqf.passed('Available XEngines :{}\n'.format(', '.join(xhosts)))
 
-        for count, host in enumerate((self.correlator.fhosts +
-                                          self.correlator.xhosts), start=1):
-            hostname = host.host
-            Aqf.step('Host {}: {}'.format(count, hostname))
-            user = 'root\n'
-            tn = telnetlib.Telnet(hostname)
+            uboot_cmd = 'cat /dev/mtdblock5 | less | strings | head -1\n'
+            romfs_cmd = 'cat /dev/mtdblock1 | less | strings | head -2 | tail -1\n'
+            lnx_cmd = 'cat /dev/mtdblock0 | less | strings | head -1\n'
 
-            tn.read_until('login: ')
-            tn.write(user)
-            tn.write(uboot_cmd)
-            tn.write(romfs_cmd)
-            tn.write(lnx_cmd)
-            tn.write("exit\n")
-            stdout = tn.read_all()
-            tn.close()
+            for count, host in enumerate((self.correlator.fhosts +
+                                              self.correlator.xhosts), start=1):
+                hostname = host.host
+                Aqf.step('Host {}: {}'.format(count, hostname))
+                user = 'root\n'
+                tn = telnetlib.Telnet(hostname)
 
-            Aqf.passed('Gateware :{}'.format(', Build Date: '.join(
-                host.system_info.values()[1::2])))
+                tn.read_until('login: ')
+                tn.write(user)
+                tn.write(uboot_cmd)
+                tn.write(romfs_cmd)
+                tn.write(lnx_cmd)
+                tn.write("exit\n")
+                stdout = tn.read_all()
+                tn.close()
 
-            uboot_ver = stdout.splitlines()[-6]
-            Aqf.passed('Current UBoot Version: {}'.format(uboot_ver))
+                Aqf.passed('Gateware :{}'.format(', Build Date: '.join(
+                    host.system_info.values()[1::2])))
 
-            romfs_ver = stdout.splitlines()[-4]
-            Aqf.passed('Current ROMFS Version: {}'.format(romfs_ver))
+                uboot_ver = stdout.splitlines()[-6]
+                Aqf.passed('Current UBoot Version: {}'.format(uboot_ver))
 
-            linux_ver = stdout.splitlines()[-2]
-            Aqf.passed('Linux Version: {}\n'.format(linux_ver))
+                romfs_ver = stdout.splitlines()[-4]
+                Aqf.passed('Current ROMFS Version: {}'.format(romfs_ver))
+
+                linux_ver = stdout.splitlines()[-2]
+                Aqf.passed('Linux Version: {}\n'.format(linux_ver))
 
         def get_src_dir(self):
 
@@ -1588,28 +1590,82 @@ class test_CBF(unittest.TestCase):
                     mkat_name: mkat_dir,
                     test_name: test_dir}
 
-        Aqf.step('CMC CBF Package Software version information')
-        for name, repo_dir in get_src_dir(self).iteritems():
-            git_hash = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
-                                                '--work-tree={}'.format(repo_dir),
-                                                'rev-parse', '--short',
-                                                'HEAD']).strip()
+        def get_package_versions():
 
-            git_branch = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
-                                                  '--work-tree={}'.format(repo_dir),
-                                                  'rev-parse', '--abbrev-ref',
-                                                  'HEAD']).strip()
+            Aqf.step('CMC CBF Package Software version information')
+            for name, repo_dir in get_src_dir(self).iteritems():
+                git_hash = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
+                                                    '--work-tree={}'.format(repo_dir),
+                                                    'rev-parse', '--short',
+                                                    'HEAD']).strip()
 
-            Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
-                       .format(name, git_branch, git_hash))
+                git_branch = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
+                                                      '--work-tree={}'.format(repo_dir),
+                                                      'rev-parse', '--abbrev-ref',
+                                                      'HEAD']).strip()
 
-            if bool(subprocess.check_output(
-                    ['git', '--git-dir={}/.git'.format(repo_dir),
-                    '--work-tree={}'.format(repo_dir), 'diff'])):
+                Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
+                           .format(name, git_branch, git_hash))
 
-                Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
-                           .format(name))
-            else:
-                Aqf.passed('Repo: {}: Up-to-date.\n'.format(name))
+                if bool(subprocess.check_output(
+                        ['git', '--git-dir={}/.git'.format(repo_dir),
+                        '--work-tree={}'.format(repo_dir), 'diff'])):
+
+                    Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
+                               .format(name))
+                else:
+                    Aqf.passed('Repo: {}: Up-to-date.\n'.format(name))
+
+        def get_pdu_config():
+            host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
+            for count, host_ip in enumerate(host_ips, start=1):
+                user  = 'apc\r\n'
+                password = 'apc\r\n'
+                model_cmd = 'prodInfo\r\n'
+                about_cmd = 'about\r\n'
+                tn = telnetlib.Telnet(host_ip)
+
+                tn.read_until('User Name : ')
+                tn.write(user)
+                if password:
+                    tn.read_until("Password")
+                    tn.write(password)
+
+                tn.write(model_cmd)
+                tn.write(about_cmd)
+                tn.write("exit\r\n")
+                stdout = tn.read_all()
+                tn.close()
+
+                if 'Model' in stdout:
+                    pdu_model = stdout[stdout.index('Model'):].split()[1]
+                    Aqf.step('Checking PDU no: {}'.format(count))
+                    Aqf.passed('PDU Model: {} on {}'.format(pdu_model, host_ip))
+                if 'Name' in stdout:
+                    pdu_name = ' '.join(stdout[stdout.index('Name'):stdout.index('Date')].split()[-4:])
+                    Aqf.passed('PDU Name: {}'.format(pdu_name))
+                if 'Serial' in stdout:
+                    pdu_serial = stdout[stdout.find('Hardware Factory'):].splitlines()[3].split()[-1]
+                    Aqf.passed('PDU Serial Number: {}'.format(pdu_serial))
+                if  'Revision' in stdout:
+                    pdu_hw_rev = stdout[stdout.find('Hardware Factory'):].splitlines()[4].split()[-1]
+                    Aqf.passed('PDU HW Revision: {}'.format(pdu_hw_rev))
+                if  'Application Module' and 'Version' in stdout:
+                    pdu_app_ver = stdout[stdout.find('Application Module'):].split()[6]
+                    Aqf.passed('PDU Application Module Version: {} '.format(pdu_app_ver))
+                if 'APC OS(AOS)' in stdout:
+                    pdu_apc_name = stdout[stdout.find('APC OS(AOS)'):].splitlines()[2].split()[-1]
+                    pdu_apc_ver = stdout[stdout.find('APC OS(AOS)'):].splitlines()[3].split()[-1]
+                    Aqf.passed('PDU APC OS: {}'.format(pdu_apc_name))
+                    Aqf.passed('PDU APC OS ver: {}'.format(pdu_apc_ver))
+                if 'APC Boot Monitor' in stdout:
+                    pdu_apc_boot = stdout[stdout.find('APC Boot Monitor'):].splitlines()[2].split()[-1]
+                    pdu_apc_ver = stdout[stdout.find('APC Boot Monitor'):].splitlines()[3].split()[-1]
+                    Aqf.passed('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
+                    Aqf.passed('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
+
+        get_package_versions()
+        get_roach_config()
+        get_pdu_config()
 
         Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
