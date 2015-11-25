@@ -1550,17 +1550,17 @@ class test_CBF(unittest.TestCase):
                 stdout = tn.read_all()
                 tn.close()
 
-                Aqf.passed('Gateware :{}'.format(', Build Date: '.join(
+                Aqf.hop('Gateware :{}'.format(', Build Date: '.join(
                     host.system_info.values()[1::2])))
 
                 uboot_ver = stdout.splitlines()[-6]
-                Aqf.passed('Current UBoot Version: {}'.format(uboot_ver))
+                Aqf.hop('Current UBoot Version: {}'.format(uboot_ver))
 
                 romfs_ver = stdout.splitlines()[-4]
-                Aqf.passed('Current ROMFS Version: {}'.format(romfs_ver))
+                Aqf.hop('Current ROMFS Version: {}'.format(romfs_ver))
 
                 linux_ver = stdout.splitlines()[-2]
-                Aqf.passed('Linux Version: {}\n'.format(linux_ver))
+                Aqf.hop('Linux Version: {}\n'.format(linux_ver))
 
         def get_src_dir(self):
 
@@ -1604,7 +1604,7 @@ class test_CBF(unittest.TestCase):
                                                      .format(repo_dir), 'rev-parse',
                                                      '--abbrev-ref', 'HEAD']).strip()
 
-                Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
+                Aqf.hop('Repo: {}, Branch: {}, Last Hash: {}'
                            .format(name, git_branch, git_hash))
 
                 if bool(subprocess.check_output(
@@ -1614,7 +1614,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
                                .format(name))
                 else:
-                    Aqf.passed('Repo: {}: Up-to-date.\n'.format(name))
+                    Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
 
         def get_pdu_config():
             host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
@@ -1640,27 +1640,27 @@ class test_CBF(unittest.TestCase):
                 if 'Model' in stdout:
                     pdu_model = stdout[stdout.index('Model'):].split()[1]
                     Aqf.step('Checking PDU no: {}'.format(count))
-                    Aqf.passed('PDU Model: {} on {}'.format(pdu_model, host_ip))
+                    Aqf.hop('PDU Model: {} on {}'.format(pdu_model, host_ip))
 
                 if 'Name' in stdout:
                     pdu_name = (' '.join(stdout[stdout.index('Name'):stdout.index(
                                 'Date')].split()[-4:]))
-                    Aqf.passed('PDU Name: {}'.format(pdu_name))
+                    Aqf.hop('PDU Name: {}'.format(pdu_name))
 
                 if 'Serial' in stdout:
                     pdu_serial = (stdout[stdout.find('Hardware Factory'):]
                                  .splitlines()[3].split()[-1])
-                    Aqf.passed('PDU Serial Number: {}'.format(pdu_serial))
+                    Aqf.hop('PDU Serial Number: {}'.format(pdu_serial))
 
                 if 'Revision' in stdout:
                     pdu_hw_rev = (stdout[stdout.find('Hardware Factory'):]
                                  .splitlines()[4].split()[-1])
-                    Aqf.passed('PDU HW Revision: {}'.format(pdu_hw_rev))
+                    Aqf.hop('PDU HW Revision: {}'.format(pdu_hw_rev))
 
                 if 'Application Module' and 'Version' in stdout:
                     pdu_app_ver = (stdout[stdout.find('Application Module'):]
                                   .split()[6])
-                    Aqf.passed('PDU Application Module Version: {} '.format(
+                    Aqf.hop('PDU Application Module Version: {} '.format(
                                 pdu_app_ver))
 
                 if 'APC OS(AOS)' in stdout:
@@ -1668,16 +1668,16 @@ class test_CBF(unittest.TestCase):
                                    .splitlines()[2].split()[-1])
                     pdu_apc_ver = (stdout[stdout.find('APC OS(AOS)'):]
                                   .splitlines()[3].split()[-1])
-                    Aqf.passed('PDU APC OS: {}'.format(pdu_apc_name))
-                    Aqf.passed('PDU APC OS ver: {}'.format(pdu_apc_ver))
+                    Aqf.hop('PDU APC OS: {}'.format(pdu_apc_name))
+                    Aqf.hop('PDU APC OS ver: {}'.format(pdu_apc_ver))
 
                 if 'APC Boot Monitor' in stdout:
                     pdu_apc_boot = (stdout[stdout.find('APC Boot Monitor'):]
                                     .splitlines()[2].split()[-1])
                     pdu_apc_ver = (stdout[stdout.find('APC Boot Monitor'):]
                                   .splitlines()[3].split()[-1])
-                    Aqf.passed('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
-                    Aqf.passed('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
+                    Aqf.hop('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
+                    Aqf.hop('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
@@ -1694,7 +1694,7 @@ class test_CBF(unittest.TestCase):
                     remote_conn_pre.connect(ip, username=username, password=password,
                                             timeout=10)
                     remote_conn = remote_conn_pre.invoke_shell()
-                    Aqf.passed('Connected to Data switch {} on IP: {}'.format(count, ip))
+                    Aqf.hop('Connected to Data switch {} on IP: {}'.format(count, ip))
                 except SSHException:
                     Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
                                 count, ip))
@@ -1710,9 +1710,9 @@ class test_CBF(unittest.TestCase):
                 inventory = remote_conn.recv(nbytes)
                 if 'CHASSIS' in inventory:
                     part_number = inventory.split()[8]
-                    Aqf.passed('Data Switch Part no: {}'.format(part_number))
+                    Aqf.hop('Data Switch Part no: {}'.format(part_number))
                     serial_number = inventory.split()[9]
-                    Aqf.passed('Data Switch Serial no: {}'.format(serial_number))
+                    Aqf.hop('Data Switch Serial no: {}'.format(serial_number))
 
                 remote_conn.send("show version\n")
                 while not remote_conn.recv_ready():
@@ -1720,11 +1720,11 @@ class test_CBF(unittest.TestCase):
                 version = remote_conn.recv(nbytes)
                 if 'version' in version:
                     prod_name = version[version.find('Product name:'):].split()[2]
-                    Aqf.passed('Software Product name: {}'.format(prod_name))
+                    Aqf.hop('Software Product name: {}'.format(prod_name))
                     prod_rel = version[version.find('Product release:'):].split()[2]
-                    Aqf.passed('Software Product release: {}'.format(prod_rel))
+                    Aqf.hop('Software Product release: {}'.format(prod_rel))
                     build_date = version[version.find('Build date:'):].split()[2]
-                    Aqf.passed('Software Build date: {}\n'.format(build_date))
+                    Aqf.hop('Software Build date: {}\n'.format(build_date))
 
                 remote_conn.send("exit\n")
                 remote_conn.close()
