@@ -774,7 +774,10 @@ class test_CBF(unittest.TestCase):
         # Select a host
         xhost = self.correlator.xhosts[0]
         Aqf.step("Selected host: {}".format(xhost.host))
-        host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(xhost.host.lower()))
+        try:
+            host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(xhost.host.lower()))
+        except AttributeError:
+            Aqf.failed('Correlator_fixture experienced errors.')
         # Check if qdr is okay
         Aqf.is_true(host_sensor.get_value(), 'Confirm that sensor indicates QDR status: {} on {}.'
                     .format(host_sensor.status, xhost.host))
