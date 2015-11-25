@@ -7,6 +7,7 @@ import subprocess
 import threading
 import os
 import telnetlib
+import paramiko
 import subprocess
 from functools import partial
 from random import randrange
@@ -1577,7 +1578,7 @@ class test_CBF(unittest.TestCase):
             katcp_name = katcp.__name__
 
             bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace(
-                            '/xeng_wide/r2_4a4x128f.fpg', ''))
+                '/xeng_wide/r2_4a4x128f.fpg', ''))
             mkat_dir = os.readlink(bitstream_dir).replace('bitstreams', '')
             mkat_name = mkat_dir.rsplit('/')[-2]
 
@@ -1594,22 +1595,22 @@ class test_CBF(unittest.TestCase):
 
             Aqf.step('CMC CBF Package Software version information')
             for name, repo_dir in get_src_dir(self).iteritems():
-                git_hash = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
-                                                    '--work-tree={}'.format(repo_dir),
-                                                    'rev-parse', '--short',
-                                                    'HEAD']).strip()
+                git_hash = subprocess.check_output(['git', '--git-dir={}/.git'
+                                                   .format(repo_dir), '--work-tree={}'
+                                                    .format(repo_dir), 'rev-parse',
+                                                    '--short', 'HEAD']).strip()
 
-                git_branch = subprocess.check_output(['git', '--git-dir={}/.git'.format(repo_dir),
-                                                      '--work-tree={}'.format(repo_dir),
-                                                      'rev-parse', '--abbrev-ref',
-                                                      'HEAD']).strip()
+                git_branch = subprocess.check_output(['git', '--git-dir={}/.git'
+                                                     .format(repo_dir), '--work-tree={}'
+                                                     .format(repo_dir), 'rev-parse',
+                                                    '--abbrev-ref', 'HEAD']).strip()
 
                 Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
                            .format(name, git_branch, git_hash))
 
                 if bool(subprocess.check_output(
                         ['git', '--git-dir={}/.git'.format(repo_dir),
-                        '--work-tree={}'.format(repo_dir), 'diff'])):
+                         '--work-tree={}'.format(repo_dir), 'diff'])):
 
                     Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
                                .format(name))
@@ -1617,9 +1618,10 @@ class test_CBF(unittest.TestCase):
                     Aqf.passed('Repo: {}: Up-to-date.\n'.format(name))
 
         def get_pdu_config():
+            Aqf.step('Verify info on each PDU')
             host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
             for count, host_ip in enumerate(host_ips, start=1):
-                user  = 'apc\r\n'
+                user = 'apc\r\n'
                 password = 'apc\r\n'
                 model_cmd = 'prodInfo\r\n'
                 about_cmd = 'about\r\n'
@@ -1647,10 +1649,10 @@ class test_CBF(unittest.TestCase):
                 if 'Serial' in stdout:
                     pdu_serial = stdout[stdout.find('Hardware Factory'):].splitlines()[3].split()[-1]
                     Aqf.passed('PDU Serial Number: {}'.format(pdu_serial))
-                if  'Revision' in stdout:
+                if 'Revision' in stdout:
                     pdu_hw_rev = stdout[stdout.find('Hardware Factory'):].splitlines()[4].split()[-1]
                     Aqf.passed('PDU HW Revision: {}'.format(pdu_hw_rev))
-                if  'Application Module' and 'Version' in stdout:
+                if 'Application Module' and 'Version' in stdout:
                     pdu_app_ver = stdout[stdout.find('Application Module'):].split()[6]
                     Aqf.passed('PDU Application Module Version: {} '.format(pdu_app_ver))
                 if 'APC OS(AOS)' in stdout:
@@ -1664,8 +1666,61 @@ class test_CBF(unittest.TestCase):
                     Aqf.passed('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
                     Aqf.passed('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
 
+        def get_data_switch():
+            '''Verify info on each Data Switch'''
+            Aqf.step('Verify info on each Data Switch')
+            host_ips = ['10.103.192.{}'.format(i) for i in range(1, 41)]
+            username = 'admin'
+            password = 'admin'
+            nbytes = 2048
+            for count, ip in enumerate(host_ips, start=1):
+                try:
+                    remote_conn_pre = paramiko.SSHClient()
+                    # Load host keys from a system file.
+                    remote_conn_pre.load_system_host_keys()
+                    remote_conn_pre.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                    remote_conn_pre.connect(ip, username=username, password=password,
+                                            timeout=10)
+                    remote_conn = remote_conn_pre.invoke_shell()
+                    Aqf.passed('Connected to Data switch {} on IP: {}'.format(count, ip))
+                except SSHException:
+                    Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
+                        count, ip))
+
+                remote_conn.send("\n")
+                while not remote_conn.recv_ready():
+                    time.sleep(1)
+                remote_conn.recv(nbytes)
+
+                remote_conn.send("show inventory | include CHASSIS\n")
+                while not remote_conn.recv_ready():
+                    time.sleep(1)
+                inventory = remote_conn.recv(nbytes)
+                if 'CHASSIS' in inventory:
+                    part_number = inventory.split()[8]
+                    Aqf.passed('Data Switch Part no: {}'.format(part_number))
+                    serial_number = inventory.split()[9]
+                    Aqf.passed('Data Switch Serial no: {}'.format(serial_number))
+
+                remote_conn.send("show version\n")
+                while not remote_conn.recv_ready():
+                    time.sleep(1)
+                version = remote_conn.recv(nbytes)
+                if 'version' in version:
+                    prod_name = version[version.find('Product name:'):].split()[2]
+                    Aqf.passed('Software Product name: {}'.format(prod_name))
+                    prod_rel = version[version.find('Product release:'):].split()[2]
+                    Aqf.passed('Software Product release: {}'.format(prod_rel))
+                    build_date = version[version.find('Build date:'):].split()[2]
+                    Aqf.passed('Software Build date: {}\n'.format(build_date))
+
+                remote_conn.send("exit\n")
+                remote_conn.close()
+                remote_conn_pre.close()
+
         get_package_versions()
         get_roach_config()
         get_pdu_config()
+        get_data_switch()
 
         Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
