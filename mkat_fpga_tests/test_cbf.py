@@ -1522,13 +1522,13 @@ class test_CBF(unittest.TestCase):
 
         def get_roach_config():
 
-            Aqf.passed('DEngines :{}'.format(self.dhost.host))
+            Aqf.hop('DEngine :{}'.format(self.dhost.host))
 
             fhosts = [fhost.host for fhost in self.correlator.fhosts]
-            Aqf.passed('Available FEngines :{}'.format(', '.join(fhosts)))
+            Aqf.hop('Available FEngines :{}'.format(', '.join(fhosts)))
 
             xhosts = [xhost.host for xhost in self.correlator.xhosts]
-            Aqf.passed('Available XEngines :{}\n'.format(', '.join(xhosts)))
+            Aqf.hop('Available XEngines :{}\n'.format(', '.join(xhosts)))
 
             uboot_cmd = 'cat /dev/mtdblock5 | less | strings | head -1\n'
             romfs_cmd = 'cat /dev/mtdblock1 | less | strings | head -2 | tail -1\n'
@@ -1562,7 +1562,7 @@ class test_CBF(unittest.TestCase):
                 linux_ver = stdout.splitlines()[-2]
                 Aqf.hop('Linux Version: {}\n'.format(linux_ver))
 
-        def get_src_dir(self):
+        def get_src_dir():
 
             import corr2
             import casperfpga
@@ -1577,11 +1577,15 @@ class test_CBF(unittest.TestCase):
             katcp_dir = katcp.__file__.replace('katcp/__init__.pyc', '')
             katcp_name = katcp.__name__
 
+            # NM 2015-11-25 TODO specific x-engine fpg is hardcoded here, rather use
+            # os.path.split() twice
             bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace(
                 '/xeng_wide/r2_4a4x128f.fpg', ''))
             mkat_dir = os.readlink(bitstream_dir).replace('bitstreams', '')
             mkat_name = mkat_dir.rsplit('/')[-2]
 
+            # TODO NM 2015-11-25 getcwd() will break if the tests are launched from
+            # another dir. Rather use __file__?
             test_dir = os.getcwd()
             test_name = test_dir.split('/')[-1]
 
@@ -1593,7 +1597,7 @@ class test_CBF(unittest.TestCase):
 
         def get_package_versions():
 
-            for name, repo_dir in get_src_dir(self).iteritems():
+            for name, repo_dir in get_src_dir().iteritems():
                 git_hash = subprocess.check_output(['git', '--git-dir={}/.git'
                                                    .format(repo_dir), '--work-tree={}'
                                                    .format(repo_dir), 'rev-parse',
@@ -1610,13 +1614,18 @@ class test_CBF(unittest.TestCase):
                 if bool(subprocess.check_output(
                         ['git', '--git-dir={}/.git'.format(repo_dir),
                          '--work-tree={}'.format(repo_dir), 'diff'])):
-
+                    # TODO NM 2015-11-25: You really want to diff against HEAD since we
+                    # want all uncommitted changes, not just unstaged. Also, consider if
+                    # you need to fail the test in this case? I guess it is useful to have
+                    # a clear indicator that there were uncommited changes...
                     Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
                                .format(name))
                 else:
                     Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
 
         def get_pdu_config():
+            # TODO NM 2015-11-25: Perhaps the PDU IPs should come from the test config
+            # file?
             host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
             for count, host_ip in enumerate(host_ips, start=1):
                 user = 'apc\r\n'
@@ -1681,6 +1690,8 @@ class test_CBF(unittest.TestCase):
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
+            # TODO NM 2015-11-25: Perhaps the switch IP should come from the test config
+            # file?
             host_ips = ['10.103.192.{}'.format(i) for i in range(1, 41)]
             username = 'admin'
             password = 'admin'
