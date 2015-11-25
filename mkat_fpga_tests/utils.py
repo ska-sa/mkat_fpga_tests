@@ -37,7 +37,7 @@ def baseline_checker(xeng_raw, check_fn):
     """
     baselines = set()
     for bl in range(xeng_raw.shape[1]):
-        if check_fn(xeng_raw[:, bl, :]):
+        if check_fn(xeng_raw.value[:, bl, :]):
             baselines.add(bl)
     return baselines
 
@@ -328,7 +328,7 @@ def get_baselines_lookup(spead):
     Return: dict:
         baseline lookup
     """
-    bls_ordering = spead['bls_ordering']
+    bls_ordering = spead['bls_ordering'].value
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
