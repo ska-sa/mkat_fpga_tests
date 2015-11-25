@@ -1593,17 +1593,16 @@ class test_CBF(unittest.TestCase):
 
         def get_package_versions():
 
-            Aqf.step('CMC CBF Package Software version information')
             for name, repo_dir in get_src_dir(self).iteritems():
                 git_hash = subprocess.check_output(['git', '--git-dir={}/.git'
                                                    .format(repo_dir), '--work-tree={}'
-                                                    .format(repo_dir), 'rev-parse',
-                                                    '--short', 'HEAD']).strip()
+                                                   .format(repo_dir), 'rev-parse',
+                                                   '--short', 'HEAD']).strip()
 
                 git_branch = subprocess.check_output(['git', '--git-dir={}/.git'
                                                      .format(repo_dir), '--work-tree={}'
                                                      .format(repo_dir), 'rev-parse',
-                                                    '--abbrev-ref', 'HEAD']).strip()
+                                                     '--abbrev-ref', 'HEAD']).strip()
 
                 Aqf.passed('Repo: {}, Branch: {}, Last Hash: {}'
                            .format(name, git_branch, git_hash))
@@ -1618,7 +1617,6 @@ class test_CBF(unittest.TestCase):
                     Aqf.passed('Repo: {}: Up-to-date.\n'.format(name))
 
         def get_pdu_config():
-            Aqf.step('Verify info on each PDU')
             host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
             for count, host_ip in enumerate(host_ips, start=1):
                 user = 'apc\r\n'
@@ -1643,32 +1641,46 @@ class test_CBF(unittest.TestCase):
                     pdu_model = stdout[stdout.index('Model'):].split()[1]
                     Aqf.step('Checking PDU no: {}'.format(count))
                     Aqf.passed('PDU Model: {} on {}'.format(pdu_model, host_ip))
+
                 if 'Name' in stdout:
-                    pdu_name = ' '.join(stdout[stdout.index('Name'):stdout.index('Date')].split()[-4:])
+                    pdu_name = (' '.join(stdout[stdout.index('Name'):stdout.index(
+                                'Date')].split()[-4:]))
                     Aqf.passed('PDU Name: {}'.format(pdu_name))
+
                 if 'Serial' in stdout:
-                    pdu_serial = stdout[stdout.find('Hardware Factory'):].splitlines()[3].split()[-1]
+                    pdu_serial = (stdout[stdout.find('Hardware Factory'):]
+                                 .splitlines()[3].split()[-1])
                     Aqf.passed('PDU Serial Number: {}'.format(pdu_serial))
+
                 if 'Revision' in stdout:
-                    pdu_hw_rev = stdout[stdout.find('Hardware Factory'):].splitlines()[4].split()[-1]
+                    pdu_hw_rev = (stdout[stdout.find('Hardware Factory'):]
+                                 .splitlines()[4].split()[-1])
                     Aqf.passed('PDU HW Revision: {}'.format(pdu_hw_rev))
+
                 if 'Application Module' and 'Version' in stdout:
-                    pdu_app_ver = stdout[stdout.find('Application Module'):].split()[6]
-                    Aqf.passed('PDU Application Module Version: {} '.format(pdu_app_ver))
+                    pdu_app_ver = (stdout[stdout.find('Application Module'):]
+                                  .split()[6])
+                    Aqf.passed('PDU Application Module Version: {} '.format(
+                                pdu_app_ver))
+
                 if 'APC OS(AOS)' in stdout:
-                    pdu_apc_name = stdout[stdout.find('APC OS(AOS)'):].splitlines()[2].split()[-1]
-                    pdu_apc_ver = stdout[stdout.find('APC OS(AOS)'):].splitlines()[3].split()[-1]
+                    pdu_apc_name = (stdout[stdout.find('APC OS(AOS)'):]
+                                   .splitlines()[2].split()[-1])
+                    pdu_apc_ver = (stdout[stdout.find('APC OS(AOS)'):]
+                                  .splitlines()[3].split()[-1])
                     Aqf.passed('PDU APC OS: {}'.format(pdu_apc_name))
                     Aqf.passed('PDU APC OS ver: {}'.format(pdu_apc_ver))
+
                 if 'APC Boot Monitor' in stdout:
-                    pdu_apc_boot = stdout[stdout.find('APC Boot Monitor'):].splitlines()[2].split()[-1]
-                    pdu_apc_ver = stdout[stdout.find('APC Boot Monitor'):].splitlines()[3].split()[-1]
+                    pdu_apc_boot = (stdout[stdout.find('APC Boot Monitor'):]
+                                    .splitlines()[2].split()[-1])
+                    pdu_apc_ver = (stdout[stdout.find('APC Boot Monitor'):]
+                                  .splitlines()[3].split()[-1])
                     Aqf.passed('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
                     Aqf.passed('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
-            Aqf.step('Verify info on each Data Switch')
             host_ips = ['10.103.192.{}'.format(i) for i in range(1, 41)]
             username = 'admin'
             password = 'admin'
@@ -1685,7 +1697,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.passed('Connected to Data switch {} on IP: {}'.format(count, ip))
                 except SSHException:
                     Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
-                        count, ip))
+                                count, ip))
 
                 remote_conn.send("\n")
                 while not remote_conn.recv_ready():
@@ -1718,9 +1730,13 @@ class test_CBF(unittest.TestCase):
                 remote_conn.close()
                 remote_conn_pre.close()
 
+        Aqf.step('CMC CBF Package Software version information.')
         get_package_versions()
+        Aqf.step('CBF ROACH information.')
         get_roach_config()
+        Aqf.step('CBF ROACH information on each PDU.')
         get_pdu_config()
+        Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
 
         Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
