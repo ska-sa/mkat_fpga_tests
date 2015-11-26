@@ -320,6 +320,52 @@ class test_CBF(unittest.TestCase):
                  'Check that ripple within 80% of channel fc is < {} dB'
                  .format(acceptable_ripple_lt))
 
+    @aqf_vr('TP.C.1.19')
+    def test_sfdr_peaks(self):
+        """Test spurious free dynamic range
+
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
+        """
+        # Get baseline 0 data, i.e. auto-corr of m000h
+        test_baseline = 0
+        # Placeholder of actual frequencies that the signal generator produces
+        actual_test_freqs = []
+        # Channel no with max response for each frequency
+        max_channels = []
+        # Spurious response cutoff in dB
+        cutoff = 20
+        # Channel responses higher than -cutoff dB relative to expected channel
+        extra_peaks = []
+
+        # Checking for all channels.
+        start_chan = 1  # skip DC channel since dsim puts out zeros
+        for channel, channel_f0 in enumerate(
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+            print ('Getting channel response for freq {}/{}: {} MHz.'
+                   .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
+
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            actual_test_freqs.append(this_source_freq)
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
+            this_freq_response = (
+                normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            max_chan = np.argmax(this_freq_response)
+            max_channels.append(max_chan)
+            # Find responses that are more than -cutoff relative to max
+            unwanted_cutoff = this_freq_response[max_chan] / 10 ** (cutoff / 10.)
+            extra_responses = [i for i, resp in enumerate(this_freq_response)
+                               if i != max_chan and resp >= unwanted_cutoff]
+            extra_peaks.append(extra_responses)
+
+        Aqf.equals(max_channels, range(start_chan, len(max_channels) + start_chan),
+                   "Check that the correct channels have the peak response to each "
+                   "frequency")
+        Aqf.equals(extra_peaks, [[]] * len(max_channels),
+                   "Check that no other channels responded > -{cutoff} dB"
+                   .format(**locals()))
+
     @aqf_vr('TP.C.1.30')
     def test_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
@@ -492,7 +538,7 @@ class test_CBF(unittest.TestCase):
                     this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
-        for scan_i in range(1, len(scans)):
+        for count, scan_i in enumerate(range(1, len(scans))):
             for freq_i in range(len(scans[0])):
                 s0 = scans[0][freq_i]
                 s1 = scans[scan_i][freq_i]
@@ -502,16 +548,18 @@ class test_CBF(unittest.TestCase):
                 # E.g. test all the frequencies and only save the error cases,
                 # then have a final Aqf-check so that there is only one step
                 # (not n_chan) in the report.
-                Aqf.less(np.max(np.abs(s1 - s0)) / norm_fac, self.threshold,
-                         'Check that the frequency scan comparison({}) is less than {} dB.'
-                         .format(np.max(np.abs(s1 - s0)) / norm_fac, self.threshold))
+                max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
+                Aqf.less(max_freq_scan, self.threshold,
+                         'Check that the frequency scan on SPEAD dump #{}'
+                         ' comparison({}) is less than {} dB.'
+                         .format(count, max_freq_scan, self.threshold))
 
     @aqf_vr('TP.C.dummy_vr_3')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        Aqf.failed('Correlator restart consistency test not implemented yet.')
+        Aqf.tbd('Correlator restart consistency test not implemented yet.')
 
     def _delays_setup(self):
         Aqf.step('Estimating synch epoch')
@@ -634,9 +682,11 @@ class test_CBF(unittest.TestCase):
 
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
+        title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                 'dashed line indicates expected value.')
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
-        title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                units, file_name, title)
@@ -658,52 +708,6 @@ class test_CBF(unittest.TestCase):
                                      '{3} tolerance.'
                                      .format((count + 1) * .5, delay * 1e9, np.rad2deg(np.pi) * (count + 1) * .5,
                                              tolerance), tolerance)
-
-    @aqf_vr('TP.C.1.19')
-    def test_sfdr_peaks(self):
-        """Test spurious free dynamic range
-
-        Check that the correct channels have the peak response to each
-        frequency and that no other channels have significant relative power.
-        """
-        # Get baseline 0 data, i.e. auto-corr of m000h
-        test_baseline = 0
-        # Placeholder of actual frequencies that the signal generator produces
-        actual_test_freqs = []
-        # Channel no with max response for each frequency
-        max_channels = []
-        # Spurious response cutoff in dB
-        cutoff = 20
-        # Channel responses higher than -cutoff dB relative to expected channel
-        extra_peaks = []
-
-        # Checking for all channels.
-        start_chan = 1  # skip DC channel since dsim puts out zeros
-        for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
-            print ('Getting channel response for freq {}/{}: {} MHz.'
-                   .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
-            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
-
-            this_source_freq = self.dhost.sine_sources.sin_0.frequency
-            actual_test_freqs.append(this_source_freq)
-            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
-            this_freq_response = (
-                normalised_magnitude(this_freq_data[:, test_baseline, :]))
-            max_chan = np.argmax(this_freq_response)
-            max_channels.append(max_chan)
-            # Find responses that are more than -cutoff relative to max
-            unwanted_cutoff = this_freq_response[max_chan] / 10 ** (cutoff / 10.)
-            extra_responses = [i for i, resp in enumerate(this_freq_response)
-                               if i != max_chan and resp >= unwanted_cutoff]
-            extra_peaks.append(extra_responses)
-
-        Aqf.equals(max_channels, range(start_chan, len(max_channels) + start_chan),
-                   "Check that the correct channels have the peak response to each "
-                   "frequency")
-        Aqf.equals(extra_peaks, [[]] * len(max_channels),
-                   "Check that no other channels responded > -{cutoff} dB"
-                   .format(**locals()))
 
     @aqf_vr('TP.C.1.16')
     def test_sensor_values(self):
@@ -875,7 +879,8 @@ class test_CBF(unittest.TestCase):
         get_and_restore_initial_eqs(self, self.correlator)
         self.fengops.eq_set(source_name=test_input, new_eq=list(eqs))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
-                                          # Make dsim output periodic in FFT-length so that each FFT is identical
+                                          # Make dsim output periodic in FFT-length
+                                          # so that each FFT is identical
                                           repeatN=self.corr_freqs.n_chans * 2)
         # The re-quantiser outputs signed int (8bit), but the snapshot code
         # normalises it to floats between -1:1. Since we want to calculate the
