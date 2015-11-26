@@ -1,4 +1,5 @@
 from __future__ import division
+
 import unittest
 import logging
 import time
@@ -9,11 +10,15 @@ import os
 import telnetlib
 import paramiko
 import subprocess
+import colors
+
 from functools import partial
 from random import randrange
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+
 from unittest.util import strclass
 from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -22,6 +27,7 @@ from collections import namedtuple
 from corr2 import utils
 from casperfpga import utils as fpgautils
 from nosekatreport import Aqf, aqf_vr
+
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
@@ -765,7 +771,12 @@ class test_CBF(unittest.TestCase):
         # Select a host
         xhost = self.correlator.xhosts[0]
         Aqf.step("Selected host: {}".format(xhost.host))
-        host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(xhost.host.lower()))
+        try:
+            host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(
+                                                              xhost.host.lower()))
+        except AttributeError:
+            Aqf.failed('Correlator fixture does not contain array sensors.')
+
         # Check if qdr is okay
         Aqf.is_true(host_sensor.get_value(), 'Confirm that sensor indicates QDR status: {} on {}.'
                     .format(host_sensor.status, xhost.host))
@@ -812,8 +823,9 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
+        """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
-        Aqf.failed('PFB sensor test not yet implemented.')
+        Aqf.tbd('PFB sensor test not yet implemented.')
 
     @aqf_vr('TP.C.1.16')
     def test_roach_sensors_status(self):
@@ -831,7 +843,7 @@ class test_CBF(unittest.TestCase):
             # of values received.
             Aqf.equals(len(sensors_list), int(values_reply.arguments[1]),
                        'Check the number of sensors in the list is equal to the '
-                       'list of values received for {}'.format(roach.host))
+                       'list of values received for {}\n'.format(roach.host))
 
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = (
@@ -1519,7 +1531,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.17')
     def test_config_report(self):
         """CBF Report configuration"""
-
+        test_config = correlator_fixture.corr_conf
         def get_roach_config():
 
             Aqf.hop('DEngine :{}'.format(self.dhost.host))
@@ -1568,26 +1580,22 @@ class test_CBF(unittest.TestCase):
             import casperfpga
             import katcp
 
-            corr2_dir = corr2.__file__.replace('corr2/__init__.pyc', '')
+            corr2_dir, _None = os.path.split(os.path.split(corr2.__file__)[0])
             corr2_name = corr2.__name__
 
-            casper_dir = casperfpga.__file__.replace('casperfpga/__init__.pyc', '')
+            casper_dir, _None = os.path.split(os.path.split(casperfpga.__file__)[0])
             casper_name = casperfpga.__name__
 
-            katcp_dir = katcp.__file__.replace('katcp/__init__.pyc', '')
+            katcp_dir, _None = os.path.split(os.path.split(katcp.__file__)[0])
             katcp_name = katcp.__name__
 
-            # NM 2015-11-25 TODO specific x-engine fpg is hardcoded here, rather use
-            # os.path.split() twice
-            bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace(
-                '/xeng_wide/r2_4a4x128f.fpg', ''))
-            mkat_dir = os.readlink(bitstream_dir).replace('bitstreams', '')
-            mkat_name = mkat_dir.rsplit('/')[-2]
+            bitstream_dir = self.correlator.configd['xengine']['bitstream']
+            mkat_dir, _None = os.path.split(os.path.split(os.path.dirname(
+                          os.path.realpath(bitstream_dir)))[0])
+            _None, mkat_name = os.path.split(mkat_dir)
 
-            # TODO NM 2015-11-25 getcwd() will break if the tests are launched from
-            # another dir. Rather use __file__?
-            test_dir = os.getcwd()
-            test_name = test_dir.split('/')[-1]
+            test_dir, test_name = os.path.split(os.path.dirname(
+                                  os.path.realpath(__file__)))
 
             return {corr2_name: corr2_dir,
                     casper_name: casper_dir,
@@ -1596,7 +1604,6 @@ class test_CBF(unittest.TestCase):
                     test_name: test_dir}
 
         def get_package_versions():
-
             for name, repo_dir in get_src_dir().iteritems():
                 git_hash = subprocess.check_output(['git', '--git-dir={}/.git'
                                                    .format(repo_dir), '--work-tree={}'
@@ -1611,22 +1618,18 @@ class test_CBF(unittest.TestCase):
                 Aqf.hop('Repo: {}, Branch: {}, Last Hash: {}'
                            .format(name, git_branch, git_hash))
 
-                if bool(subprocess.check_output(
+                git_diff = subprocess.check_output(
                         ['git', '--git-dir={}/.git'.format(repo_dir),
-                         '--work-tree={}'.format(repo_dir), 'diff'])):
-                    # TODO NM 2015-11-25: You really want to diff against HEAD since we
-                    # want all uncommitted changes, not just unstaged. Also, consider if
-                    # you need to fail the test in this case? I guess it is useful to have
-                    # a clear indicator that there were uncommited changes...
+                         '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
+                if bool(git_diff):
                     Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
                                .format(name))
+                    print colors.red(git_diff)
                 else:
                     Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
 
         def get_pdu_config():
-            # TODO NM 2015-11-25: Perhaps the PDU IPs should come from the test config
-            # file?
-            host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
+            host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
             for count, host_ip in enumerate(host_ips, start=1):
                 user = 'apc\r\n'
                 password = 'apc\r\n'
@@ -1690,9 +1693,7 @@ class test_CBF(unittest.TestCase):
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
-            # TODO NM 2015-11-25: Perhaps the switch IP should come from the test config
-            # file?
-            host_ips = ['10.103.192.{}'.format(i) for i in range(1, 41)]
+            host_ips = test_config['data_switch_hosts']['data_switch_ips'].split(',')
             username = 'admin'
             password = 'admin'
             nbytes = 2048
@@ -1749,5 +1750,4 @@ class test_CBF(unittest.TestCase):
         get_pdu_config()
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
-
-        Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
