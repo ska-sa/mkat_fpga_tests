@@ -1,11 +1,13 @@
 #!/bin/bash
 
 set -e # Abort on any errors
-set -u # Throw error on uninitialized variables
 
-PYTHON_SRC_PACKAGES=(corr2 casperpga katcp-python)
+PYTHON_SRC_PACKAGES=(katcp-python casperfpga corr2)
 
 . venv/bin/activate
+
+set -u # Throw error on uninitialized variables
+
 
 for pkg in "${PYTHON_SRC_PACKAGES[@]}"
 do
