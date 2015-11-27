@@ -2,7 +2,7 @@
 
 set -e # Abort on any errors
 
-PYTHON_SRC_PACKAGES=(katcp-python casperfpga corr2)
+PYTHON_SRC_PACKAGES=(katcp-python nosekatreport casperfpga corr2)
 
 . venv/bin/activate
 
