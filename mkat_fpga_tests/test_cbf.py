@@ -1,4 +1,5 @@
 from __future__ import division
+
 import unittest
 import logging
 import time
@@ -9,11 +10,15 @@ import os
 import telnetlib
 import paramiko
 import subprocess
+import colors
+
 from functools import partial
 from random import randrange
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+
 from unittest.util import strclass
 from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -22,6 +27,7 @@ from collections import namedtuple
 from corr2 import utils
 from casperfpga import utils as fpgautils
 from nosekatreport import Aqf, aqf_vr
+
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
@@ -314,6 +320,52 @@ class test_CBF(unittest.TestCase):
                  'Check that ripple within 80% of channel fc is < {} dB'
                  .format(acceptable_ripple_lt))
 
+    @aqf_vr('TP.C.1.19')
+    def test_sfdr_peaks(self):
+        """Test spurious free dynamic range
+
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
+        """
+        # Get baseline 0 data, i.e. auto-corr of m000h
+        test_baseline = 0
+        # Placeholder of actual frequencies that the signal generator produces
+        actual_test_freqs = []
+        # Channel no with max response for each frequency
+        max_channels = []
+        # Spurious response cutoff in dB
+        cutoff = 20
+        # Channel responses higher than -cutoff dB relative to expected channel
+        extra_peaks = []
+
+        # Checking for all channels.
+        start_chan = 1  # skip DC channel since dsim puts out zeros
+        for channel, channel_f0 in enumerate(
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+            print ('Getting channel response for freq {}/{}: {} MHz.'
+                   .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
+
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            actual_test_freqs.append(this_source_freq)
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
+            this_freq_response = (
+                normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            max_chan = np.argmax(this_freq_response)
+            max_channels.append(max_chan)
+            # Find responses that are more than -cutoff relative to max
+            unwanted_cutoff = this_freq_response[max_chan] / 10 ** (cutoff / 10.)
+            extra_responses = [i for i, resp in enumerate(this_freq_response)
+                               if i != max_chan and resp >= unwanted_cutoff]
+            extra_peaks.append(extra_responses)
+
+        Aqf.equals(max_channels, range(start_chan, len(max_channels) + start_chan),
+                   "Check that the correct channels have the peak response to each "
+                   "frequency")
+        Aqf.equals(extra_peaks, [[]] * len(max_channels),
+                   "Check that no other channels responded > -{cutoff} dB"
+                   .format(**locals()))
+
     @aqf_vr('TP.C.1.30')
     def test_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
@@ -486,7 +538,7 @@ class test_CBF(unittest.TestCase):
                     this_freq_data = this_freq_dump['xeng_raw'].value
                 scan_dumps.append(this_freq_data)
 
-        for scan_i in range(1, len(scans)):
+        for count, scan_i in enumerate(range(1, len(scans))):
             for freq_i in range(len(scans[0])):
                 s0 = scans[0][freq_i]
                 s1 = scans[scan_i][freq_i]
@@ -496,16 +548,18 @@ class test_CBF(unittest.TestCase):
                 # E.g. test all the frequencies and only save the error cases,
                 # then have a final Aqf-check so that there is only one step
                 # (not n_chan) in the report.
-                Aqf.less(np.max(np.abs(s1 - s0)) / norm_fac, self.threshold,
-                         'Check that the frequency scan comparison({}) is less than {} dB.'
-                         .format(np.max(np.abs(s1 - s0)) / norm_fac, self.threshold))
+                max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
+                Aqf.less(max_freq_scan, self.threshold,
+                         'Check that the frequency scan on SPEAD dump #{}'
+                         ' comparison({}) is less than {} dB.'
+                         .format(count, max_freq_scan, self.threshold))
 
     @aqf_vr('TP.C.dummy_vr_3')
     def test_restart_consistency(self):
         """3. Check that results are consequent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        Aqf.failed('Correlator restart consistency test not implemented yet.')
+        Aqf.tbd('Correlator restart consistency test not implemented yet.')
 
     def _delays_setup(self):
         Aqf.step('Estimating synch epoch')
@@ -628,9 +682,11 @@ class test_CBF(unittest.TestCase):
 
         actual_phases = get_actual_phases()
         expected_phases = get_expected_phases()
+        title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                 'dashed line indicates expected value.')
         file_name = 'Delay_Phases_Response.svg'
         units = 'secs'
-        title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                units, file_name, title)
@@ -652,53 +708,6 @@ class test_CBF(unittest.TestCase):
                                      '{3} tolerance.'
                                      .format((count + 1) * .5, delay * 1e9, np.rad2deg(np.pi) * (count + 1) * .5,
                                              tolerance), tolerance)
-
-    @aqf_vr('TP.C.1.19')
-    def test_sfdr_peaks(self):
-        """Test spurious free dynamic range
-
-        Check that the correct channels have the peak response to each
-        frequency and that no other channels have significant relative power.
-        """
-        # Get baseline 0 data, i.e. auto-corr of m000h
-        test_baseline = 0
-        # Placeholder of actual frequencies that the signal generator produces
-        actual_test_freqs = []
-        # Channel no with max response for each frequency
-        max_channels = []
-        # Spurious response cutoff in dB
-        cutoff = 20
-        # Channel responses higher than -cutoff dB relative to expected channel
-        extra_peaks = []
-
-        # Checking for all channels.
-        start_chan = 1  # skip DC channel since dsim puts out zeros
-        for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
-            print ('Getting channel response for freq {}/{}: {} MHz.'
-                   .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
-            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
-
-            this_source_freq = self.dhost.sine_sources.sin_0.frequency
-            actual_test_freqs.append(this_source_freq)
-            this_freq_data = self.receiver.get_clean_dump(
-                DUMP_TIMEOUT)['xeng_raw'].value
-            this_freq_response = (
-                normalised_magnitude(this_freq_data[:, test_baseline, :]))
-            max_chan = np.argmax(this_freq_response)
-            max_channels.append(max_chan)
-            # Find responses that are more than -cutoff relative to max
-            unwanted_cutoff = this_freq_response[max_chan] / 10 ** (cutoff / 10.)
-            extra_responses = [i for i, resp in enumerate(this_freq_response)
-                               if i != max_chan and resp >= unwanted_cutoff]
-            extra_peaks.append(extra_responses)
-
-        Aqf.equals(max_channels, range(start_chan, len(max_channels) + start_chan),
-                   "Check that the correct channels have the peak response to each "
-                   "frequency")
-        Aqf.equals(extra_peaks, [[]] * len(max_channels),
-                   "Check that no other channels responded > -{cutoff} dB"
-                   .format(**locals()))
 
     @aqf_vr('TP.C.1.16')
     def test_sensor_values(self):
@@ -767,9 +776,11 @@ class test_CBF(unittest.TestCase):
         xhost = self.correlator.xhosts[0]
         Aqf.step("Selected host: {}".format(xhost.host))
         try:
-            host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(xhost.host.lower()))
+            host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(
+                                                              xhost.host.lower()))
         except AttributeError:
-            import IPython;IPython.embed()
+            Aqf.failed('Correlator fixture does not contain array sensors.')
+
         # Check if qdr is okay
         Aqf.is_true(host_sensor.get_value(), 'Confirm that sensor indicates QDR status: {} on {}.'
                     .format(host_sensor.status, xhost.host))
@@ -816,8 +827,9 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.16')
     def test_roach_pfb_sensors(self):
+        """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
-        Aqf.failed('PFB sensor test not yet implemented.')
+        Aqf.tbd('PFB sensor test not yet implemented.')
 
     @aqf_vr('TP.C.1.16')
     def test_roach_sensors_status(self):
@@ -835,7 +847,7 @@ class test_CBF(unittest.TestCase):
             # of values received.
             Aqf.equals(len(sensors_list), int(values_reply.arguments[1]),
                        'Check the number of sensors in the list is equal to the '
-                       'list of values received for {}'.format(roach.host))
+                       'list of values received for {}\n'.format(roach.host))
 
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = (
@@ -867,7 +879,8 @@ class test_CBF(unittest.TestCase):
         get_and_restore_initial_eqs(self, self.correlator)
         self.fengops.eq_set(source_name=test_input, new_eq=list(eqs))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
-                                          # Make dsim output periodic in FFT-length so that each FFT is identical
+                                          # Make dsim output periodic in FFT-length
+                                          # so that each FFT is identical
                                           repeatN=self.corr_freqs.n_chans * 2)
         # The re-quantiser outputs signed int (8bit), but the snapshot code
         # normalises it to floats between -1:1. Since we want to calculate the
@@ -1530,7 +1543,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.17')
     def test_config_report(self):
         """CBF Report configuration"""
-
+        test_config = correlator_fixture.corr_conf
         def get_roach_config():
 
             Aqf.hop('DEngine :{}'.format(self.dhost.host))
@@ -1579,26 +1592,22 @@ class test_CBF(unittest.TestCase):
             import casperfpga
             import katcp
 
-            corr2_dir = corr2.__file__.replace('corr2/__init__.pyc', '')
+            corr2_dir, _None = os.path.split(os.path.split(corr2.__file__)[0])
             corr2_name = corr2.__name__
 
-            casper_dir = casperfpga.__file__.replace('casperfpga/__init__.pyc', '')
+            casper_dir, _None = os.path.split(os.path.split(casperfpga.__file__)[0])
             casper_name = casperfpga.__name__
 
-            katcp_dir = katcp.__file__.replace('katcp/__init__.pyc', '')
+            katcp_dir, _None = os.path.split(os.path.split(katcp.__file__)[0])
             katcp_name = katcp.__name__
 
-            # NM 2015-11-25 TODO specific x-engine fpg is hardcoded here, rather use
-            # os.path.split() twice
-            bitstream_dir = (self.correlator.configd['xengine']['bitstream'].replace(
-                '/xeng_wide/r2_4a4x128f.fpg', ''))
-            mkat_dir = os.readlink(bitstream_dir).replace('bitstreams', '')
-            mkat_name = mkat_dir.rsplit('/')[-2]
+            bitstream_dir = self.correlator.configd['xengine']['bitstream']
+            mkat_dir, _None = os.path.split(os.path.split(os.path.dirname(
+                          os.path.realpath(bitstream_dir)))[0])
+            _None, mkat_name = os.path.split(mkat_dir)
 
-            # TODO NM 2015-11-25 getcwd() will break if the tests are launched from
-            # another dir. Rather use __file__?
-            test_dir = os.getcwd()
-            test_name = test_dir.split('/')[-1]
+            test_dir, test_name = os.path.split(os.path.dirname(
+                                  os.path.realpath(__file__)))
 
             return {corr2_name: corr2_dir,
                     casper_name: casper_dir,
@@ -1607,7 +1616,6 @@ class test_CBF(unittest.TestCase):
                     test_name: test_dir}
 
         def get_package_versions():
-
             for name, repo_dir in get_src_dir().iteritems():
                 git_hash = subprocess.check_output(['git', '--git-dir={}/.git'
                                                    .format(repo_dir), '--work-tree={}'
@@ -1622,22 +1630,18 @@ class test_CBF(unittest.TestCase):
                 Aqf.hop('Repo: {}, Branch: {}, Last Hash: {}'
                            .format(name, git_branch, git_hash))
 
-                if bool(subprocess.check_output(
+                git_diff = subprocess.check_output(
                         ['git', '--git-dir={}/.git'.format(repo_dir),
-                         '--work-tree={}'.format(repo_dir), 'diff'])):
-                    # TODO NM 2015-11-25: You really want to diff against HEAD since we
-                    # want all uncommitted changes, not just unstaged. Also, consider if
-                    # you need to fail the test in this case? I guess it is useful to have
-                    # a clear indicator that there were uncommited changes...
+                         '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
+                if bool(git_diff):
                     Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
-                               .format(name))
+                               'Difference: \n{}'
+                               .format(name, colors.red(git_diff)))
                 else:
                     Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
 
         def get_pdu_config():
-            # TODO NM 2015-11-25: Perhaps the PDU IPs should come from the test config
-            # file?
-            host_ips = ['10.99.3.{}'.format(i) for i in range(30, 44)]
+            host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
             for count, host_ip in enumerate(host_ips, start=1):
                 user = 'apc\r\n'
                 password = 'apc\r\n'
@@ -1701,9 +1705,7 @@ class test_CBF(unittest.TestCase):
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
-            # TODO NM 2015-11-25: Perhaps the switch IP should come from the test config
-            # file?
-            host_ips = ['10.103.192.{}'.format(i) for i in range(1, 41)]
+            host_ips = test_config['data_switch_hosts']['data_switch_ips'].split(',')
             username = 'admin'
             password = 'admin'
             nbytes = 2048
@@ -1760,5 +1762,4 @@ class test_CBF(unittest.TestCase):
         get_pdu_config()
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
-
-        Aqf.passed('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))

@@ -53,20 +53,28 @@ class CorrelatorFixture(object):
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None
+        self._rct = None
 
-        self.io_manager = ioloop_manager.IOLoopManager()
-        self.io_wrapper = resource_client.IOLoopThreadWrapper(
-            self.io_manager.get_ioloop())
-        add_cleanup(self.io_manager.stop)
-        self.io_manager.start()
-        self.rc = resource_client.KATCPClientResource(dict(name='localhost',
-            address=('localhost', '7147'), controlled=True))
-        self.rc.set_ioloop(self.io_manager.get_ioloop())
-        self.rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(self.rc,
-            self.io_wrapper))
-        self.rct.start()
-        add_cleanup(self.rct.stop)
-        self.rct.until_synced()
+    @property
+    def rct(self):
+        if self._rct is not None:
+            return self._rct
+        else:
+            self.io_manager = ioloop_manager.IOLoopManager()
+            self.io_wrapper = resource_client.IOLoopThreadWrapper(
+                self.io_manager.get_ioloop())
+            add_cleanup(self.io_manager.stop)
+            self.io_wrapper.default_timeout = 10
+            self.io_manager.start()
+            self.rc = resource_client.KATCPClientResource(dict(name='localhost',
+                address=('localhost', '7147'), controlled=True))
+            self.rc.set_ioloop(self.io_manager.get_ioloop())
+            self._rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(self.rc,
+                self.io_wrapper))
+            self._rct.start()
+            add_cleanup(self._rct.stop)
+            self._rct.until_synced()
+        return self._rct
 
     @property
     def dhost(self):
@@ -125,6 +133,7 @@ class CorrelatorFixture(object):
     def katcp_rct(self):
         if self._katcp_rct is None:
             try:
+                print 'array list'
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
             except IndexError:
