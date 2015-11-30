@@ -79,7 +79,7 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
         Aqf.passed(description)
 
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
-            plot_filename, plot_title, show=False):
+            plot_filename, plot_title, caption, show=False):
         """
         Gets actual and expected phase plots.
         return: None
@@ -105,7 +105,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         plt.grid(True)
         plt.ylabel('Phase [radians]')
         plt.xlabel('No. of Channels')
-        Aqf.matplotlib_fig(plot_filename, close_fig=False)
+        Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
         if show:
             plt.show()
         plt.close()
