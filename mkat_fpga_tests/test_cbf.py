@@ -1628,8 +1628,8 @@ class test_CBF(unittest.TestCase):
                          '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
                 if bool(git_diff):
                     Aqf.failed('Repo: {}: Contains changes not staged for commit.\n'
-                               .format(name))
-                    print colors.red(git_diff)
+                               'Difference: \n{}'
+                               .format(name, colors.red(git_diff)))
                 else:
                     Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
 
