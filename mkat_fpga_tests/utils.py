@@ -306,7 +306,7 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     #import IPython;IPython.embed()
 
     # TODO MM 2015-10-22
-    # Hardcoded shit. fix it
+    # Hardcoded fengine selection ;fix it
     host = [i['host'] for i in instrument.fengine_sources][0]
     source, source_index = ('m000_x', 0)#get_source_object_and_index(instrument, input_name)
     snap_name = 'snap_quant{}_ss'.format(source_index)
@@ -328,7 +328,7 @@ def get_baselines_lookup(spead):
     Return: dict:
         baseline lookup
     """
-    bls_ordering = spead['bls_ordering'].value
+    bls_ordering = spead['bls_ordering']
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 

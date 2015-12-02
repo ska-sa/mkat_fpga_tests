@@ -33,7 +33,8 @@ from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
-from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
+from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines
+from mkat_fpga_tests.utils import all_nonzero_baselines, rearrange_snapblock
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
@@ -473,16 +474,18 @@ class test_CBF(unittest.TestCase):
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         Aqf.step('Check that back-to-back dumps with same input are equal on '
                  'channel({}) @ {}MHz, '.format(test_chan, expected_fc / 1e6))
+
         for i, freq in enumerate(requested_test_freqs):
             print ('Testing dump consistency {}/{} @ {} MHz.'.format(
                 i + 1, len(requested_test_freqs), freq / 1e6))
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
-                                              #,repeatN=self.corr_freqs.n_chans * 2)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
+                                        repeatN=self.corr_freqs.n_chans * 2 * 8 - 8)
             dumps_data = []
             chan_responses = []
             for dump_no in range(3):
                 if dump_no == 0:
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    this_freq_dump = self.receiver.get_clean_dump(
+                        DUMP_TIMEOUT, discard=10)
                     initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                 else:
                     this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
@@ -494,9 +497,9 @@ class test_CBF(unittest.TestCase):
 
             diff_dumps = []
             for comparison in range(len(dumps_data)):
-                d0 = dumps_data[comparison-1]
+                d0 = dumps_data[0]
                 d1 = dumps_data[comparison]
-                diff_dumps.append(np.max(d0 - d1))
+                diff_dumps.append(np.max(np.abs(d0 - d1)))
 
             dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
             Aqf.less(dumps_comp, self.threshold,
@@ -1327,11 +1330,13 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
+        caption = ('Actual and expected Unwrapped Correlation Delay Rate, '
+                 'dashed line indicates expected value.')
         graph_title = 'Delay Rate at {} ns/s'.format(delay_rate * 1e9)
         graph_name = 'Delay_Rate_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         actual_phases = np.unwrap(actual_phases)
         # TODO MM 2015-10-22
@@ -1385,11 +1390,13 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                 'dashed line indicates expected value.')
         graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
         graph_name = 'Fringe_Offset_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1442,10 +1449,12 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
+        caption = ('Actual and expected Unwrapped Correlation Phase Rate, '
+                 'dashed line indicates expected value.')
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1515,10 +1524,12 @@ class test_CBF(unittest.TestCase):
         no_chans = setup_data['no_chans']
         graph_units = ''
         graph_title = 'All Delays Responses'
+        caption = ('Actual and expected Unwrapped Correlation, '
+                 'dashed line indicates expected value.')
         graph_name = 'All_Delays_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1718,7 +1729,7 @@ class test_CBF(unittest.TestCase):
                     remote_conn_pre.connect(ip, username=username, password=password,
                                             timeout=10)
                     remote_conn = remote_conn_pre.invoke_shell()
-                    Aqf.hop('Connected to Data switch {} on IP: {}'.format(count, ip))
+                    Aqf.step('Connected to Data switch {} on IP: {}'.format(count, ip))
                 except SSHException:
                     Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
                                 count, ip))
@@ -1763,3 +1774,127 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
         Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+
+    @aqf_vr('TP.C.1.18')
+    def test_fault_detection(self):
+        """AR1 Fault detection"""
+        def air_temp_warn(io_dir, label):
+            host = self.correlator.fhosts[0]
+            hostname = host.host
+            Aqf.step('Connected to Host: {}'.format(hostname))
+            user = 'root\n'
+            wait_time = 1
+
+            hwmon_dir = '/sys/class/hwmon/hwmon{}'.format(io_dir)
+            # returns current temperature
+            read_cur_temp = 'cat {}/temp1_input\n'.format(hwmon_dir)
+
+            # returns 1 if the roach is overtemp, it should be 0
+            read_overtemp_ind = 'cat {}/temp1_max_alarm\n'.format(hwmon_dir)
+            # returns 0 if the roach is undertemp, it should be 1
+            read_undertemp_ind = 'cat {}/temp1_min_alarm\n'.format(hwmon_dir)
+
+            # set the max temp limit to 10 degrees
+            set_max_limit = 'echo "10000" > {}/temp1_max\n'.format(hwmon_dir)
+            # set the min temp limit to below current temp
+            set_min_limit = 'echo "10000" > {}/temp1_min\n'.format(hwmon_dir)
+
+            # set the max temp limit back to 55 degrees
+            default_max = 'echo "55000" > {}/temp1_max\n'.format(hwmon_dir)
+            # set the min temp limit back to 50 degrees
+            default_min = 'echo "50000" > {}/temp1_min\n'.format(hwmon_dir)
+
+            tn = telnetlib.Telnet(hostname)
+            tn.read_until('login: ', timeout=wait_time)
+            tn.write(user)
+            time.sleep(wait_time)
+            tn.write(read_cur_temp)
+            time.sleep(wait_time)
+            stdout = tn.read_until(read_cur_temp, timeout=wait_time)
+            try:
+                cur_temp = int(stdout.splitlines()[-2])
+                Aqf.step('Current Air {} Temp: {} deg'.format(label, int(cur_temp)/1000.))
+            except ValueError:
+                Aqf.failed('Failed to read current temp {}.'.format(hostname))
+
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time)
+            stdout = tn.read_until(read_overtemp_ind, timeout=wait_time)
+            try:
+                # returns 1 if the roach is overtemp, it should be 0
+                overtemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_false(overtemp_ind,
+                            'Confirm that the overtemp alarm is Not triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time)
+            stdout = tn.read_until(read_undertemp_ind, timeout=wait_time)
+            try:
+                # returns 1 if the roach is undertemp, it should be 1
+                undertemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_true(undertemp_ind,
+                            'Confirm that the undertemp alarm is Not triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+            tn.write(set_max_limit)
+            Aqf.wait(wait_time*3, 'Setting max temp limit to 10 degrees')
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time*3)
+            stdout = tn.read_until(read_overtemp_ind, timeout=wait_time)
+            try:
+                overtemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_true(overtemp_ind,
+                            'Confirm that the overtemp alarm is Triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+            tn.write(set_min_limit)
+            Aqf.wait(wait_time*3., 'Setting min temp limit to 10 degrees')
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3.5)
+            stdout = tn.read_until(read_undertemp_ind, timeout=wait_time)
+            try:
+                undertemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_false(undertemp_ind,
+                            'Confirm that the undertemp alarm is Triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+            # Confirm the CBF sends an error message "#log warn <> roach2hwmon Sensor\_alarm:\_Chip\_ad7414-i2c-0-4c:\_temp1:\_<>\_C\_(min\_=\_50.0\_C,\_max\_=\_10.0\_C)\_[ALARM]"
+
+            tn.write(default_max)
+            Aqf.wait(wait_time*3, 'Setting max temp limit back to 55 degrees')
+            tn.write(default_min)
+            Aqf.wait(wait_time*3, 'Setting min temp limit back to 50 degrees')
+
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time*3)
+            overtemp_ind  = tn.read_until(read_overtemp_ind, timeout=wait_time)
+
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            undertemp_ind  = tn.read_until(read_undertemp_ind, timeout=wait_time)
+
+            try:
+                overtemp_ind = int(overtemp_ind.splitlines()[-2])
+                # returns 1 if the roach is overtemp, it should be 0
+                Aqf.is_false(overtemp_ind,
+                            'Confirm that the overtemp alarm was set back to default.')
+
+                # returns 1 if the roach is undertemp, it should be 1
+                undertemp_ind = int(undertemp_ind.splitlines()[-2])
+                Aqf.is_true(undertemp_ind,
+                            'Confirm that the undertemp alarm was set back to default.\n')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.\n'.format(hostname))
+
+            tn.write("exit\n")
+            tn.close()
+
+        Aqf.step('Trigger Air Inlet Temperature Warning.')
+        air_temp_warn(0, 'Inlet')
+        Aqf.step('Trigger Air Outlet Temperature Warning.')
+        air_temp_warn(1, 'Outlet')
