@@ -62,8 +62,8 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
-    b0 = np.abs(complexise(xeng_raw.value[:, 0]))
-    b1 = np.abs(complexise(xeng_raw.value[:, 1]))
+    b0 = np.abs(complexise(xeng_raw[:, 0]))
+    b1 = np.abs(complexise(xeng_raw[:, 1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
@@ -1895,6 +1895,7 @@ class test_CBF(unittest.TestCase):
             tn.close()
 
         Aqf.step('Trigger Air Inlet Temperature Warning.')
+        # TODO MM : Instead of hardcoding which test to run, think of a better way.
         air_temp_warn(0, 'Inlet')
         Aqf.step('Trigger Air Outlet Temperature Warning.')
         air_temp_warn(1, 'Outlet')
