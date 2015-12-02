@@ -1778,12 +1778,8 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.18')
     def test_fault_detection(self):
         """AR1 Fault detection"""
+
         def air_temp_warn(io_dir, label):
-            host = self.correlator.fhosts[0]
-            hostname = host.host
-            Aqf.step('Connected to Host: {}'.format(hostname))
-            user = 'root\n'
-            wait_time = 1
 
             hwmon_dir = '/sys/class/hwmon/hwmon{}'.format(io_dir)
             # returns current temperature
@@ -1898,8 +1894,95 @@ class test_CBF(unittest.TestCase):
             tn.write("exit\n")
             tn.close()
 
-        Aqf.step('Trigger Air Inlet Temperature Warning.')
+        def over_warning(io_dir, label):
+
+            hwmon_dir = '/sys/class/hwmon/hwmon{}'.format(io_dir)
+            curr_alarm_val = 'cat {}/in0_alarm\n'.format(hwmon_dir)
+            curr_read_lim = 'cat {}/in0_crit\n'.format(hwmon_dir)
+            # set the limit ridiculously low, the red LED should turn on
+            set_limit = 'echo "10" > {}/in0_crit\n'.format(hwmon_dir)
+
+            tn = telnetlib.Telnet(hostname)
+            tn.read_until('login: ', timeout=wait_time)
+            tn.write(user)
+            time.sleep(wait_time)
+
+            tn.write(curr_alarm_val)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(alarm_value,
+                    'Confirm that the {} alarm has Not triggered.'.format(label))
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm: {}.'.format(label, hostname))
+
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            try:
+                lim_val = int(stdout.splitlines()[-2])
+                Aqf.passed('Confirm current {} limit : {}'.format(label, lim_val))
+
+            except ValueError:
+                Aqf.failed('Failed to read {} limit: {}.'.format(label, hostname))
+
+            tn.write(set_limit)
+            Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
+            time.sleep(wait_time)
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Wait for command to be received successfully.')
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                #Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
+
+                Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
+
+            orig_alarm_val = 'echo "{}" > {}/in0_crit\n'.format(lim_val, hwmon_dir)
+            tn.write(orig_alarm_val)
+            Aqf.step('Setting current warning limit back to default')
+            time.sleep(wait_time*3)
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            try:
+                def_lim_val = int(stdout.splitlines()[-2])
+                Aqf.equals(def_lim_val, lim_val,
+                    'Confirm that the current warning limit was set back to default')
+            except ValueError:
+                Aqf.failed('Failed to set default value: {}.'.format(hostname))
+
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
+                Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.\n')
+            except ValueError:
+                Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
+
+        hosts = [host.host for host in self.correlator.fhosts + self.correlator.xhosts]
+        hostname = hosts[randrange(len(hosts))]
+        Aqf.step('Connected to Host: {}'.format(hostname))
+        user = 'root\n'
+        wait_time = 1
         # TODO MM : Instead of hardcoding which test to run, think of a better way.
+
+        Aqf.step('Trigger Air Inlet Temperature Warning.')
         air_temp_warn(0, 'Inlet')
         Aqf.step('Trigger Air Outlet Temperature Warning.')
         air_temp_warn(1, 'Outlet')
+        Aqf.step('Trigger the 1V0 overvoltage warning')
+        over_warning(2, 'overvoltage')
+        Aqf.step('Trigger the 3V3 overcurrent current warning.')
+        over_warning(3, 'overcurrent')
