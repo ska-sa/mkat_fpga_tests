@@ -124,22 +124,37 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title,
         aqf_plot_channels(dump['xeng_raw'][:, 0, :], 'chan_plot_file',
                           'Channelisation plot')
 
+        If `channelisation` is a tuple it is interpreted as a multi-line plot with
+        `channelisation` containing:
+
+        `((plot1_data, legend1), (plot2_data, legend2), ... )`
+
         if `log_dynamic_range` is not None, a log plot will be made with values normalised
         to the peak value of less than -`log_dynamic_range` dB set to -`log_dynamic_range`
 
         """
+        if not isinstance(channelisation, tuple):
+            channelisation = ((channelisation, None),)
 
-        if log_dynamic_range is not None:
-            plot_data = loggerise(channelisation, log_dynamic_range)
-            ylabel = 'Channel response [dB]'
-        else:
-            plot_data = channelisation
-            ylabel = 'Channel response (linear)'
+        has_legend = False
+        for plot_data, legend in channelisation:
+            kwargs = {}
+            if legend:
+                has_legend = True
+                kwargs['label'] = legend
+            if log_dynamic_range is not None:
+                plot_data = loggerise(plot_data, log_dynamic_range)
+                ylabel = 'Channel response [dB]'
+            else:
+                plot_data = channelisation
+                ylabel = 'Channel response (linear)'
 
-        plt.plot(plot_data)
-        plt.title(plot_title)
-        plt.ylabel(ylabel)
-        plt.xlabel('Channel number')
+            plt.plot(plot_data, **kwargs)
+            plt.title(plot_title)
+            plt.ylabel(ylabel)
+            plt.xlabel('Channel number')
+            if has_legend:
+                plt.legend()
 
         Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
         if show:

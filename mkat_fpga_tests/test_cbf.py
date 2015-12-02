@@ -246,8 +246,7 @@ class test_CBF(unittest.TestCase):
             chan_responses.append(this_freq_response)
             # Plot an overall frequency response at the centre frequency just as
             # a sanity check
-            #if freq == expected_fc:
-            if i == 0:
+            if np.abs(freq - expected_fc) < 0.1:
                 aqf_plot_channels(
                     this_freq_response, 'fc_channel_resp_log.svg',
                     'Log channel response at {} MHz'.format(this_source_freq/1e6),
