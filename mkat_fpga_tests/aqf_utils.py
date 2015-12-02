@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 
 from nosekatreport import Aqf
 
+from mkat_fpga_tests.utils import loggerise
+
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
     @functools.wraps(meth)
@@ -105,6 +107,40 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         plt.grid(True)
         plt.ylabel('Phase [radians]')
         plt.xlabel('No. of Channels')
+        Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
+        if show:
+            plt.show()
+        plt.close()
+
+
+def aqf_plot_channels(channelisation, plot_filename, plot_title,
+                      log_dynamic_range=None, caption="", show=False):
+        """Simple magnitude plot of a channelised result
+        return: None
+
+        Example
+        -------
+
+        aqf_plot_channels(dump['xeng_raw'][:, 0, :], 'chan_plot_file',
+                          'Channelisation plot')
+
+        if `log_dynamic_range` is not None, a log plot will be made with values normalised
+        to the peak value of less than -`log_dynamic_range` dB set to -`log_dynamic_range`
+
+        """
+
+        if log_dynamic_range is not None:
+            plot_data = loggerise(channelisation, log_dynamic_range)
+            ylabel = 'Channel response [dB]'
+        else:
+            plot_data = channelisation
+            ylabel = 'Channel response (linear)'
+
+        plt.plot(plot_data)
+        plt.title(plot_title)
+        plt.ylabel(ylabel)
+        plt.xlabel('Channel number')
+
         Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
         if show:
             plt.show()

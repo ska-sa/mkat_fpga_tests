@@ -31,6 +31,7 @@ from nosekatreport import Aqf, aqf_vr
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
+from mkat_fpga_tests.aqf_utils import aqf_plot_channels
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
@@ -243,6 +244,21 @@ class test_CBF(unittest.TestCase):
                 this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
+            # Plot an overall frequency response at the centre frequency just as
+            # a sanity check
+            #if freq == expected_fc:
+            if i == 0:
+                # Linear graph
+                aqf_plot_channels(
+                    this_freq_response, 'fc_channel_resp_lin.svg',
+                    'Linear channel response at {} MHz'.format(this_source_freq))
+                # Log graph
+                aqf_plot_channels(
+                    this_freq_response, 'fc_channel_resp_log.svg',
+                    'Log channel response at {} MHz'.format(this_source_freq),
+                    log_dynamic_range=90)
+
+
 
         # Test fft overflow and qdr status after
         test_fftoverflow_qdrstatus()
@@ -281,7 +297,9 @@ class test_CBF(unittest.TestCase):
         graph_name_all = test_name + '.channel_response.svg'
         plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
-                      caption='Channel 1500 response vs source frequency')
+                      caption='Channel {} response vs source frequency'
+                      .format(test_chan))
+
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
@@ -295,7 +313,9 @@ class test_CBF(unittest.TestCase):
         plot_data_central = loggerise(central_chan_responses[:, test_chan],
                                       dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
-                      caption='Channel 1500 central response vs source frequency')
+                      caption='Channel {} central response vs source frequency'
+                      .format(test_chan))
+
 
         # Test responses in central 80% of channel
         for i, freq in enumerate(central_chan_test_freqs):
