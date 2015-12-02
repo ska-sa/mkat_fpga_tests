@@ -1800,7 +1800,9 @@ class test_CBF(unittest.TestCase):
             # set the min temp limit back to 50 degrees
             default_min = 'echo "50000" > {}/temp1_min\n'.format(hwmon_dir)
 
+            hostname = hosts[randrange(len(hosts))]
             tn = telnetlib.Telnet(hostname)
+            Aqf.step('Connected to Host: {}'.format(hostname))
             tn.read_until('login: ', timeout=wait_time)
             tn.write(user)
             time.sleep(wait_time)
@@ -1902,7 +1904,9 @@ class test_CBF(unittest.TestCase):
             # set the limit ridiculously low, the red LED should turn on
             set_limit = 'echo "10" > {}/in0_crit\n'.format(hwmon_dir)
 
+            hostname = hosts[randrange(len(hosts))]
             tn = telnetlib.Telnet(hostname)
+            Aqf.step('Connected to Host: {}'.format(hostname))
             tn.read_until('login: ', timeout=wait_time)
             tn.write(user)
             time.sleep(wait_time)
@@ -1972,8 +1976,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
 
         hosts = [host.host for host in self.correlator.fhosts + self.correlator.xhosts]
-        hostname = hosts[randrange(len(hosts))]
-        Aqf.step('Connected to Host: {}'.format(hostname))
+
         user = 'root\n'
         wait_time = 1
         # TODO MM : Instead of hardcoding which test to run, think of a better way.
