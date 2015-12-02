@@ -248,14 +248,9 @@ class test_CBF(unittest.TestCase):
             # a sanity check
             #if freq == expected_fc:
             if i == 0:
-                # Linear graph
-                aqf_plot_channels(
-                    this_freq_response, 'fc_channel_resp_lin.svg',
-                    'Linear channel response at {} MHz'.format(this_source_freq))
-                # Log graph
                 aqf_plot_channels(
                     this_freq_response, 'fc_channel_resp_log.svg',
-                    'Log channel response at {} MHz'.format(this_source_freq),
+                    'Log channel response at {} MHz'.format(this_source_freq/1e6),
                     log_dynamic_range=90)
 
 
@@ -360,6 +355,7 @@ class test_CBF(unittest.TestCase):
 
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros
+        n_chans = self.corr_freqs.n_chans
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'
@@ -371,6 +367,12 @@ class test_CBF(unittest.TestCase):
             this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
             this_freq_response = (
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
+                aqf_plot_channels(
+                    this_freq_response, 'fc_channel_resp_log.svg',
+                    'Log channel response at {} MHz'.format(this_source_freq/1e6),
+                    log_dynamic_range=90)
+
             max_chan = np.argmax(this_freq_response)
             max_channels.append(max_chan)
             # Find responses that are more than -cutoff relative to max
