@@ -1829,7 +1829,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
 
             tn.write(read_undertemp_ind)
-            time.sleep(wait_time)
+            time.sleep(wait_time*3)
             stdout = tn.read_until(read_undertemp_ind, timeout=wait_time)
             try:
                 # returns 1 if the roach is undertemp, it should be 1
@@ -1840,7 +1840,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
 
             tn.write(set_max_limit)
-            Aqf.wait(wait_time*3, 'Setting max temp limit to 10 degrees')
+            Aqf.wait(wait_time, 'Setting max temp limit to 10 degrees')
+            time.sleep(wait_time)
             tn.write(read_overtemp_ind)
             time.sleep(wait_time*3)
             stdout = tn.read_until(read_overtemp_ind, timeout=wait_time)
@@ -1852,9 +1853,10 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
 
             tn.write(set_min_limit)
-            Aqf.wait(wait_time*3., 'Setting min temp limit to 10 degrees')
+            Aqf.wait(wait_time*2, 'Setting min temp limit to 10 degrees')
+            time.sleep(wait_time)
             tn.write(read_undertemp_ind)
-            time.sleep(wait_time*3.5)
+            time.sleep(wait_time*3)
             stdout = tn.read_until(read_undertemp_ind, timeout=wait_time)
             try:
                 undertemp_ind = int(stdout.splitlines()[-2])
@@ -1863,12 +1865,15 @@ class test_CBF(unittest.TestCase):
             except ValueError:
                 Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
 
+            # TODO MM add sensor sniffer, at the moment sensor in not implemented
             # Confirm the CBF sends an error message "#log warn <> roach2hwmon Sensor\_alarm:\_Chip\_ad7414-i2c-0-4c:\_temp1:\_<>\_C\_(min\_=\_50.0\_C,\_max\_=\_10.0\_C)\_[ALARM]"
 
             tn.write(default_max)
-            Aqf.wait(wait_time*3, 'Setting max temp limit back to 55 degrees')
+            Aqf.wait(wait_time, 'Setting max temp limit back to 55 degrees')
+            time.sleep(wait_time)
             tn.write(default_min)
-            Aqf.wait(wait_time*3, 'Setting min temp limit back to 50 degrees')
+            Aqf.wait(wait_time, 'Setting min temp limit back to 50 degrees')
+            time.sleep(wait_time)
 
             tn.write(read_overtemp_ind)
             time.sleep(wait_time*3)
@@ -1883,8 +1888,7 @@ class test_CBF(unittest.TestCase):
                 # returns 1 if the roach is overtemp, it should be 0
                 Aqf.is_false(overtemp_ind,
                             'Confirm that the overtemp alarm was set back to default.')
-
-                # returns 1 if the roach is undertemp, it should be 1
+                # returns 0 if the roach is undertemp, it should be 1
                 undertemp_ind = int(undertemp_ind.splitlines()[-2])
                 Aqf.is_true(undertemp_ind,
                             'Confirm that the undertemp alarm was set back to default.\n')
