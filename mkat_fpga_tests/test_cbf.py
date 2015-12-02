@@ -1976,11 +1976,10 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
 
         hosts = [host.host for host in self.correlator.fhosts + self.correlator.xhosts]
-
         user = 'root\n'
         wait_time = 1
-        # TODO MM : Instead of hardcoding which test to run, think of a better way.
 
+        # TODO MM : Instead of hardcoding which test to run, think of a better way.
         Aqf.step('Trigger Air Inlet Temperature Warning.')
         air_temp_warn(0, 'Inlet')
         Aqf.step('Trigger Air Outlet Temperature Warning.')
