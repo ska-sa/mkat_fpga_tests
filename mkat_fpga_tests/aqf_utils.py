@@ -11,10 +11,8 @@ def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
     @functools.wraps(meth)
     def decorated(*args, **kwargs):
-        try:
-            meth(*args, **kwargs)
-        finally:
-            Aqf.end()
+        meth(*args, **kwargs)
+        Aqf.end()
 
     return decorated
 
@@ -122,8 +120,8 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         Example
         -------
 
-        aqf_plot_channels(dump['xeng_raw'][:, 0, :], 'chan_plot_file',
-                          'Channelisation plot')
+        aqf_plot_channels(nomalised_magnintude(dump['xeng_raw'][:, 0, :]),
+                          'chan_plot_file', 'Channelisation plot')
 
         If `channelisation` is a tuple it is interpreted as a multi-line plot with
         `channelisation` containing:
@@ -140,7 +138,7 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         the same max...
 
         """
-        if not isinstance(channelisation, tuple):
+        if not isinstance(channelisation[0], tuple):
             channelisation = ((channelisation, None),)
 
         has_legend = False
@@ -166,7 +164,7 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         ybound = axis.get_ybound()
         yb_diff = abs(ybound[1] - ybound[0])
         new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-        axis.set_ybound(*new_ybound)
+        #axis.set_ybound(*new_ybound)
         if has_legend:
             plt.legend()
 

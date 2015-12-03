@@ -485,7 +485,7 @@ class test_CBF(unittest.TestCase):
             test_data = self.receiver.get_clean_dump()['xeng_raw']
             plot_data = [normalised_magnitude(test_data[:,i,:])
                          for i in plot_baseline_inds]
-            aqf_plot_channels(tuple(zip(plot_data, plot_baseline_legends)),
+            aqf_plot_channels(zip(plot_data, plot_baseline_legends),
                               plot_filename='channel_resp_log.svg',
                               log_dynamic_range=90, log_normalise_to=1,
                               caption='Baseline channel response with the '
@@ -516,11 +516,13 @@ class test_CBF(unittest.TestCase):
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         Aqf.step('Check that back-to-back dumps with same input are equal on '
                  'channel({}) @ {}MHz, '.format(test_chan, expected_fc / 1e6))
+        source_period_in_samples = self.corr_freqs.n_chans*2
         for i, freq in enumerate(requested_test_freqs):
             print ('Testing dump consistency {}/{} @ {} MHz.'.format(
                 i + 1, len(requested_test_freqs), freq / 1e6))
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
-                                              repeatN=self.corr_freqs.n_chans * 2)
+                                              repeatN=source_period_in_samples)
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
             dumps_data = []
             chan_responses = []
             for dump_no in range(3):
@@ -542,13 +544,21 @@ class test_CBF(unittest.TestCase):
                 diff_dumps.append(np.max(d0 - d1))
 
             dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
-            Aqf.less(dumps_comp, self.threshold,
-                     'Check that back-to-back dumps({}) with the same frequency '
-                     'input differ by no more than {} threshold[dB].'
-                     .format(dumps_comp, 10 * np.log10(self.threshold)))
+            if not Aqf.less(
+                    dumps_comp, self.threshold,
+                    'Check that back-to-back dumps({}) with the same frequency '
+                    'input differ by no more than {} threshold[dB].'
+                    .format(dumps_comp, 10 * np.log10(self.threshold))
+            ):
+                legends = ['dump #{}'.format(i) for i in range(len(chan_responses))]
+                aqf_plot_channels(
+                    zip(chan_responses, legends),
+                    plot_filename='channel_resp.svg',
+                    log_dynamic_range=90, log_normalise_to=1,
+                    caption='Comparison of back-to-back channelisation results with '
+                    'source periodic every {} samples and sine frequency of '
+                    '{} MHz.'.format(source_period_in_samples, this_source_freq))
 
-            # chan_responses = np.array(chan_responses)
-            # plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
