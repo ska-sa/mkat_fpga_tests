@@ -37,7 +37,7 @@ def baseline_checker(xeng_raw, check_fn):
     """
     baselines = set()
     for bl in range(xeng_raw.shape[1]):
-        if check_fn(xeng_raw.value[:, bl, :]):
+        if check_fn(xeng_raw[:, bl, :]):
             baselines.add(bl)
     return baselines
 

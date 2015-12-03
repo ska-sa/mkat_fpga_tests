@@ -496,7 +496,7 @@ class test_CBF(unittest.TestCase):
                 chan_responses.append(this_freq_response)
 
             diff_dumps = []
-            for comparison in range(len(dumps_data)):
+            for comparison in range(1, len(dumps_data)):
                 d0 = dumps_data[0]
                 d1 = dumps_data[comparison]
                 diff_dumps.append(np.max(np.abs(d0 - d1)))
@@ -908,7 +908,6 @@ class test_CBF(unittest.TestCase):
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
             d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            import IPython;IPython.embed()
             response = complexise(d['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
