@@ -113,8 +113,9 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         plt.close()
 
 
-def aqf_plot_channels(channelisation, plot_filename, plot_title,
-                      log_dynamic_range=None, caption="", show=False):
+def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
+                      log_dynamic_range=None, log_normalise_to=None,
+                      caption="", show=False):
         """Simple magnitude plot of a channelised result
         return: None
 
@@ -129,8 +130,14 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title,
 
         `((plot1_data, legend1), (plot2_data, legend2), ... )`
 
+        If a legend is None it is ignored.
+
         if `log_dynamic_range` is not None, a log plot will be made with values normalised
         to the peak value of less than -`log_dynamic_range` dB set to -`log_dynamic_range`
+
+        Normalise log dynamic range to `log_normalise_to`. If None, each line is
+        normalised to it's own max value, which can be confusing if they don't all have
+        the same max...
 
         """
         if not isinstance(channelisation, tuple):
@@ -143,18 +150,25 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title,
                 has_legend = True
                 kwargs['label'] = legend
             if log_dynamic_range is not None:
-                plot_data = loggerise(plot_data, log_dynamic_range)
+                plot_data = loggerise(plot_data, log_dynamic_range,
+                                      normalise_to=log_normalise_to)
                 ylabel = 'Channel response [dB]'
             else:
-                plot_data = channelisation
                 ylabel = 'Channel response (linear)'
 
             plt.plot(plot_data, **kwargs)
-            plt.title(plot_title)
+            if plot_title:
+                plt.title(plot_title)
             plt.ylabel(ylabel)
             plt.xlabel('Channel number')
-            if has_legend:
-                plt.legend()
+
+        axis = plt.gcf().get_axes()[0]
+        ybound = axis.get_ybound()
+        yb_diff = abs(ybound[1] - ybound[0])
+        new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+        axis.set_ybound(*new_ybound)
+        if has_legend:
+            plt.legend()
 
         Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
         if show:

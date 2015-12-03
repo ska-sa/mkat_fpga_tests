@@ -405,7 +405,8 @@ class test_CBF(unittest.TestCase):
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'][:, 0]))
         # Get list of all the baselines present in the correlator output
-        present_baselines = sorted(get_baselines_lookup(test_dump).keys())
+        baselines_lookup = get_baselines_lookup(test_dump)
+        present_baselines = sorted(baselines_lookup.keys())
 
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
@@ -421,6 +422,19 @@ class test_CBF(unittest.TestCase):
         for test_bl in possible_baselines:
             baseline_is_present[test_bl] = (test_bl in present_baselines or
                                             test_bl[::-1] in present_baselines)
+
+        # Select some baselines to plot
+        plot_baselines = ((input_labels[0], input_labels[0]),
+                          (input_labels[0], input_labels[1]),
+                          (input_labels[0], input_labels[2]),
+                          (input_labels[-1], input_labels[-1]),
+                          (input_labels[-1], input_labels[-2]))
+        plot_baseline_inds = tuple((baselines_lookup[bl] if bl in baselines_lookup
+                                    else baselines_lookup[bl[::-1]])
+                                   for bl in plot_baselines)
+        plot_baseline_legends = tuple(
+            '{bl[0]}, {bl[1]}: {ind}'.format(bl=bl, ind=ind)
+            for bl, ind in zip(plot_baselines, plot_baseline_inds))
 
         Aqf.is_true(all(baseline_is_present.values()),
                     'Check that all baselines are present in correlator output.')
@@ -469,6 +483,14 @@ class test_CBF(unittest.TestCase):
             expected_z_bls, expected_nz_bls = (
                 calc_zero_and_nonzero_baselines(nonzero_inputs))
             test_data = self.receiver.get_clean_dump()['xeng_raw']
+            plot_data = [normalised_magnitude(test_data[:,i,:])
+                         for i in plot_baseline_inds]
+            aqf_plot_channels(tuple(zip(plot_data, plot_baseline_legends)),
+                              plot_filename='channel_resp_log.svg',
+                              log_dynamic_range=90, log_normalise_to=1,
+                              caption='Baseline channel response with the '
+                              'following non-zero inputs: {}'
+                              .format(sorted(nonzero_inputs)))
             actual_nz_bls_indices = all_nonzero_baselines(test_data)
             actual_nz_bls = set(tuple(bls_ordering[i])
                                 for i in actual_nz_bls_indices)
