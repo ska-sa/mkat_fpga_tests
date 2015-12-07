@@ -31,6 +31,7 @@ from nosekatreport import Aqf, aqf_vr
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
+from mkat_fpga_tests.aqf_utils import aqf_plot_channels
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
@@ -243,6 +244,15 @@ class test_CBF(unittest.TestCase):
                 this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
             chan_responses.append(this_freq_response)
+            # Plot an overall frequency response at the centre frequency just as
+            # a sanity check
+            if np.abs(freq - expected_fc) < 0.1:
+                aqf_plot_channels(
+                    this_freq_response, 'fc_channel_resp_log.svg',
+                    'Log channel response at {} MHz'.format(this_source_freq/1e6),
+                    log_dynamic_range=90)
+
+
 
         # Test fft overflow and qdr status after
         test_fftoverflow_qdrstatus()
@@ -281,7 +291,9 @@ class test_CBF(unittest.TestCase):
         graph_name_all = test_name + '.channel_response.svg'
         plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
-                      caption='Channel 1500 response vs source frequency')
+                      caption='Channel {} response vs source frequency'
+                      .format(test_chan))
+
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
@@ -295,7 +307,9 @@ class test_CBF(unittest.TestCase):
         plot_data_central = loggerise(central_chan_responses[:, test_chan],
                                       dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
-                      caption='Channel 1500 central response vs source frequency')
+                      caption='Channel {} central response vs source frequency'
+                      .format(test_chan))
+
 
         # Test responses in central 80% of channel
         for i, freq in enumerate(central_chan_test_freqs):
@@ -340,6 +354,7 @@ class test_CBF(unittest.TestCase):
 
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros
+        n_chans = self.corr_freqs.n_chans
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'
@@ -351,6 +366,12 @@ class test_CBF(unittest.TestCase):
             this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
             this_freq_response = (
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
+                aqf_plot_channels(
+                    this_freq_response, 'fc_channel_resp_log.svg',
+                    'Log channel response at {} MHz'.format(this_source_freq/1e6),
+                    log_dynamic_range=90)
+
             max_chan = np.argmax(this_freq_response)
             max_channels.append(max_chan)
             # Find responses that are more than -cutoff relative to max
@@ -384,7 +405,8 @@ class test_CBF(unittest.TestCase):
         # Get list of all the correlator input labels
         input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
         # Get list of all the baselines present in the correlator output
-        present_baselines = sorted(get_baselines_lookup(test_dump).keys())
+        baselines_lookup = get_baselines_lookup(test_dump)
+        present_baselines = sorted(baselines_lookup.keys())
 
         # Make a list of all possible baselines (including redundant baselines)
         # for the given list of inputs
@@ -400,6 +422,19 @@ class test_CBF(unittest.TestCase):
         for test_bl in possible_baselines:
             baseline_is_present[test_bl] = (test_bl in present_baselines or
                                             test_bl[::-1] in present_baselines)
+
+        # Select some baselines to plot
+        plot_baselines = ((input_labels[0], input_labels[0]),
+                          (input_labels[0], input_labels[1]),
+                          (input_labels[0], input_labels[2]),
+                          (input_labels[-1], input_labels[-1]),
+                          (input_labels[-1], input_labels[-2]))
+        plot_baseline_inds = tuple((baselines_lookup[bl] if bl in baselines_lookup
+                                    else baselines_lookup[bl[::-1]])
+                                   for bl in plot_baselines)
+        plot_baseline_legends = tuple(
+            '{bl[0]}, {bl[1]}: {ind}'.format(bl=bl, ind=ind)
+            for bl, ind in zip(plot_baselines, plot_baseline_inds))
 
         Aqf.is_true(all(baseline_is_present.values()),
                     'Check that all baselines are present in correlator output.')
@@ -448,6 +483,14 @@ class test_CBF(unittest.TestCase):
             expected_z_bls, expected_nz_bls = (
                 calc_zero_and_nonzero_baselines(nonzero_inputs))
             test_data = self.receiver.get_clean_dump()['xeng_raw'].value
+            plot_data = [normalised_magnitude(test_data[:,i,:])
+                         for i in plot_baseline_inds]
+            aqf_plot_channels(zip(plot_data, plot_baseline_legends),
+                              plot_filename='channel_resp_log.svg',
+                              log_dynamic_range=90, log_normalise_to=1,
+                              caption='Baseline channel response with the '
+                              'following non-zero inputs: {}'
+                              .format(sorted(nonzero_inputs)))
             actual_nz_bls_indices = all_nonzero_baselines(test_data)
             actual_nz_bls = set(tuple(bls_ordering[i])
                                 for i in actual_nz_bls_indices)
@@ -473,11 +516,13 @@ class test_CBF(unittest.TestCase):
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         Aqf.step('Check that back-to-back dumps with same input are equal on '
                  'channel({}) @ {}MHz, '.format(test_chan, expected_fc / 1e6))
+        source_period_in_samples = self.corr_freqs.n_chans*2
         for i, freq in enumerate(requested_test_freqs):
             print ('Testing dump consistency {}/{} @ {} MHz.'.format(
                 i + 1, len(requested_test_freqs), freq / 1e6))
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
-                                              repeatN=self.corr_freqs.n_chans * 2)
+                                              repeatN=source_period_in_samples)
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
             dumps_data = []
             chan_responses = []
             for dump_no in range(3):
@@ -499,13 +544,21 @@ class test_CBF(unittest.TestCase):
                 diff_dumps.append(np.max(d0 - d1))
 
             dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
-            Aqf.less(dumps_comp, self.threshold,
-                     'Check that back-to-back dumps({}) with the same frequency '
-                     'input differ by no more than {} threshold[dB].'
-                     .format(dumps_comp, 10 * np.log10(self.threshold)))
+            if not Aqf.less(
+                    dumps_comp, self.threshold,
+                    'Check that back-to-back dumps({}) with the same frequency '
+                    'input differ by no more than {} threshold[dB].'
+                    .format(dumps_comp, 10 * np.log10(self.threshold))
+            ):
+                legends = ['dump #{}'.format(i) for i in range(len(chan_responses))]
+                aqf_plot_channels(
+                    zip(chan_responses, legends),
+                    plot_filename='channel_resp.svg',
+                    log_dynamic_range=90, log_normalise_to=1,
+                    caption='Comparison of back-to-back channelisation results with '
+                    'source periodic every {} samples and sine frequency of '
+                    '{} MHz.'.format(source_period_in_samples, this_source_freq))
 
-            # chan_responses = np.array(chan_responses)
-            # plot_data_all  = loggerise(chan_responses[:, test_chan], dynamic_range=90)
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):

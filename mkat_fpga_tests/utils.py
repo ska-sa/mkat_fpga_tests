@@ -22,9 +22,12 @@ def normalise(input_data):
 def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
-def loggerise(data, dynamic_range=70):
+def loggerise(data, dynamic_range=70, normalise_to=None):
     log_data = 10*np.log10(data)
-    max_log = np.max(log_data)
+    if normalise_to:
+        max_log = normalise_to
+    else:
+        max_log = np.max(log_data)
     min_log_clip = max_log - dynamic_range
     log_data[log_data < min_log_clip] = min_log_clip
     return log_data
@@ -326,7 +329,9 @@ def get_baselines_lookup(spead):
     Param:
       spead: spead_dump
     Return: dict:
-        baseline lookup
+        baseline lookup with tuple of input label strings keys
+        `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
+        correlator dump's baselines
     """
     bls_ordering = spead['bls_ordering'].value
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
