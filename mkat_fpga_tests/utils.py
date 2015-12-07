@@ -40,7 +40,7 @@ def baseline_checker(xeng_raw, check_fn):
     """
     baselines = set()
     for bl in range(xeng_raw.shape[1]):
-        if check_fn(xeng_raw[:, bl, :]):
+        if check_fn(xeng_raw.value[:, bl, :]):
             baselines.add(bl)
     return baselines
 
@@ -333,7 +333,7 @@ def get_baselines_lookup(spead):
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
         correlator dump's baselines
     """
-    bls_ordering = spead['bls_ordering']
+    bls_ordering = spead['bls_ordering'].value
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
