@@ -1771,6 +1771,7 @@ class test_CBF(unittest.TestCase):
             username = 'admin'
             password = 'admin'
             nbytes = 2048
+            wait_time = 1
             for count, ip in enumerate(host_ips, start=1):
                 try:
                     remote_conn_pre = paramiko.SSHClient()
@@ -1787,12 +1788,12 @@ class test_CBF(unittest.TestCase):
 
                 remote_conn.send("\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 remote_conn.recv(nbytes)
 
                 remote_conn.send("show inventory | include CHASSIS\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 inventory = remote_conn.recv(nbytes)
                 if 'CHASSIS' in inventory:
                     part_number = inventory.split()[8]
@@ -1802,7 +1803,7 @@ class test_CBF(unittest.TestCase):
 
                 remote_conn.send("show version\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 version = remote_conn.recv(nbytes)
                 if 'version' in version:
                     prod_name = version[version.find('Product name:'):].split()[2]
