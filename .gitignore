@@ -17,6 +17,10 @@ dist
 nosetests.xml
 .noseids
 
+# sphinx-droppings
+/katreport
+/katreport.rst
+/index.rst
 # Developer tools
 .ropeproject
 *~
