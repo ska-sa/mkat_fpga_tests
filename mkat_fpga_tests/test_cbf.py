@@ -34,7 +34,8 @@ from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_r
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
-from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
+from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines
+from mkat_fpga_tests.utils import all_nonzero_baselines, rearrange_snapblock
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
@@ -62,8 +63,8 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
-    b0 = np.abs(complexise(xeng_raw.value[:, 0]))
-    b1 = np.abs(complexise(xeng_raw.value[:, 1]))
+    b0 = np.abs(complexise(xeng_raw[:, 0]))
+    b1 = np.abs(complexise(xeng_raw[:, 1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
@@ -239,7 +240,7 @@ class test_CBF(unittest.TestCase):
                 snapshots['all_ok'] = True
             source_info = get_dsim_source_info(self.dhost)
             test_data_h5.add_result(this_freq_dump, source_info, snapshots)
-            this_freq_data = this_freq_dump['xeng_raw'].value
+            this_freq_data = this_freq_dump['xeng_raw']
             this_freq_response = normalised_magnitude(
                 this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
@@ -401,9 +402,9 @@ class test_CBF(unittest.TestCase):
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # TODO (MM) 2015-10-22
         # Get bls ordering from get baseline lookup helper functions
-        bls_ordering = test_dump['bls_ordering'].value
+        bls_ordering = test_dump['bls_ordering']
         # Get list of all the correlator input labels
-        input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
+        input_labels = sorted(tuple(test_dump['input_labelling'][:, 0]))
         # Get list of all the baselines present in the correlator output
         baselines_lookup = get_baselines_lookup(test_dump)
         present_baselines = sorted(baselines_lookup.keys())
@@ -439,7 +440,7 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(all(baseline_is_present.values()),
                     'Check that all baselines are present in correlator output.')
 
-        test_data = test_dump['xeng_raw'].value
+        test_data = test_dump['xeng_raw']
         # Expect all baselines and all channels to be non-zero
         Aqf.is_false(zero_baselines(test_data),
                      'Check that no baselines have all-zero visibilities')
@@ -454,7 +455,7 @@ class test_CBF(unittest.TestCase):
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
             self.fengops.eq_set(source_name=input, new_eq=0)
-        test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
+        test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
                      "Check that all baseline visibilities are zero")
         # -----------------------------------
@@ -527,11 +528,12 @@ class test_CBF(unittest.TestCase):
             chan_responses = []
             for dump_no in range(3):
                 if dump_no == 0:
-                    this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    initial_max_freq = np.max(this_freq_dump['xeng_raw'].value)
+                    this_freq_dump = self.receiver.get_clean_dump(
+                        DUMP_TIMEOUT, discard=10)
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                 else:
                     this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-                this_freq_data = this_freq_dump['xeng_raw'].value
+                this_freq_data = this_freq_dump['xeng_raw']
                 dumps_data.append(this_freq_data)
                 this_freq_response = normalised_magnitude(
                     this_freq_data[:, test_baseline, :])
@@ -541,7 +543,7 @@ class test_CBF(unittest.TestCase):
             for comparison in range(1, len(dumps_data)):
                 d0 = dumps_data[0]
                 d1 = dumps_data[comparison]
-                diff_dumps.append(np.max(d0 - d1))
+                diff_dumps.append(np.max(np.abs(d0 - d1)))
 
             dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
             if not Aqf.less(
@@ -582,13 +584,13 @@ class test_CBF(unittest.TestCase):
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    initial_max_freq = np.max(this_freq_dump['xeng_raw'].value)
-                    this_freq_data = this_freq_dump['xeng_raw'].value
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
                     initial_max_freq_list.append(initial_max_freq)
                 else:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    this_freq_data = this_freq_dump['xeng_raw'].value
+                    this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
         for count, scan_i in enumerate(range(1, len(scans))):
@@ -640,13 +642,13 @@ class test_CBF(unittest.TestCase):
         # TODO: (MM) 2015-10-21 get sync time from digitiser
         # We believe that sync time should be the digitiser sync epoch but
         # in the dsim this is not an int, so we using correlator value for now
-        sync_time = initial_dump['sync_time'].value
+        sync_time = initial_dump['sync_time']
         # sync_time = self.correlator.synchronisation_epoch
-        scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
-        time_stamp = initial_dump['timestamp'].value
-        n_accs = initial_dump['n_accs'].value
+        scale_factor_timestamp = initial_dump['scale_factor_timestamp']
+        time_stamp = initial_dump['timestamp']
+        n_accs = initial_dump['n_accs']
         # TODO: (MM) 2015-10-07, get int time from dump
-        # (int_time = initial_dump['int_time'].value)
+        # (int_time = initial_dump['int_time'])
         int_time = self.xengops.get_acc_time()
         # TODO (MM) 2015-10-20
         # 3ms added for the network round trip
@@ -713,10 +715,10 @@ class test_CBF(unittest.TestCase):
 
                 future_time = 200e-3
                 settling_time = 600e-3
-                dump_timestamp = (this_freq_dump['sync_time'].value +
-                                  this_freq_dump['timestamp'].value /
-                                  this_freq_dump['scale_factor_timestamp'].value)
-                t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
+                dump_timestamp = (this_freq_dump['sync_time'] +
+                                  this_freq_dump['timestamp'] /
+                                  this_freq_dump['scale_factor_timestamp'])
+                t_apply = (dump_timestamp + this_freq_dump['int_time'] +
                            future_time)
 
                 reply = correlator_fixture.katcp_rct.req.delays(
@@ -725,7 +727,7 @@ class test_CBF(unittest.TestCase):
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
                 dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(dump['xeng_raw'].value
+                data = complexise(dump['xeng_raw']
                                   [:, setup_data['baseline_index'], :])
 
                 phases = np.angle(data)
@@ -958,8 +960,7 @@ class test_CBF(unittest.TestCase):
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
             d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            import IPython;IPython.embed()
-            response = complexise(d['xeng_raw'].value[:, 0, :])
+            response = complexise(d['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
                         'Check that the accumulator response is equal'
@@ -1082,7 +1083,7 @@ class test_CBF(unittest.TestCase):
         flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'ADC overrange'
 
-        set_bits1 = get_set_bits(dump1['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
         Aqf.is_false(flag_bit in set_bits1,
                      'Check that {} is not set in dump 1 before setting {}.'
                      .format(flag_descr, condition))
@@ -1092,7 +1093,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits2 = get_set_bits(dump2['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
                     'Check that {} is set in dump 2 while toggeling {}.'
@@ -1101,7 +1102,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits3 = get_set_bits(dump3['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
         other_set_bits3 = set_bits3.intersection(other_bits)
         Aqf.is_false(flag_bit in set_bits3,
                      'Check that {} is not set in dump 3 after clearing {}.'
@@ -1131,7 +1132,7 @@ class test_CBF(unittest.TestCase):
         flag_descr = 'noise diode fired, bit {},'.format(flag_bit)
         flag_condition = 'digitiser noise diode fired flag'
 
-        set_bits1 = get_set_bits(dump1['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
         Aqf.is_false(flag_bit in set_bits1,
                      'Check that {} is not set in dump 1 before setting {}.'
                      .format(flag_descr, condition))
@@ -1142,7 +1143,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits2 = get_set_bits(dump2['flags_xeng_raw'].value,
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
@@ -1153,7 +1154,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits3 = get_set_bits(dump3['flags_xeng_raw'].value,
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits3 = set_bits3.intersection(other_bits)
         Aqf.is_false(flag_bit in set_bits3,
@@ -1201,7 +1202,7 @@ class test_CBF(unittest.TestCase):
         flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'FFT overrange'
 
-        set_bits1 = get_set_bits(dump1['flags_xeng_raw'].value,
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'],
                                  consider_bits=all_bits)
         Aqf.is_false(flag_bit in set_bits1,
                      'Check that {} is not set in dump 1 before setting {}.'
@@ -1212,7 +1213,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits2 = get_set_bits(dump2['flags_xeng_raw'].value,
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
@@ -1222,7 +1223,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits3 = get_set_bits(dump3['flags_xeng_raw'].value,
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits3 = set_bits3.intersection(other_bits)
         Aqf.is_false(flag_bit in set_bits3,
@@ -1253,7 +1254,7 @@ class test_CBF(unittest.TestCase):
         while True:
             num_discards += 1
             dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
+            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'] /
                               setup_data['scale_factor_timestamp'])
 
             if (np.abs(dump_timestamp - last_discard) < 0.05 * setup_data['int_time']):
@@ -1277,7 +1278,7 @@ class test_CBF(unittest.TestCase):
 
         phases = []
         for acc in fringe_dumps:
-            dval = acc['xeng_raw'].value
+            dval = acc['xeng_raw']
             data = complexise(dval[:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data)) / setup_data['n_accs']
@@ -1380,11 +1381,13 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
+        caption = ('Actual and expected Unwrapped Correlation Delay Rate, '
+                 'dashed line indicates expected value.')
         graph_title = 'Delay Rate at {} ns/s'.format(delay_rate * 1e9)
         graph_name = 'Delay_Rate_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         actual_phases = np.unwrap(actual_phases)
         # TODO MM 2015-10-22
@@ -1438,11 +1441,13 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                 'dashed line indicates expected value.')
         graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
         graph_name = 'Fringe_Offset_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1495,10 +1500,12 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
+        caption = ('Actual and expected Unwrapped Correlation Phase Rate, '
+                 'dashed line indicates expected value.')
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1568,10 +1575,12 @@ class test_CBF(unittest.TestCase):
         no_chans = setup_data['no_chans']
         graph_units = ''
         graph_title = 'All Delays Responses'
+        caption = ('Actual and expected Unwrapped Correlation, '
+                 'dashed line indicates expected value.')
         graph_name = 'All_Delays_Response.svg'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1762,6 +1771,7 @@ class test_CBF(unittest.TestCase):
             username = 'admin'
             password = 'admin'
             nbytes = 2048
+            wait_time = 1
             for count, ip in enumerate(host_ips, start=1):
                 try:
                     remote_conn_pre = paramiko.SSHClient()
@@ -1771,19 +1781,19 @@ class test_CBF(unittest.TestCase):
                     remote_conn_pre.connect(ip, username=username, password=password,
                                             timeout=10)
                     remote_conn = remote_conn_pre.invoke_shell()
-                    Aqf.hop('Connected to Data switch {} on IP: {}'.format(count, ip))
+                    Aqf.step('Connected to Data switch {} on IP: {}'.format(count, ip))
                 except SSHException:
                     Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
                                 count, ip))
 
                 remote_conn.send("\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 remote_conn.recv(nbytes)
 
                 remote_conn.send("show inventory | include CHASSIS\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 inventory = remote_conn.recv(nbytes)
                 if 'CHASSIS' in inventory:
                     part_number = inventory.split()[8]
@@ -1793,7 +1803,7 @@ class test_CBF(unittest.TestCase):
 
                 remote_conn.send("show version\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 version = remote_conn.recv(nbytes)
                 if 'version' in version:
                     prod_name = version[version.find('Product name:'):].split()[2]
@@ -1816,3 +1826,218 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
         Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+
+    @aqf_vr('TP.C.1.18')
+    def test_fault_detection(self):
+        """AR1 Fault detection"""
+
+        def air_temp_warn(hwmon_dir, label):
+
+            hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
+            hostname = hosts[randrange(len(hosts))]
+            tn = telnetlib.Telnet(hostname)
+            Aqf.step('Connected to Host: {}'.format(hostname))
+            tn.read_until('login: ', timeout=wait_time)
+            tn.write(user)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            # returns current temperature
+            read_cur_temp = 'cat {}/temp1_input\n'.format(hwmon)
+            tn.write(read_cur_temp)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                cur_temp = int(stdout.splitlines()[-2])
+                Aqf.step('Current Air {} Temp: {} deg'.format(label, int(cur_temp)/1000.))
+            except ValueError:
+                Aqf.failed('Failed to read current temp {}.'.format(hostname))
+
+            # returns 1 if the roach is overtemp, it should be 0
+            read_overtemp_ind = 'cat {}/temp1_max_alarm\n'.format(hwmon)
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                # returns 1 if the roach is overtemp, it should be 0
+                overtemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_false(overtemp_ind,
+                            'Confirm that the overtemp alarm is Not triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+            # returns 0 if the roach is undertemp, it should be 1
+            read_undertemp_ind = 'cat {}/temp1_min_alarm\n'.format(hwmon)
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                # returns 1 if the roach is undertemp, it should be 1
+                undertemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_true(undertemp_ind,
+                            'Confirm that the undertemp alarm is Not triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+            # set the max temp limit to 10 degrees
+            set_max_limit = 'echo "10000" > {}/temp1_max\n'.format(hwmon)
+            tn.write(set_max_limit)
+            Aqf.wait(wait_time, 'Setting max temp limit to 10 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                overtemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_true(overtemp_ind,
+                            'Confirm that the overtemp alarm is Triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+            # set the min temp limit to below current temp
+            set_min_limit = 'echo "10000" > {}/temp1_min\n'.format(hwmon)
+            tn.write(set_min_limit)
+            Aqf.wait(wait_time*2, 'Setting min temp limit to 10 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                undertemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_false(undertemp_ind,
+                            'Confirm that the undertemp alarm is Triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+            # TODO MM add sensor sniffer, at the moment sensor in not implemented
+            # Confirm the CBF sends an error message "#log warn <> roach2hwmon Sensor\_alarm:\_Chip\_ad7414-i2c-0-4c:\_temp1:\_<>\_C\_(min\_=\_50.0\_C,\_max\_=\_10.0\_C)\_[ALARM]"
+
+            # set the max temp limit back to 55 degrees
+            default_max = 'echo "55000" > {}/temp1_max\n'.format(hwmon)
+            tn.write(default_max)
+            Aqf.wait(wait_time, 'Setting max temp limit back to 55 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            # set the min temp limit back to 50 degrees
+            default_min = 'echo "50000" > {}/temp1_min\n'.format(hwmon)
+            tn.write(default_min)
+            Aqf.wait(wait_time, 'Setting min temp limit back to 50 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time*3)
+            overtemp_ind  = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            undertemp_ind  = tn.read_until('#', timeout=wait_time)
+
+            try:
+                overtemp_ind = int(overtemp_ind.splitlines()[-2])
+                # returns 1 if the roach is overtemp, it should be 0
+                Aqf.is_false(overtemp_ind,
+                            'Confirm that the overtemp alarm was set back to default.')
+                # returns 0 if the roach is undertemp, it should be 1
+                undertemp_ind = int(undertemp_ind.splitlines()[-2])
+                Aqf.is_true(undertemp_ind,
+                            'Confirm that the undertemp alarm was set back to default.\n')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.\n'.format(hostname))
+
+            tn.write("exit\n")
+            tn.close()
+
+        def over_warning(hwmon_dir, label):
+
+            hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
+            curr_alarm_val = 'cat {}/in0_alarm\n'.format(hwmon)
+            curr_read_lim = 'cat {}/in0_crit\n'.format(hwmon)
+            # set the limit ridiculously low, the red LED should turn on
+            set_limit = 'echo "10" > {}/in0_crit\n'.format(hwmon)
+
+            hostname = hosts[randrange(len(hosts))]
+            tn = telnetlib.Telnet(hostname)
+            Aqf.step('Connected to Host: {}'.format(hostname))
+            tn.read_until('login: ', timeout=wait_time)
+            tn.write(user)
+            time.sleep(wait_time)
+
+            tn.write(curr_alarm_val)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(alarm_value,
+                    'Confirm that the {} alarm has Not triggered.'.format(label))
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm: {}.'.format(label, hostname))
+
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            try:
+                lim_val = int(stdout.splitlines()[-2])
+                Aqf.passed('Confirm current {} limit : {}'.format(label, lim_val))
+
+            except ValueError:
+                Aqf.failed('Failed to read {} limit: {}.'.format(label, hostname))
+
+            tn.write(set_limit)
+            Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
+            time.sleep(wait_time)
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Wait for command to be received successfully.')
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                #Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
+
+                Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
+
+            orig_alarm_val = 'echo "{}" > {}/in0_crit\n'.format(lim_val, hwmon)
+            tn.write(orig_alarm_val)
+            Aqf.step('Setting current warning limit back to default')
+            time.sleep(wait_time*3)
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            try:
+                def_lim_val = int(stdout.splitlines()[-2])
+                Aqf.equals(def_lim_val, lim_val,
+                    'Confirm that the current warning limit was set back to default')
+            except ValueError:
+                Aqf.failed('Failed to set default value: {}.'.format(hostname))
+
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
+                Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.\n')
+            except ValueError:
+                Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
+
+        hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
+        user = 'root\n'
+        wait_time = 1
+
+        # TODO MM : Instead of hardcoding which test to run,
+        # think of a better way.(maybe nested dict)
+        Aqf.step('Trigger Air Inlet Temperature Warning.')
+        air_temp_warn('hwmon0', 'Inlet')
+        Aqf.step('Trigger Air Outlet Temperature Warning.')
+        air_temp_warn('hwmon1', 'Outlet')
+        Aqf.step('Trigger the 1V0 overvoltage warning')
+        over_warning('hwmon2', 'overvoltage')
+        Aqf.step('Trigger the 3V3 overcurrent current warning.')
+        over_warning('hwmon3', 'overcurrent')

@@ -84,15 +84,14 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         Gets actual and expected phase plots.
         return: None
         """
-        plt.gca().set_color_cycle(None)
+        plt.gca().set_prop_cycle(None)
         for phases in actual_data:
             plt.plot(freqs, phases)
 
-        plt.gca().set_color_cycle(None)
+        plt.gca().set_prop_cycle(None)
         for label, phases in expected_data:
             fig = plt.plot(
                 freqs, phases, '--', label='{} {}'.format(label, plot_units))[0]
-
         axes = fig.get_axes()
         ybound = axes.get_ybound()
         yb_diff = abs(ybound[1] - ybound[0])

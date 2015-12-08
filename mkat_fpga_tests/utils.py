@@ -40,7 +40,7 @@ def baseline_checker(xeng_raw, check_fn):
     """
     baselines = set()
     for bl in range(xeng_raw.shape[1]):
-        if check_fn(xeng_raw.value[:, bl, :]):
+        if check_fn(xeng_raw[:, bl, :]):
             baselines.add(bl)
     return baselines
 
@@ -309,7 +309,7 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     #import IPython;IPython.embed()
 
     # TODO MM 2015-10-22
-    # Hardcoded shit. fix it
+    # Hardcoded fengine selection ;fix it
     host = [i['host'] for i in instrument.fengine_sources][0]
     source, source_index = ('m000_x', 0)#get_source_object_and_index(instrument, input_name)
     snap_name = 'snap_quant{}_ss'.format(source_index)
@@ -333,7 +333,7 @@ def get_baselines_lookup(spead):
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
         correlator dump's baselines
     """
-    bls_ordering = spead['bls_ordering'].value
+    bls_ordering = spead['bls_ordering']
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
