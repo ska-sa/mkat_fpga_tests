@@ -103,21 +103,26 @@ def get_set_bits(packed, consider_bits=None):
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
 
-
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
+    DEFAULT_INSTRUMENT = 'c8n856M4k'
 
     def setUp(self):
-        self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
-        self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
-        dsim_conf = self.correlator.configd['dsimengine']
+        dsim_conf = self.corr_fix.test_conf['dsimengine']
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self.threshold = 1e-7  # Threshold: -70dB
+
+    def set_instrument(self, instrument):
+        self.corr_fix.ensure_instrument(instrument)
+        self.correlator = correlator_fixture.correlator
+        self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
         self.xengops = self.correlator.xops
         self.fengops = self.correlator.fops
         # Increase the dump rate so tests can run faster
@@ -129,9 +134,10 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(clear_all_delays, self.correlator)
         self.receiver = CorrRx(port=8888, queue_size=1000)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
+        # TODO NM 2015-12-07 Should use array KATCP interface to start X data and
+        # issue meta data.
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
-        self.threshold = 1e-7  # Threshold: -70dB
 
     @aqf_vr('TP.C.1.19')
     def test_channelisation(self):
@@ -1635,7 +1641,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.17')
     def test_config_report(self):
         """CBF Report configuration"""
-        test_config = correlator_fixture.corr_conf
+        test_config = correlator_fixture.test_conf
         def get_roach_config():
 
             Aqf.hop('DEngine :{}'.format(self.dhost.host))

@@ -19,7 +19,7 @@ def meth_end_aqf(meth):
 def cls_end_aqf(cls):
     """Decorates a test class to ensure that Aqf.end() is called after each test
 
-    Assumes test methods start with test_ are is named runTest
+    Assumes test methods start with test_ or is named runTest
     """
     for attr_name in dir(cls):
         if attr_name.startswith('test_') or attr_name == 'runTest':

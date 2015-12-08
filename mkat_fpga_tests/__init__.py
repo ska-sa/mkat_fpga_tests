@@ -44,9 +44,10 @@ class CorrelatorFixture(object):
             test_config_filename = os.environ.get(
                 'CORR2TESTINI',
                 './mkat_fpga_tests/config_templates/test_conf.ini')
-            self.corr_conf = utils.parse_ini_file(
+            self.test_conf = utils.parse_ini_file(
                 test_config_filename)
-            self.dsim_conf = self.corr_conf['dsimengine']
+            self.dsim_conf = self.test_conf['dsimengine']
+        self.array_name = 'array0'
         # Assume the correlator is already started if start_correlator is False
         self._correlator_started = not int(
             test_config.get('start_correlator', False))
@@ -104,12 +105,13 @@ class CorrelatorFixture(object):
             if not self._correlator_started:
                 self.start_correlator()
 
-            # We assume either start_correlator() above has been called, or
-            # the c8n856M4k instrument was started on array0 before running the
+            # We assume either start_correlator() above has been called, or the instrument
+            # was started with the name contained in self.array_name before running the
             # test.
 
             # TODO: hard-coded config location
-            self.config_filename = '/etc/corr/array0-c8n856M4k'
+            self.config_filename = '/etc/corr/{}-{}'.format(
+                self.array_name, self.instrument)
             LOGGER.info('Making new correlator instance')
             self._correlator = fxcorrelator.FxCorrelator(
                 'test correlator', config_source=self.config_filename)
@@ -160,26 +162,66 @@ class CorrelatorFixture(object):
         LOGGER.info ('Stop X data capture')
         self.katcp_rct.req.capture_stop(self.output_product)
 
-    def start_correlator(self, retries=30, loglevel='INFO'):
+    def ensure_instrument(self, instrument, **kwargs):
+        """Ensure that named instrument is active on the correlator array
+
+        Will pass `kwargs` to self.start_correlator if a start is required
+
+        """
+        if not self.check_instrument(instrument):
+            self.start_correlator(instrument, **kwargs)
+
+    def check_instrument(self, instrument):
+        """Return true if named instrument is enabled on correlator array
+
+        Uses the correlator array KATCP interface to check if the requested instrument is
+        active
+
+        """
+        # Get a list of products associated with instrument
+        try:
+            reply = self.katcp_rct.req.instrument_list(instrument)
+        except RuntimeError:
+            # This probably means that no array has been defined yet and therefore the
+            # katcp_rct client cannot be created. IOW, the desired instrument would not be
+            # available
+            return False
+        if not reply.succeeded:
+            raise RuntimeError('Array request failed: {}'.format(reply))
+        instrument_products = set(reply.informs[0].arguments[1:])
+
+        # Get list of available data products and check that the products belonging to the
+        # requested instrument is available
+        reply = self.katcp_rct.req.capture_list()
+        if not reply.succeeded:
+            raise RuntimeError('Array request failed: {}'.format(reply))
+        products = set(i.arguments[0] for i in reply.informs)
+
+        instrument_products_present = products.intersection(
+            instrument_products) == instrument_products
+        return instrument_products_present
+
+    def start_correlator(self, instrument='c8n856M4k',
+                         retries=30, loglevel='INFO'):
         success = False
         retries_requested = retries
+        self.instrument = instrument
+        self._correlator = None # Invalidate cached correlator instance
         # starting d-engine before correlator
         self.dhost
-        host_port = self.corr_conf['test_confs']['katcp_port']
-        multicast_ip = self.corr_conf['test_confs']['source_mcast_ips']
-        instrument = 'c8n856M4k'
-        array_list_status, array_list_messages = self.rct.req.array_list()
-
-        try:
-            if array_list_messages:
-                self.array_number = array_list_messages[0].arguments[0]
-                self.rct.req.array_halt(self.array_number)
-        except IndexError:
-            raise RuntimeError("Unable to halt array due to empty array number")
+        host_port = self.test_conf['test_confs']['katcp_port']
+        multicast_ip = self.test_conf['test_confs']['source_mcast_ips']
+        array_list_status, array_list_messages = self.rct.req.array_list(
+            self.array_name)
+        if array_list_messages:
+            reply = self.rct.req.array_halt(self.array_name)
+            if not reply.succeded:
+                raise RuntimeError("Unable to halt array {}: {}"
+                                   .format(self.array_name, reply))
 
         while retries and not success:
             try:
-                self.rct.req.array_assign('array0',
+                self.rct.req.array_assign(self.array_name,
                     *multicast_ip.split(','))
 
                 LOGGER.info ("Starting Correlator.")
@@ -194,11 +236,11 @@ class CorrelatorFixture(object):
                     LOGGER.warn('Failed to start correlator, {} attempts left.'
                         '\nRestarting Correlator.\nReply:{}, Informs: {}'
                             .format(retries, reply, informs))
-                    self.rct.req.array_halt(self.array_number)
+                    self.rct.req.array_halt(self.array_name)
 
             except Exception:
                 try:
-                    self.rct.req.array_halt(self.array_number)
+                    self.rct.req.array_halt(self.array_name)
                 except IndexError:
                     raise RuntimeError("Unable to halt array due to empty array"
                         "number")
