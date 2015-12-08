@@ -222,23 +222,6 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            try:
-                snapshots = get_snapshots(self.correlator)
-            except Exception:
-                LOGGER.info("Error retrieving snapshot at {}/{}: {} MHz.\n"
-                            .format(i + 1, len(requested_test_freqs), freq / 1e6))
-                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz."
-                                 .format(i + 1, len(requested_test_freqs), freq / 1e6))
-                if i == 0:
-                    # The first snapshot must work properly to give us the data
-                    # structure
-                    raise
-                else:
-                    snapshots['all_ok'] = False
-            else:
-                snapshots['all_ok'] = True
-            source_info = get_dsim_source_info(self.dhost)
-            test_data_h5.add_result(this_freq_dump, source_info, snapshots)
             this_freq_data = this_freq_dump['xeng_raw'].value
             this_freq_response = normalised_magnitude(
                 this_freq_data[:, test_baseline, :])
@@ -247,12 +230,9 @@ class test_CBF(unittest.TestCase):
             # Plot an overall frequency response at the centre frequency just as
             # a sanity check
             if np.abs(freq - expected_fc) < 0.1:
-                aqf_plot_channels(
-                    this_freq_response, 'fc_channel_resp_log.svg',
-                    'Log channel response at {} MHz'.format(this_source_freq/1e6),
-                    log_dynamic_range=90)
-
-
+                aqf_plot_channels(this_freq_response,'fc_channel_resp_log.svg',
+                                  'Log channel response at {} MHz'.format(
+                                  this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
         test_fftoverflow_qdrstatus()
@@ -289,7 +269,9 @@ class test_CBF(unittest.TestCase):
             plt.close()
 
         graph_name_all = test_name + '.channel_response.svg'
-        plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_all = loggerise(chan_responses[:, test_chan],
+                                  dynamic_range=90)
+
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
                       caption='Channel {} response vs source frequency'
                       .format(test_chan))
