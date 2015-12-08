@@ -133,7 +133,6 @@ class CorrelatorFixture(object):
     def katcp_rct(self):
         if self._katcp_rct is None:
             try:
-                print 'array list'
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
             except IndexError:
