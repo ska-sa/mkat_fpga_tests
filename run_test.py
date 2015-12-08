@@ -1,11 +1,6 @@
 #!/usr/bin/env python
-##
-import os
-import json
-from optparse import OptionParser
-import subprocess
-import platform
-import time
+# import os import json from optparse import OptionParser
+import subprocess import platform import time
 
 from process_core_xml import process_xml_to_json
 
@@ -390,7 +385,6 @@ def get_filename(what, settings):
 
 def generate_report(settings, log_func):
     report_type = settings['report'].lower()
-    sys_type = settings['systype']
     katreport_dir = settings["katreport_dir"]
     files = {'test': get_filename('test', settings),
              'system': get_filename('system', settings),
@@ -400,9 +394,9 @@ def generate_report(settings, log_func):
     # TODO(MS) Get this from the command line so that it can be passed in for
     # each different document generation.
     if report_type == 'jenkins':
-        url_server = "http://katbuild.camlab.kat.ac.za:8080"
-        url_path1 = "job/IntegrationTest_{}/lastSuccessfulBuild/".format(sys_type.upper())
-        url_path2 = "artifact/integration_tests/json"
+        url_server = "http://dbelab04:8080"
+        url_path1 = "job/mkat_fpga_tests/lastSuccessfulBuild/"
+        url_path2 = "artifact/mkat_fpga_tests/json"
         print "Fetch from jenkins"
         log_func('INFO', "Fetch files from jenkins")
         for item in urls_for_jenkins:
@@ -471,7 +465,7 @@ def show_test_results(settings, log_func):
     #report.load_test_results(filename=files['test'])
     #report.show_test_results()
     #or report.show_core_requirements()
-    
+
     filename = get_filename('test', settings)
 
     with open(filename, 'r') as fh:

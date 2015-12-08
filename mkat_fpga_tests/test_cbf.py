@@ -37,6 +37,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
+from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 
@@ -222,23 +223,6 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            try:
-                snapshots = get_snapshots(self.correlator)
-            except Exception:
-                LOGGER.info("Error retrieving snapshot at {}/{}: {} MHz.\n"
-                            .format(i + 1, len(requested_test_freqs), freq / 1e6))
-                LOGGER.exception("Error retrieving snapshot at {}/{}: {} MHz."
-                                 .format(i + 1, len(requested_test_freqs), freq / 1e6))
-                if i == 0:
-                    # The first snapshot must work properly to give us the data
-                    # structure
-                    raise
-                else:
-                    snapshots['all_ok'] = False
-            else:
-                snapshots['all_ok'] = True
-            source_info = get_dsim_source_info(self.dhost)
-            test_data_h5.add_result(this_freq_dump, source_info, snapshots)
             this_freq_data = this_freq_dump['xeng_raw'].value
             this_freq_response = normalised_magnitude(
                 this_freq_data[:, test_baseline, :])
@@ -247,12 +231,9 @@ class test_CBF(unittest.TestCase):
             # Plot an overall frequency response at the centre frequency just as
             # a sanity check
             if np.abs(freq - expected_fc) < 0.1:
-                aqf_plot_channels(
-                    this_freq_response, 'fc_channel_resp_log.svg',
-                    'Log channel response at {} MHz'.format(this_source_freq/1e6),
-                    log_dynamic_range=90)
-
-
+                aqf_plot_channels(this_freq_response,'fc_channel_resp_log.svg',
+                                  'Log channel response at {} MHz'.format(
+                                  this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
         test_fftoverflow_qdrstatus()
@@ -289,7 +270,9 @@ class test_CBF(unittest.TestCase):
             plt.close()
 
         graph_name_all = test_name + '.channel_response.svg'
-        plot_data_all = loggerise(chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_all = loggerise(chan_responses[:, test_chan],
+                                  dynamic_range=90)
+
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
                       caption='Channel {} response vs source frequency'
                       .format(test_chan))
@@ -363,7 +346,7 @@ class test_CBF(unittest.TestCase):
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
-            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
             this_freq_response = (
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
             if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
@@ -517,6 +500,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Check that back-to-back dumps with same input are equal on '
                  'channel({}) @ {}MHz, '.format(test_chan, expected_fc / 1e6))
         source_period_in_samples = self.corr_freqs.n_chans*2
+
         for i, freq in enumerate(requested_test_freqs):
             print ('Testing dump consistency {}/{} @ {} MHz.'.format(
                 i + 1, len(requested_test_freqs), freq / 1e6))
@@ -558,7 +542,6 @@ class test_CBF(unittest.TestCase):
                     caption='Comparison of back-to-back channelisation results with '
                     'source periodic every {} samples and sine frequency of '
                     '{} MHz.'.format(source_period_in_samples, this_source_freq))
-
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
@@ -657,7 +640,7 @@ class test_CBF(unittest.TestCase):
         no_chans = range(self.corr_freqs.n_chans)
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         Aqf.step('Source names changed to: ' + str(reply))
-        source_names = reply.arguments[1].split()
+        source_names = reply.arguments[1:]
         # Get input m000_y
         test_source = source_names[1]
         Aqf.step('Source input selected: {}'.format(test_source))
@@ -742,7 +725,7 @@ class test_CBF(unittest.TestCase):
         units = 'secs'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               units, file_name, title)
+                               units, file_name, title, caption)
         expected_phases = [phase for rads, phase in get_expected_phases()]
         tolerance = 1e-2
         for i, delay in enumerate(test_delays):
@@ -958,7 +941,6 @@ class test_CBF(unittest.TestCase):
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
             d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            import IPython;IPython.embed()
             response = complexise(d['xeng_raw'].value[:, 0, :])
             # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
@@ -966,11 +948,11 @@ class test_CBF(unittest.TestCase):
                         ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
 
-    @unittest.skip('Correlator startup is currently unreliable')
+    #@unittest.skip('Correlator startup is currently unreliable')
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        Aqf.failed('Correlator startup is currently unreliable')
+        #Aqf.failed('Correlator startup is currently unreliable')
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Confirm that SPEAD packets are being produced,
@@ -1382,9 +1364,11 @@ class test_CBF(unittest.TestCase):
         graph_units = ' '
         graph_title = 'Delay Rate at {} ns/s'.format(delay_rate * 1e9)
         graph_name = 'Delay_Rate_Response.svg'
+        caption =  ('Actual and expected Unwrapped Correlation Delay Rate, '
+                    'dashed line indicates expected value.')
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         actual_phases = np.unwrap(actual_phases)
         # TODO MM 2015-10-22
@@ -1440,9 +1424,11 @@ class test_CBF(unittest.TestCase):
         graph_units = 'rads'
         graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
         graph_name = 'Fringe_Offset_Response.svg'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                   'dashed line indicates expected value.')
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1495,10 +1481,12 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
+        caption = ('Actual and expected Unwrapped Correlation Phase Rate, '
+                   'dashed line indicates expected value.')
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1816,7 +1804,10 @@ class test_CBF(unittest.TestCase):
         get_pdu_config()
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
-        Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        try:
+            Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        except OSError:
+            LOGGER.info('Test ran by: Jenkins on {}'.format(time.ctime()))
 
     @aqf_vr('TP.C.1.18')
     def test_fault_detection(self):
@@ -1957,7 +1948,7 @@ class test_CBF(unittest.TestCase):
 
             tn.write(curr_alarm_val)
             time.sleep(wait_time)
-            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
             try:
                 alarm_value = int(stdout.splitlines()[-2])
                 Aqf.is_false(alarm_value,
@@ -1967,7 +1958,7 @@ class test_CBF(unittest.TestCase):
 
             tn.write(curr_read_lim)
             time.sleep(wait_time)
-            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
             try:
                 lim_val = int(stdout.splitlines()[-2])
                 Aqf.passed('Confirm current {} limit : {}'.format(label, lim_val))
@@ -1981,7 +1972,7 @@ class test_CBF(unittest.TestCase):
             tn.write(curr_alarm_val)
             Aqf.wait(wait_time, 'Wait for command to be received successfully.')
             time.sleep(wait_time)
-            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
             try:
                 new_alarm_value = int(stdout.splitlines()[-2])
                 #Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
@@ -1999,7 +1990,7 @@ class test_CBF(unittest.TestCase):
             time.sleep(wait_time*3)
             tn.write(curr_read_lim)
             time.sleep(wait_time)
-            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
             try:
                 def_lim_val = int(stdout.splitlines()[-2])
                 Aqf.equals(def_lim_val, lim_val,
@@ -2010,7 +2001,7 @@ class test_CBF(unittest.TestCase):
             tn.write(curr_alarm_val)
             Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
             time.sleep(wait_time)
-            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
             try:
                 new_alarm_value = int(stdout.splitlines()[-2])
                 Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
