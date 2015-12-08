@@ -1762,6 +1762,7 @@ class test_CBF(unittest.TestCase):
             username = 'admin'
             password = 'admin'
             nbytes = 2048
+            wait_time = 1
             for count, ip in enumerate(host_ips, start=1):
                 try:
                     remote_conn_pre = paramiko.SSHClient()
@@ -1771,19 +1772,19 @@ class test_CBF(unittest.TestCase):
                     remote_conn_pre.connect(ip, username=username, password=password,
                                             timeout=10)
                     remote_conn = remote_conn_pre.invoke_shell()
-                    Aqf.hop('Connected to Data switch {} on IP: {}'.format(count, ip))
+                    Aqf.step('Connected to Data switch {} on IP: {}'.format(count, ip))
                 except SSHException:
                     Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
                                 count, ip))
 
                 remote_conn.send("\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 remote_conn.recv(nbytes)
 
                 remote_conn.send("show inventory | include CHASSIS\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 inventory = remote_conn.recv(nbytes)
                 if 'CHASSIS' in inventory:
                     part_number = inventory.split()[8]
@@ -1793,7 +1794,7 @@ class test_CBF(unittest.TestCase):
 
                 remote_conn.send("show version\n")
                 while not remote_conn.recv_ready():
-                    time.sleep(1)
+                    time.sleep(wait_time)
                 version = remote_conn.recv(nbytes)
                 if 'version' in version:
                     prod_name = version[version.find('Product name:'):].split()[2]
@@ -1816,3 +1817,219 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
         Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+
+    @aqf_vr('TP.C.1.18')
+    def test_fault_detection(self):
+        """AR1 Fault detection"""
+
+        def air_temp_warn(hwmon_dir, label):
+
+            hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
+            hostname = hosts[randrange(len(hosts))]
+            tn = telnetlib.Telnet(hostname)
+            Aqf.step('Connected to Host: {}'.format(hostname))
+            tn.read_until('login: ', timeout=wait_time)
+            tn.write(user)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            # returns current temperature
+            read_cur_temp = 'cat {}/temp1_input\n'.format(hwmon)
+            tn.write(read_cur_temp)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                cur_temp = int(stdout.splitlines()[-2])
+                Aqf.step('Current Air {} Temp: {} deg'.format(label, int(cur_temp)/1000.))
+            except ValueError:
+                Aqf.failed('Failed to read current temp {}.'.format(hostname))
+
+            # returns 1 if the roach is overtemp, it should be 0
+            read_overtemp_ind = 'cat {}/temp1_max_alarm\n'.format(hwmon)
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                # returns 1 if the roach is overtemp, it should be 0
+                overtemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_false(overtemp_ind,
+                            'Confirm that the overtemp alarm is Not triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+            # returns 0 if the roach is undertemp, it should be 1
+            read_undertemp_ind = 'cat {}/temp1_min_alarm\n'.format(hwmon)
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                # returns 1 if the roach is undertemp, it should be 1
+                undertemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_true(undertemp_ind,
+                            'Confirm that the undertemp alarm is Not triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+            # set the max temp limit to 10 degrees
+            set_max_limit = 'echo "10000" > {}/temp1_max\n'.format(hwmon)
+            tn.write(set_max_limit)
+            Aqf.wait(wait_time, 'Setting max temp limit to 10 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                overtemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_true(overtemp_ind,
+                            'Confirm that the overtemp alarm is Triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+            # set the min temp limit to below current temp
+            set_min_limit = 'echo "10000" > {}/temp1_min\n'.format(hwmon)
+            tn.write(set_min_limit)
+            Aqf.wait(wait_time*2, 'Setting min temp limit to 10 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                undertemp_ind = int(stdout.splitlines()[-2])
+                Aqf.is_false(undertemp_ind,
+                            'Confirm that the undertemp alarm is Triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+            # TODO MM add sensor sniffer, at the moment sensor in not implemented
+            # Confirm the CBF sends an error message
+            # "#log warn <> roach2hwmon Sensor\_alarm:\_Chip\_ad7414-i2c-0-4c:\_temp1:\_<>\_C\_(min\_=\_50.0\_C,\_max\_=\_10.0\_C)\_[ALARM]"
+
+            # set the max temp limit back to 55 degrees
+            default_max = 'echo "55000" > {}/temp1_max\n'.format(hwmon)
+            tn.write(default_max)
+            Aqf.wait(wait_time, 'Setting max temp limit back to 55 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            # set the min temp limit back to 50 degrees
+            default_min = 'echo "50000" > {}/temp1_min\n'.format(hwmon)
+            tn.write(default_min)
+            Aqf.wait(wait_time, 'Setting min temp limit back to 50 degrees')
+            stdout = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_overtemp_ind)
+            time.sleep(wait_time*3)
+            overtemp_ind  = tn.read_until('#', timeout=wait_time)
+
+            tn.write(read_undertemp_ind)
+            time.sleep(wait_time*3)
+            undertemp_ind  = tn.read_until('#', timeout=wait_time)
+
+            try:
+                overtemp_ind = int(overtemp_ind.splitlines()[-2])
+                # returns 1 if the roach is overtemp, it should be 0
+                Aqf.is_false(overtemp_ind,
+                            'Confirm that the overtemp alarm was set back to default.')
+                # returns 0 if the roach is undertemp, it should be 1
+                undertemp_ind = int(undertemp_ind.splitlines()[-2])
+                Aqf.is_true(undertemp_ind,
+                            'Confirm that the undertemp alarm was set back to default.\n')
+            except ValueError:
+                Aqf.failed('Failed to read undertemp alarm on {}.\n'.format(hostname))
+
+            tn.write("exit\n")
+            tn.close()
+
+        def over_warning(hwmon_dir, label):
+
+            hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
+            curr_alarm_val = 'cat {}/in0_alarm\n'.format(hwmon)
+            curr_read_lim = 'cat {}/in0_crit\n'.format(hwmon)
+            # set the limit ridiculously low, the red LED should turn on
+            set_limit = 'echo "10" > {}/in0_crit\n'.format(hwmon)
+
+            hostname = hosts[randrange(len(hosts))]
+            tn = telnetlib.Telnet(hostname)
+            Aqf.step('Connected to Host: {}'.format(hostname))
+            tn.read_until('login: ', timeout=wait_time)
+            tn.write(user)
+            time.sleep(wait_time)
+
+            tn.write(curr_alarm_val)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(alarm_value,
+                    'Confirm that the {} alarm has Not triggered.'.format(label))
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm: {}.'.format(label, hostname))
+
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            try:
+                lim_val = int(stdout.splitlines()[-2])
+                Aqf.passed('Confirm current {} limit : {}'.format(label, lim_val))
+
+            except ValueError:
+                Aqf.failed('Failed to read {} limit: {}.'.format(label, hostname))
+
+            tn.write(set_limit)
+            Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
+            time.sleep(wait_time)
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Wait for command to be received successfully.')
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                #Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
+
+                Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
+
+            orig_alarm_val = 'echo "{}" > {}/in0_crit\n'.format(lim_val, hwmon)
+            tn.write(orig_alarm_val)
+            Aqf.step('Setting current warning limit back to default')
+            time.sleep(wait_time*3)
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_read_lim, timeout=wait_time)
+            try:
+                def_lim_val = int(stdout.splitlines()[-2])
+                Aqf.equals(def_lim_val, lim_val,
+                    'Confirm that the current warning limit was set back to default')
+            except ValueError:
+                Aqf.failed('Failed to set default value: {}.'.format(hostname))
+
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
+            time.sleep(wait_time)
+            stdout = tn.read_until(curr_alarm_val, timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
+                Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.\n')
+            except ValueError:
+                Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
+
+        hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
+        user = 'root\n'
+        wait_time = 1
+
+        # TODO MM : Instead of hardcoding which test to run,
+        # think of a better way.(maybe nested dict)
+        Aqf.step('Trigger Air Inlet Temperature Warning.')
+        air_temp_warn('hwmon0', 'Inlet')
+        Aqf.step('Trigger Air Outlet Temperature Warning.')
+        air_temp_warn('hwmon1', 'Outlet')
+        Aqf.step('Trigger the 1V0 overvoltage warning')
+        over_warning('hwmon2', 'overvoltage')
+        Aqf.step('Trigger the 3V3 overcurrent current warning.')
+        over_warning('hwmon3', 'overcurrent')
