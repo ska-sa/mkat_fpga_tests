@@ -37,6 +37,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
+from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 
@@ -345,7 +346,7 @@ class test_CBF(unittest.TestCase):
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
-            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
             this_freq_response = (
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
             if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
@@ -499,6 +500,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Check that back-to-back dumps with same input are equal on '
                  'channel({}) @ {}MHz, '.format(test_chan, expected_fc / 1e6))
         source_period_in_samples = self.corr_freqs.n_chans*2
+
         for i, freq in enumerate(requested_test_freqs):
             print ('Testing dump consistency {}/{} @ {} MHz.'.format(
                 i + 1, len(requested_test_freqs), freq / 1e6))
@@ -540,7 +542,6 @@ class test_CBF(unittest.TestCase):
                     caption='Comparison of back-to-back channelisation results with '
                     'source periodic every {} samples and sine frequency of '
                     '{} MHz.'.format(source_period_in_samples, this_source_freq))
-
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
@@ -639,7 +640,7 @@ class test_CBF(unittest.TestCase):
         no_chans = range(self.corr_freqs.n_chans)
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
         Aqf.step('Source names changed to: ' + str(reply))
-        source_names = reply.arguments[1].split()
+        source_names = reply.arguments[1:]
         # Get input m000_y
         test_source = source_names[1]
         Aqf.step('Source input selected: {}'.format(test_source))
@@ -724,7 +725,7 @@ class test_CBF(unittest.TestCase):
         units = 'secs'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               units, file_name, title)
+                               units, file_name, title, caption)
         expected_phases = [phase for rads, phase in get_expected_phases()]
         tolerance = 1e-2
         for i, delay in enumerate(test_delays):
@@ -940,7 +941,6 @@ class test_CBF(unittest.TestCase):
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
             d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            import IPython;IPython.embed()
             response = complexise(d['xeng_raw'].value[:, 0, :])
             # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
@@ -948,11 +948,11 @@ class test_CBF(unittest.TestCase):
                         ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
 
-    @unittest.skip('Correlator startup is currently unreliable')
+    #@unittest.skip('Correlator startup is currently unreliable')
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        Aqf.failed('Correlator startup is currently unreliable')
+        #Aqf.failed('Correlator startup is currently unreliable')
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Confirm that SPEAD packets are being produced,
@@ -1364,9 +1364,11 @@ class test_CBF(unittest.TestCase):
         graph_units = ' '
         graph_title = 'Delay Rate at {} ns/s'.format(delay_rate * 1e9)
         graph_name = 'Delay_Rate_Response.svg'
+        caption =  ('Actual and expected Unwrapped Correlation Delay Rate, '
+                    'dashed line indicates expected value.')
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         actual_phases = np.unwrap(actual_phases)
         # TODO MM 2015-10-22
@@ -1422,9 +1424,11 @@ class test_CBF(unittest.TestCase):
         graph_units = 'rads'
         graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
         graph_name = 'Fringe_Offset_Response.svg'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                   'dashed line indicates expected value.')
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1477,10 +1481,12 @@ class test_CBF(unittest.TestCase):
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
+        caption = ('Actual and expected Unwrapped Correlation Phase Rate, '
+                   'dashed line indicates expected value.')
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
