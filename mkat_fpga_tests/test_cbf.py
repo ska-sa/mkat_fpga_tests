@@ -826,61 +826,56 @@ class test_CBF(unittest.TestCase):
     def test_roach_qdr_sensors(self):
         """Sensor QDR memory error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
-        sensor_timeout = 20
-
-        # Randomly select a host
-        hosts = self.correlator.xhosts + self.correlator.fhosts
-        host = hosts[randrange(len(hosts))]
-        Aqf.step('Randomly selected host: {}'.format(host.host))
+        # Select a host
+        xhost = self.correlator.xhosts[0]
+        Aqf.step("Selected host: {}".format(xhost.host))
         try:
             host_sensor = getattr(array_sensors, '{}_xeng_qdr'.format(
-                                                              host.host.lower()))
-            # Check if qdr is okay
-            Aqf.is_true(host_sensor.get_value(),
-                        'Confirm that sensor indicates QDR status: {} on {}.'
-                        .format(host_sensor.status, host.host))
+                                                              xhost.host.lower()))
         except AttributeError:
             Aqf.failed('Correlator fixture does not contain array sensors.')
 
+        # Check if qdr is okay
+        Aqf.is_true(host_sensor.get_value(), 'Confirm that sensor indicates QDR status: {} on {}.'
+                    .format(host_sensor.status, xhost.host))
+        sensor_timeout = 10
         host_sensor.set_strategy('auto')
         self.addCleanup(host_sensor.set_sampling_strategy, 'none')
 
-        Aqf.step("Writing junk to {} memory.".format(host.host))
+        Aqf.step("Writing junk to {} memory.".format(xhost.host))
         # Write junk to memory
         for i in range(10):
-            host.blindwrite('qdr1_memory', 'write_junk_to_memory')
+            xhost.blindwrite('qdr1_memory', 'write_junk_to_memory')
         try:
             if host_sensor.wait(False, timeout=sensor_timeout):
                 # Verify that qdr corrupted or unreadable
                 Aqf.equals(host_sensor.get_status(), 'error',
                            'Confirm that sensor indicates that the memory on {} is unreadable/corrupted.'
-                           .format(host.host))
+                           .format(xhost.host))
             else:
                 Aqf.failed('Confirm that sensor indicates that memory is unreadable/corrupted.')
-        except Exception as TimeoutError:
-            Aqf.failed('Timed-out: Failed to verify that qdr is corrupted.')
+        except Exception:
+            Aqf.failed('Failed: Timed Out')
 
-        current_errors = host.registers.vacc_errors1.read()['data']['parity']
+        current_errors = xhost.registers.vacc_errors1.read()['data']['parity']
         Aqf.is_not_equals(current_errors, 0, "Confirm that the error counters incremented.")
-        if current_errors == host.registers.vacc_errors1.read()['data']['parity']:
+        if current_errors == xhost.registers.vacc_errors1.read()['data']['parity']:
             Aqf.passed('Confirm that the error counters have stopped incrementing: '
                        '{} increments.'.format(current_errors))
             # Clear and confirm error counters
-            host.clear_status()
-            final_errors = host.registers.vacc_errors1.read()['data']['parity']
+            xhost.clear_status()
+            final_errors = xhost.registers.vacc_errors1.read()['data']['parity']
             Aqf.is_false(final_errors,
                          'Confirm that the counters have been reset, count {} to {}'
                          .format(current_errors, final_errors))
-            try:
-                if host_sensor.wait(True, timeout=sensor_timeout):
-                    Aqf.is_true(host_sensor.get_value(),
-                                'Confirm that sensor indicates that the QDR memory recovered. '
-                                'Status: {} on {}.'.format(host_sensor.status, host.host))
-                else:
-                    Aqf.failed('QDR sensor failed to recover. '
-                               'Status: {} on {}.'.format(host_sensor.status, host.host))
-            except Exception as TimeoutError:
-                Aqf.failed('Timed-out: failed to recover qdr.')
+
+            if host_sensor.wait(True):
+                Aqf.is_true(host_sensor.get_value(),
+                            'Confirm that sensor indicates that the QDR memory recovered. '
+                            'Status: {} on {}.'.format(host_sensor.status, xhost.host))
+            else:
+                Aqf.failed('QDR sensor failed to recover. '
+                           'Status: {} on {}.'.format(host_sensor.status, xhost.host))
         else:
             Aqf.failed('Error counters still incrementing. QDR did not recover')
 
