@@ -1815,4 +1815,7 @@ class test_CBF(unittest.TestCase):
         get_pdu_config()
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
-        Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        try:
+            Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+        except OSError:
+            LOGGER.info('Test ran by: Jenkins on {}'.format(time.ctime()))
