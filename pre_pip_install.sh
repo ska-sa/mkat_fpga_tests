@@ -10,7 +10,7 @@ set -e # Abort on any errors
 cd "$PYTHON_SRC_PACKAGES_DIR"/spead2
 OLD_PATH="$PATH"
 export PATH=/home/paulp/opt/gcc4.9.3/bin:"${PATH}"
-pip install -e . --upgrade
+pip install -e .
 export PATH="${OLD_PATH}"
 # end hacksauce
 ##
