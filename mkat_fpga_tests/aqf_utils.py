@@ -43,7 +43,34 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
         Message describing the purpose of the comparison.
     **kwargs : keyword arguments
         Passed on to numpy.testing.assert_almost_equal. You probably want to use the
-        'decimal' kwarg to specify how many digits after the deciman point is compared.
+        `decimal` kwarg to specify how many digits after the decimal point is compared.
+
+    """
+    try:
+        np.testing.assert_almost_equal(result, expected, **kwargs)
+    except AssertionError, e:
+        Aqf.failed('{} - {}'.format(str(e), description))
+    else:
+        Aqf.passed(description)
+
+
+def aqf_numpy_allclose(result, expected, description, **kwargs):
+    """Compares numerical result to an expected value and logs to Aqf.
+
+    Using numpy.testing.assert_allclose for the comparison
+
+    Parameters
+    ----------
+    result: numeric type or array of type
+        Actual result to be checked.
+    expected: Same as result
+        Expected result
+    description: String
+        Message describing the purpose of the comparison.
+    **kwargs : keyword arguments
+        Passed on to numpy.testing.assert_allclose. You probably want to use the
+        `rtol` and `atol` kwargs to respectively specify relative- and absolute
+        tollerance
 
     """
     try:

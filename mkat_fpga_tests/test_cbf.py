@@ -269,10 +269,9 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
-        graph_name_all = test_name + '.channel_response.svg'
+        graph_name_all = 'channel_response.svg'
         plot_data_all = loggerise(chan_responses[:, test_chan],
                                   dynamic_range=90)
-
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
                       caption='Channel {} response vs source frequency'
                       .format(test_chan))
@@ -286,7 +285,7 @@ class test_CBF(unittest.TestCase):
         central_chan_responses = chan_responses[central_indices]
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
-        graph_name_central = test_name + '.channel_response_central.svg'
+        graph_name_central = 'channel_response_central.svg'
         plot_data_central = loggerise(central_chan_responses[:, test_chan],
                                       dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
@@ -294,13 +293,23 @@ class test_CBF(unittest.TestCase):
                       .format(test_chan))
 
 
-        # Test responses in central 80% of channel
+        Aqf.step('Test that the peak channeliser response to input frequencies in '
+                 'central 80% of the test channel frequency band are all in the '
+                 'test channel')
+        fault_freqs = []
+        faul_channels = []
         for i, freq in enumerate(central_chan_test_freqs):
             max_chan = np.argmax(np.abs(central_chan_responses[i]))
-            # TODO Aqf conversion
-            self.assertEqual(max_chan, test_chan,
-                             'Source freq {} peak in correct channel.'
-                             .format(freq, test_chan, max_chan))
+            if max_chan != test_chan:
+                fault_freqs.append(freq)
+                fault_channels.append(max_chan)
+        if not fault_freqs:
+            Aqf.passed()
+        else:
+            Aqf.failed('The following input frequencies: {!r} respectively had '
+                       'peak channeliser responses in channels {!r}, not '
+                       'channel {} as expected.'
+                       .format(fault_freqs, fault_channels, test_chan))
 
         Aqf.less(
             np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
@@ -312,10 +321,42 @@ class test_CBF(unittest.TestCase):
             central_chan_responses[:, test_chan]))
         chan_ripple = max_central_chan_response - min_central_chan_response
         acceptable_ripple_lt = 0.3
-
         Aqf.less(chan_ripple, acceptable_ripple_lt,
                  'Check that ripple within 80% of channel fc is < {} dB'
                  .format(acceptable_ripple_lt))
+
+        # Get frequency samples closest channel fc and crossover points
+        co_low_freq = expected_fc - df/2
+        co_high_freq = expected_fc + df/2
+        def get_close_result(freq):
+            ind = np.argmin(np.abs(actual_test_freqs - freq))
+            source_freq = actual_test_freqs[ind]
+            response = chan_responses[ind, test_chan]
+            return ind, source_freq, response
+        fc_ind, fc_src_freq, fc_resp = get_close_result(expected_fc)
+        co_low_ind, co_low_src_freq, co_low_resp = get_close_result(co_low_freq)
+        co_high_ind, co_high_src_freq, co_high_resp = get_close_result(co_high_freq)
+
+        Aqf.step('Check that response at channel-edges are -3 dB relative to '
+                 'the channel centre at {} Hz, actual source freq '
+                 '{} Hz'.format(expected_fc, fc_src_freq))
+
+        desired_cutoff_resp = -3 # dB
+        acceptable_co_var = 0.1 # dB, TODO 2015-12-09 NM: thumbsuck number
+        co_low_rel_resp = 10*np.log10(co_low_resp / fc_resp)
+        co_high_rel_resp = 10*np.log10(co_high_resp / fc_resp)
+        Aqf.less(
+            np.abs(desired_cutoff_resp - co_low_rel_resp), acceptable_co_var,
+            'Check that relative response at the low band-edge ({co_low_rel_resp} '
+            'dB @ {co_low_freq} Hz, actual source freq {co_low_src_freq}) '
+            'is {desired_cutoff_resp} +- {acceptable_co_var} dB relative to '
+            'channel centre response.'.format(**locals()) )
+        Aqf.less(
+            np.abs(desired_cutoff_resp - co_high_rel_resp), acceptable_co_var,
+            'Check that relative response at the high band-edge ({co_high_rel_resp} '
+            'dB @ {co_high_freq} Hz, actual source freq {co_high_src_freq}) '
+            'is {desired_cutoff_resp} +- {acceptable_co_var} dB relative to '
+            'channel centre response.'.format(**locals()) )
 
     @aqf_vr('TP.C.1.19')
     def test_sfdr_peaks(self):
@@ -334,6 +375,9 @@ class test_CBF(unittest.TestCase):
         cutoff = 20
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
+
+        # TODO NM 2015-12-08 Verify that the spacing between channels (sommer using
+        # self.corr_freqs) is smaller than specified for the mode.
 
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros
