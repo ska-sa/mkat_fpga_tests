@@ -1,7 +1,11 @@
 #!/usr/bin/env python
-# import os import json from optparse import OptionParser
-import subprocess import platform import time
+import os
+import json
+import subprocess
+import platform
+import time
 
+from optparse import OptionParser
 from process_core_xml import process_xml_to_json
 
 

@@ -15,4 +15,3 @@ export PATH="${OLD_PATH}"
 # end hacksauce
 ##
 set -u # Throw error on uninitialized variables
-
