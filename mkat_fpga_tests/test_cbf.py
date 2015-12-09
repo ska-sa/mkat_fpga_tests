@@ -372,7 +372,7 @@ class test_CBF(unittest.TestCase):
         # Channel no with max response for each frequency
         max_channels = []
         # Spurious response cutoff in dB
-        cutoff = 20
+        cutoff = 53
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
 
@@ -382,8 +382,9 @@ class test_CBF(unittest.TestCase):
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros
         n_chans = self.corr_freqs.n_chans
+        required_chan_spacing = 290e3 # TODO (NM 2015-12-09) Is this the requirement?
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+                self.corr_freqs.chan_freqs[start_chan], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -413,6 +414,12 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(extra_peaks, [[]] * len(max_channels),
                    "Check that no other channels responded > -{cutoff} dB"
                    .format(**locals()))
+        df = self.corr_freqs.delta_f
+        Aqf.less(df, required_chan_spacing,
+                 'Test that computed channel spacing {} HZ is less than {} Hz. '
+                 'This comparison is only valid if the peak response test '
+                 'above passed, since a failure may imply that the computed '
+                 'spacing is invalid.'.format(df, required_chan_spacing))
 
     @aqf_vr('TP.C.1.30')
     def test_product_baselines(self):
