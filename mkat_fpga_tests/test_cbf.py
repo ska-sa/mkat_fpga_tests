@@ -17,6 +17,7 @@ from random import randrange
 
 import numpy as np
 import matplotlib
+
 import matplotlib.pyplot as plt
 
 from unittest.util import strclass
@@ -41,6 +42,7 @@ from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 
+matplotlib.use('Agg')
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
