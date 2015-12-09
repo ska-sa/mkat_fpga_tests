@@ -948,11 +948,11 @@ class test_CBF(unittest.TestCase):
                         ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
 
-    #@unittest.skip('Correlator startup is currently unreliable')
+    @unittest.skip('Correlator startup is currently unreliable')
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        #Aqf.failed('Correlator startup is currently unreliable')
+        Aqf.failed('Correlator startup is currently unreliable')
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Confirm that SPEAD packets are being produced,
