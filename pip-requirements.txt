@@ -12,6 +12,7 @@ matplotlib
 mpld3
 bokeh
 sphinxcontrib-napoleon
+sphinx
 breathe
 alabaster
 trollius
