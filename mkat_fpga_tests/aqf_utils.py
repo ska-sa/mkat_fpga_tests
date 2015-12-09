@@ -1,12 +1,14 @@
 import functools
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 
 from nosekatreport import Aqf
 
 from mkat_fpga_tests.utils import loggerise
 
+matplotlib.use('Agg')
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
     @functools.wraps(meth)
