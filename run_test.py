@@ -395,16 +395,19 @@ def generate_report(settings, log_func):
              'core': get_filename('core', settings)}
     urls_for_jenkins = {'test': "katreport.json",
                         'system': "katreport_system.json"}
+
     # TODO(MS) Get this from the command line so that it can be passed in for
     # each different document generation.
     if report_type == 'jenkins':
         url_server = "http://dbelab04:8080"
-        url_path1 = "job/mkat_fpga_tests/lastSuccessfulBuild/"
-        url_path2 = "artifact/mkat_fpga_tests/json"
+        url_path1 = "view/CBF/view/CBF%20Devel"
+        url_path2 = "job/mkat_fpga_tests/lastSuccessfulBuild"
+        url_path3 = "artifact/katreport"
         print "Fetch from jenkins"
         log_func('INFO', "Fetch files from jenkins")
         for item in urls_for_jenkins:
-            url = '/'.join([url_server, url_path1, url_path2, urls_for_jenkins[item]])
+            url = '/'.join([url_server, url_path1, url_path2, url_path3,
+                            urls_for_jenkins[item]])
             tmp_filename = os.path.join('/tmp', 'aqf_' + item + '.json')
             files[item] = _downloadfile(url, tmp_filename, log_func)
 
