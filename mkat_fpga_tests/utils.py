@@ -23,6 +23,7 @@ def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
 def loggerise(data, dynamic_range=70, normalise_to=None):
+    olderr = np.seterr(all='ignore')
     log_data = 10*np.log10(data)
     if normalise_to:
         max_log = normalise_to
