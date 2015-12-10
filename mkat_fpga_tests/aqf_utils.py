@@ -69,8 +69,8 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
         elements
 
     """
-    err = np.array(expected) - np.array(result)
-    max_err_ind = np.argmax(np.abs(err))
+    err = np.abs(np.array(expected) - np.array(result))
+    max_err_ind = np.argmax(err)
     max_err = err[max_err_ind]
     if max_err >= abs_error:
         Aqf.failed('Absolute error larger than {abs_error}, max error at'
