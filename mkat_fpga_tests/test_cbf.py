@@ -117,7 +117,6 @@ class test_CBF(unittest.TestCase):
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
         self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self.threshold = 1e-7  # Threshold: -70dB
 
     def set_instrument(self, instrument):
         self.corr_fix.ensure_instrument(instrument)
@@ -549,6 +548,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_1')
     def test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
+        threshold = 1e-7  # Threshold: -70dB
         test_chan = randrange(0, self.corr_freqs.n_chans)
         test_baseline = 0
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
@@ -586,10 +586,10 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
             if not Aqf.less(
-                    dumps_comp, self.threshold,
+                    dumps_comp, threshold,
                     'Check that back-to-back dumps({}) with the same frequency '
                     'input differ by no more than {} threshold[dB].'
-                    .format(dumps_comp, 10 * np.log10(self.threshold))
+                    .format(dumps_comp, 10 * np.log10(threshold))
             ):
                 legends = ['dump #{}'.format(i) for i in range(len(chan_responses))]
                 aqf_plot_channels(
@@ -603,6 +603,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_2')
     def test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
+        threshold = 1e-7  # Threshold: -70dB
         test_chan = randrange(0, self.corr_freqs.n_chans)
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
@@ -642,10 +643,10 @@ class test_CBF(unittest.TestCase):
                 # then have a final Aqf-check so that there is only one step
                 # (not n_chan) in the report.
                 max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
-                Aqf.less(max_freq_scan, self.threshold,
+                Aqf.less(max_freq_scan, threshold,
                          'Check that the frequency scan on SPEAD dump #{}'
                          ' comparison({}) is less than {} dB.'
-                         .format(count, max_freq_scan, self.threshold))
+                         .format(count, max_freq_scan, threshold))
 
     @aqf_vr('TP.C.dummy_vr_3')
     def test_restart_consistency(self):
