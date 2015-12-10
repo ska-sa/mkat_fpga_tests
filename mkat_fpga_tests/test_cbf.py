@@ -1860,6 +1860,9 @@ class test_CBF(unittest.TestCase):
         except OSError:
             LOGGER.info('Test ran by: Jenkins on {}'.format(time.ctime()))
 
+    @aqf_vr('TP.C.1.5.1')
+    @aqf_vr('TP.C.1.5.2')
+    @aqf_vr('TP.C.1.5.3')
     @aqf_vr('TP.C.1.18')
     def test_fault_detection(self):
         """AR1 Fault detection"""
@@ -2067,6 +2070,14 @@ class test_CBF(unittest.TestCase):
 
         # TODO MM : Instead of hardcoding which test to run,
         # think of a better way.(maybe nested dict)
+
+        # TODO MM: Repeat for 1V5 rail on in1
+        # 5.12 Repeat for 1V8 rail on in2
+        # 5.13 Repeat for 2V5 rail on in3
+        # 5.14 Repeat for 3V3 rail on in4
+        # 5.15 Repeat for 5V rail on in5
+        # 5.16 Repeat for 12V rail on in6
+
         Aqf.step('Trigger Air Inlet Temperature Warning.')
         air_temp_warn('hwmon0', 'Inlet')
         Aqf.step('Trigger Air Outlet Temperature Warning.')
