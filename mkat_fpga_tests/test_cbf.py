@@ -457,8 +457,12 @@ class test_CBF(unittest.TestCase):
                  'spacing is invalid.'.format(df, required_chan_spacing))
 
     @aqf_vr('TP.C.1.30')
-    def _test_product_baselines(self):
+    def test_c8n856M4k_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
+        self.set_instrument('c8n856M4k')
+        self._test_product_baselines()
+        
+    def _test_product_baselines(self):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         # Set list for all the correlator input labels
