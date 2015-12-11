@@ -11,6 +11,7 @@ import telnetlib
 import paramiko
 import subprocess
 import colors
+import Queue
 
 from functools import partial
 from random import randrange
@@ -59,6 +60,12 @@ DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 
 flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
     34, 33, 32)
+#NOTE TP.C.1.20 for AR1 maps to TP.C.1.46 for RTS
+
+# TODO NM (2015-12-10) Use steal_docstring decorator form KATCP for sub-tests to re-use
+# docstring from implementaion. Perhaps do some trickery with string templates and parsing
+# the mode name from the function to make an all singing all dancing decorator that does
+# everything automagically?
 
 
 def get_vacc_offset(xeng_raw):
@@ -103,21 +110,28 @@ def get_set_bits(packed, consider_bits=None):
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
 
-
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
+    DEFAULT_INSTRUMENT = 'c8n856M4k'
 
     def setUp(self):
-        self.correlator = correlator_fixture.correlator
         self.corr_fix = correlator_fixture
-        self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
-        dsim_conf = self.correlator.configd['dsimengine']
+        dsim_conf = self.corr_fix.test_conf['dsimengine']
         dig_host = dsim_conf['host']
         self.dhost = FpgaDsimHost(dig_host, config=dsim_conf)
         self.dhost.get_system_information()
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
+        self.receiver = None
+
+    def set_instrument(self, instrument):
+        if self.receiver:
+            self.receiver.stop()
+            self.receiver = None
+        self.corr_fix.ensure_instrument(instrument)
+        self.correlator = correlator_fixture.correlator
+        self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
         self.xengops = self.correlator.xops
         self.fengops = self.correlator.fops
         # Increase the dump rate so tests can run faster
@@ -129,17 +143,22 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(clear_all_delays, self.correlator)
         self.receiver = CorrRx(port=8888, queue_size=1000)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
+        # TODO NM 2015-12-07 Should use array KATCP interface to start X data and
+        # issue meta data.
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
-        self.threshold = 1e-7  # Threshold: -70dB
 
     @aqf_vr('TP.C.1.19')
-    def test_channelisation(self):
+    @aqf_vr('TP.C.1.45')
+    def test_c8n856M4k_channelisation(self):
         """CBF Channelisation Wideband Coarse L-band"""
-        test_name = '{}.{}'.format(strclass(self.__class__), self._testMethodName)
-        test_data_h5 = TestDataH5(test_name + '.h5')
-        self.addCleanup(test_data_h5.close)
-        test_chan = 1500
+        self.set_instrument('c8n856M4k')
+        self._test_channelisation(
+            required_chan_spacing=290e3,
+            test_chan=1500
+            )
+
+    def _test_channelisation(self, required_chan_spacing, test_chan):
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=101, chans_around=2)
@@ -359,11 +378,33 @@ class test_CBF(unittest.TestCase):
             'channel centre response.'.format(**locals()) )
 
     @aqf_vr('TP.C.1.19')
-    def test_sfdr_peaks(self):
-        """Test spurious free dynamic range
+    @aqf_vr('TP.C.1.45')
+    def test_c8n856M4k_sfdr_peaks(self):
+        """Test spurious free dynamic range for wideband coarse (c8n856M4k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
+
+        """
+        self.set_instrument('c8n856M4k')
+        self._test_sfdr_peaks(
+            required_chan_spacing=290e3,
+            cutoff=53)
+
+    def _test_sfdr_peaks(self, required_chan_spacing, cutoff):
+        """Test channel spacing and out-of-channel response
+
+        Will loop over all the channels, placing the source frequency as close to the
+        centre frequency of that channel as possible.
+
+        Parameters
+        ----------
+        required_chan_spacing : float
+            Maximum inter-channel spacing in Hz
+        cutoff : float
+            Responses in other channels must be at least `-cutoff` dB below the response
+            of the channel with centre frequency corresponding to the source frequency
+
         """
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
@@ -371,20 +412,14 @@ class test_CBF(unittest.TestCase):
         actual_test_freqs = []
         # Channel no with max response for each frequency
         max_channels = []
-        # Spurious response cutoff in dB
-        cutoff = 53
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
 
-        # TODO NM 2015-12-08 Verify that the spacing between channels (sommer using
-        # self.corr_freqs) is smaller than specified for the mode.
-
         # Checking for all channels.
-        start_chan = 1  # skip DC channel since dsim puts out zeros
+        start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         n_chans = self.corr_freqs.n_chans
-        required_chan_spacing = 290e3 # TODO (NM 2015-12-09) Is this the requirement?
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -422,7 +457,7 @@ class test_CBF(unittest.TestCase):
                  'spacing is invalid.'.format(df, required_chan_spacing))
 
     @aqf_vr('TP.C.1.30')
-    def test_product_baselines(self):
+    def _test_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
@@ -541,8 +576,14 @@ class test_CBF(unittest.TestCase):
                        "Also check that expected baselines visibilities are zero.")
 
     @aqf_vr('TP.C.dummy_vr_1')
-    def test_back2back_consistency(self):
+    def test_c8n856M4k_back2back_consistency(self):
+        """Check that c8n856M4k  back-to-back dumps with same input are equal"""
+        self.set_instrument('c8n856M4k')
+        self._test_back2back_consistency()
+
+    def _test_back2back_consistency(self):
         """Check that back-to-back dumps with same input are equal"""
+        threshold = 1e-7  # Threshold: -70dB
         test_chan = randrange(0, self.corr_freqs.n_chans)
         test_baseline = 0
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
@@ -580,10 +621,10 @@ class test_CBF(unittest.TestCase):
 
             dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
             if not Aqf.less(
-                    dumps_comp, self.threshold,
+                    dumps_comp, threshold,
                     'Check that back-to-back dumps({}) with the same frequency '
                     'input differ by no more than {} threshold[dB].'
-                    .format(dumps_comp, 10 * np.log10(self.threshold))
+                    .format(dumps_comp, 10 * np.log10(threshold))
             ):
                 legends = ['dump #{}'.format(i) for i in range(len(chan_responses))]
                 aqf_plot_channels(
@@ -595,8 +636,13 @@ class test_CBF(unittest.TestCase):
                     '{} MHz.'.format(source_period_in_samples, this_source_freq))
 
     @aqf_vr('TP.C.dummy_vr_2')
-    def test_freq_scan_consistency(self):
+    def test_c8n856M4k_freq_scan_consistency(self):
+        self.set_instrument('c8n856M4k')
+        self._test_freq_scan_consistency()
+
+    def _test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
+        threshold = 1e-7  # Threshold: -70dB
         test_chan = randrange(0, self.corr_freqs.n_chans)
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
@@ -636,14 +682,19 @@ class test_CBF(unittest.TestCase):
                 # then have a final Aqf-check so that there is only one step
                 # (not n_chan) in the report.
                 max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
-                Aqf.less(max_freq_scan, self.threshold,
+                Aqf.less(max_freq_scan, threshold,
                          'Check that the frequency scan on SPEAD dump #{}'
                          ' comparison({}) is less than {} dB.'
-                         .format(count, max_freq_scan, self.threshold))
+                         .format(count, max_freq_scan, threshold))
 
     @aqf_vr('TP.C.dummy_vr_3')
-    def test_restart_consistency(self):
-        """3. Check that results are consequent on correlator restart"""
+    def test_c8n856M4k_test_restart_consistency(self):
+        """Check that results are consistent on correlator restart"""
+        self.set_instrument('c8n856M4k')
+        self._test_restart_consistency()
+
+    def _test_restart_consistency(self):
+        """Check that results are consistent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
         Aqf.tbd('Correlator restart consistency test not implemented yet.')
@@ -718,7 +769,11 @@ class test_CBF(unittest.TestCase):
         }
 
     @aqf_vr('TP.C.1.27')
-    def test_delay_tracking(self):
+    def test_c8n856M4k_delay_tracking(self):
+        self.set_instrument('c8n856M4k')
+        self._test_delay_tracking()
+
+    def _test_delay_tracking(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
         setup_data = self._delays_setup()
         sampling_period = self.corr_freqs.sample_period
@@ -797,7 +852,14 @@ class test_CBF(unittest.TestCase):
                                              tolerance), tolerance)
 
     @aqf_vr('TP.C.1.16')
-    def test_sensor_values(self):
+    def test_c8n856M4k_sensor_values(self):
+        """
+        Report sensor values (AR1)
+        """
+        self.set_instrument('c8n856M4k')
+        self._test_sensor_values()
+
+    def _test_sensor_values(self):
         """
         Report sensor values (AR1)
         """
@@ -856,7 +918,12 @@ class test_CBF(unittest.TestCase):
                        .format(sensor.name, sensor.get_status()))
 
     @aqf_vr('TP.C.1.16')
-    def test_roach_qdr_sensors(self):
+    def test_c8n856M4k_roach_qdr_sensors(self):
+        """Sensor QDR memory error"""
+        self.set_instrument('c8n856M4k')
+        self._test_roach_qdr_sensors()
+
+    def _test_roach_qdr_sensors(self):
         """Sensor QDR memory error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
         # Select a host
@@ -913,13 +980,23 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Error counters still incrementing. QDR did not recover')
 
     @aqf_vr('TP.C.1.16')
-    def test_roach_pfb_sensors(self):
+    def test_c8n856M4k_test_roach_pfb_sensors(self):
+        """Sensor PFB error"""
+        self.set_instrument('c8n856M4k')
+        self._test_roach_pfb_sensors()
+
+    def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
         Aqf.tbd('PFB sensor test not yet implemented.')
 
     @aqf_vr('TP.C.1.16')
-    def test_roach_sensors_status(self):
+    def test_c8n856M4k_roach_sensors_status(self):
+        """ Test all roach sensors status are not failing and count verification."""
+        self.set_instrument('c8n856M4k')
+        self._test_roach_sensors_status()
+
+    def _test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
@@ -945,7 +1022,12 @@ class test_CBF(unittest.TestCase):
                              .format(roach.host, sensor_name, sensor_status))
 
     @aqf_vr('TP.C.1.31')
-    def test_vacc(self):
+    def test_c8n856M4k_vacc(self):
+        """Test vector accumulator"""
+        self.set_instrument('c8n856M4k')
+        self._test_vacc()
+
+    def _test_vacc(self):
         """Test vector accumulator"""
         # Choose a test freqency around the centre of the band.
         test_freq = self.corr_freqs.bandwidth / 2.
@@ -999,18 +1081,10 @@ class test_CBF(unittest.TestCase):
                         ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
 
-    @unittest.skip('Correlator startup is currently unreliable')
-    @aqf_vr('TP.C.1.40')
-    def test_product_switch(self):
-        """(TP.C.1.40) CBF Data Product Switching Time"""
-        Aqf.failed('Correlator startup is currently unreliable')
-        # 1. Configure one of the ROACHs in the CBF to generate noise.
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+    def _test_a_product_switch(self, instrument, no_channels):
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        # TODO NM 2015-09-14: Do we need to validate the shape of the data to
-        # ensure the product is correct?
 
         # Deprogram CBF
         xhosts = self.correlator.xhosts
@@ -1025,27 +1099,36 @@ class test_CBF(unittest.TestCase):
         # that the data content is at least affected.
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            Aqf.failed('SPEAD parkets are still being produced.')
-        except Exception:
-            Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
+            Aqf.failed('SPEAD packets are still being produced.')
+        except Queue.Empty:
+            Aqf.passed('Check that SPEAD packets are nolonger being produced.')
 
         # Start timer and re-initialise the instrument and, start capturing data.
         start_time = time.time()
         correlator_fixture.halt_array()
-        correlator_fixture.start_correlator()
+        Aqf.step('Initialising {instrument} instrument'.format(**locals()) )
+        self.set_instrument(instrument)
         self.corr_fix.start_x_data()
         # Confirm that the instrument is initialised by checking if roaches
         # are programmed.
+        xhosts = self.correlator.xhosts
+        fhosts = self.correlator.fhosts
+        hosts = xhosts + fhosts
         [Aqf.is_true(host.is_running(),
                      '{} programmed and running'.format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced, with the selected data
         # product(s) The receiver won't return a dump if the correlator is not
         # producing well-formed SPEAD data.
+        Aqf.hop('Waiting to receive SPEAD data')
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         Aqf.is_true(re_dump,
-                    'Check that SPEAD parkets are being produced after instrument '
+                    'Check that SPEAD packets are being produced after instrument '
                     're-initialisation.')
+        Aqf.equals(re_dump['xeng_raw'].value.shape[0], no_channels,
+                   'Check that data product has the number of frequency '
+                   'channels {no_channels} corresponding to the {instrument} '
+                   'instrument product'.format(**locals()) )
 
         # Stop timer.
         end_time = time.time()
@@ -1054,8 +1137,19 @@ class test_CBF(unittest.TestCase):
         minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
-                 'Check that product switching time is less than one minute')
+                 'Check that instrument switching to {instrument} time is '
+                 'less than one minute'.format(**locals()) )
 
+    # @unittest.skip('Correlator startup is currently unreliable')
+    @aqf_vr('TP.C.1.40')
+    def test_product_switch(self):
+        """(TP.C.1.40) CBF Data Product Switching Time"""
+        #Aqf.failed('Correlator startup is currently unreliable')
+        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        self.set_instrument('c8n856M4k')
+        self._test_a_product_switch('c8n856M4k', no_channels=4096)
+        self._test_a_product_switch('c8n856M32k', no_channels=32768)
         # TODO: MM 2015-09-14, Still need more info
 
         # 6. Repeat for all combinations of available data products,
@@ -1091,7 +1185,12 @@ class test_CBF(unittest.TestCase):
         return (dump1, dump2, dump3)
 
     @aqf_vr('TP.C.1.38')
-    def test_adc_overflow_flag(self):
+    def test_c8n856M4k_overflow_flag(self):
+        """CBF flagging of data -- ADC overflow"""
+        self.set_instrument('c8n856M4k')
+        self._test_adc_overflow_flag()
+
+    def _test_adc_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
 
         # TODO 2015-09-22 (NM): Test is currently failing since the noise diode flag is
@@ -1144,7 +1243,12 @@ class test_CBF(unittest.TestCase):
                    .format(sorted(other_bits)))
 
     @aqf_vr('TP.C.1.38')
-    def test_noise_diode_flag(self):
+    def test_c8n856M4k_noise_diode_flag(self):
+        """CBF flagging of data -- noise diode fired"""
+        self.set_instrument('c8n856M4k')
+        self._test_noise_diode_flag()
+
+    def _test_noise_diode_flag(self):
         """CBF flagging of data -- noise diode fired"""
 
         def enable_noise_diode():
@@ -1198,7 +1302,12 @@ class test_CBF(unittest.TestCase):
                    .format(sorted(other_bits)))
 
     @aqf_vr('TP.C.1.38')
-    def test_fft_overflow_flag(self):
+    def test_c8n856M4k_fft_overflow_flag(self):
+        """CBF flagging of data -- FFT overflow"""
+        self.set_instrument('c8n856M4k')
+        self._test_fft_overflow_flag()
+
+    def _test_fft_overflow_flag(self):
         """CBF flagging of data -- FFT overflow"""
         freq = self.corr_freqs.bandwidth / 2.
 
@@ -1382,7 +1491,12 @@ class test_CBF(unittest.TestCase):
             return zip(delay_phase, wrapped_results)
 
     @aqf_vr('TP.C.1.27')
-    def test_delay_rate(self):
+    def test_c8n856M4k_test_delay_rate(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
+        self.set_instrument('c8n856M4k')
+        self._test_delay_rate()
+
+    def _test_delay_rate(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
 
         setup_data = self._delays_setup()
@@ -1443,7 +1557,12 @@ class test_CBF(unittest.TestCase):
                      .format(abs_diff))
 
     @aqf_vr('TP.C.1.24')
-    def test_fringe_offset(self):
+    def test_c8n856M4k_test_fringe_offset(self):
+        """CBF per-antenna phase error -- Fringe offset"""
+        self.set_instrument('c8n856M4k')
+        self._test_fringe_offset()
+
+    def _test_fringe_offset(self):
         """CBF per-antenna phase error -- Fringe offset"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
@@ -1502,7 +1621,12 @@ class test_CBF(unittest.TestCase):
                      'is below 1 degree: {} degree\n'.format(abs_diff))
 
     @aqf_vr('TP.C.1.28')
-    def test_fringe_rate(self):
+    def test_c8n856M4k_test_fringe_rate(self):
+        """CBF per-antenna phase error -- Fringe rate"""
+        self.set_instrument('c8n856M4k')
+        self._test_fringe_rate()
+
+    def _test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
         # TODO Randomise test values
         setup_data = self._delays_setup()
@@ -1561,7 +1685,14 @@ class test_CBF(unittest.TestCase):
 
     @unittest.skip('Values still needs to be defined.')
     @aqf_vr('TP.C.1.28')
-    def test_all_delays(self):
+    def test_c8n856M4k_test_all_delays(self):
+        """
+        CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
+        """
+        self.set_instrument('c8n856M4k')
+        self._test_all_delays()
+
+    def _test_all_delays(self):
         """
         CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
@@ -1633,9 +1764,16 @@ class test_CBF(unittest.TestCase):
                      ' degree\n'.format(abs_diff))
 
     @aqf_vr('TP.C.1.17')
-    def test_config_report(self):
+    def test_c8n856M4k_test_config_report(self):
+        """
+        CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
+        """
+        self.set_instrument('c8n856M4k')
+        self._test_config_report()
+
+    def _test_config_report(self):
         """CBF Report configuration"""
-        test_config = correlator_fixture.corr_conf
+        test_config = correlator_fixture.test_conf
         def get_roach_config():
 
             Aqf.hop('DEngine :{}'.format(self.dhost.host))
@@ -1864,9 +2002,13 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.5.2')
     @aqf_vr('TP.C.1.5.3')
     @aqf_vr('TP.C.1.18')
-    def test_fault_detection(self):
+    def test_c8n856M4k_test_fault_detection(self):
         """AR1 Fault detection"""
+        self.set_instrument('c8n856M4k')
+        self._test_fault_detection()
 
+    def _test_fault_detection(self):
+        """AR1 Fault detection"""
         def air_temp_warn(hwmon_dir, label):
 
             hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
