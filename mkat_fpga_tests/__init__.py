@@ -199,6 +199,8 @@ class CorrelatorFixture(object):
 
         instrument_products_present = products.intersection(
             instrument_products) == instrument_products
+        if instrument_products_present:
+            self.instrument = instrument
         return instrument_products_present
 
     def start_correlator(self, instrument='c8n856M4k',
