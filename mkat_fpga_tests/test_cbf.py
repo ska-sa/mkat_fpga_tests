@@ -11,6 +11,7 @@ import telnetlib
 import paramiko
 import subprocess
 import colors
+import Queue
 
 from functools import partial
 from random import randrange
@@ -122,8 +123,12 @@ class test_CBF(unittest.TestCase):
         self.dhost.get_system_information()
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
+        self.receiver = None
 
     def set_instrument(self, instrument):
+        if self.receiver:
+            self.receiver.stop()
+            self.receiver = None
         self.corr_fix.ensure_instrument(instrument)
         self.correlator = correlator_fixture.correlator
         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
@@ -1076,18 +1081,10 @@ class test_CBF(unittest.TestCase):
                         ' to the expected response for {} accumulation length'
                         .format(vacc_accumulations))
 
-    @unittest.skip('Correlator startup is currently unreliable')
-    @aqf_vr('TP.C.1.40')
-    def test_product_switch(self):
-        """(TP.C.1.40) CBF Data Product Switching Time"""
-        Aqf.failed('Correlator startup is currently unreliable')
-        # 1. Configure one of the ROACHs in the CBF to generate noise.
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+    def _test_a_product_switch(self, instrument, no_channels):
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        # TODO NM 2015-09-14: Do we need to validate the shape of the data to
-        # ensure the product is correct?
 
         # Deprogram CBF
         xhosts = self.correlator.xhosts
@@ -1102,27 +1099,36 @@ class test_CBF(unittest.TestCase):
         # that the data content is at least affected.
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            Aqf.failed('SPEAD parkets are still being produced.')
-        except Exception:
-            Aqf.passed('Check that SPEAD parkets are nolonger being produced.')
+            Aqf.failed('SPEAD packets are still being produced.')
+        except Queue.Empty:
+            Aqf.passed('Check that SPEAD packets are nolonger being produced.')
 
         # Start timer and re-initialise the instrument and, start capturing data.
         start_time = time.time()
         correlator_fixture.halt_array()
-        correlator_fixture.start_correlator()
+        Aqf.step('Initialising {instrument} instrument'.format(**locals()) )
+        self.set_instrument(instrument)
         self.corr_fix.start_x_data()
         # Confirm that the instrument is initialised by checking if roaches
         # are programmed.
+        xhosts = self.correlator.xhosts
+        fhosts = self.correlator.fhosts
+        hosts = xhosts + fhosts
         [Aqf.is_true(host.is_running(),
                      '{} programmed and running'.format(host.host)) for host in hosts]
 
         # Confirm that SPEAD packets are being produced, with the selected data
         # product(s) The receiver won't return a dump if the correlator is not
         # producing well-formed SPEAD data.
+        Aqf.hop('Waiting to receive SPEAD data')
         re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         Aqf.is_true(re_dump,
-                    'Check that SPEAD parkets are being produced after instrument '
+                    'Check that SPEAD packets are being produced after instrument '
                     're-initialisation.')
+        Aqf.equals(re_dump['xeng_raw'].value.shape[0], no_channels,
+                   'Check that data product has the number of frequency '
+                   'channels {no_channels} corresponding to the {instrument} '
+                   'instrument product'.format(**locals()) )
 
         # Stop timer.
         end_time = time.time()
@@ -1131,8 +1137,19 @@ class test_CBF(unittest.TestCase):
         minute = 60.0
         # Confirm data product switching time is less than 60 seconds
         Aqf.less(final_time, minute,
-                 'Check that product switching time is less than one minute')
+                 'Check that instrument switching to {instrument} time is '
+                 'less than one minute'.format(**locals()) )
 
+    # @unittest.skip('Correlator startup is currently unreliable')
+    @aqf_vr('TP.C.1.40')
+    def test_product_switch(self):
+        """(TP.C.1.40) CBF Data Product Switching Time"""
+        #Aqf.failed('Correlator startup is currently unreliable')
+        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        self.set_instrument('c8n856M4k')
+        self._test_a_product_switch('c8n856M4k', no_channels=4096)
+        self._test_a_product_switch('c8n856M32k', no_channels=32768)
         # TODO: MM 2015-09-14, Still need more info
 
         # 6. Repeat for all combinations of available data products,
