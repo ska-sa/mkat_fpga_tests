@@ -1985,13 +1985,9 @@ class test_CBF(unittest.TestCase):
             tn.write("exit\n")
             tn.close()
 
-        def over_warning(hwmon_dir, label):
+        def over_warning(hwmon_dir, port, label):
 
             hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
-            curr_alarm_val = 'cat {}/in0_alarm\n'.format(hwmon)
-            curr_read_lim = 'cat {}/in0_crit\n'.format(hwmon)
-            # set the limit ridiculously low, the red LED should turn on
-            set_limit = 'echo "10" > {}/in0_crit\n'.format(hwmon)
 
             hostname = hosts[randrange(len(hosts))]
             tn = telnetlib.Telnet(hostname)
@@ -2000,6 +1996,7 @@ class test_CBF(unittest.TestCase):
             tn.write(user)
             time.sleep(wait_time)
 
+            curr_alarm_val = 'cat {}/{}_alarm\n'.format(hwmon, port)
             tn.write(curr_alarm_val)
             time.sleep(wait_time)
             stdout = tn.read_until('#', timeout=wait_time)
@@ -2010,6 +2007,7 @@ class test_CBF(unittest.TestCase):
             except ValueError:
                 Aqf.failed('Failed to read current {} alarm: {}.'.format(label, hostname))
 
+            curr_read_lim = 'cat {}/{}_crit\n'.format(hwmon, port)
             tn.write(curr_read_lim)
             time.sleep(wait_time)
             stdout = tn.read_until('#', timeout=wait_time)
@@ -2020,6 +2018,8 @@ class test_CBF(unittest.TestCase):
             except ValueError:
                 Aqf.failed('Failed to read {} limit: {}.'.format(label, hostname))
 
+            # set the limit ridiculously low, the red LED should turn on
+            set_limit = 'echo "10" > {}/{}_crit\n'.format(hwmon, port)
             tn.write(set_limit)
             Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
             time.sleep(wait_time)
@@ -2038,7 +2038,7 @@ class test_CBF(unittest.TestCase):
             except ValueError:
                 Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
 
-            orig_alarm_val = 'echo "{}" > {}/in0_crit\n'.format(lim_val, hwmon)
+            orig_alarm_val = 'echo "{}" > {}/{}_crit\n'.format(lim_val, hwmon, port)
             tn.write(orig_alarm_val)
             Aqf.step('Setting current warning limit back to default')
             time.sleep(wait_time*3)
@@ -2068,21 +2068,17 @@ class test_CBF(unittest.TestCase):
         user = 'root\n'
         wait_time = 1
 
-        # TODO MM : Instead of hardcoding which test to run,
-        # think of a better way.(maybe nested dict)
+        temp_dict = {0:'Inlet', 1:'Outlet'}
+        for hwmon_dir, label in temp_dict.iteritems():
+            Aqf.step('Trigger Air {} Temperature Warning.'.format(label))
+            air_temp_warn('hwmon{}'.format(hwmon_dir), '{}'.format(label))
 
-        # TODO MM: Repeat for 1V5 rail on in1
-        # 5.12 Repeat for 1V8 rail on in2
-        # 5.13 Repeat for 2V5 rail on in3
-        # 5.14 Repeat for 3V3 rail on in4
-        # 5.15 Repeat for 5V rail on in5
-        # 5.16 Repeat for 12V rail on in6
+        overvoltage_dict = {0: '1V0', 1: '1V5', 2: '1V8', 3: '2V5', 4: '3V3', 5: '5V', 6: '12V'}
+        for port, label in overvoltage_dict.iteritems():
+            Aqf.step('Trigger the {} overvoltage warning'.format(label))
+            over_warning('hwmon2', 'in{}'.format(port), 'overvoltage')
 
-        Aqf.step('Trigger Air Inlet Temperature Warning.')
-        air_temp_warn('hwmon0', 'Inlet')
-        Aqf.step('Trigger Air Outlet Temperature Warning.')
-        air_temp_warn('hwmon1', 'Outlet')
-        Aqf.step('Trigger the 1V0 overvoltage warning')
-        over_warning('hwmon2', 'overvoltage')
-        Aqf.step('Trigger the 3V3 overcurrent current warning.')
-        over_warning('hwmon3', 'overcurrent')
+        overcurrent_dict = {4: '1V0', 3: '1V5', 2: '1V8', 1: '2V5', 0: '3V3'}
+        for port, label in overcurrent_dict.iteritems():
+            Aqf.step('Trigger the {} overcurrent current warning.'.format(label))
+            over_warning('hwmon3', 'in{}'.format(port), 'overcurrent')
