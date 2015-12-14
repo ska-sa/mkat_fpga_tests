@@ -11,6 +11,7 @@ import telnetlib
 import paramiko
 import subprocess
 import colors
+import operator
 
 from functools import partial
 from random import randrange
@@ -103,6 +104,50 @@ def get_set_bits(packed, consider_bits=None):
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
 
+def get_fftoverflow_qdrstatus(correlator):
+    fhosts = {}
+    xhosts = {}
+    dicts = {}
+    dicts['fhosts'] = {}
+    dicts['xhosts'] = {}
+    fengs = correlator.fhosts
+    xengs = correlator.xhosts
+    for fhost in fengs:
+        fhosts[fhost.host] = {}
+        fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+        for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
+            fhosts[fhost.host][pfb] = value
+        for xhost in xengs:
+            xhosts[xhost.host] = {}
+            xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+    dicts['fhosts'] = fhosts
+    dicts['xhosts'] = xhosts
+    return dicts
+
+def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
+    QDR_error_roaches = set()
+    fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
+    curr_pfb_counts = get_pfb_counts(
+        fftoverflow_qdrstatus['fhosts'].items())
+    # Test FFT Overflow status
+    Aqf.equals(last_pfb_counts, curr_pfb_counts,
+               "Checking PFB FFT overflow")
+    # Test QDR error flags
+    for hosts_status in fftoverflow_qdrstatus.values():
+        for host, hosts_status in hosts_status.items():
+            if hosts_status['QDR_okay'] is False:
+                QDR_error_roaches.add(host)
+    # Test QDR status
+    Aqf.is_false(QDR_error_roaches,
+                 'Check for QDR errors.')
+    return QDR_error_roaches
+
+def get_pfb_counts(status_dict):
+    pfb_list = {}
+    for host, pfb_value in status_dict:
+        pfb_list[host] = (pfb_value['pfb_of0_cnt'],
+                          pfb_value['pfb_of1_cnt'])
+    return pfb_list
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -146,25 +191,7 @@ class test_CBF(unittest.TestCase):
 
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
 
-        def get_fftoverflow_qdrstatus():
-            fhosts = {}
-            xhosts = {}
-            dicts = {}
-            dicts['fhosts'] = {}
-            dicts['xhosts'] = {}
-            fengs = self.correlator.fhosts
-            xengs = self.correlator.xhosts
-            for fhost in fengs:
-                fhosts[fhost.host] = {}
-                fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
-                for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
-                    fhosts[fhost.host][pfb] = value
-                for xhost in xengs:
-                    xhosts[xhost.host] = {}
-                    xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
-            dicts['fhosts'] = fhosts
-            dicts['xhosts'] = xhosts
-            return dicts
+
 
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
@@ -177,36 +204,11 @@ class test_CBF(unittest.TestCase):
         chan_responses = []
         last_source_freq = None
 
-        def get_pfb_counts(status_dict):
-            pfb_list = {}
-            for host, pfb_value in status_dict:
-                pfb_list[host] = (pfb_value['pfb_of0_cnt'],
-                                  pfb_value['pfb_of1_cnt'])
-            return pfb_list
-
         last_pfb_counts = get_pfb_counts(
-            get_fftoverflow_qdrstatus()['fhosts'].items())
-
-        QDR_error_roaches = set()
-
-        def test_fftoverflow_qdrstatus():
-            fftoverflow_qdrstatus = get_fftoverflow_qdrstatus()
-            curr_pfb_counts = get_pfb_counts(
-                fftoverflow_qdrstatus['fhosts'].items())
-            # Test FFT Overflow status
-            Aqf.equals(last_pfb_counts, curr_pfb_counts,
-                       "Pfb FFT is not overflowing")
-            # Test QDR error flags
-            for hosts_status in fftoverflow_qdrstatus.values():
-                for host, hosts_status in hosts_status.items():
-                    if hosts_status['QDR_okay'] is False:
-                        QDR_error_roaches.add(host)
-            # Test QDR status
-            Aqf.is_false(QDR_error_roaches,
-                         'Check that none of the roaches have QDR errors')
+            get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
 
         # Test fft overflow and qdr status before
-        test_fftoverflow_qdrstatus()
+        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
 
         for i, freq in enumerate(requested_test_freqs):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
@@ -236,7 +238,7 @@ class test_CBF(unittest.TestCase):
                                   this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
-        test_fftoverflow_qdrstatus()
+        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)        
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -648,7 +650,7 @@ class test_CBF(unittest.TestCase):
         # will only add test method onces correlator startup is reliable.
         Aqf.tbd('Correlator restart consistency test not implemented yet.')
 
-    def _delays_setup(self):
+    def _delays_setup(self, test_source_idx = 2):
         Aqf.step('Estimating synch epoch')
         self.correlator.est_sync_epoch()
         # Put some correlated noise on both outputs
@@ -664,12 +666,6 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         Aqf.step('Getting initial SPEAD dump.')
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
-        # Get list of all the baselines present in the correlator output
-        baseline_lookup = get_baselines_lookup(initial_dump)
-        # Choose baseline for phase comparison
-        # baseline_index = baseline_lookup[('m000_x', 'm000_y')]
-        baseline_index = baseline_lookup[('input0', 'input1')]
 
         # TODO: (MM) 2015-10-21 get sync time from digitiser
         # We believe that sync time should be the digitiser sync epoch but
@@ -690,14 +686,19 @@ class test_CBF(unittest.TestCase):
         t_apply = dump_1_timestamp + 10 * int_time
         no_chans = range(self.corr_freqs.n_chans)
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-        Aqf.step('Source names changed to: ' + str(reply))
         source_names = reply.arguments[1:]
-        # Get input m000_y
-        test_source = source_names[1]
+        # Get name for test_source_idx
+        test_source = source_names[test_source_idx]
+        ref_source = source_names[0]
         Aqf.step('Source input selected: {}'.format(test_source))
         num_inputs = len(source_names)
+        # Get list of all the baselines present in the correlator output
+        baseline_lookup = get_baselines_lookup(initial_dump)
+        # Choose baseline for phase comparison
+        # baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+        baseline_index = baseline_lookup[(ref_source, test_source)]
         # Get input (m000_y) index number
-        test_source_ind = source_names.index(test_source)
+        #test_source_ind = source_names.index(test_source)
 
         return {
             'baseline_index': baseline_index,
@@ -714,7 +715,7 @@ class test_CBF(unittest.TestCase):
             'n_accs': n_accs,
             'sample_period': self.corr_freqs.sample_period,
             'num_inputs': num_inputs,
-            'test_source_ind': test_source_ind
+            'test_source_ind': test_source_idx
         }
 
     @aqf_vr('TP.C.1.27')
@@ -776,7 +777,7 @@ class test_CBF(unittest.TestCase):
         units = 'secs'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               units, file_name, title, caption)
+                               units, file_name, title, caption, True)
         expected_phases = [phase for rads, phase in get_expected_phases()]
         tolerance = 1e-2
         for i, delay in enumerate(test_delays):
@@ -1537,7 +1538,7 @@ class test_CBF(unittest.TestCase):
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title, caption)
+                               graph_units, graph_name, graph_title, caption, True)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -2075,3 +2076,93 @@ class test_CBF(unittest.TestCase):
         over_warning('hwmon2', 'overvoltage')
         Aqf.step('Trigger the 3V3 overcurrent current warning.')
         over_warning('hwmon3', 'overcurrent')
+
+
+    @aqf_vr('TP.C.1.27')
+    def test_delay_inputs(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input\n"""
+        setup_data = self._delays_setup(test_source_idx = 0)
+        sampling_period = self.corr_freqs.sample_period
+        no_chans = range(len(self.corr_freqs.chan_freqs))
+        test_delay = sampling_period
+        expected_phases = self.corr_freqs.chan_freqs * 2 * np.pi * test_delay
+        expected_phases -= np.max(expected_phases) / 2.
+
+        test_source_idx = 2
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        source_names = reply.arguments[1:]
+        last_pfb_counts = get_pfb_counts(
+            get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
+        for delayed_input in source_names:
+            #clear_all_delays(self.correlator)
+            delays = [0] * setup_data['num_inputs']
+            # Get index for input to delay
+            test_source_idx = source_names.index(delayed_input)
+            Aqf.step('Delayed input = {}'.format(delayed_input))
+            delays[test_source_idx] = test_delay
+            delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
+            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
+                                                          discard=0)
+
+            future_time = 600e-3
+            settling_time = 600e-3
+            dump_timestamp = (this_freq_dump['sync_time'].value +
+                              this_freq_dump['timestamp'].value /
+                              this_freq_dump['scale_factor_timestamp'].value)
+            t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
+                       future_time)
+
+            reply = correlator_fixture.katcp_rct.req.delays(
+                t_apply, *delay_coefficients)
+            Aqf.wait(settling_time,
+                     'Settling time in order to set delay: {} ns.'
+                     .format(test_delay * 1e9))
+            QDR_error_roaches = test_fftoverflow_qdrstatus(self.correlator,
+                                                           last_pfb_counts)
+            if QDR_error_roaches:
+                Aqf.failed(QDR_error_roaches)
+            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            baselines = get_baselines_lookup(this_freq_dump)
+            sorted_bls = sorted(baselines.items(), key=operator.itemgetter(1))
+            for b_line in sorted_bls:
+                #import IPython; IPython.embed()
+                b_line_val = b_line[1]
+                b_line_dump = (dump['xeng_raw'].value[:, b_line_val, :])
+                b_line_freq_resp = normalised_magnitude(b_line_dump)
+                b_line_cplx_data = complexise(b_line_dump)
+                b_line_phase = np.angle(b_line_cplx_data)
+                b_line_phase_max = np.max(b_line_phase)
+                if ((delayed_input in b_line[0]) and
+                    b_line[0] != (delayed_input,delayed_input)):
+                    aqf_array_abs_error_less(np.abs(b_line_phase),
+                                             np.abs(expected_phases),
+                                             'Checking baseline {0}, '
+                                             'index = {1:02d}... expecting a delay. '
+                                             .format(b_line[0], b_line_val), 0.01)
+                else:
+                    desc = ('Checking baseline {0}, index = {1:02d}... '
+                            .format(b_line[0], b_line_val))
+                    if b_line_phase_max != 0:
+                        Aqf.failed(desc + 'phase offset found, maximum value = {0:0.8f}'
+                                          .format(b_line_phase_max))
+                        #plt.plot(b_line_data)
+                        #plt.plot(b_line_phase)
+                        #plt.show()
+                    else:
+                        Aqf.passed(desc + 'no phase offset found')
+
+    
+    def test_qdr_status(self):
+        """Check QDR Status"""
+        #import IPython; IPython.embed()
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+
+        last_pfb_counts = get_pfb_counts(
+            get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
+        for i in range(10):
+            QDR_error_roaches = test_fftoverflow_qdrstatus(self.correlator,
+                                                           last_pfb_counts)
+            if QDR_error_roaches:
+                Aqf.failed(QDR_error_roaches)
+            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
