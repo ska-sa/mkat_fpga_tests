@@ -835,7 +835,7 @@ class test_CBF(unittest.TestCase):
         units = 'secs'
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               units, file_name, title, caption, True)
+                               units, file_name, title, caption)
         expected_phases = [phase for rads, phase in get_expected_phases()]
         tolerance = 1e-2
         for i, delay in enumerate(test_delays):
@@ -1665,7 +1665,7 @@ class test_CBF(unittest.TestCase):
         graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
         graph_name = 'Fringe_Rate_Response.svg'
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title, caption, True)
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -2275,7 +2275,6 @@ class test_CBF(unittest.TestCase):
             baselines = get_baselines_lookup(this_freq_dump)
             sorted_bls = sorted(baselines.items(), key=operator.itemgetter(1))
             for b_line in sorted_bls:
-                #import IPython; IPython.embed()
                 b_line_val = b_line[1]
                 b_line_dump = (dump['xeng_raw'].value[:, b_line_val, :])
                 b_line_freq_resp = normalised_magnitude(b_line_dump)
@@ -2304,7 +2303,6 @@ class test_CBF(unittest.TestCase):
     
     def test_qdr_status(self):
         """Check QDR Status"""
-        #import IPython; IPython.embed()
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
         last_pfb_counts = get_pfb_counts(
