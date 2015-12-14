@@ -2229,8 +2229,13 @@ class test_CBF(unittest.TestCase):
             over_warning('hwmon3', 'in{}'.format(port), 'overcurrent')
 
     @aqf_vr('TP.C.1.27')
-    def test_delay_inputs(self):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input\n"""
+    def test_c8n856M4k_delay_inputs(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
+        self.set_instrument('c8n856M4k')
+        self._test_delay_inputs()
+
+    def _test_delay_inputs(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
         setup_data = self._delays_setup(test_source_idx = 0)
         sampling_period = self.corr_freqs.sample_period
         no_chans = range(len(self.corr_freqs.chan_freqs))
@@ -2303,6 +2308,7 @@ class test_CBF(unittest.TestCase):
     
     def test_qdr_status(self):
         """Check QDR Status"""
+        self.set_instrument('c8n856M4k')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
         last_pfb_counts = get_pfb_counts(
