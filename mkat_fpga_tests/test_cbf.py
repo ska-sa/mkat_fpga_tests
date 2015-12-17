@@ -256,7 +256,7 @@ class test_CBF(unittest.TestCase):
                                   this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
-        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)        
+        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -462,7 +462,7 @@ class test_CBF(unittest.TestCase):
         """CBF Baseline Correlation Products - AR1"""
         self.set_instrument('c8n856M4k')
         self._test_product_baselines()
-        
+
     def _test_product_baselines(self):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
@@ -1144,21 +1144,16 @@ class test_CBF(unittest.TestCase):
                  'Check that instrument switching to {instrument} time is '
                  'less than one minute'.format(**locals()) )
 
-    # @unittest.skip('Correlator startup is currently unreliable')
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
-        """(TP.C.1.40) CBF Data Product Switching Time"""
-        #Aqf.failed('Correlator startup is currently unreliable')
-        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        """CBF Data Product Switching Time"""
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.set_instrument('c8n856M4k')
+        Aqf.step('CBF Data Product Switching Time 4k mode.')
         self._test_a_product_switch('c8n856M4k', no_channels=4096)
-        self._test_a_product_switch('c8n856M32k', no_channels=32768)
-        # TODO: MM 2015-09-14, Still need more info
-
-        # 6. Repeat for all combinations of available data products,
-        # including the case where the "new" data product is the same as the
-        # "old" one.
+        Aqf.step('CBF Data Product Switching Time 32k mode.')
+        Aqf.failed('32K mode not implemented yet.')
+        # self._test_a_product_switch('c8n856M32k', no_channels=32768)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
@@ -2305,7 +2300,7 @@ class test_CBF(unittest.TestCase):
                     else:
                         Aqf.passed(desc + 'no phase offset found')
 
-    
+
     def test_qdr_status(self):
         """Check QDR Status"""
         self.set_instrument('c8n856M4k')
@@ -2319,5 +2314,3 @@ class test_CBF(unittest.TestCase):
             if QDR_error_roaches:
                 Aqf.failed(QDR_error_roaches)
             dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
-
