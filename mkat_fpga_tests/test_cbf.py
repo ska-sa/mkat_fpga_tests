@@ -256,7 +256,7 @@ class test_CBF(unittest.TestCase):
                                   this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
-        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)        
+        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -462,7 +462,7 @@ class test_CBF(unittest.TestCase):
         """CBF Baseline Correlation Products - AR1"""
         self.set_instrument('c8n856M4k')
         self._test_product_baselines()
-        
+
     def _test_product_baselines(self):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
@@ -1050,7 +1050,8 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        self.fengops.eq_set(source_name=test_input, new_eq=list(eqs))
+        reply, informs = correlator_fixture.katcp_rct.req.gain(test_input, *list(eqs))
+        Aqf.step('Gain factors set {}.'.format(reply.arguments[0]))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
                                           # Make dsim output periodic in FFT-length
                                           # so that each FFT is identical
@@ -2300,7 +2301,7 @@ class test_CBF(unittest.TestCase):
                     else:
                         Aqf.passed(desc + 'no phase offset found')
 
-    
+
     def test_qdr_status(self):
         """Check QDR Status"""
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
@@ -2313,5 +2314,3 @@ class test_CBF(unittest.TestCase):
             if QDR_error_roaches:
                 Aqf.failed(QDR_error_roaches)
             dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
-
