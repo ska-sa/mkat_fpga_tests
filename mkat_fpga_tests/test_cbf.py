@@ -256,7 +256,7 @@ class test_CBF(unittest.TestCase):
                                   this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
-        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)        
+        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -462,7 +462,7 @@ class test_CBF(unittest.TestCase):
         """CBF Baseline Correlation Products - AR1"""
         self.set_instrument('c8n856M4k')
         self._test_product_baselines()
-        
+
     def _test_product_baselines(self):
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
@@ -629,16 +629,16 @@ class test_CBF(unittest.TestCase):
                     dumps_comp, threshold,
                     'Check that back-to-back dumps({}) with the same frequency '
                     'input differ by no more than {} threshold[dB].'
-                    .format(dumps_comp, 10 * np.log10(threshold))
-            ):
+                    .format(dumps_comp, 10 * np.log10(threshold))):
+
                 legends = ['dump #{}'.format(i) for i in range(len(chan_responses))]
                 aqf_plot_channels(
-                    zip(chan_responses, legends),
-                    plot_filename='channel_resp.svg',
-                    log_dynamic_range=90, log_normalise_to=1,
-                    caption='Comparison of back-to-back channelisation results with '
-                    'source periodic every {} samples and sine frequency of '
-                    '{} MHz.'.format(source_period_in_samples, this_source_freq))
+                        zip(chan_responses, legends),
+                        plot_filename='channel_resp.svg',
+                        log_dynamic_range=90, log_normalise_to=1,
+                        caption='Comparison of back-to-back channelisation results with '
+                        'source periodic every {} samples and sine frequency of '
+                        '{} MHz.'.format(source_period_in_samples, this_source_freq))
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_c8n856M4k_freq_scan_consistency(self):
@@ -1144,11 +1144,11 @@ class test_CBF(unittest.TestCase):
                  'Check that instrument switching to {instrument} time is '
                  'less than one minute'.format(**locals()) )
 
-    # @unittest.skip('Correlator startup is currently unreliable')
+    @unittest.skip('Correlator startup is currently unreliable')
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
         """(TP.C.1.40) CBF Data Product Switching Time"""
-        #Aqf.failed('Correlator startup is currently unreliable')
+        Aqf.failed('Correlator startup is currently unreliable')
         # 1. Configure one of the ROACHs in the CBF to generate noise.
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.set_instrument('c8n856M4k')
@@ -2300,7 +2300,7 @@ class test_CBF(unittest.TestCase):
                     else:
                         Aqf.passed(desc + 'no phase offset found')
 
-    
+
     def test_qdr_status(self):
         """Check QDR Status"""
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
@@ -2314,4 +2314,29 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(QDR_error_roaches)
             dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
 
+    @aqf_vr('TP.C.1.47')
+    def test_c8n856M4k_data_product(self):
+        """CBF Imaging Data Product Set"""
+        self.set_instrument('c8n856M4k')
+        self._test_data_product()
 
+    def _test_data_product(self):
+        """CBF Imaging Data Product Set"""
+        Aqf.step('Correlated Noise source')
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        # Get baseline 0 data, i.e. auto-corr of m000h
+        test_baseline = 0
+        Aqf.step('Getting SPEAD data')
+        test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+        response = normalised_magnitude(test_dump['xeng_raw'].value[:, test_baseline, :])
+        if response.shape[0] == self.corr_freqs.n_chans:
+            Aqf.passed('Confirm that imaging data product set has been implemented.')
+            aqf_plot_channels(response, plot_filename='data_product_channel_resp.svg',
+                              log_dynamic_range=90, log_normalise_to=1,
+                              caption='This serves merely as a record whether functionality'
+                                      'has been included in this initial release, '
+                                      'and what level of confidence there is in that '
+                                      'functionality.')
+        else:
+            Aqf.failed('Imaging data product set has not been implemented.')
