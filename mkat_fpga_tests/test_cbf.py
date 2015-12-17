@@ -1050,7 +1050,8 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        self.fengops.eq_set(source_name=test_input, new_eq=list(eqs))
+        reply, informs = correlator_fixture.katcp_rct.req.gain(test_input, *list(eqs))
+        Aqf.step('Gain factors set {}.'.format(reply.arguments[0]))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
                                           # Make dsim output periodic in FFT-length
                                           # so that each FFT is identical
