@@ -2317,20 +2317,26 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.47')
     def test_c8n856M4k_data_product(self):
         """CBF Imaging Data Product Set"""
-        self.set_instrument('c8n856M4k')
-        self._test_data_product()
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        Aqf.step('Imaging Data Product Set for 4k mode')
+        self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
+        # self._test_data_product('c8n856M32k', no_channels=32768)
 
-    def _test_data_product(self):
+    def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
-        Aqf.step('Correlated Noise source')
+        Aqf.step('Configured DSim to prouct correlated noise')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
-        Aqf.step('Getting SPEAD data')
+        Aqf.step('Getting initial SPEAD data')
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
+        Aqf.equals(test_dump['xeng_raw'].value.shape[0], no_channels,
+           'Check that data product has the number of frequency '
+           'channels {no_channels} corresponding to the {instrument} '
+           'instrument product'.format(**locals()))
         response = normalised_magnitude(test_dump['xeng_raw'].value[:, test_baseline, :])
-        if response.shape[0] == self.corr_freqs.n_chans:
+
+        if response.shape[0] == no_channels:
             Aqf.passed('Confirm that imaging data product set has been implemented.')
             aqf_plot_channels(response, plot_filename='data_product_channel_resp.svg',
                               log_dynamic_range=90, log_normalise_to=1,
