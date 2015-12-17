@@ -1050,7 +1050,8 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        self.fengops.eq_set(source_name=test_input, new_eq=list(eqs))
+        reply, informs = correlator_fixture.katcp_rct.req.gain(test_input, *list(eqs))
+        Aqf.step('Gain factors set {}.'.format(reply.arguments[0]))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
                                           # Make dsim output periodic in FFT-length
                                           # so that each FFT is identical
@@ -1144,21 +1145,16 @@ class test_CBF(unittest.TestCase):
                  'Check that instrument switching to {instrument} time is '
                  'less than one minute'.format(**locals()) )
 
-    @unittest.skip('Correlator startup is currently unreliable')
     @aqf_vr('TP.C.1.40')
     def test_product_switch(self):
-        """(TP.C.1.40) CBF Data Product Switching Time"""
-        Aqf.failed('Correlator startup is currently unreliable')
-        # 1. Configure one of the ROACHs in the CBF to generate noise.
+        """CBF Data Product Switching Time"""
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.set_instrument('c8n856M4k')
+        Aqf.step('CBF Data Product Switching Time 4k mode.')
         self._test_a_product_switch('c8n856M4k', no_channels=4096)
-        self._test_a_product_switch('c8n856M32k', no_channels=32768)
-        # TODO: MM 2015-09-14, Still need more info
-
-        # 6. Repeat for all combinations of available data products,
-        # including the case where the "new" data product is the same as the
-        # "old" one.
+        Aqf.step('CBF Data Product Switching Time 32k mode.')
+        Aqf.failed('32K mode not implemented yet.')
+        # self._test_a_product_switch('c8n856M32k', no_channels=32768)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
@@ -2229,8 +2225,13 @@ class test_CBF(unittest.TestCase):
             over_warning('hwmon3', 'in{}'.format(port), 'overcurrent')
 
     @aqf_vr('TP.C.1.27')
-    def test_delay_inputs(self):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input\n"""
+    def test_c8n856M4k_delay_inputs(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
+        self.set_instrument('c8n856M4k')
+        self._test_delay_inputs()
+
+    def _test_delay_inputs(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
         setup_data = self._delays_setup(test_source_idx = 0)
         sampling_period = self.corr_freqs.sample_period
         no_chans = range(len(self.corr_freqs.chan_freqs))
@@ -2303,6 +2304,7 @@ class test_CBF(unittest.TestCase):
 
     def test_qdr_status(self):
         """Check QDR Status"""
+        self.set_instrument('c8n856M4k')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
         last_pfb_counts = get_pfb_counts(
