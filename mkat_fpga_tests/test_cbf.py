@@ -144,7 +144,6 @@ class test_CBF(unittest.TestCase):
         # self.DEFAULT_ACCUMULATION_TIME)
         self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
         self.addCleanup(self.corr_fix.stop_x_data)
-        self.addCleanup(clear_all_delays, self.correlator)
         self.receiver = CorrRx(port=8888, queue_size=1000)
         start_thread_with_cleanup(self, self.receiver, start_timeout=1)
         # TODO NM 2015-12-07 Should use array KATCP interface to start X data and
@@ -674,6 +673,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator)
+        self.addCleanup(clear_all_delays, self.correlator)
         Aqf.step('Issuing metadata')
         self.corr_fix.issue_metadata()
         Aqf.step('Getting initial SPEAD dump.')

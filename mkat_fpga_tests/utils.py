@@ -343,10 +343,12 @@ def clear_all_delays(instrument):
     Param: Correlator object
     Return: None
     """
+    instrument.est_sync_epoch()
+    int_time = 0.2
     for host in instrument.fengine_sources:
         instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
             phase_offset=0, delta_phase_offset=0,
-                ld_time=time.time() + .2, ld_check=True)
+                ld_time=time.time() + int_time, ld_check=False)
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
