@@ -39,6 +39,8 @@ from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
+from mkat_fpga_tests.utils import get_fftoverflow_qdrstatus, test_fftoverflow_qdrstatus
+from mkat_fpga_tests.utils import get_pfb_counts
 from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
@@ -111,50 +113,6 @@ def get_set_bits(packed, consider_bits=None):
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
 
-def get_fftoverflow_qdrstatus(correlator):
-    fhosts = {}
-    xhosts = {}
-    dicts = {}
-    dicts['fhosts'] = {}
-    dicts['xhosts'] = {}
-    fengs = correlator.fhosts
-    xengs = correlator.xhosts
-    for fhost in fengs:
-        fhosts[fhost.host] = {}
-        fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
-        for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
-            fhosts[fhost.host][pfb] = value
-        for xhost in xengs:
-            xhosts[xhost.host] = {}
-            xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
-    dicts['fhosts'] = fhosts
-    dicts['xhosts'] = xhosts
-    return dicts
-
-def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
-    QDR_error_roaches = set()
-    fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
-    curr_pfb_counts = get_pfb_counts(
-        fftoverflow_qdrstatus['fhosts'].items())
-    # Test FFT Overflow status
-    Aqf.equals(last_pfb_counts, curr_pfb_counts,
-               "Checking PFB FFT overflow")
-    # Test QDR error flags
-    for hosts_status in fftoverflow_qdrstatus.values():
-        for host, hosts_status in hosts_status.items():
-            if hosts_status['QDR_okay'] is False:
-                QDR_error_roaches.add(host)
-    # Test QDR status
-    Aqf.is_false(QDR_error_roaches,
-                 'Check for QDR errors.')
-    return QDR_error_roaches
-
-def get_pfb_counts(status_dict):
-    pfb_list = {}
-    for host, pfb_value in status_dict:
-        pfb_list[host] = (pfb_value['pfb_of0_cnt'],
-                          pfb_value['pfb_of1_cnt'])
-    return pfb_list
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):

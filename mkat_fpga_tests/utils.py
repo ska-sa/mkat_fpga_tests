@@ -346,3 +346,48 @@ def clear_all_delays(instrument):
         instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
             phase_offset=0, delta_phase_offset=0,
                 ld_time=time.time() + .2, ld_check=True)
+
+def get_fftoverflow_qdrstatus(correlator):
+    fhosts = {}
+    xhosts = {}
+    dicts = {}
+    dicts['fhosts'] = {}
+    dicts['xhosts'] = {}
+    fengs = correlator.fhosts
+    xengs = correlator.xhosts
+    for fhost in fengs:
+        fhosts[fhost.host] = {}
+        fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+        for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
+            fhosts[fhost.host][pfb] = value
+        for xhost in xengs:
+            xhosts[xhost.host] = {}
+            xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+    dicts['fhosts'] = fhosts
+    dicts['xhosts'] = xhosts
+    return dicts
+
+def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
+    QDR_error_roaches = set()
+    fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
+    curr_pfb_counts = get_pfb_counts(
+        fftoverflow_qdrstatus['fhosts'].items())
+    # Test FFT Overflow status
+    Aqf.equals(last_pfb_counts, curr_pfb_counts,
+               "Checking PFB FFT overflow")
+    # Test QDR error flags
+    for hosts_status in fftoverflow_qdrstatus.values():
+        for host, hosts_status in hosts_status.items():
+            if hosts_status['QDR_okay'] is False:
+                QDR_error_roaches.add(host)
+    # Test QDR status
+    Aqf.is_false(QDR_error_roaches,
+                 'Check for QDR errors.')
+    return QDR_error_roaches
+
+def get_pfb_counts(status_dict):
+    pfb_list = {}
+    for host, pfb_value in status_dict:
+        pfb_list[host] = (pfb_value['pfb_of0_cnt'],
+                          pfb_value['pfb_of1_cnt'])
+    return pfb_list
