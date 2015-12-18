@@ -672,8 +672,8 @@ class test_CBF(unittest.TestCase):
             *local_src_names)
         Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
-        clear_all_delays(self.correlator)
-        self.addCleanup(clear_all_delays, self.correlator)
+        clear_all_delays(self.correlator, self.receiver)
+        self.addCleanup(clear_all_delays, self.correlator, self.receiver)
         Aqf.step('Issuing metadata')
         self.corr_fix.issue_metadata()
         Aqf.step('Getting initial SPEAD dump.')
@@ -772,6 +772,7 @@ class test_CBF(unittest.TestCase):
 
                 reply = correlator_fixture.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
+                Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
                 Aqf.wait(settling_time,
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
@@ -1338,8 +1339,9 @@ class test_CBF(unittest.TestCase):
 
         try:
             cmd_start_time = time.time()
-            reply, informs = correlator_fixture.katcp_rct.req.delays(
+            reply = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
             final_cmd_time = time.time() - cmd_start_time
             Aqf.passed('Time it takes to load delays {} ms with intergration time {} ms'
                        .format(final_cmd_time / 100e-3, setup_data['int_time'] / 100e-3))
@@ -2223,6 +2225,7 @@ class test_CBF(unittest.TestCase):
 
             reply = correlator_fixture.katcp_rct.req.delays(
                 t_apply, *delay_coefficients)
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
             Aqf.wait(settling_time,
                      'Settling time in order to set delay: {} ns.'
                      .format(test_delay * 1e9))
