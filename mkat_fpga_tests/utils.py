@@ -402,7 +402,7 @@ def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     return QDR_error_roaches
 
 def get_pfb_counts(status_dict):
-     """Checks if FFT overflows and QDR status on roaches
+    """Checks if FFT overflows and QDR status on roaches
     Param: fhosts items
     Return: Dict:
         Dictionary with pfb counts
