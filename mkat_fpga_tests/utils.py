@@ -3,6 +3,7 @@ import h5py
 import numpy as np
 import time
 
+from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
 
 VACC_FULL_RANGE = float(2**31)      # Max range of the integers coming out of VACC
@@ -346,3 +347,68 @@ def clear_all_delays(instrument):
         instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
             phase_offset=0, delta_phase_offset=0,
                 ld_time=time.time() + .2, ld_check=True)
+
+def get_fftoverflow_qdrstatus(correlator):
+    """Get dict of all roaches present in the correlator
+    Param: Correlator object
+    Return: Dict:
+        Roach, QDR status, PFB counts
+    """
+    fhosts = {}
+    xhosts = {}
+    dicts = {}
+    dicts['fhosts'] = {}
+    dicts['xhosts'] = {}
+    fengs = correlator.fhosts
+    xengs = correlator.xhosts
+    for fhost in fengs:
+        fhosts[fhost.host] = {}
+        fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+        for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
+            fhosts[fhost.host][pfb] = value
+        for xhost in xengs:
+            xhosts[xhost.host] = {}
+            xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+    dicts['fhosts'] = fhosts
+    dicts['xhosts'] = xhosts
+    return dicts
+
+def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
+    """Checks if FFT overflows and QDR status on roaches
+    Param: Correlator object, last known pfb counts
+    Return: list:
+        Roaches with QDR status errors
+    """
+    QDR_error_roaches = set()
+    fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
+    curr_pfb_counts = get_pfb_counts(
+        fftoverflow_qdrstatus['fhosts'].items())
+    # Test FFT Overflow status
+    [Aqf.equals(curr_pfb_value, last_pfb_value,
+        "Check if the is no PFB FFT overflow on {}".format(curr_pfb_host))
+    for (curr_pfb_host, curr_pfb_value), (curr_pfb_host, last_pfb_value) in zip(
+        last_pfb_counts.items(), curr_pfb_counts.items())
+        if curr_pfb_host is curr_pfb_host]
+
+    # Test QDR error flags
+    for hosts_status in fftoverflow_qdrstatus.values():
+        for host, hosts_status in hosts_status.items():
+            if hosts_status['QDR_okay'] is False:
+                Aqf.step('QDR status on {} not Okay.'.format(host))
+                QDR_error_roaches.add(host)
+    # Test QDR status
+    Aqf.is_false(QDR_error_roaches,
+                 'Check for QDR errors.')
+    return QDR_error_roaches
+
+def get_pfb_counts(status_dict):
+     """Checks if FFT overflows and QDR status on roaches
+    Param: fhosts items
+    Return: Dict:
+        Dictionary with pfb counts
+    """
+    pfb_list = {}
+    for host, pfb_value in status_dict:
+        pfb_list[host] = (pfb_value['pfb_of0_cnt'],
+                          pfb_value['pfb_of1_cnt'])
+    return pfb_list
