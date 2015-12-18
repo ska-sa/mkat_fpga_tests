@@ -5,6 +5,8 @@ import time
 
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
+from mkat_fpga_tests import correlator_fixture
+
 
 VACC_FULL_RANGE = float(2**31)      # Max range of the integers coming out of VACC
 
@@ -338,17 +340,19 @@ def get_baselines_lookup(spead):
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
-def clear_all_delays(instrument):
+def clear_all_delays(instrument, receiver):
     """Clears all delays on all fhosts.
     Param: Correlator object
     Return: None
     """
-    instrument.est_sync_epoch()
-    int_time = 0.2
-    for host in instrument.fengine_sources:
-        instrument.fops.set_delay(host['source'].name, delay=0, delta_delay=0,
-            phase_offset=0, delta_phase_offset=0,
-                ld_time=time.time() + int_time, ld_check=False)
+    delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
+    dump = receiver.get_clean_dump(10, discard=0)
+    future_time = 200e-3
+    dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
+                      dump['scale_factor_timestamp'].value)
+    t_apply = (dump_timestamp + dump['int_time'].value + future_time)
+    reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+    Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
