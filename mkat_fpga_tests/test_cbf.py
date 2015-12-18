@@ -156,7 +156,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.45')
     def test_c8n856M4k_channelisation(self):
         """CBF Channelisation Wideband Coarse L-band"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument('bc8n856M4k')
         self._test_channelisation(
             required_chan_spacing=290e3,
             test_chan=1500
@@ -541,7 +541,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_1')
     def test_c8n856M4k_back2back_consistency(self):
         """Check that c8n856M4k  back-to-back dumps with same input are equal"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument('bc8n856M4k')
         self._test_back2back_consistency()
 
     def _test_back2back_consistency(self):
@@ -986,7 +986,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     def test_c8n856M4k_vacc(self):
         """Test vector accumulator"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument('bc8n856M4k')
         self._test_vacc()
 
     def _test_vacc(self):
@@ -2262,7 +2262,7 @@ class test_CBF(unittest.TestCase):
 
     def test_qdr_status(self):
         """Check QDR Status"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument('bc8n856M4k')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
         last_pfb_counts = get_pfb_counts(
