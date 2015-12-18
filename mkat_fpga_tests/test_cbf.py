@@ -159,7 +159,7 @@ def get_pfb_counts(status_dict):
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
-    DEFAULT_INSTRUMENT = 'c8n856M4k'
+    DEFAULT_INSTRUMENT = 'bc8n856M4k'
 
     def setUp(self):
         self.corr_fix = correlator_fixture
@@ -198,7 +198,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.45')
     def test_c8n856M4k_channelisation(self):
         """CBF Channelisation Wideband Coarse L-band"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_channelisation(
             required_chan_spacing=290e3,
             test_chan=1500
@@ -387,7 +387,7 @@ class test_CBF(unittest.TestCase):
         frequency and that no other channels have significant relative power.
 
         """
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_sfdr_peaks(
             required_chan_spacing=290e3,
             cutoff=53)
@@ -460,7 +460,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     def test_c8n856M4k_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_product_baselines()
 
     def _test_product_baselines(self):
@@ -583,7 +583,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_1')
     def test_c8n856M4k_back2back_consistency(self):
         """Check that c8n856M4k  back-to-back dumps with same input are equal"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_back2back_consistency()
 
     def _test_back2back_consistency(self):
@@ -642,7 +642,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.dummy_vr_2')
     def test_c8n856M4k_freq_scan_consistency(self):
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_freq_scan_consistency()
 
     def _test_freq_scan_consistency(self):
@@ -695,7 +695,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.dummy_vr_3')
     def test_c8n856M4k_test_restart_consistency(self):
         """Check that results are consistent on correlator restart"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_restart_consistency()
 
     def _test_restart_consistency(self):
@@ -774,7 +774,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.27')
     def test_c8n856M4k_delay_tracking(self):
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_delay_tracking()
 
     def _test_delay_tracking(self):
@@ -860,7 +860,7 @@ class test_CBF(unittest.TestCase):
         """
         Report sensor values (AR1)
         """
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_sensor_values()
 
     def _test_sensor_values(self):
@@ -924,7 +924,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.16')
     def test_c8n856M4k_roach_qdr_sensors(self):
         """Sensor QDR memory error"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_roach_qdr_sensors()
 
     def _test_roach_qdr_sensors(self):
@@ -986,7 +986,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.16')
     def test_c8n856M4k_test_roach_pfb_sensors(self):
         """Sensor PFB error"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_roach_pfb_sensors()
 
     def _test_roach_pfb_sensors(self):
@@ -997,7 +997,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.16')
     def test_c8n856M4k_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_roach_sensors_status()
 
     def _test_roach_sensors_status(self):
@@ -1028,7 +1028,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     def test_c8n856M4k_vacc(self):
         """Test vector accumulator"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_vacc()
 
     def _test_vacc(self):
@@ -1149,9 +1149,9 @@ class test_CBF(unittest.TestCase):
     def test_product_switch(self):
         """CBF Data Product Switching Time"""
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         Aqf.step('CBF Data Product Switching Time 4k mode.')
-        self._test_a_product_switch('c8n856M4k', no_channels=4096)
+        self._test_a_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
         Aqf.step('CBF Data Product Switching Time 32k mode.')
         Aqf.failed('32K mode not implemented yet.')
         # self._test_a_product_switch('c8n856M32k', no_channels=32768)
@@ -1187,7 +1187,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_adc_overflow_flag()
 
     def _test_adc_overflow_flag(self):
@@ -1245,7 +1245,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_noise_diode_flag(self):
         """CBF flagging of data -- noise diode fired"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_noise_diode_flag()
 
     def _test_noise_diode_flag(self):
@@ -1304,7 +1304,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_fft_overflow_flag(self):
         """CBF flagging of data -- FFT overflow"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_fft_overflow_flag()
 
     def _test_fft_overflow_flag(self):
@@ -1493,7 +1493,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.27')
     def test_c8n856M4k_test_delay_rate(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_delay_rate()
 
     def _test_delay_rate(self):
@@ -1559,7 +1559,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.24')
     def test_c8n856M4k_test_fringe_offset(self):
         """CBF per-antenna phase error -- Fringe offset"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_fringe_offset()
 
     def _test_fringe_offset(self):
@@ -1623,7 +1623,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.28')
     def test_c8n856M4k_test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_fringe_rate()
 
     def _test_fringe_rate(self):
@@ -1689,7 +1689,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_all_delays()
 
     def _test_all_delays(self):
@@ -1768,7 +1768,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_config_report()
 
     def _test_config_report(self):
@@ -2004,7 +2004,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.18')
     def test_c8n856M4k_test_fault_detection(self):
         """AR1 Fault detection"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_fault_detection()
 
     def _test_fault_detection(self):
@@ -2227,7 +2227,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.27')
     def test_c8n856M4k_delay_inputs(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_delay_inputs()
 
     def _test_delay_inputs(self):
@@ -2304,7 +2304,7 @@ class test_CBF(unittest.TestCase):
 
     def test_qdr_status(self):
         """Check QDR Status"""
-        self.set_instrument('c8n856M4k')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
         last_pfb_counts = get_pfb_counts(
