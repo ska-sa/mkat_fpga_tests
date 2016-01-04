@@ -53,7 +53,6 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
     else:
         Aqf.passed(description)
 
-
 def aqf_numpy_allclose(result, expected, description, **kwargs):
     """Compares numerical result to an expected value and logs to Aqf.
 
@@ -136,7 +135,6 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         if show:
             plt.show()
         plt.close()
-
 
 def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None,
