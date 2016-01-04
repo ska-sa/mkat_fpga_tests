@@ -117,7 +117,16 @@ def get_set_bits(packed, consider_bits=None):
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
-    DEFAULT_INSTRUMENT = 'bc8n856M4k'
+
+    cmc_conf_path = '/etc/cmc.conf'
+    if os.path.isfile(cmc_conf_path):
+        filepath = open(cmc_conf_path, 'r').readline().strip()
+        if os.path.exists(filepath.split('=')[-1]):
+            instrument_list = os.listdir(filepath.split('=')[-1])[-1]
+            array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
+        else:
+            Aqf.failed('Could not get default instrument from {} path does not exists.'
+                       .format(filepath.split('=')[-1]))
 
     def setUp(self):
         self.corr_fix = correlator_fixture
@@ -191,6 +200,7 @@ class test_CBF(unittest.TestCase):
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
+
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
                             'Digitiser frequency is same as previous.'
@@ -772,7 +782,7 @@ class test_CBF(unittest.TestCase):
 
                 reply = correlator_fixture.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
-                Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+                Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
                 Aqf.wait(settling_time,
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
@@ -1341,7 +1351,7 @@ class test_CBF(unittest.TestCase):
             cmd_start_time = time.time()
             reply = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
-            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
             final_cmd_time = time.time() - cmd_start_time
             Aqf.passed('Time it takes to load delays {} ms with intergration time {} ms'
                        .format(final_cmd_time / 100e-3, setup_data['int_time'] / 100e-3))
@@ -2225,7 +2235,7 @@ class test_CBF(unittest.TestCase):
 
             reply = correlator_fixture.katcp_rct.req.delays(
                 t_apply, *delay_coefficients)
-            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
             Aqf.wait(settling_time,
                      'Settling time in order to set delay: {} ns.'
                      .format(test_delay * 1e9))
