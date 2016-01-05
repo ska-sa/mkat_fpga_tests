@@ -401,12 +401,24 @@ class test_CBF(unittest.TestCase):
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
 
-        Aqf.equals(max_channels, range(start_chan, len(max_channels) + start_chan),
-                   "Check that the correct channels have the peak response to each "
-                   "frequency")
-        Aqf.equals(extra_peaks, [[]] * len(max_channels),
-                   "Check that no other channels responded > -{cutoff} dB"
+        channel_range = range(start_chan, len(max_channels) + start_chan)
+        if max_channels == channel_range:
+            Aqf.passed('Check that the correct channels have the peak '
+                       'response to each frequency')
+        else:
+            LOGGER.info('Expected: {}\n\nGot: {}'.format(max_channels, channel_range))
+            Aqf.failed('Check that the correct channels have the peak '
+                       'response to each frequency')
+
+        if extra_peaks == [[]] * len(max_channels):
+            Aqf.passed("Check that no other channels responded > -{cutoff} dB"
                    .format(**locals()))
+        else:
+            LOGGER.info('Expected: {}\n\nGot: {}'.format(extra_peaks,
+                                                       [[]] * len(max_channels)))
+            Aqf.failed("Check that no other channels responded > -{cutoff} dB"
+                   .format(**locals()))
+
         df = self.corr_freqs.delta_f
         Aqf.less(df, required_chan_spacing,
                  'Test that computed channel spacing {} HZ is less than {} Hz. '
@@ -772,7 +784,7 @@ class test_CBF(unittest.TestCase):
 
                 reply = correlator_fixture.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
-                Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+                Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
                 Aqf.wait(settling_time,
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
@@ -1341,7 +1353,7 @@ class test_CBF(unittest.TestCase):
             cmd_start_time = time.time()
             reply = correlator_fixture.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
-            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
             final_cmd_time = time.time() - cmd_start_time
             Aqf.passed('Time it takes to load delays {} ms with intergration time {} ms'
                        .format(final_cmd_time / 100e-3, setup_data['int_time'] / 100e-3))
@@ -2225,7 +2237,7 @@ class test_CBF(unittest.TestCase):
 
             reply = correlator_fixture.katcp_rct.req.delays(
                 t_apply, *delay_coefficients)
-            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
             Aqf.wait(settling_time,
                      'Settling time in order to set delay: {} ns.'
                      .format(test_delay * 1e9))
@@ -2283,6 +2295,8 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         Aqf.step('Imaging Data Product Set for 4k mode')
         self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
+        Aqf.step('Imaging Data Product Set for 32k mode')
+        Aqf.failed('32K mode not implemented yet.')
         # self._test_data_product('c8n856M32k', no_channels=32768)
 
     def _test_data_product(self, instrument, no_channels):
