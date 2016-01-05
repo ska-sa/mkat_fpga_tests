@@ -31,19 +31,22 @@ from casperfpga import utils as fpgautils
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
+
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels
+
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
 from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
-from mkat_fpga_tests.utils import get_fftoverflow_qdrstatus, test_fftoverflow_qdrstatus
-from mkat_fpga_tests.utils import get_pfb_counts
+from mkat_fpga_tests.utils import get_fftoverflow_qdrstatus, check_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
 from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
+from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
+from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts
 
 LOGGER = logging.getLogger(__name__)
 
@@ -70,50 +73,6 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 # the mode name from the function to make an all singing all dancing decorator that does
 # everything automagically?
 
-
-def get_vacc_offset(xeng_raw):
-    """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
-    b0 = np.abs(complexise(xeng_raw.value[:, 0]))
-    b1 = np.abs(complexise(xeng_raw.value[:, 1]))
-    if np.max(b0) > 0 and np.max(b1) == 0:
-        # We expect autocorr in baseline 0 to be nonzero if the vacc is
-        # properly aligned, hence no offset
-        return 0
-    elif np.max(b1) > 0 and np.max(b0) == 0:
-        return 1
-    else:
-        raise ValueError('Could not determine VACC offset')
-
-
-def get_and_restore_initial_eqs(test_instance, correlator):
-    initial_equalisations = {input: eq_info['eq'] for input, eq_info
-                             in correlator.fops.eq_get().items()}
-
-    def restore_initial_equalisations():
-        for input, eq in initial_equalisations.items():
-            correlator.fops.eq_set(source_name=input, new_eq=eq)
-
-    test_instance.addCleanup(restore_initial_equalisations)
-    return initial_equalisations
-
-
-def get_bit_flag(packed, flag_bit):
-    flag_mask = 1 << flag_bit
-    flag = bool(packed & flag_mask)
-    return flag
-
-
-def get_set_bits(packed, consider_bits=None):
-    packed = int(packed)
-    set_bits = set()
-    for bit in range(packed.bit_length()):
-        if get_bit_flag(packed, bit):
-            set_bits.add(bit)
-    if consider_bits is not None:
-        set_bits = set_bits.intersection(consider_bits)
-    return set_bits
-
-
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
@@ -121,11 +80,14 @@ class test_CBF(unittest.TestCase):
     cmc_conf_path = '/etc/cmc.conf'
     if os.path.isfile(cmc_conf_path):
         filepath = open(cmc_conf_path, 'r').readline().strip()
-        if os.path.exists(filepath.split('=')[-1]):
-            instrument_list = os.listdir(filepath.split('=')[-1])[-1]
-            array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
-        else:
-            Aqf.failed('Could not get default instrument from {} path does not exists.'
+        try:
+            if os.path.exists(filepath.split('=')[-1]):
+                instrument_list = os.listdir(filepath.split('=')[-1])[-1]
+                array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
+
+        except Exception:
+            DEFAULT_INSTRUMENT = 'bc8n856M4k'
+            Aqf.waived('Could not get default instrument from {}/arrayX-insrument path does not exists.'
                        .format(filepath.split('=')[-1]))
 
     def setUp(self):
@@ -160,16 +122,459 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
 
+    #####################################################################
+    #                          4k Test Method                           #
+    #####################################################################
+
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
-    def test_instrument_channelisation(self):
+    def test_c8n856M4k_channelisation(self):
         """CBF Channelisation Wideband Coarse L-band"""
+        Aqf.step('CBF Channelisation Wideband Coarse L-band')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_channelisation(
-            required_chan_spacing=290e3,
-            test_chan=1500
-            )
+        self._test_channelisation(required_chan_spacing=290e3, test_chan=1500)
 
+    @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.1.45')
+    def test_c8n856M4k_sfdr_peaks(self):
+        """Test spurious free dynamic range for wideband coarse (c8n856M4k)
+
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
+
+        """
+        Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: (c8n856M4k)')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
+
+    @aqf_vr('TP.C.1.30')
+    def test_c8n856M4k_product_baselines(self):
+        """CBF Baseline Correlation Products - AR1"""
+        Aqf.step('CBF Baseline Correlation Products - AR1')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_product_baselines()
+
+    @aqf_vr('TP.C.dummy_vr_1')
+    def test_c8n856M4k_back2back_consistency(self):
+        Aqf.step("Check that back-to-back SPEAD dumps with same input are equal.")
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_back2back_consistency()
+
+    @aqf_vr('TP.C.dummy_vr_2')
+    def test_c8n856M4k_freq_scan_consistency(self):
+        Aqf.step('Frequency Scan Consistency Test')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_freq_scan_consistency()
+
+    @aqf_vr('TP.C.dummy_vr_3')
+    def test_c8n856M4k_restart_consistency(self):
+        """Check that results are consistent on correlator restart"""
+        Aqf.step('Correlator Restart Consistency Test')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_restart_consistency()
+
+    @aqf_vr('TP.C.1.27')
+    def test_c8n856M4k_delay_tracking(self):
+        Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_delay_tracking()
+
+    @aqf_vr('TP.C.1.16')
+    def test_c8n856M4k_sensor_values(self):
+        """Report sensor values (AR1)"""
+        Aqf.step('Report sensor values (AR1)')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_sensor_values()
+
+    @aqf_vr('TP.C.1.16')
+    def test_c8n856M4k_roach_qdr_sensors(self):
+        """QDR memory Error Test: Sensors"""
+        Aqf.step('QDR memory Error Test: Sensors')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_roach_qdr_sensors()
+
+    @aqf_vr('TP.C.1.16')
+    def test_c8n856M4k_roach_pfb_sensors(self):
+        """PFB Error Test: Sensors"""
+        Aqf.step('PFB Error Test: Sensors')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_roach_pfb_sensors()
+
+    @aqf_vr('TP.C.1.16')
+    def test_c8n856M4k_roach_sensors_status(self):
+        """ Test all roach sensors status are not failing and count verification."""
+        Aqf.step('Sensors Status Verification Test')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_roach_sensors_status()
+
+    @aqf_vr('TP.C.1.31')
+    def test_c8n856M4k_vacc(self):
+        """Vector Accumulator Test"""
+        Aqf.step('Vector Accumulator Test')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_vacc()
+
+    @aqf_vr('TP.C.1.40')
+    def test_a_product_switch_c8n856M4k(self):
+        """CBF Data Product Switching Time"""
+        Aqf.step('CBF Data Product Switching Time: {}'.format(self.DEFAULT_INSTRUMENT))
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_a_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_overflow_flag(self):
+        """CBF flagging of data -- ADC overflow"""
+        Aqf.step('CBF flagging of data -- ADC overflow')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_adc_overflow_flag()
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_noise_diode_flag(self):
+        """CBF flagging of data -- noise diode fired"""
+        Aqf.step('CBF flagging of data -- noise diode fired')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_noise_diode_flag()
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_fft_overflow_flag(self):
+        """CBF flagging of data -- FFT overflow"""
+        Aqf.step('CBF flagging of data -- FFT overflow')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_fft_overflow_flag()
+
+    @aqf_vr('TP.C.1.27')
+    def test_c8n856M4k_delay_rate(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
+        Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_delay_rate()
+
+    @aqf_vr('TP.C.1.24')
+    def test_c8n856M4k_fringe_offset(self):
+        """CBF per-antenna phase error -- Fringe offset"""
+        Aqf.step('CBF per-antenna phase error -- Fringe offset')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_fringe_offset()
+
+    @aqf_vr('TP.C.1.28')
+    def test_c8n856M4k_fringe_rate(self):
+        """CBF per-antenna phase error -- Fringe rate"""
+        Aqf.step('CBF per-antenna phase error -- Fringe rate')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_fringe_rate()
+
+    @aqf_vr('TP.C.1.28')
+    def test_c8n856M4k_all_delays(self):
+        """
+        CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
+        """
+        Aqf.step('CBF per-antenna phase error -- Delays, Delay Rate, '
+                 'Fringe Offset and Fringe Rate.')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        Aqf.tbd('Values still needs to be defined.')
+        # self._test_all_delays()
+
+    @aqf_vr('TP.C.1.17')
+    def test_c8n856M4k_config_report(self):
+        """CBF Report configuration"""
+        Aqf.step('CBF Report configuration')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_config_report()
+
+    @aqf_vr('TP.C.1.5.1')
+    @aqf_vr('TP.C.1.5.2')
+    @aqf_vr('TP.C.1.5.3')
+    @aqf_vr('TP.C.1.18')
+    def test_c8n856M4k_fault_detection(self):
+        """AR1 Fault detection"""
+        Aqf.step('AR1 Fault detection')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_fault_detection()
+
+    @aqf_vr('TP.C.1.27')
+    def test_c8n856M4k_delay_inputs(self):
+        """CBF Delay Compensation/LO Fringe stopping polynomial
+           Delay applied to the correct input
+        """
+        Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial -- '
+                 'Delay applied to the correct input')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_delay_inputs()
+
+    @aqf_vr('TP.C.1.47')
+    def test_c8n856M4k_data_product(self):
+        """CBF Imaging Data Product Set"""
+        Aqf.step('Imaging Data Product Set')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
+
+    #################################################################
+    #                       32K Mode Tests                          #
+    #################################################################
+
+    # TODO: Get correct verification numbers
+    @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.1.45')
+    def test_c8n856M32k_channelisation(self):
+        """CBF Channelisation Wideband Fine L-band"""
+        Aqf.step('CBF Channelisation Wideband Fine L-band')
+        Aqf.tbd('32K mode not implemented yet.')
+        # self.set_instrument('c8n856M32k')
+        # self._test_channelisation(required_chan_spacing=290e3, test_chan=1500)
+
+    @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.1.45')
+    def test_c8n856M32k_sfdr_peaks(self):
+        """Test spurious free dynamic range for wideband fine (c8n856M32k)
+
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
+
+        """
+        Aqf.step('Test spurious free dynamic range for wideband fine: (c8n856M32k)')
+        Aqf.tbd('32K mode not implemented yet.')
+        # self.set_instrument('c8n856M32k')
+        # self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
+
+    @aqf_vr('TP.C.1.47')
+    def test_c8n856M32k_data_product(self):
+        """CBF Imaging Data Product Set"""
+        Aqf.step('Imaging Data Product Set: {}'.format(self.DEFAULT_INSTRUMENT))
+        Aqf.tbd('32K mode not implemented yet.')
+        # self.set_instrument('c8n856M32k')
+        # self._test_data_product('c8n856M32k', no_channels=32768)
+
+    @aqf_vr('TP.C.1.40')
+    def test_a_product_switch_c8n856M32k(self):
+        """CBF Data Product Switching Time"""
+        Aqf.step('CBF Data Product Switching Time: {}'.format(self.DEFAULT_INSTRUMENT))
+        Aqf.tbd('32K mode not implemented yet.')
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        # self.set_instrument('c8n856M32k')
+        # self._test_a_product_switch('c8n856M32k', no_channels=32768)
+
+    #################################################################
+    #                       Functions                               #
+    #################################################################
+
+
+    def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
+                       accumulation_time=1.):
+        Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
+        self.xengops.set_acc_time(accumulation_time)
+        Aqf.step('Getting correlator dump 1 before setting {}.'
+                 .format(flag_description))
+        dump1 = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        start_time = time.time()
+        Aqf.wait(0.1 * accumulation_time, 'Waiting 10% of accumulation length')
+        Aqf.step('Setting {}'.format(flag_description))
+        flag_enable_fn()
+        # Ensure that the flag is disabled even if the test fails to avoid contaminating
+        # other tests
+        self.addCleanup(flag_disable_fn)
+        elapsed = time.time() - start_time
+        wait_time = accumulation_time * 0.8 - elapsed
+        Aqf.is_true(wait_time > 0, 'Check that wait time {} is larger than zero'
+                    .format(wait_time))
+        Aqf.wait(wait_time, 'Waiting until 80% of accumulation length has elapsed')
+        Aqf.step('Clearing {}'.format(flag_description))
+        flag_disable_fn()
+        Aqf.step('Getting correlator dump 2 after setting and clearing {}.'
+                 .format(flag_description))
+        dump2 = self.receiver.data_queue.get(DUMP_TIMEOUT)
+        Aqf.step('Getting correlator dump 3.')
+        dump3 = self.receiver.data_queue.get(DUMP_TIMEOUT)
+        return (dump1, dump2, dump3)
+
+    def _delays_setup(self, test_source_idx = 2):
+        Aqf.step('Estimating synch epoch')
+        self.correlator.est_sync_epoch()
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4',
+                           'input5', 'input6', 'input7']
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
+        Aqf.step('Source names changed to: ' + str(reply))
+        Aqf.step('Clearing all coarse and fine delays for all inputs.')
+        clear_all_delays(self.correlator, self.receiver)
+        self.addCleanup(clear_all_delays, self.correlator, self.receiver)
+        Aqf.step('Issuing metadata')
+        self.corr_fix.issue_metadata()
+        Aqf.step('Getting initial SPEAD dump.')
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+        # TODO: (MM) 2015-10-21 get sync time from digitiser
+        # We believe that sync time should be the digitiser sync epoch but
+        # in the dsim this is not an int, so we using correlator value for now
+        sync_time = initial_dump['sync_time'].value
+        # sync_time = self.correlator.synchronisation_epoch
+        scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
+        time_stamp = initial_dump['timestamp'].value
+        n_accs = initial_dump['n_accs'].value
+        # TODO: (MM) 2015-10-07, get int time from dump
+        # (int_time = initial_dump['int_time'].value)
+        int_time = self.xengops.get_acc_time()
+        # TODO (MM) 2015-10-20
+        # 3ms added for the network round trip
+        roundtrip = 0.003
+        dump_1_timestamp = (sync_time + roundtrip +
+                            time_stamp / scale_factor_timestamp)
+        t_apply = dump_1_timestamp + 10 * int_time
+        no_chans = range(self.corr_freqs.n_chans)
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        source_names = reply.arguments[1:]
+        # Get name for test_source_idx
+        test_source = source_names[test_source_idx]
+        ref_source = source_names[0]
+        Aqf.step('Source input selected: {}'.format(test_source))
+        num_inputs = len(source_names)
+        # Get list of all the baselines present in the correlator output
+        baseline_lookup = get_baselines_lookup(initial_dump)
+        # Choose baseline for phase comparison
+        # baseline_index = baseline_lookup[('m000_x', 'm000_y')]
+        baseline_index = baseline_lookup[(ref_source, test_source)]
+        # Get input (m000_y) index number
+        #test_source_ind = source_names.index(test_source)
+
+        return {
+            'baseline_index': baseline_index,
+            'baseline_lookup': baseline_lookup,
+            'initial_dump': initial_dump,
+            'sync_time': sync_time,
+            'scale_factor_timestamp': scale_factor_timestamp,
+            'time_stamp': time_stamp,
+            'int_time': int_time,
+            'dump_1_timestamp': dump_1_timestamp,
+            't_apply': t_apply,
+            'no_chans': no_chans,
+            'test_source': test_source,
+            'n_accs': n_accs,
+            'sample_period': self.corr_freqs.sample_period,
+            'num_inputs': num_inputs,
+            'test_source_ind': test_source_idx
+        }
+
+    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients,
+                         max_wait_dumps=20):
+
+        try:
+            cmd_start_time = time.time()
+            reply = correlator_fixture.katcp_rct.req.delays(
+                setup_data['t_apply'], *delay_coefficients)
+            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
+            final_cmd_time = time.time() - cmd_start_time
+            Aqf.passed('Time it takes to load delays {} ms with intergration time {} ms'
+                       .format(final_cmd_time / 100e-3, setup_data['int_time'] / 100e-3))
+
+        except Exception as e:
+            Aqf.failed('Failed to set delays with error: {}.'.format(e))
+
+        last_discard = setup_data['t_apply'] - setup_data['int_time']
+
+        num_discards = 0
+        while True:
+            num_discards += 1
+            dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
+                              setup_data['scale_factor_timestamp'])
+
+            if (np.abs(dump_timestamp - last_discard) < 0.05 * setup_data['int_time']):
+                Aqf.step('Received final accumulation before fringe '
+                         'application with timestamp {}.'.format(dump_timestamp))
+                break
+
+            if num_discards > max_wait_dumps:
+                Aqf.failed('Could not get accumulation with corrrect '
+                           'timestamp within {} accumulation periods.'
+                           .format(max_wait_dumps))
+                break
+            else:
+                Aqf.step('Discarding accumulation with timestamp {}.'
+                         .format(dump_timestamp))
+
+        fringe_dumps = []
+        for i in range(dump_counts):
+            Aqf.step('Getting subsequent dump {}.'.format(i + 1))
+            fringe_dumps.append(self.receiver.data_queue.get(DUMP_TIMEOUT))
+
+        phases = []
+        for acc in fringe_dumps:
+            dval = acc['xeng_raw'].value
+            data = complexise(dval[:, setup_data['baseline_index'], :])
+            phases.append(np.angle(data))
+            amp = np.mean(np.abs(data)) / setup_data['n_accs']
+
+        return phases
+
+    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
+
+        def gen_delay_vector(delay, setup_data):
+            res = []
+            no_ch = len(setup_data['no_chans'])
+            delay_slope = np.pi * (delay / setup_data['sample_period'])
+            c = delay_slope / 2
+            for i in range(0, no_ch):
+                m = i / float(no_ch)
+                res.append(delay_slope * m - c)
+            return res
+
+        def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
+            expected_phases = []
+            for dump in range(1, dump_counts + 1):
+                tot_delay = (delay + dump * delay_rate * setup_data['int_time'] -
+                             .5 * delay_rate * setup_data['int_time'])
+                expected_phases.append(gen_delay_vector(tot_delay, setup_data))
+            return expected_phases
+
+        def gen_fringe_vector(offset, setup_data):
+            return [offset] * len(setup_data['no_chans'])
+
+        def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
+            expected_phases = []
+            for dump in range(1, dump_counts + 1):
+                offset = -(fringe_offset + dump * fringe_rate * setup_data['int_time'])
+                expected_phases.append(gen_fringe_vector(offset, setup_data))
+            return expected_phases
+
+        ant_delay = []
+        for delay in delay_coefficients:
+            bits = delay.strip().split(':')
+            if len(bits) != 2:
+                raise ValueError('%s is not a valid delay setting' % delay)
+            delay = bits[0]
+            delay = delay.split(',')
+            delay = (float(delay[0]), float(delay[1]))
+            fringe = bits[1]
+            fringe = fringe.split(',')
+            fringe = (float(fringe[0]), float(fringe[1]))
+            ant_delay.append((delay, fringe))
+
+        delay = ant_delay[setup_data['test_source_ind']][0][0]
+        delay_rate = ant_delay[setup_data['test_source_ind']][0][1]
+        fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
+        fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
+
+        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
+                                              setup_data)))
+        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
+                                               dump_counts, setup_data))
+        result = delay_data + fringe_data
+        wrapped_results = ((result + np.pi) % (2 * np.pi) - np.pi)
+
+        if (fringe_offset or fringe_rate) != 0:
+            fringe_phase = [np.abs((np.min(phase) + np.max(phase)) / 2.)
+                            for phase in fringe_data]
+            return zip(fringe_phase, wrapped_results)
+        else:
+            delay_phase = [np.abs((np.min(phase) - np.max(phase)) / 2.)
+                           for phase in delay_data]
+            return zip(delay_phase, wrapped_results)
+
+    #################################################################
+    #                       Test Methods                            #
+    #################################################################
     def _test_channelisation(self, required_chan_spacing, test_chan):
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
@@ -192,7 +597,7 @@ class test_CBF(unittest.TestCase):
             get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
 
         # Test fft overflow and qdr status before
-        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
+        check_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
 
         for i, freq in enumerate(requested_test_freqs):
             print ('Getting channel response for freq {}/{}: {} MHz.'.format(
@@ -223,7 +628,7 @@ class test_CBF(unittest.TestCase):
                                   this_source_freq/1e6), log_dynamic_range=90)
 
         # Test fft overflow and qdr status after
-        test_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
+        check_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -343,21 +748,7 @@ class test_CBF(unittest.TestCase):
             'Check that relative response at the high band-edge ({co_high_rel_resp} '
             'dB @ {co_high_freq} Hz, actual source freq {co_high_src_freq}) '
             'is {desired_cutoff_resp} +- {acceptable_co_var} dB relative to '
-            'channel centre response.'.format(**locals()) )
-
-    @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
-    def test_instrument_sfdr_peaks(self):
-        """Test spurious free dynamic range for wideband coarse (c8n856M4k)
-
-        Check that the correct channels have the peak response to each
-        frequency and that no other channels have significant relative power.
-
-        """
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_sfdr_peaks(
-            required_chan_spacing=290e3,
-            cutoff=53)
+            'channel centre response.'.format(**locals()))
 
     def _test_sfdr_peaks(self, required_chan_spacing, cutoff):
         """Test channel spacing and out-of-channel response
@@ -421,7 +812,7 @@ class test_CBF(unittest.TestCase):
                        'response to each frequency')
 
         if extra_peaks == [[]] * len(max_channels):
-            Aqf.passed("Check that no other channels responded > -{cutoff} dB"
+            Aqf.passed("Check that no other channels response more than -{cutoff} dB"
                    .format(**locals()))
         else:
             LOGGER.info('Expected: {}\n\nGot: {}'.format(extra_peaks,
@@ -435,12 +826,6 @@ class test_CBF(unittest.TestCase):
                  'This comparison is only valid if the peak response test '
                  'above passed, since a failure may imply that the computed '
                  'spacing is invalid.'.format(df, required_chan_spacing))
-
-    @aqf_vr('TP.C.1.30')
-    def test_instrument_product_baselines(self):
-        """CBF Baseline Correlation Products - AR1"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_product_baselines()
 
     def _test_product_baselines(self):
         # Put some correlated noise on both outputs
@@ -557,12 +942,6 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(actual_z_bls, expected_z_bls,
                        "Also check that expected baselines visibilities are zero.")
 
-    @aqf_vr('TP.C.dummy_vr_1')
-    def test_instrument_back2back_consistency(self):
-        Aqf.step("Check that back-to-back SPEAD dumps with same input are equal.")
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_back2back_consistency()
-
     def _test_back2back_consistency(self):
         threshold = 1e-7  # Threshold: -70dB
         test_chan = randrange(0, self.corr_freqs.n_chans)
@@ -616,11 +995,6 @@ class test_CBF(unittest.TestCase):
                         'source periodic every {} samples and sine frequency of '
                         '{} MHz.'.format(source_period_in_samples, this_source_freq))
 
-    @aqf_vr('TP.C.dummy_vr_2')
-    def test_instrument_freq_scan_consistency(self):
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_freq_scan_consistency()
-
     def _test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
         threshold = 1e-7  # Threshold: -70dB
@@ -667,91 +1041,11 @@ class test_CBF(unittest.TestCase):
                          ' comparison({}) is less than {} dB.'
                          .format(max_freq_scan, threshold))
 
-    @aqf_vr('TP.C.dummy_vr_3')
-    def test_instrument_test_restart_consistency(self):
-        """Check that results are consistent on correlator restart"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_restart_consistency()
-
     def _test_restart_consistency(self):
         """Check that results are consistent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
         Aqf.tbd('Correlator restart consistency test not implemented yet.')
-
-    def _delays_setup(self, test_source_idx = 2):
-        Aqf.step('Estimating synch epoch')
-        self.correlator.est_sync_epoch()
-        # Put some correlated noise on both outputs
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4',
-                           'input5', 'input6', 'input7']
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
-            *local_src_names)
-        Aqf.step('Source names changed to: ' + str(reply))
-        Aqf.step('Clearing all coarse and fine delays for all inputs.')
-        clear_all_delays(self.correlator, self.receiver)
-        self.addCleanup(clear_all_delays, self.correlator, self.receiver)
-        Aqf.step('Issuing metadata')
-        self.corr_fix.issue_metadata()
-        Aqf.step('Getting initial SPEAD dump.')
-        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
-        # TODO: (MM) 2015-10-21 get sync time from digitiser
-        # We believe that sync time should be the digitiser sync epoch but
-        # in the dsim this is not an int, so we using correlator value for now
-        sync_time = initial_dump['sync_time'].value
-        # sync_time = self.correlator.synchronisation_epoch
-        scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
-        time_stamp = initial_dump['timestamp'].value
-        n_accs = initial_dump['n_accs'].value
-        # TODO: (MM) 2015-10-07, get int time from dump
-        # (int_time = initial_dump['int_time'].value)
-        int_time = self.xengops.get_acc_time()
-        # TODO (MM) 2015-10-20
-        # 3ms added for the network round trip
-        roundtrip = 0.003
-        dump_1_timestamp = (sync_time + roundtrip +
-                            time_stamp / scale_factor_timestamp)
-        t_apply = dump_1_timestamp + 10 * int_time
-        no_chans = range(self.corr_freqs.n_chans)
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-        source_names = reply.arguments[1:]
-        # Get name for test_source_idx
-        test_source = source_names[test_source_idx]
-        ref_source = source_names[0]
-        Aqf.step('Source input selected: {}'.format(test_source))
-        num_inputs = len(source_names)
-        # Get list of all the baselines present in the correlator output
-        baseline_lookup = get_baselines_lookup(initial_dump)
-        # Choose baseline for phase comparison
-        # baseline_index = baseline_lookup[('m000_x', 'm000_y')]
-        baseline_index = baseline_lookup[(ref_source, test_source)]
-        # Get input (m000_y) index number
-        #test_source_ind = source_names.index(test_source)
-
-        return {
-            'baseline_index': baseline_index,
-            'baseline_lookup': baseline_lookup,
-            'initial_dump': initial_dump,
-            'sync_time': sync_time,
-            'scale_factor_timestamp': scale_factor_timestamp,
-            'time_stamp': time_stamp,
-            'int_time': int_time,
-            'dump_1_timestamp': dump_1_timestamp,
-            't_apply': t_apply,
-            'no_chans': no_chans,
-            'test_source': test_source,
-            'n_accs': n_accs,
-            'sample_period': self.corr_freqs.sample_period,
-            'num_inputs': num_inputs,
-            'test_source_ind': test_source_idx
-        }
-
-    @aqf_vr('TP.C.1.27')
-    def test_instrument_delay_tracking(self):
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_delay_tracking()
 
     def _test_delay_tracking(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
@@ -832,14 +1126,6 @@ class test_CBF(unittest.TestCase):
                                      .format((count + 1) * .5, delay * 1e9, np.rad2deg(np.pi) * (count + 1) * .5,
                                              tolerance), tolerance)
 
-    @aqf_vr('TP.C.1.16')
-    def test_instrument_sensor_values(self):
-        """
-        Report sensor values (AR1)
-        """
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_sensor_values()
-
     def _test_sensor_values(self):
         """
         Report sensor values (AR1)
@@ -898,12 +1184,6 @@ class test_CBF(unittest.TestCase):
                        'Sensor status: {}, {} '
                        .format(sensor.name, sensor.get_status()))
 
-    @aqf_vr('TP.C.1.16')
-    def test_instrument_roach_qdr_sensors(self):
-        """Sensor QDR memory error"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_roach_qdr_sensors()
-
     def _test_roach_qdr_sensors(self):
         """Sensor QDR memory error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
@@ -961,22 +1241,10 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.failed('Error counters still incrementing. QDR did not recover')
 
-    @aqf_vr('TP.C.1.16')
-    def test_instrument_test_roach_pfb_sensors(self):
-        """Sensor PFB error"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_roach_pfb_sensors()
-
     def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
         Aqf.tbd('PFB sensor test not yet implemented.')
-
-    @aqf_vr('TP.C.1.16')
-    def test_instrument_roach_sensors_status(self):
-        """ Test all roach sensors status are not failing and count verification."""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_roach_sensors_status()
 
     def _test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
@@ -1002,12 +1270,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.is_false((sensor_status == 'fail'),
                              'Roach {}, Sensor name: {}, status: {}'
                              .format(roach.host, sensor_name, sensor_status))
-
-    @aqf_vr('TP.C.1.31')
-    def test_instrument_vacc(self):
-        """Test vector accumulator"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_vacc()
 
     def _test_vacc(self):
         """Test vector accumulator"""
@@ -1068,7 +1330,6 @@ class test_CBF(unittest.TestCase):
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
         # Deprogram CBF
         xhosts = self.correlator.xhosts
         fhosts = self.correlator.fhosts
@@ -1123,51 +1384,6 @@ class test_CBF(unittest.TestCase):
                  'Check that instrument switching to {instrument} time is '
                  'less than one minute'.format(**locals()) )
 
-    @aqf_vr('TP.C.1.40')
-    def test_product_switch(self):
-        """CBF Data Product Switching Time"""
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        Aqf.step('CBF Data Product Switching Time 4k mode.')
-        self._test_a_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
-        Aqf.step('CBF Data Product Switching Time 32k mode.')
-        Aqf.failed('32K mode not implemented yet.')
-        # self._test_a_product_switch('c8n856M32k', no_channels=32768)
-
-    def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
-                       accumulation_time=1.):
-        Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
-        self.xengops.set_acc_time(accumulation_time)
-        Aqf.step('Getting correlator dump 1 before setting {}.'
-                 .format(flag_description))
-        dump1 = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        start_time = time.time()
-        Aqf.wait(0.1 * accumulation_time, 'Waiting 10% of accumulation length')
-        Aqf.step('Setting {}'.format(flag_description))
-        flag_enable_fn()
-        # Ensure that the flag is disabled even if the test fails to avoid contaminating
-        # other tests
-        self.addCleanup(flag_disable_fn)
-        elapsed = time.time() - start_time
-        wait_time = accumulation_time * 0.8 - elapsed
-        Aqf.is_true(wait_time > 0, 'Check that wait time {} is larger than zero'
-                    .format(wait_time))
-        Aqf.wait(wait_time, 'Waiting until 80% of accumulation length has elapsed')
-        Aqf.step('Clearing {}'.format(flag_description))
-        flag_disable_fn()
-        Aqf.step('Getting correlator dump 2 after setting and clearing {}.'
-                 .format(flag_description))
-        dump2 = self.receiver.data_queue.get(DUMP_TIMEOUT)
-        Aqf.step('Getting correlator dump 3.')
-        dump3 = self.receiver.data_queue.get(DUMP_TIMEOUT)
-        return (dump1, dump2, dump3)
-
-    @aqf_vr('TP.C.1.38')
-    def test_instrument_overflow_flag(self):
-        """CBF flagging of data -- ADC overflow"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_adc_overflow_flag()
-
     def _test_adc_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
 
@@ -1219,12 +1435,6 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(),
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
-
-    @aqf_vr('TP.C.1.38')
-    def test_instrument_noise_diode_flag(self):
-        """CBF flagging of data -- noise diode fired"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_noise_diode_flag()
 
     def _test_noise_diode_flag(self):
         """CBF flagging of data -- noise diode fired"""
@@ -1278,12 +1488,6 @@ class test_CBF(unittest.TestCase):
         Aqf.equals(other_set_bits3, set(),
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
-
-    @aqf_vr('TP.C.1.38')
-    def test_instrument_fft_overflow_flag(self):
-        """CBF flagging of data -- FFT overflow"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_fft_overflow_flag()
 
     def _test_fft_overflow_flag(self):
         """CBF flagging of data -- FFT overflow"""
@@ -1353,127 +1557,63 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients,
-                         max_wait_dumps=20):
+    def _test_fringe_offset(self):
+        """CBF per-antenna phase error -- Fringe offset"""
+        # TODO Randomise test values
+        setup_data = self._delays_setup()
+        dump_counts = 5
+        delay_value = 0
+        delay_rate = 0
+        fringe_offset = np.pi / 2.
+        fringe_rate = 0
+        load_time = setup_data['t_apply']
+        load_check = False
+        fringe_offsets = [0] * setup_data['num_inputs']
+        fringe_offsets[setup_data['test_source_ind']] = fringe_offset
+        delay_coefficients = ['0,0:{},0'.format(fo) for fo in fringe_offsets]
 
-        try:
-            cmd_start_time = time.time()
-            reply = correlator_fixture.katcp_rct.req.delays(
-                setup_data['t_apply'], *delay_coefficients)
-            Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
-            final_cmd_time = time.time() - cmd_start_time
-            Aqf.passed('Time it takes to load delays {} ms with intergration time {} ms'
-                       .format(final_cmd_time / 100e-3, setup_data['int_time'] / 100e-3))
+        Aqf.step('Setting Parameters')
+        Aqf.step('Time apply: {}'.format(load_time))
+        Aqf.step('Delay Rate: {}'.format(delay_rate))
+        Aqf.step('Delay Value: {}'.format(delay_value))
+        Aqf.step('Fringe Offset: {}'.format(fringe_offset))
+        Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        except Exception as e:
-            Aqf.failed('Failed to set delays with error: {}.'.format(e))
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients)
 
-        last_discard = setup_data['t_apply'] - setup_data['int_time']
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
+                                              delay_coefficients)
 
-        num_discards = 0
-        while True:
-            num_discards += 1
-            dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
-                              setup_data['scale_factor_timestamp'])
+        no_chans = setup_data['no_chans']
+        graph_units = 'rads'
+        graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
+        graph_name = 'Fringe_Offset_Response.svg'
+        caption = ('Actual and expected Unwrapped Correlation Phase, '
+                   'dashed line indicates expected value.')
 
-            if (np.abs(dump_timestamp - last_discard) < 0.05 * setup_data['int_time']):
-                Aqf.step('Received final accumulation before fringe '
-                         'application with timestamp {}.'.format(dump_timestamp))
-                break
+        aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
+                               graph_units, graph_name, graph_title, caption)
 
-            if num_discards > max_wait_dumps:
-                Aqf.failed('Could not get accumulation with corrrect '
-                           'timestamp within {} accumulation periods.'
-                           .format(max_wait_dumps))
-                break
-            else:
-                Aqf.step('Discarding accumulation with timestamp {}.'
-                         .format(dump_timestamp))
+        # Ignoring first dump because the delays might not be set for full
+        # intergration.
+        tolerance = 0.01
+        actual_phases = np.unwrap(actual_phases)
+        expected_phases = np.unwrap([phase for label, phase in expected_phases])
+        for i in range(1, len(expected_phases) - 1):
+            delta_expected = np.max(expected_phases[i])
+            delta_actual = np.max(actual_phases[i])
+            abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
 
-        fringe_dumps = []
-        for i in range(dump_counts):
-            Aqf.step('Getting subsequent dump {}.'.format(i + 1))
-            fringe_dumps.append(self.receiver.data_queue.get(DUMP_TIMEOUT))
+            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
+                              'Check if difference expected({}) and actual({}) '
+                              'phases are equal withing {} tolerance when fringe offset is {}.'
+                              .format(delta_expected, delta_actual, tolerance, fringe_offset))
 
-        phases = []
-        for acc in fringe_dumps:
-            dval = acc['xeng_raw'].value
-            data = complexise(dval[:, setup_data['baseline_index'], :])
-            phases.append(np.angle(data))
-            amp = np.mean(np.abs(data)) / setup_data['n_accs']
-
-        return phases
-
-    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
-
-        def gen_delay_vector(delay, setup_data):
-            res = []
-            no_ch = len(setup_data['no_chans'])
-            delay_slope = np.pi * (delay / setup_data['sample_period'])
-            c = delay_slope / 2
-            for i in range(0, no_ch):
-                m = i / float(no_ch)
-                res.append(delay_slope * m - c)
-            return res
-
-        def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
-            expected_phases = []
-            for dump in range(1, dump_counts + 1):
-                tot_delay = (delay + dump * delay_rate * setup_data['int_time'] -
-                             .5 * delay_rate * setup_data['int_time'])
-                expected_phases.append(gen_delay_vector(tot_delay, setup_data))
-            return expected_phases
-
-        def gen_fringe_vector(offset, setup_data):
-            return [offset] * len(setup_data['no_chans'])
-
-        def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
-            expected_phases = []
-            for dump in range(1, dump_counts + 1):
-                offset = -(fringe_offset + dump * fringe_rate * setup_data['int_time'])
-                expected_phases.append(gen_fringe_vector(offset, setup_data))
-            return expected_phases
-
-        ant_delay = []
-        for delay in delay_coefficients:
-            bits = delay.strip().split(':')
-            if len(bits) != 2:
-                raise ValueError('%s is not a valid delay setting' % delay)
-            delay = bits[0]
-            delay = delay.split(',')
-            delay = (float(delay[0]), float(delay[1]))
-            fringe = bits[1]
-            fringe = fringe.split(',')
-            fringe = (float(fringe[0]), float(fringe[1]))
-            ant_delay.append((delay, fringe))
-
-        delay = ant_delay[setup_data['test_source_ind']][0][0]
-        delay_rate = ant_delay[setup_data['test_source_ind']][0][1]
-        fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
-        fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
-
-        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
-                                              setup_data)))
-        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
-                                               dump_counts, setup_data))
-        result = delay_data + fringe_data
-        wrapped_results = ((result + np.pi) % (2 * np.pi) - np.pi)
-
-        if (fringe_offset or fringe_rate) != 0:
-            fringe_phase = [np.abs((np.min(phase) + np.max(phase)) / 2.)
-                            for phase in fringe_data]
-            return zip(fringe_phase, wrapped_results)
-        else:
-            delay_phase = [np.abs((np.min(phase) - np.max(phase)) / 2.)
-                           for phase in delay_data]
-            return zip(delay_phase, wrapped_results)
-
-    @aqf_vr('TP.C.1.27')
-    def test_instrument_test_delay_rate(self):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_delay_rate()
+            Aqf.less(abs_diff, 1,
+                     'Check that the maximum degree between '
+                     'expected and actual phase difference between integrations '
+                     'is below 1 degree: {} degree\n'.format(abs_diff))
 
     def _test_delay_rate(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
@@ -1535,76 +1675,6 @@ class test_CBF(unittest.TestCase):
                      'difference between integrations is below 1 degree: {0:.3f} degree\n'
                      .format(abs_diff))
 
-    @aqf_vr('TP.C.1.24')
-    def test_instrument_test_fringe_offset(self):
-        """CBF per-antenna phase error -- Fringe offset"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_fringe_offset()
-
-    def _test_fringe_offset(self):
-        """CBF per-antenna phase error -- Fringe offset"""
-        # TODO Randomise test values
-        setup_data = self._delays_setup()
-        dump_counts = 5
-        delay_value = 0
-        delay_rate = 0
-        fringe_offset = np.pi / 2.
-        fringe_rate = 0
-        load_time = setup_data['t_apply']
-        load_check = False
-        fringe_offsets = [0] * setup_data['num_inputs']
-        fringe_offsets[setup_data['test_source_ind']] = fringe_offset
-        delay_coefficients = ['0,0:{},0'.format(fo) for fo in fringe_offsets]
-
-        Aqf.step('Setting Parameters')
-        Aqf.step('Time apply: {}'.format(load_time))
-        Aqf.step('Delay Rate: {}'.format(delay_rate))
-        Aqf.step('Delay Value: {}'.format(delay_value))
-        Aqf.step('Fringe Offset: {}'.format(fringe_offset))
-        Aqf.step('Fringe Rate: {}'.format(fringe_rate))
-
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
-
-        actual_phases = self._get_actual_data(setup_data, dump_counts,
-                                              delay_coefficients)
-
-        no_chans = setup_data['no_chans']
-        graph_units = 'rads'
-        graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
-        graph_name = 'Fringe_Offset_Response.svg'
-        caption = ('Actual and expected Unwrapped Correlation Phase, '
-                   'dashed line indicates expected value.')
-
-        aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title, caption)
-
-        # Ignoring first dump because the delays might not be set for full
-        # intergration.
-        tolerance = 0.01
-        actual_phases = np.unwrap(actual_phases)
-        expected_phases = np.unwrap([phase for label, phase in expected_phases])
-        for i in range(1, len(expected_phases) - 1):
-            delta_expected = np.max(expected_phases[i])
-            delta_actual = np.max(actual_phases[i])
-            abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-
-            Aqf.almost_equals(delta_expected, delta_actual, tolerance,
-                              'Check if difference expected({}) and actual({}) '
-                              'phases are equal withing {} tolerance when fringe offset is {}.'
-                              .format(delta_expected, delta_actual, tolerance, fringe_offset))
-
-            Aqf.less(abs_diff, 1,
-                     'Check that the maximum degree between '
-                     'expected and actual phase difference between integrations '
-                     'is below 1 degree: {} degree\n'.format(abs_diff))
-
-    @aqf_vr('TP.C.1.28')
-    def test_instrument_test_fringe_rate(self):
-        """CBF per-antenna phase error -- Fringe rate"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_fringe_rate()
-
     def _test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
         # TODO Randomise test values
@@ -1661,15 +1731,6 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between '
                      'expected and actual phase difference between integrations '
                      'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
-
-    @aqf_vr('TP.C.1.28')
-    def test_instrument_test_all_delays(self):
-        """
-        CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
-        """
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        Aqf.tbd('Values still needs to be defined.')
-        # self._test_all_delays()
 
     def _test_all_delays(self):
         """
@@ -1740,12 +1801,6 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between expected and actual phase'
                      ' difference between intergrations is below 1 degree: {0:.3f}'
                      ' degree\n'.format(abs_diff))
-
-    @aqf_vr('TP.C.1.17')
-    def test_instrument_test_config_report(self):
-        """CBF Report configuration"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_config_report()
 
     def _test_config_report(self):
         """CBF Report configuration"""
@@ -1974,15 +2029,6 @@ class test_CBF(unittest.TestCase):
         except OSError:
             LOGGER.info('Test ran by: Jenkins on {}'.format(time.ctime()))
 
-    @aqf_vr('TP.C.1.5.1')
-    @aqf_vr('TP.C.1.5.2')
-    @aqf_vr('TP.C.1.5.3')
-    @aqf_vr('TP.C.1.18')
-    def test_instrument_test_fault_detection(self):
-        """AR1 Fault detection"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_fault_detection()
-
     def _test_fault_detection(self):
         """AR1 Fault detection"""
         def air_temp_warn(hwmon_dir, label):
@@ -2187,7 +2233,7 @@ class test_CBF(unittest.TestCase):
 
         hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
         user = 'root\n'
-        wait_time = 2
+        wait_time = 1
         temp_dict = {4:'Inlet', 1:'Outlet'}
         for hwmon_dir, label in temp_dict.iteritems():
             Aqf.step('Trigger Air {} Temperature Warning.'.format(label))
@@ -2202,12 +2248,6 @@ class test_CBF(unittest.TestCase):
         for port, label in overcurrent_dict.iteritems():
             Aqf.step('Trigger the {} overcurrent current warning.'.format(label))
             over_warning('hwmon3', 'in{}'.format(port), 'overcurrent')
-
-    @aqf_vr('TP.C.1.27')
-    def test_instrument_delay_inputs(self):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_delay_inputs()
 
     def _test_delay_inputs(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
@@ -2247,7 +2287,7 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(settling_time,
                      'Settling time in order to set delay: {} ns.'
                      .format(test_delay * 1e9))
-            QDR_error_roaches = test_fftoverflow_qdrstatus(self.correlator,
+            QDR_error_roaches = check_fftoverflow_qdrstatus(self.correlator,
                                                            last_pfb_counts)
             if QDR_error_roaches:
                 Aqf.failed(QDR_error_roaches)
@@ -2276,31 +2316,6 @@ class test_CBF(unittest.TestCase):
                                           .format(b_line_phase_max))
                     else:
                         Aqf.passed(desc + 'no phase offset found')
-
-
-    def test_qdr_status(self):
-        """Check QDR Status"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-
-        last_pfb_counts = get_pfb_counts(
-            get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
-        for i in range(10):
-            QDR_error_roaches = test_fftoverflow_qdrstatus(self.correlator,
-                                                           last_pfb_counts)
-            if QDR_error_roaches:
-                Aqf.failed(QDR_error_roaches)
-            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
-    @aqf_vr('TP.C.1.47')
-    def test_instrument_data_product(self):
-        """CBF Imaging Data Product Set"""
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        Aqf.step('Imaging Data Product Set for 4k mode')
-        self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
-        Aqf.step('Imaging Data Product Set for 32k mode')
-        Aqf.failed('32K mode not implemented yet.')
-        # self._test_data_product('c8n856M32k', no_channels=32768)
 
     def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
