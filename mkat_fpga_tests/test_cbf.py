@@ -2116,53 +2116,53 @@ class test_CBF(unittest.TestCase):
             Aqf.tbd('see comments: https://skaafrica.atlassian.net/browse/CBFTASKS-282')
             Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
                         ' so the error message never gets triggered.\n')
-            """
-            # set the limit ridiculously low, the red LED should turn on
-            set_limit = 'echo "10" > {}/{}_crit\n'.format(hwmon, port)
-            tn.write(set_limit)
-            Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
-            time.sleep(wait_time)
-            tn.write(curr_alarm_val)
-            Aqf.wait(wait_time, 'Wait for command to be received successfully.')
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                new_alarm_value = int(stdout.splitlines()[-2])
-                #Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
-                Aqf.tbd('Confirm that the alarm has been Triggered.')
-                Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
 
-                Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
-                        ' so the error message never gets triggered.')
-            except ValueError:
-                Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
+            ## set the limit ridiculously low, the red LED should turn on
+            #set_limit = 'echo "10" > {}/{}_crit\n'.format(hwmon, port)
+            #tn.write(set_limit)
+            #Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
+            #time.sleep(wait_time)
+            #tn.write(curr_alarm_val)
+            #Aqf.wait(wait_time, 'Wait for command to be received successfully.')
+            #time.sleep(wait_time)
+            #stdout = tn.read_until('#', timeout=wait_time)
+            #try:
+                #new_alarm_value = int(stdout.splitlines()[-2])
+                ##Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
+                #Aqf.tbd('Confirm that the alarm has been Triggered.')
+                #Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
 
-            orig_alarm_val = 'echo "{}" > {}/{}_crit\n'.format(lim_val, hwmon, port)
-            tn.write(orig_alarm_val)
-            Aqf.step('Setting current warning limit back to default')
-            time.sleep(wait_time*3)
-            tn.write(curr_read_lim)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                def_lim_val = int(stdout.splitlines()[-2])
-                Aqf.equals(def_lim_val, lim_val,
-                    'Confirm that the current warning limit was set back to default')
-            except ValueError:
-                Aqf.failed('Failed to set default value: {}.'.format(hostname))
+                #Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
+                        #' so the error message never gets triggered.')
+            #except ValueError:
+                #Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
 
-            tn.write(curr_alarm_val)
-            Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                new_alarm_value = int(stdout.splitlines()[-2])
-                Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
-                Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
-                        ' so the error message never gets triggered.\n')
-            except ValueError:
-                Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
-            """
+            #orig_alarm_val = 'echo "{}" > {}/{}_crit\n'.format(lim_val, hwmon, port)
+            #tn.write(orig_alarm_val)
+            #Aqf.step('Setting current warning limit back to default')
+            #time.sleep(wait_time*3)
+            #tn.write(curr_read_lim)
+            #time.sleep(wait_time)
+            #stdout = tn.read_until('#', timeout=wait_time)
+            #try:
+                #def_lim_val = int(stdout.splitlines()[-2])
+                #Aqf.equals(def_lim_val, lim_val,
+                    #'Confirm that the current warning limit was set back to default')
+            #except ValueError:
+                #Aqf.failed('Failed to set default value: {}.'.format(hostname))
+
+            #tn.write(curr_alarm_val)
+            #Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
+            #time.sleep(wait_time)
+            #stdout = tn.read_until('#', timeout=wait_time)
+            #try:
+                #new_alarm_value = int(stdout.splitlines()[-2])
+                #Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
+                #Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
+                        #' so the error message never gets triggered.\n')
+            #except ValueError:
+                #Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
+
         hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
         user = 'root\n'
         wait_time = 2
