@@ -117,7 +117,16 @@ def get_set_bits(packed, consider_bits=None):
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
-    DEFAULT_INSTRUMENT = 'bc8n856M4k'
+
+    cmc_conf_path = '/etc/cmc.conf'
+    if os.path.isfile(cmc_conf_path):
+        filepath = open(cmc_conf_path, 'r').readline().strip()
+        if os.path.exists(filepath.split('=')[-1]):
+            instrument_list = os.listdir(filepath.split('=')[-1])[-1]
+            array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
+        else:
+            Aqf.failed('Could not get default instrument from {} path does not exists.'
+                       .format(filepath.split('=')[-1]))
 
     def setUp(self):
         self.corr_fix = correlator_fixture
@@ -191,6 +200,7 @@ class test_CBF(unittest.TestCase):
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
+
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
                             'Digitiser frequency is same as previous.'
