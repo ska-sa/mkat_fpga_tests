@@ -47,10 +47,10 @@ class CorrelatorFixture(object):
             self.test_conf = utils.parse_ini_file(
                 test_config_filename)
             self.dsim_conf = self.test_conf['dsimengine']
-        self.array_name = 'array0'
         # Assume the correlator is already started if start_correlator is False
         self._correlator_started = not int(
             test_config.get('start_correlator', False))
+        self.array_name = None
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None

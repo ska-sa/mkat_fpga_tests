@@ -117,7 +117,16 @@ def get_set_bits(packed, consider_bits=None):
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     DEFAULT_ACCUMULATION_TIME = 0.2
-    DEFAULT_INSTRUMENT = 'bc8n856M4k'
+
+    cmc_conf_path = '/etc/cmc.conf'
+    if os.path.isfile(cmc_conf_path):
+        filepath = open(cmc_conf_path, 'r').readline().strip()
+        if os.path.exists(filepath.split('=')[-1]):
+            instrument_list = os.listdir(filepath.split('=')[-1])[-1]
+            array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
+        else:
+            Aqf.failed('Could not get default instrument from {} path does not exists.'
+                       .format(filepath.split('=')[-1]))
 
     def setUp(self):
         self.corr_fix = correlator_fixture
@@ -191,6 +200,7 @@ class test_CBF(unittest.TestCase):
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
+
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
                             'Digitiser frequency is same as previous.'
@@ -401,12 +411,24 @@ class test_CBF(unittest.TestCase):
                                if i != max_chan and resp >= unwanted_cutoff]
             extra_peaks.append(extra_responses)
 
-        Aqf.equals(max_channels, range(start_chan, len(max_channels) + start_chan),
-                   "Check that the correct channels have the peak response to each "
-                   "frequency")
-        Aqf.equals(extra_peaks, [[]] * len(max_channels),
-                   "Check that no other channels responded > -{cutoff} dB"
+        channel_range = range(start_chan, len(max_channels) + start_chan)
+        if max_channels == channel_range:
+            Aqf.passed('Check that the correct channels have the peak '
+                       'response to each frequency')
+        else:
+            LOGGER.info('Expected: {}\n\nGot: {}'.format(max_channels, channel_range))
+            Aqf.failed('Check that the correct channels have the peak '
+                       'response to each frequency')
+
+        if extra_peaks == [[]] * len(max_channels):
+            Aqf.passed("Check that no other channels responded > -{cutoff} dB"
                    .format(**locals()))
+        else:
+            LOGGER.info('Expected: {}\n\nGot: {}'.format(extra_peaks,
+                                                       [[]] * len(max_channels)))
+            Aqf.failed("Check that no other channels responded > -{cutoff} dB"
+                   .format(**locals()))
+
         df = self.corr_freqs.delta_f
         Aqf.less(df, required_chan_spacing,
                  'Test that computed channel spacing {} HZ is less than {} Hz. '
@@ -2276,6 +2298,8 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         Aqf.step('Imaging Data Product Set for 4k mode')
         self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
+        Aqf.step('Imaging Data Product Set for 32k mode')
+        Aqf.failed('32K mode not implemented yet.')
         # self._test_data_product('c8n856M32k', no_channels=32768)
 
     def _test_data_product(self, instrument, no_channels):
