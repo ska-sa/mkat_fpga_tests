@@ -50,7 +50,12 @@ class CorrelatorFixture(object):
         # Assume the correlator is already started if start_correlator is False
         self._correlator_started = not int(
             test_config.get('start_correlator', False))
-        self.array_name = None
+
+        # TODO: hard-coded Array number
+        # We assume either start_correlator() above has been called, or the instrument
+        # was started with the name contained in self.array_name before running the
+        # test.
+        self.array_name = 'array0'
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None

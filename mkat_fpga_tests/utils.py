@@ -35,7 +35,6 @@ def loggerise(data, dynamic_range=70, normalise_to=None):
     log_data[log_data < min_log_clip] = min_log_clip
     return log_data
 
-
 def baseline_checker(xeng_raw, check_fn):
     """Apply a test function to correlator data one baseline at a time
 
@@ -352,7 +351,7 @@ def clear_all_delays(instrument, receiver):
                       dump['scale_factor_timestamp'].value)
     t_apply = (dump_timestamp + dump['int_time'].value + future_time)
     reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-    Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])    
+    Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
@@ -379,7 +378,7 @@ def get_fftoverflow_qdrstatus(correlator):
     dicts['xhosts'] = xhosts
     return dicts
 
-def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
+def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     """Checks if FFT overflows and QDR status on roaches
     Param: Correlator object, last known pfb counts
     Return: list:
@@ -406,6 +405,45 @@ def test_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     Aqf.is_false(QDR_error_roaches,
                  'Check for QDR errors.')
     return QDR_error_roaches
+
+def get_vacc_offset(xeng_raw):
+    """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
+    b0 = np.abs(complexise(xeng_raw.value[:, 0]))
+    b1 = np.abs(complexise(xeng_raw.value[:, 1]))
+    if np.max(b0) > 0 and np.max(b1) == 0:
+        # We expect autocorr in baseline 0 to be nonzero if the vacc is
+        # properly aligned, hence no offset
+        return 0
+    elif np.max(b1) > 0 and np.max(b0) == 0:
+        return 1
+    else:
+        raise ValueError('Could not determine VACC offset')
+
+def get_and_restore_initial_eqs(test_instance, correlator):
+    initial_equalisations = {input: eq_info['eq'] for input, eq_info
+                             in correlator.fops.eq_get().items()}
+
+    def restore_initial_equalisations():
+        for input, eq in initial_equalisations.items():
+            correlator.fops.eq_set(source_name=input, new_eq=eq)
+
+    test_instance.addCleanup(restore_initial_equalisations)
+    return initial_equalisations
+
+def get_bit_flag(packed, flag_bit):
+    flag_mask = 1 << flag_bit
+    flag = bool(packed & flag_mask)
+    return flag
+
+def get_set_bits(packed, consider_bits=None):
+    packed = int(packed)
+    set_bits = set()
+    for bit in range(packed.bit_length()):
+        if get_bit_flag(packed, bit):
+            set_bits.add(bit)
+    if consider_bits is not None:
+        set_bits = set_bits.intersection(consider_bits)
+    return set_bits
 
 def get_pfb_counts(status_dict):
     """Checks if FFT overflows and QDR status on roaches
