@@ -335,7 +335,7 @@ def get_baselines_lookup(spead):
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
         correlator dump's baselines
     """
-    bls_ordering = spead['bls_ordering'].value
+    bls_ordering = spead['bls_ordering']
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
@@ -347,9 +347,9 @@ def clear_all_delays(instrument, receiver):
     delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
     dump = receiver.get_clean_dump(10, discard=0)
     future_time = 200e-3
-    dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
-                      dump['scale_factor_timestamp'].value)
-    t_apply = (dump_timestamp + dump['int_time'].value + future_time)
+    dump_timestamp = (dump['sync_time'] + dump['timestamp'] /
+                      dump['scale_factor_timestamp'])
+    t_apply = (dump_timestamp + dump['int_time'] + future_time)
     reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
     Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
 

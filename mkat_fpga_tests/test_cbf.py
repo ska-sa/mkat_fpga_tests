@@ -86,7 +86,7 @@ class test_CBF(unittest.TestCase):
                 array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
 
         except Exception:
-            DEFAULT_INSTRUMENT = 'bc8n856M4k'
+            DEFAULT_INSTRUMENT = 'c8n856M4k'
             Aqf.waived('Could not get default instrument from {}/arrayX-insrument path does not exists.'
                        .format(filepath.split('=')[-1]))
 
@@ -220,7 +220,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF Data Product Switching Time: {}'.format(self.DEFAULT_INSTRUMENT))
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_a_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
+       # self._test_a_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
 
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_overflow_flag(self):
@@ -408,13 +408,13 @@ class test_CBF(unittest.TestCase):
         # TODO: (MM) 2015-10-21 get sync time from digitiser
         # We believe that sync time should be the digitiser sync epoch but
         # in the dsim this is not an int, so we using correlator value for now
-        sync_time = initial_dump['sync_time'].value
+        sync_time = initial_dump['sync_time']
         # sync_time = self.correlator.synchronisation_epoch
-        scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
-        time_stamp = initial_dump['timestamp'].value
-        n_accs = initial_dump['n_accs'].value
+        scale_factor_timestamp = initial_dump['scale_factor_timestamp']
+        time_stamp = initial_dump['timestamp']
+        n_accs = initial_dump['n_accs']
         # TODO: (MM) 2015-10-07, get int time from dump
-        # (int_time = initial_dump['int_time'].value)
+        # (int_time = initial_dump['int_time'])
         int_time = self.xengops.get_acc_time()
         # TODO (MM) 2015-10-20
         # 3ms added for the network round trip
@@ -477,7 +477,7 @@ class test_CBF(unittest.TestCase):
         while True:
             num_discards += 1
             dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
+            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'] /
                               setup_data['scale_factor_timestamp'])
 
             if (np.abs(dump_timestamp - last_discard) < 0.05 * setup_data['int_time']):
@@ -501,7 +501,7 @@ class test_CBF(unittest.TestCase):
 
         phases = []
         for acc in fringe_dumps:
-            dval = acc['xeng_raw'].value
+            dval = acc['xeng_raw']
             data = complexise(dval[:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data)) / setup_data['n_accs']
@@ -615,7 +615,7 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            this_freq_data = this_freq_dump['xeng_raw'].value
+            this_freq_data = this_freq_dump['xeng_raw']
             this_freq_response = normalised_magnitude(
                 this_freq_data[:, test_baseline, :])
             actual_test_freqs.append(this_source_freq)
@@ -785,7 +785,7 @@ class test_CBF(unittest.TestCase):
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
-            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
+            this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
             this_freq_response = (
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
             if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
@@ -837,9 +837,9 @@ class test_CBF(unittest.TestCase):
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # TODO (MM) 2015-10-22
         # Get bls ordering from get baseline lookup helper functions
-        bls_ordering = test_dump['bls_ordering'].value
+        bls_ordering = test_dump['bls_ordering']
         # Get list of all the correlator input labels
-        input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
+        input_labels = sorted(tuple(test_dump['input_labelling'][:, 0]))
         # Get list of all the baselines present in the correlator output
         baselines_lookup = get_baselines_lookup(test_dump)
         present_baselines = sorted(baselines_lookup.keys())
@@ -875,7 +875,7 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(all(baseline_is_present.values()),
                     'Check that all baselines are present in correlator output.')
 
-        test_data = test_dump['xeng_raw'].value
+        test_data = test_dump['xeng_raw']
         # Expect all baselines and all channels to be non-zero
         Aqf.is_false(zero_baselines(test_data),
                      'Check that no baselines have all-zero visibilities')
@@ -890,7 +890,7 @@ class test_CBF(unittest.TestCase):
         # Set all inputs to zero, and check that output product is all-zero
         for input in input_labels:
             self.fengops.eq_set(source_name=input, new_eq=0)
-        test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
+        test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw']
         Aqf.is_false(nonzero_baselines(test_data),
                      "Check that all baseline visibilities are zero")
         # -----------------------------------
@@ -918,7 +918,7 @@ class test_CBF(unittest.TestCase):
             nonzero_inputs.add(inp)
             expected_z_bls, expected_nz_bls = (
                 calc_zero_and_nonzero_baselines(nonzero_inputs))
-            test_data = self.receiver.get_clean_dump()['xeng_raw'].value
+            test_data = self.receiver.get_clean_dump()['xeng_raw']
             plot_data = [normalised_magnitude(test_data[:,i,:])
                          for i in plot_baseline_inds]
             aqf_plot_channels(zip(plot_data, plot_baseline_legends),
@@ -964,10 +964,10 @@ class test_CBF(unittest.TestCase):
             for dump_no in range(3):
                 if dump_no == 0:
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    initial_max_freq = np.max(this_freq_dump['xeng_raw'].value)
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                 else:
                     this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-                this_freq_data = this_freq_dump['xeng_raw'].value
+                this_freq_data = this_freq_dump['xeng_raw']
                 dumps_data.append(this_freq_data)
                 this_freq_response = normalised_magnitude(
                     this_freq_data[:, test_baseline, :])
@@ -1017,13 +1017,13 @@ class test_CBF(unittest.TestCase):
                 if scan_i == 0:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    initial_max_freq = np.max(this_freq_dump['xeng_raw'].value)
-                    this_freq_data = this_freq_dump['xeng_raw'].value
+                    initial_max_freq = np.max(this_freq_dump['xeng_raw'])
+                    this_freq_data = this_freq_dump['xeng_raw']
                     initial_max_freq_list.append(initial_max_freq)
                 else:
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    this_freq_data = this_freq_dump['xeng_raw'].value
+                    this_freq_data = this_freq_dump['xeng_raw']
                 scan_dumps.append(this_freq_data)
 
         for scan_i in range(1, len(scans)):
@@ -1076,10 +1076,10 @@ class test_CBF(unittest.TestCase):
 
                 future_time = 200e-3
                 settling_time = 600e-3
-                dump_timestamp = (this_freq_dump['sync_time'].value +
-                                  this_freq_dump['timestamp'].value /
-                                  this_freq_dump['scale_factor_timestamp'].value)
-                t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
+                dump_timestamp = (this_freq_dump['sync_time'] +
+                                  this_freq_dump['timestamp'] /
+                                  this_freq_dump['scale_factor_timestamp'])
+                t_apply = (dump_timestamp + this_freq_dump['int_time'] +
                            future_time)
 
                 reply = correlator_fixture.katcp_rct.req.delays(
@@ -1089,7 +1089,7 @@ class test_CBF(unittest.TestCase):
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
                 dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                data = complexise(dump['xeng_raw'].value
+                data = complexise(dump['xeng_raw']
                                   [:, setup_data['baseline_index'], :])
 
                 phases = np.angle(data)
@@ -1319,7 +1319,7 @@ class test_CBF(unittest.TestCase):
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
             d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            response = complexise(d['xeng_raw'].value[:, 0, :])
+            response = complexise(d['xeng_raw'][:, 0, :])
             # Check that the accumulator response is equal to the expected response
             Aqf.is_true(np.array_equal(expected_response, response),
                         'Check that the accumulator response is equal'
@@ -1369,7 +1369,7 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(re_dump,
                     'Check that SPEAD packets are being produced after instrument '
                     're-initialisation.')
-        Aqf.equals(re_dump['xeng_raw'].value.shape[0], no_channels,
+        Aqf.equals(re_dump['xeng_raw'].shape[0], no_channels,
                    'Check that data product has the number of frequency '
                    'channels {no_channels} corresponding to the {instrument} '
                    'instrument product'.format(**locals()) )
@@ -1408,7 +1408,7 @@ class test_CBF(unittest.TestCase):
         flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'ADC overrange'
 
-        set_bits1 = get_set_bits(dump1['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
         Aqf.is_false(flag_bit in set_bits1,
                      'Check that {} is not set in dump 1 before setting {}.'
                      .format(flag_descr, condition))
@@ -1418,7 +1418,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits2 = get_set_bits(dump2['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'], consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
                     'Check that {} is set in dump 2 while toggeling {}.'
@@ -1427,7 +1427,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits3 = get_set_bits(dump3['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'], consider_bits=all_bits)
         other_set_bits3 = set_bits3.intersection(other_bits)
         Aqf.is_false(flag_bit in set_bits3,
                      'Check that {} is not set in dump 3 after clearing {}.'
@@ -1456,7 +1456,7 @@ class test_CBF(unittest.TestCase):
         flag_descr = 'noise diode fired, bit {},'.format(flag_bit)
         flag_condition = 'digitiser noise diode fired flag'
 
-        set_bits1 = get_set_bits(dump1['flags_xeng_raw'].value, consider_bits=all_bits)
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'], consider_bits=all_bits)
         Aqf.is_false(flag_bit in set_bits1,
                      'Check that {} is not set in dump 1 before setting {}.'
                      .format(flag_descr, condition))
@@ -1467,7 +1467,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits2 = get_set_bits(dump2['flags_xeng_raw'].value,
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
@@ -1478,7 +1478,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits3 = get_set_bits(dump3['flags_xeng_raw'].value,
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits3 = set_bits3.intersection(other_bits)
         Aqf.is_false(flag_bit in set_bits3,
@@ -1525,7 +1525,7 @@ class test_CBF(unittest.TestCase):
         flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'FFT overrange'
 
-        set_bits1 = get_set_bits(dump1['flags_xeng_raw'].value,
+        set_bits1 = get_set_bits(dump1['flags_xeng_raw'],
                                  consider_bits=all_bits)
         Aqf.is_false(flag_bit in set_bits1,
                      'Check that {} is not set in dump 1 before setting {}.'
@@ -1536,7 +1536,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits2 = get_set_bits(dump2['flags_xeng_raw'].value,
+        set_bits2 = get_set_bits(dump2['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
@@ -1546,7 +1546,7 @@ class test_CBF(unittest.TestCase):
                    'Check that no other flag bits (any of {}) are set.'
                    .format(sorted(other_bits)))
 
-        set_bits3 = get_set_bits(dump3['flags_xeng_raw'].value,
+        set_bits3 = get_set_bits(dump3['flags_xeng_raw'],
                                  consider_bits=all_bits)
         other_set_bits3 = set_bits3.intersection(other_bits)
         Aqf.is_false(flag_bit in set_bits3,
@@ -2275,10 +2275,10 @@ class test_CBF(unittest.TestCase):
 
             future_time = 600e-3
             settling_time = 600e-3
-            dump_timestamp = (this_freq_dump['sync_time'].value +
-                              this_freq_dump['timestamp'].value /
-                              this_freq_dump['scale_factor_timestamp'].value)
-            t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
+            dump_timestamp = (this_freq_dump['sync_time'] +
+                              this_freq_dump['timestamp'] /
+                              this_freq_dump['scale_factor_timestamp'])
+            t_apply = (dump_timestamp + this_freq_dump['int_time'] +
                        future_time)
 
             reply = correlator_fixture.katcp_rct.req.delays(
@@ -2296,7 +2296,7 @@ class test_CBF(unittest.TestCase):
             sorted_bls = sorted(baselines.items(), key=operator.itemgetter(1))
             for b_line in sorted_bls:
                 b_line_val = b_line[1]
-                b_line_dump = (dump['xeng_raw'].value[:, b_line_val, :])
+                b_line_dump = (dump['xeng_raw'][:, b_line_val, :])
                 b_line_freq_resp = normalised_magnitude(b_line_dump)
                 b_line_cplx_data = complexise(b_line_dump)
                 b_line_phase = np.angle(b_line_cplx_data)
@@ -2325,11 +2325,11 @@ class test_CBF(unittest.TestCase):
         test_baseline = 0
         Aqf.step('Getting initial SPEAD data')
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        Aqf.equals(test_dump['xeng_raw'].value.shape[0], no_channels,
+        Aqf.equals(test_dump['xeng_raw'].shape[0], no_channels,
            'Check that data product has the number of frequency '
            'channels {no_channels} corresponding to the {instrument} '
            'instrument product'.format(**locals()))
-        response = normalised_magnitude(test_dump['xeng_raw'].value[:, test_baseline, :])
+        response = normalised_magnitude(test_dump['xeng_raw'][:, test_baseline, :])
 
         if response.shape[0] == no_channels:
             Aqf.passed('Confirm that imaging data product set has been implemented.')
