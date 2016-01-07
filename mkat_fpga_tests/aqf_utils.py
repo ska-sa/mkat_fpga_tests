@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from nosekatreport import Aqf
-
 from mkat_fpga_tests.utils import loggerise
+from itertools import cycle
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
@@ -165,7 +165,8 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         """
         if not isinstance(channelisation[0], tuple):
             channelisation = ((channelisation, None),)
-
+        cycol = cycle(['red','black', 'green']).next
+        intensity = cycle([1]).next
         has_legend = False
         for plot_data, legend in channelisation:
             kwargs = {}
@@ -179,7 +180,8 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
             else:
                 ylabel = 'Channel response (linear)'
 
-            plt.plot(plot_data, **kwargs)
+            plt.grid(True)
+            plt.plot(plot_data, c=cycol(), alpha=intensity(), **kwargs)
             if plot_title:
                 plt.title(plot_title)
             plt.ylabel(ylabel)

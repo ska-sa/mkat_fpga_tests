@@ -15,6 +15,9 @@ def complexise(input_data):
     return input_data[:,0] + input_data[:,1]*1j
 
 def magnetise(input_data):
+    """Convert input data shape (X,2) to complex shape (X) and
+       Calculate the absolute value element-wise.
+    """
     id_c = complexise(input_data)
     id_m = np.abs(id_c)
     return id_m
