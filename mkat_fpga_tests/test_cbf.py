@@ -187,20 +187,6 @@ class test_CBF(unittest.TestCase):
         self._test_sensor_values()
 
     @aqf_vr('TP.C.1.16')
-    def test_c8n856M4k_roach_qdr_sensors(self):
-        """QDR memory Error Test: Sensors"""
-        Aqf.step('QDR memory Error Test: Sensors')
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_roach_qdr_sensors()
-
-    @aqf_vr('TP.C.1.16')
-    def test_c8n856M4k_roach_pfb_sensors(self):
-        """PFB Error Test: Sensors"""
-        Aqf.step('PFB Error Test: Sensors')
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_roach_pfb_sensors()
-
-    @aqf_vr('TP.C.1.16')
     def test_c8n856M4k_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
         Aqf.step('Sensors Status Verification Test')
@@ -242,6 +228,34 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF flagging of data -- FFT overflow')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_fft_overflow_flag()
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_roach_qdr_sensors(self):
+        """QDR memory Error Test: Sensors"""
+        Aqf.step('QDR memory Error Test: Sensors')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_roach_qdr_sensors()
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_roach_pfb_sensors(self):
+        """PFB Error Test: Sensors"""
+        Aqf.step('PFB Error Test: Sensors')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_roach_pfb_sensors()
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_deng_link_error(self):
+        """Link Error :D-Engine to F-engine"""
+        Aqf.step('Link Error :D-Engine to F-engine')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_deng_link_error()
+
+    @aqf_vr('TP.C.1.38')
+    def test_c8n856M4k_feng_link_error(self):
+        """Link Error :F-Engine to X-engine"""
+        Aqf.step('Link Error :F-Engine to X-engine')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_feng_link_error()
 
     @aqf_vr('TP.C.1.27')
     def test_c8n856M4k_delay_rate(self):
@@ -1245,6 +1259,24 @@ class test_CBF(unittest.TestCase):
         """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
         Aqf.tbd('PFB sensor test not yet implemented.')
+
+
+    def _test_feng_link_error(self):
+        # Select an F-engine that is being used to produce the test data product on
+        # which to trigger the link error.
+        # To set: Using the roach2 KATCP interface
+        # Record the current multicast desitination of one of the F-engine data
+        # ethernet ports,
+        # configure the same port multicast destination to an unused address,
+        # effectively dropping that data.
+        # To clear: Restore the data ethernet port multicast destination to the saved
+        # value.
+        Aqf.tbd('Link Error: F-engine to X-engine test not yet implemented.')
+
+    def _test_deng_link_error(self):
+        # To set: Disable data output on one of the digitiser simulator's outputs
+        # To clear: Enabkle data output on all the digitiser simulator outputs
+        Aqf.tbd('Link Error: D-engine to F-engine test not yet implemented.')
 
     def _test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
