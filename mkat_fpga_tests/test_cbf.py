@@ -121,6 +121,8 @@ class test_CBF(unittest.TestCase):
         # issue meta data.
         self.corr_fix.start_x_data()
         self.corr_fix.issue_metadata()
+        self.addCleanup(plt.close, 'all')
+
 
     #####################################################################
     #                          4k Test Method                           #
@@ -788,6 +790,7 @@ class test_CBF(unittest.TestCase):
             this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
             this_freq_response = (
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
+            # TODO MM plot spectrum
             if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
                 aqf_plot_channels(
                     this_freq_response, 'fc_channel_resp_log.svg',
@@ -922,7 +925,8 @@ class test_CBF(unittest.TestCase):
             plot_data = [normalised_magnitude(test_data[:,i,:])
                          for i in plot_baseline_inds]
             aqf_plot_channels(zip(plot_data, plot_baseline_legends),
-                              plot_filename='channel_resp_log.svg',
+                              plot_filename='product_baselines_channel_resp_{}.svg'
+                                            .format(inp),
                               log_dynamic_range=90, log_normalise_to=1,
                               caption='Baseline channel response with the '
                               'following non-zero inputs: {}'
@@ -986,10 +990,10 @@ class test_CBF(unittest.TestCase):
                     'input differ by no more than {} threshold[dB].'
                     .format(dumps_comp, 10 * np.log10(threshold))):
 
-                legends = ['dump #{}'.format(i) for i in range(len(chan_responses))]
+                legends = ['dump #{}'.format(x) for x in range(len(chan_responses))]
                 aqf_plot_channels(
                         zip(chan_responses, legends),
-                        plot_filename='channel_resp.svg',
+                        plot_filename='back2back_chan_resp_{}.svg'.format(i + 1),
                         log_dynamic_range=90, log_normalise_to=1,
                         caption='Comparison of back-to-back channelisation results with '
                         'source periodic every {} samples and sine frequency of '
@@ -1002,7 +1006,6 @@ class test_CBF(unittest.TestCase):
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.25)
         Aqf.step('Selected test channel {} and Frequency {}MHz'
                  .format(test_chan, expected_fc / 1e6))
         # Get baseline 0 data, i.e. auto-corr of m000h
@@ -1024,6 +1027,10 @@ class test_CBF(unittest.TestCase):
                     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                     this_freq_data = this_freq_dump['xeng_raw'].value
+
+                this_freq_response = normalised_magnitude(
+                    this_freq_data[:, test_baseline, :])
+                chan_responses.append(this_freq_response)
                 scan_dumps.append(this_freq_data)
 
         for scan_i in range(1, len(scans)):
@@ -1036,10 +1043,18 @@ class test_CBF(unittest.TestCase):
                 # then have a final Aqf-check so that there is only one step
                 # (not n_chan) in the report.
                 max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
-                Aqf.less(max_freq_scan, threshold,
+                if not Aqf.less(max_freq_scan, threshold,
                          'Check that the frequency scan on SPEAD dump'
                          ' comparison({}) is less than {} dB.'
-                         .format(max_freq_scan, threshold))
+                         .format(max_freq_scan, threshold)):
+                    legends = ['Freq scan #{}'.format(x) for x in range(len(chan_responses))]
+                    aqf_plot_channels(
+                            zip(chan_responses, legends),
+                            plot_filename='freq_scan_cons_chan_resp.svg',
+                            log_dynamic_range=90, log_normalise_to=1,
+                            caption='Comparison of frequency sweeping from {}Mhz '
+                            'to {}Mhz scan channelisation.'
+                            .format(requested_test_freqs[0]/1e6, requested_test_freqs[-1]/1e6, expected_fc))
 
     def _test_restart_consistency(self):
         """Check that results are consistent on correlator restart"""
@@ -1068,6 +1083,7 @@ class test_CBF(unittest.TestCase):
 
         def get_actual_phases():
             actual_phases_list = []
+            chan_responses = []
             for delay in test_delays:
                 delays[setup_data['test_source_ind']] = delay
                 delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
@@ -1082,6 +1098,7 @@ class test_CBF(unittest.TestCase):
                 t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
                            future_time)
 
+                # TODO MM Plot spectrum
                 reply = correlator_fixture.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
                 Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
@@ -1089,15 +1106,25 @@ class test_CBF(unittest.TestCase):
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
                 dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
+                this_freq_data = this_freq_dump['xeng_raw'].value
+                this_freq_response = normalised_magnitude(
+                    this_freq_data[:, setup_data['test_source_ind'], :])
+                chan_responses.append(this_freq_response)
+
                 data = complexise(dump['xeng_raw'].value
                                   [:, setup_data['baseline_index'], :])
 
                 phases = np.angle(data)
                 actual_phases_list.append(phases)
 
-            return actual_phases_list
+            actual_channel_responses = zip(test_delays, chan_responses)
+            return zip(actual_phases_list, actual_channel_responses)
 
-        actual_phases = get_actual_phases()
+        # actual_phases = get_actual_phases()
+        actual_data  = get_actual_phases()
+        actual_phases = [phases for phases, response in actual_data]
+        actual_response = [response for phases, response in actual_data]
         expected_phases = get_expected_phases()
         title = 'CBF Delay Compensation/LO Fringe stopping polynomial'
         caption = ('Actual and expected Unwrapped Correlation Phase, '
@@ -1109,6 +1136,8 @@ class test_CBF(unittest.TestCase):
                                units, file_name, title, caption)
         expected_phases = [phase for rads, phase in get_expected_phases()]
         tolerance = 1e-2
+        decimal = len(str(tolerance).split('.')[-1])
+
         for i, delay in enumerate(test_delays):
             delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
             delta_expected = np.max(expected_phases[i]) - np.min(expected_phases[i])
@@ -1117,6 +1146,24 @@ class test_CBF(unittest.TestCase):
                               'Check if difference expected({0:.5f}) and actual({1:.5f}) '
                               'phases are equal at delay {2:.5f}ns within {3} tolerance.'
                               .format(delta_expected, delta_actual, delay * 1e9, tolerance))
+            try:
+                delta_actual_s = delta_actual - (delta_actual % tolerance)
+                delta_expected_s = delta_expected - (delta_expected % tolerance)
+                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+            except AssertionError:
+                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                         'phases are not equal at delay {2:.5f}ns within {3} tolerance.'
+                         .format(delta_expected, delta_actual, delay * 1e9, tolerance))
+                chan_response = [responses
+                                for test_delays, responses in actual_response
+                                    if test_delays == delay][0]
+                aqf_plot_channels(
+                    chan_response, '{}_{}.svg'.format(self._testMethodName, delay),
+                    'Log channel response at {}ns'.format(delay),
+                    log_dynamic_range=90,
+                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
+                         'phases are not equal at delay {2:.5f}ns within {3} tolerance.'
+                         .format(delta_expected, delta_actual, delay * 1e9, tolerance))
 
         for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
             aqf_array_abs_error_less(actual_phases[count], expected_phases[count],
@@ -1125,6 +1172,25 @@ class test_CBF(unittest.TestCase):
                                      '{3} tolerance.'
                                      .format((count + 1) * .5, delay * 1e9, np.rad2deg(np.pi) * (count + 1) * .5,
                                              tolerance), tolerance)
+
+            # TODO MM 2016-01-06 Is it viable to plot the phases as they have
+            # already been plotted above?
+            #try:
+                #np.testing.assert_array_almost_equal(actual_phases[count], expected_phases[count], decimal=decimal)
+            #except AssertionError:
+                #actual_phases_c = actual_phases[count]
+                #expected_phases_c = expected_phases[count]
+                #Aqf.step('Delay of {0} clock cycle({1:.5f} ns) was introduced '
+                         #'and there was no phase change of {2:.5f} degrees as expected to within '
+                         #'{3} tolerance.'
+                         #.format(count_s, delay_ns, cur_degrees, tolerance))
+                #aqf_plot_phase_results(no_chans, actual_phases_c, expected_phases_c,
+                               #'', '{}_{}deg.svg'.format(self._testMethodName, cur_degrees),
+                               #'Actual vs Expected Phases @ {} deg'.format(cur_degrees),
+                               #caption='Delay of {0} clock cycle({1:.5f} ns) was introduced '
+                                       #'and there was no phase change of {2:.5f} degrees '
+                                       #'as expected to within {3} tolerance.'
+                                       #.format(count_s, delay_ns, cur_degrees, tolerance))
 
     def _test_sensor_values(self):
         """
