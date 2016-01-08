@@ -499,14 +499,17 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Getting subsequent dump {}.'.format(i + 1))
             fringe_dumps.append(self.receiver.data_queue.get(DUMP_TIMEOUT))
 
+        chan_resp = []
         phases = []
         for acc in fringe_dumps:
+
             dval = acc['xeng_raw']
+
             data = complexise(dval[:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data)) / setup_data['n_accs']
 
-        return phases
+        return zip(phases, chan_resp)
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
 
@@ -790,7 +793,7 @@ class test_CBF(unittest.TestCase):
                 normalised_magnitude(this_freq_data[:, test_baseline, :]))
             if channel in (n_chans//10, n_chans//2, 9*n_chans//10):
                 aqf_plot_channels(
-                    this_freq_response, 'fc_channel_resp_log.svg',
+                    this_freq_response, '{}_channel_resp.svg'.format(self._testMethodName),
                     'Log channel response at {} MHz'.format(this_source_freq/1e6),
                     log_dynamic_range=90)
 
@@ -992,8 +995,8 @@ class test_CBF(unittest.TestCase):
                         plot_filename='channel_resp.svg',
                         log_dynamic_range=90, log_normalise_to=1,
                         caption='Comparison of back-to-back channelisation results with '
-                        'source periodic every {} samples and sine frequency of '
-                        '{} MHz.'.format(source_period_in_samples, this_source_freq))
+                                'source periodic every {} samples and sine frequency of '
+                                '{} MHz.'.format(source_period_in_samples, this_source_freq))
 
     def _test_freq_scan_consistency(self):
         """Check that identical frequency scans produce equal results"""
@@ -1582,8 +1585,12 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                   delay_coefficients)
 
-        actual_phases = self._get_actual_data(setup_data, dump_counts,
+        import IPython;IPython.embed()
+        actual_data = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+
+        actual_phases = [phases for phases, response in actual_data]
+        actual_response = [response for phases, response in actual_data]
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
@@ -1598,8 +1605,10 @@ class test_CBF(unittest.TestCase):
         # Ignoring first dump because the delays might not be set for full
         # intergration.
         tolerance = 0.01
+        decimal = len(str(tolerance).split('.')[-1])
         actual_phases = np.unwrap(actual_phases)
         expected_phases = np.unwrap([phase for label, phase in expected_phases])
+
         for i in range(1, len(expected_phases) - 1):
             delta_expected = np.max(expected_phases[i])
             delta_actual = np.max(actual_phases[i])
@@ -1614,6 +1623,25 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between '
                      'expected and actual phase difference between integrations '
                      'is below 1 degree: {} degree\n'.format(abs_diff))
+
+                  .format(delta_expected, delta_actual, delay * 1e9, tolerance))
+            try:
+                delta_actual_s = delta_actual - (delta_actual % tolerance)
+                delta_expected_s = delta_expected - (delta_expected % tolerance)
+                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+            except AssertionError:
+                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                         'phases are not equal within {2} tolerance when fringe offset is {3}.'
+                         .format(delta_expected, delta_actual, tolerance, fringe_offset))
+                import IPython;IPython.embed()
+
+                aqf_plot_channels(
+                    actual_response, '{}_{}.svg'.format(self._testMethodName, fringe_offset),
+                    'Log channel response of Fringe offset: {}rads'.format(fringe_offset),
+                    log_dynamic_range=90,
+                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
+                            'phases are not equal within {2} tolerance when fringe offset is {3}.'
+                            .format(delta_expected, delta_actual, tolerance, fringe_offset))
 
     def _test_delay_rate(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
@@ -1640,9 +1668,12 @@ class test_CBF(unittest.TestCase):
 
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                   delay_coefficients)
-
-        actual_phases = self._get_actual_data(setup_data, dump_counts,
+        import IPython;IPython.embed()
+        actual_data = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+
+        actual_phases = [phases for phases, response in actual_data]
+        actual_response = [response for phases, response in actual_data]
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
@@ -1659,6 +1690,7 @@ class test_CBF(unittest.TestCase):
         # Ignoring first dump because the delays might not be set for full
         # intergration.
         tolerance = 0.01
+        decimal = len(str(tolerance).split('.')[-1])
         expected_phases = np.unwrap([phase for label, phase in expected_phases])
         for i in range(1, len(expected_phases) - 1):
             delta_expected = np.max(expected_phases[i + 1] - expected_phases[i])
@@ -1674,6 +1706,23 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between expected and actual phase '
                      'difference between integrations is below 1 degree: {0:.3f} degree\n'
                      .format(abs_diff))
+            try:
+                delta_actual_s = delta_actual - (delta_actual % tolerance)
+                delta_expected_s = delta_expected - (delta_expected % tolerance)
+                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+            except AssertionError:
+                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                         'phases are not equal withing {2} tolerance when delay rate is {3}.'
+                          .format(delta_expected, delta_actual, tolerance, delay_rate))
+                import IPython;IPython.embed()
+
+                aqf_plot_channels(
+                    actual_response, '{}_{}.svg'.format(self._testMethodName, delay_rate),
+                    'Log channel response of Delay Rate: {}'.format(delay_rate),
+                    log_dynamic_range=90,
+                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
+                            'phases are not equal withing {2} tolerance when delay rate is {3}.'
+                            .format(delta_expected, delta_actual, tolerance, delay_rate))
 
     def _test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
@@ -1700,8 +1749,12 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                   delay_coefficients)
 
-        actual_phases = self._get_actual_data(setup_data, dump_counts,
+        import IPython;IPython.embed()
+        actual_data = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+
+        actual_phases = [phases for phases, response in actual_data]
+        actual_response = [response for phases, response in actual_data]
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
@@ -1712,11 +1765,13 @@ class test_CBF(unittest.TestCase):
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                graph_units, graph_name, graph_title, caption)
 
-        # Ignoring first dump because the delays might not be set for full
+        # NOTE: Ignoring first dump because the delays might not be set for full
         # intergration.
         tolerance = 0.01
+        decimal = len(str(tolerance).split('.')[-1])
         actual_phases = np.unwrap(actual_phases)
         expected_phases = np.unwrap([phase for label, phase in expected_phases])
+
         for i in range(1, len(expected_phases) - 1):
             delta_expected = np.max(expected_phases[i + 1] - expected_phases[i])
             delta_actual = np.max(actual_phases[i + 1] - actual_phases[i])
@@ -1731,6 +1786,25 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between '
                      'expected and actual phase difference between integrations '
                      'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
+
+            try:
+                delta_actual_s = delta_actual - (delta_actual % tolerance)
+                delta_expected_s = delta_expected - (delta_expected % tolerance)
+                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+            except AssertionError:
+                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                         'phases are not equal within {2} tolerance when fringe rate is {3}.'
+                         .format(delta_expected, delta_actual, tolerance, fringe_rate))
+                import IPython;IPython.embed()
+
+                aqf_plot_channels(
+                    actual_response, '{}_{}.svg'.format(self._testMethodName, fringe_rate),
+                    'Log channel response of Fringe offset: {}rads'.format(fringe_offset),
+                    log_dynamic_range=90,
+                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
+                            'phases are not equal within {2} tolerance when fringe rate is {3}.'
+                            .format(delta_expected, delta_actual, tolerance, fringe_rate))
+
 
     def _test_all_delays(self):
         """
@@ -2161,6 +2235,7 @@ class test_CBF(unittest.TestCase):
             time.sleep(wait_time)
 
             curr_alarm_val = 'cat {}/{}_alarm\n'.format(hwmon, port)
+            import IPython;IPython.embed()
             tn.write(curr_alarm_val)
             time.sleep(wait_time)
             stdout = tn.read_until('#', timeout=wait_time)
@@ -2298,6 +2373,8 @@ class test_CBF(unittest.TestCase):
                 b_line_val = b_line[1]
                 b_line_dump = (dump['xeng_raw'][:, b_line_val, :])
                 b_line_freq_resp = normalised_magnitude(b_line_dump)
+                # TODO MM 2016-08-01
+                # Plot spectrum
                 b_line_cplx_data = complexise(b_line_dump)
                 b_line_phase = np.angle(b_line_cplx_data)
                 b_line_phase_max = np.max(b_line_phase)
@@ -2329,6 +2406,7 @@ class test_CBF(unittest.TestCase):
            'Check that data product has the number of frequency '
            'channels {no_channels} corresponding to the {instrument} '
            'instrument product'.format(**locals()))
+
         response = normalised_magnitude(test_dump['xeng_raw'][:, test_baseline, :])
 
         if response.shape[0] == no_channels:
