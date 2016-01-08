@@ -1258,7 +1258,7 @@ class test_CBF(unittest.TestCase):
     def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
-        Aqf.tbd('PFB sensor test not yet implemented.')
+        Aqf.skipped('PFB sensor test not yet implemented.')
 
 
     def _test_feng_link_error(self):
@@ -1271,12 +1271,12 @@ class test_CBF(unittest.TestCase):
         # effectively dropping that data.
         # To clear: Restore the data ethernet port multicast destination to the saved
         # value.
-        Aqf.skipped('Link Error: F-engine to X-engine test not yet implemented.')
+        Aqf.tbd('Link Error: F-engine to X-engine test not yet implemented.')
 
     def _test_deng_link_error(self):
         # To set: Disable data output on one of the digitiser simulator's outputs
         # To clear: Enabkle data output on all the digitiser simulator outputs
-        Aqf.skipped('Link Error: D-engine to F-engine test not yet implemented.')
+        Aqf.tbd('Link Error: D-engine to F-engine test not yet implemented.')
 
     def _test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
