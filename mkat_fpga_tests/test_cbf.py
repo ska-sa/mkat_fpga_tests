@@ -272,7 +272,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF per-antenna phase error -- Delays, Delay Rate, '
                  'Fringe Offset and Fringe Rate.')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
-        Aqf.tbd('Values still needs to be defined.')
+        Aqf.skipped('Values still needs to be defined.')
         # self._test_all_delays()
 
     @aqf_vr('TP.C.1.17')
@@ -309,6 +309,12 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
 
+    @aqf_vr('TP.C.1.41')
+    def test_c8n856M4k_control_init(self):
+        """CBF Control - initial release"""
+        Aqf.step('CBF Control - initial release')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_control_init()
     #################################################################
     #                       32K Mode Tests                          #
     #################################################################
@@ -319,7 +325,7 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M32k_channelisation(self):
         """CBF Channelisation Wideband Fine L-band"""
         Aqf.step('CBF Channelisation Wideband Fine L-band')
-        Aqf.tbd('32K mode not implemented yet.')
+        Aqf.step('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_channelisation(required_chan_spacing=290e3, test_chan=1500)
 
@@ -333,7 +339,7 @@ class test_CBF(unittest.TestCase):
 
         """
         Aqf.step('Test spurious free dynamic range for wideband fine: (c8n856M32k)')
-        Aqf.tbd('32K mode not implemented yet.')
+        Aqf.step('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
 
@@ -341,7 +347,7 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M32k_data_product(self):
         """CBF Imaging Data Product Set"""
         Aqf.step('Imaging Data Product Set: {}'.format(self.DEFAULT_INSTRUMENT))
-        Aqf.tbd('32K mode not implemented yet.')
+        Aqf.step('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_data_product('c8n856M32k', no_channels=32768)
 
@@ -349,7 +355,7 @@ class test_CBF(unittest.TestCase):
     def test_a_product_switch_c8n856M32k(self):
         """CBF Data Product Switching Time"""
         Aqf.step('CBF Data Product Switching Time: {}'.format(self.DEFAULT_INSTRUMENT))
-        Aqf.tbd('32K mode not implemented yet.')
+        Aqf.step('32K mode not implemented yet.')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # self.set_instrument('c8n856M32k')
         # self._test_a_product_switch('c8n856M32k', no_channels=32768)
@@ -781,7 +787,7 @@ class test_CBF(unittest.TestCase):
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         n_chans = self.corr_freqs.n_chans
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:5], start_chan):
             print ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
@@ -1048,7 +1054,7 @@ class test_CBF(unittest.TestCase):
         """Check that results are consistent on correlator restart"""
         # Removed test as correlator startup is currently unreliable,
         # will only add test method onces correlator startup is reliable.
-        Aqf.tbd('Correlator restart consistency test not implemented yet.')
+        Aqf.step('Correlator restart consistency test not implemented yet.')
 
     def _test_delay_tracking(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
@@ -1247,7 +1253,7 @@ class test_CBF(unittest.TestCase):
     def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
-        Aqf.tbd('PFB sensor test not yet implemented.')
+        Aqf.step('PFB sensor test not yet implemented.')
 
     def _test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
@@ -1624,7 +1630,6 @@ class test_CBF(unittest.TestCase):
                      'expected and actual phase difference between integrations '
                      'is below 1 degree: {} degree\n'.format(abs_diff))
 
-                  .format(delta_expected, delta_actual, delay * 1e9, tolerance))
             try:
                 delta_actual_s = delta_actual - (delta_actual % tolerance)
                 delta_expected_s = delta_expected - (delta_expected % tolerance)
@@ -2419,3 +2424,6 @@ class test_CBF(unittest.TestCase):
                                       'functionality.')
         else:
             Aqf.failed('Imaging data product set has not been implemented.')
+
+    def _test_control_init(self):
+        Aqf.passed('List of available commands\n{}'.format(correlator_fixture.katcp_rct.req.help()))

@@ -194,7 +194,7 @@ class CorrelatorFixture(object):
         if not reply.succeeded:
             raise RuntimeError('Array request failed: {}'.format(reply))
          # instrument_products = set(reply.informs[0].arguments[1:])
-         instrument_products = reply.informs[0].arguments[1:]
+        instrument_products = reply.informs[0].arguments[1:]
 
         # Get list of available data products and check that the products belonging to the
         # requested instrument is available
