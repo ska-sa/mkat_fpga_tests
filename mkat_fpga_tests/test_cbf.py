@@ -1260,7 +1260,7 @@ class test_CBF(unittest.TestCase):
     def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
         array_sensors = correlator_fixture.katcp_rct.sensor
-        Aqf.tbd('PFB sensor test not yet implemented.')
+        Aqf.skipped('PFB sensor test not yet implemented.')
 
 
     def _test_feng_link_error(self):
