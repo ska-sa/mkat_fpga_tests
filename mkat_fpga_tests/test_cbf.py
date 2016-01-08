@@ -243,6 +243,7 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_roach_pfb_sensors()
 
+    @aqf_vr('TP.C.5.5')
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_deng_link_error(self):
         """Link Error :D-Engine to F-engine"""
@@ -250,6 +251,7 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_deng_link_error()
 
+    @aqf_vr('TP.C.5.5')
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_feng_link_error(self):
         """Link Error :F-Engine to X-engine"""
