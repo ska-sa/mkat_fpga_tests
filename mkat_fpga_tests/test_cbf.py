@@ -290,14 +290,33 @@ class test_CBF(unittest.TestCase):
         self._test_config_report()
 
     @aqf_vr('TP.C.1.5.1')
+    def test_c8n856M4k_overtemperature(self):
+        """ROACH2 overtemperature display test """
+        Aqf.step('ROACH2 overtemperature display test ')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_overtemp()
+
     @aqf_vr('TP.C.1.5.2')
+    def test_c8n856M4k_overvoltage(self):
+        """ROACH2 overvoltage display test"""
+        Aqf.step('ROACH2 overvoltage display test')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_overvoltage()
+
     @aqf_vr('TP.C.1.5.3')
+    def test_c8n856M4k_overcurrent(self):
+        """ROACH2 overcurrent display test"""
+        Aqf.step('ROACH2 overcurrent display test')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_overcurrent()
+
     @aqf_vr('TP.C.1.18')
     def test_c8n856M4k_fault_detection(self):
         """AR1 Fault detection"""
         Aqf.step('AR1 Fault detection')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_fault_detection()
+        self._test_overtemp()
+        self._test_overvoltage()
 
     @aqf_vr('TP.C.1.27')
     @unittest.skip("temporarily disabled")
@@ -2054,8 +2073,108 @@ class test_CBF(unittest.TestCase):
         except OSError:
             LOGGER.info('Test ran by: Jenkins on {}'.format(time.ctime()))
 
-    def _test_fault_detection(self):
-        """AR1 Fault detection"""
+    def _test_overvoltage(self):
+        """ROACH2 overvoltage display test"""
+        overvoltage_dict = {0: '1V0', 1: '1V5', 2: '1V8', 3: '2V5', 4: '3V3', 5: '5V', 6: '12V'}
+        for port, label in overvoltage_dict.iteritems():
+            Aqf.step('Trigger the {} overvoltage warning'.format(label))
+            self._test_over_warning('hwmon2', 'in{}'.format(port), 'overvoltage')
+
+    def _test_overcurrent(self):
+        """ROACH2 overcurrent display test"""
+        overcurrent_dict = {4: '1V0', 3: '1V5', 2: '1V8', 1: '2V5', 0: '3V3'}
+        for port, label in overcurrent_dict.iteritems():
+            Aqf.step('Trigger the {} overcurrent current warning.'.format(label))
+            self._test_over_warning('hwmon3', 'in{}'.format(port), 'overcurrent')
+
+    def _test_over_warning(self, hwmon_dir, port, label):
+
+        hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
+        user = 'root\n'
+        wait_time = 1
+        hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
+
+        def overwarning_triggers():
+            # set the limit ridiculously low, the red LED should turn on
+            set_limit = 'echo "10" > {}/{}_crit\n'.format(hwmon, port)
+            tn.write(set_limit)
+            Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
+            time.sleep(wait_time)
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Wait for command to be received successfully.')
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                #Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm that the alarm has been Triggered.')
+                Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
+
+                Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.')
+            except ValueError:
+                Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
+
+            orig_alarm_val = 'echo "{}" > {}/{}_crit\n'.format(lim_val, hwmon, port)
+            tn.write(orig_alarm_val)
+            Aqf.step('Setting current warning limit back to default')
+            time.sleep(wait_time*3)
+            tn.write(curr_read_lim)
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                def_lim_val = int(stdout.splitlines()[-2])
+                Aqf.equals(def_lim_val, lim_val,
+                    'Confirm that the current warning limit was set back to default')
+            except ValueError:
+                Aqf.failed('Failed to set default value: {}.'.format(hostname))
+
+            tn.write(curr_alarm_val)
+            Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
+            time.sleep(wait_time)
+            stdout = tn.read_until('#', timeout=wait_time)
+            try:
+                new_alarm_value = int(stdout.splitlines()[-2])
+                Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
+                Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
+                        ' so the error message never gets triggered.\n')
+            except ValueError:
+                Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
+
+        hostname = hosts[randrange(len(hosts))]
+        tn = telnetlib.Telnet(hostname)
+        Aqf.step('Connected to Host: {}'.format(hostname))
+        tn.read_until('login: ', timeout=wait_time)
+        tn.write(user)
+        time.sleep(wait_time)
+
+        curr_alarm_val = 'cat {}/{}_alarm\n'.format(hwmon, port)
+        tn.write(curr_alarm_val)
+        time.sleep(wait_time)
+        stdout = tn.read_until('#', timeout=wait_time)
+        try:
+            alarm_value = int(stdout.splitlines()[-2])
+            Aqf.is_false(alarm_value,
+                'Confirm that the {} alarm has Not triggered.'.format(label))
+        except ValueError:
+            Aqf.failed('Failed to read current {} alarm: {}.'.format(label, hostname))
+
+        curr_read_lim = 'cat {}/{}_crit\n'.format(hwmon, port)
+        tn.write(curr_read_lim)
+        time.sleep(wait_time)
+        stdout = tn.read_until('#', timeout=wait_time)
+        try:
+            lim_val = int(stdout.splitlines()[-2])
+            Aqf.passed('Confirm current {} limit : {}'.format(label, lim_val))
+
+        except ValueError:
+            Aqf.failed('Failed to read {} limit: {}.'.format(label, hostname))
+        Aqf.tbd('see comments: https://skaafrica.atlassian.net/browse/CBFTASKS-282')
+        Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
+                    ' so the error message never gets triggered.\n')
+
+    def _test_overtemp(self):
+        """ROACH2 overtemperature display test """
         def air_temp_warn(hwmon_dir, label):
 
             hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
@@ -2174,88 +2293,6 @@ class test_CBF(unittest.TestCase):
             tn.write("exit\n")
             tn.close()
 
-        def over_warning(hwmon_dir, port, label):
-
-            hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
-
-            hostname = hosts[randrange(len(hosts))]
-            tn = telnetlib.Telnet(hostname)
-            Aqf.step('Connected to Host: {}'.format(hostname))
-            tn.read_until('login: ', timeout=wait_time)
-            tn.write(user)
-            time.sleep(wait_time)
-
-            curr_alarm_val = 'cat {}/{}_alarm\n'.format(hwmon, port)
-            import IPython;IPython.embed()
-            tn.write(curr_alarm_val)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                alarm_value = int(stdout.splitlines()[-2])
-                Aqf.is_false(alarm_value,
-                    'Confirm that the {} alarm has Not triggered.'.format(label))
-            except ValueError:
-                Aqf.failed('Failed to read current {} alarm: {}.'.format(label, hostname))
-
-            curr_read_lim = 'cat {}/{}_crit\n'.format(hwmon, port)
-            tn.write(curr_read_lim)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                lim_val = int(stdout.splitlines()[-2])
-                Aqf.passed('Confirm current {} limit : {}'.format(label, lim_val))
-
-            except ValueError:
-                Aqf.failed('Failed to read {} limit: {}.'.format(label, hostname))
-            Aqf.tbd('see comments: https://skaafrica.atlassian.net/browse/CBFTASKS-282')
-            Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
-                        ' so the error message never gets triggered.\n')
-
-            ## set the limit ridiculously low, the red LED should turn on
-            #set_limit = 'echo "10" > {}/{}_crit\n'.format(hwmon, port)
-            #tn.write(set_limit)
-            #Aqf.wait(wait_time, 'Setting the limit low, the red LED should turn on.')
-            #time.sleep(wait_time)
-            #tn.write(curr_alarm_val)
-            #Aqf.wait(wait_time, 'Wait for command to be received successfully.')
-            #time.sleep(wait_time)
-            #stdout = tn.read_until('#', timeout=wait_time)
-            #try:
-                #new_alarm_value = int(stdout.splitlines()[-2])
-                ##Aqf.is_true(new_alarm_value, 'Confirm that the alarm has been Triggered.')
-                #Aqf.tbd('Confirm that the alarm has been Triggered.')
-                #Aqf.tbd('Confirm the CBF sends an error message "#TBD"')
-
-                #Aqf.failed('PROBLEM - the driver does not read the alarm correctly,'
-                        #' so the error message never gets triggered.')
-            #except ValueError:
-                #Aqf.failed('Failed to read current {} alarm value: {}.'.format(label, hostname))
-
-            #orig_alarm_val = 'echo "{}" > {}/{}_crit\n'.format(lim_val, hwmon, port)
-            #tn.write(orig_alarm_val)
-            #Aqf.step('Setting current warning limit back to default')
-            #time.sleep(wait_time*3)
-            #tn.write(curr_read_lim)
-            #time.sleep(wait_time)
-            #stdout = tn.read_until('#', timeout=wait_time)
-            #try:
-                #def_lim_val = int(stdout.splitlines()[-2])
-                #Aqf.equals(def_lim_val, lim_val,
-                    #'Confirm that the current warning limit was set back to default')
-            #except ValueError:
-                #Aqf.failed('Failed to set default value: {}.'.format(hostname))
-
-            #tn.write(curr_alarm_val)
-            #Aqf.wait(wait_time, 'Setting {} alarm to default state.'.format(label))
-            #time.sleep(wait_time)
-            #stdout = tn.read_until('#', timeout=wait_time)
-            #try:
-                #new_alarm_value = int(stdout.splitlines()[-2])
-                #Aqf.is_false(new_alarm_value, 'Confirm that the alarm was set to default')
-                #Aqf.tbd ('PROBLEM - the driver does not read the alarm correctly,'
-                        #' so the error message never gets triggered.\n')
-            #except ValueError:
-                #Aqf.failed('Failed to read default value: {}.\n'.format(hostname))
 
         hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
         user = 'root\n'
@@ -2264,16 +2301,6 @@ class test_CBF(unittest.TestCase):
         for hwmon_dir, label in temp_dict.iteritems():
             Aqf.step('Trigger Air {} Temperature Warning.'.format(label))
             air_temp_warn('hwmon{}'.format(hwmon_dir), '{}'.format(label))
-
-        overvoltage_dict = {0: '1V0', 1: '1V5', 2: '1V8', 3: '2V5', 4: '3V3', 5: '5V', 6: '12V'}
-        for port, label in overvoltage_dict.iteritems():
-            Aqf.step('Trigger the {} overvoltage warning'.format(label))
-            over_warning('hwmon2', 'in{}'.format(port), 'overvoltage')
-
-        overcurrent_dict = {4: '1V0', 3: '1V5', 2: '1V8', 1: '2V5', 0: '3V3'}
-        for port, label in overcurrent_dict.iteritems():
-            Aqf.step('Trigger the {} overcurrent current warning.'.format(label))
-            over_warning('hwmon3', 'in{}'.format(port), 'overcurrent')
 
     def _test_delay_inputs(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay applied to the correct input"""
