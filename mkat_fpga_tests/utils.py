@@ -351,7 +351,7 @@ def clear_all_delays(instrument, receiver):
                       dump['scale_factor_timestamp'])
     t_apply = (dump_timestamp + dump['int_time'] + future_time)
     reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-    Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
+    Aqf.is_true(reply.reply.reply_ok(), 'Cleared All Delays that were set:{}'.format(reply.reply.arguments[1]))
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
