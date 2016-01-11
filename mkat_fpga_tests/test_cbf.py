@@ -148,24 +148,26 @@ class test_CBF(unittest.TestCase):
         self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
 
     @aqf_vr('TP.C.1.30')
+    @aqf_vr('TP.C.1.44')
     def test_c8n856M4k_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
         Aqf.step('CBF Baseline Correlation Products - AR1')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_product_baselines()
 
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.dummy_vr_1')
     def test_c8n856M4k_back2back_consistency(self):
         Aqf.step("Check that back-to-back SPEAD dumps with same input are equal.")
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_back2back_consistency()
-
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.dummy_vr_2')
     def test_c8n856M4k_freq_scan_consistency(self):
         Aqf.step('Frequency Scan Consistency Test')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_freq_scan_consistency()
-
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.dummy_vr_3')
     def test_c8n856M4k_restart_consistency(self):
         """Check that results are consistent on correlator restart"""
@@ -214,6 +216,7 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_vacc()
 
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.1.40')
     def test_a_product_switch_c8n856M4k(self):
         """CBF Data Product Switching Time"""
@@ -222,6 +225,7 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
        # self._test_a_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
 
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
@@ -229,6 +233,7 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_adc_overflow_flag()
 
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_noise_diode_flag(self):
         """CBF flagging of data -- noise diode fired"""
@@ -236,6 +241,8 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_noise_diode_flag()
 
+
+    @unittest.skip("temporarily disabled")
     @aqf_vr('TP.C.1.38')
     def test_c8n856M4k_fft_overflow_flag(self):
         """CBF flagging of data -- FFT overflow"""
@@ -293,6 +300,7 @@ class test_CBF(unittest.TestCase):
         self._test_fault_detection()
 
     @aqf_vr('TP.C.1.27')
+    @unittest.skip("temporarily disabled")
     def test_c8n856M4k_delay_inputs(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            Delay applied to the correct input
@@ -320,16 +328,16 @@ class test_CBF(unittest.TestCase):
     #################################################################
 
     # TODO: Get correct verification numbers
-    @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.45')
     def test_c8n856M32k_channelisation(self):
         """CBF Channelisation Wideband Fine L-band"""
         Aqf.step('CBF Channelisation Wideband Fine L-band')
-        Aqf.step('32K mode not implemented yet.')
+        Aqf.failed('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_channelisation(required_chan_spacing=290e3, test_chan=1500)
 
-    @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.45')
     def test_c8n856M32k_sfdr_peaks(self):
         """Test spurious free dynamic range for wideband fine (c8n856M32k)
@@ -339,7 +347,7 @@ class test_CBF(unittest.TestCase):
 
         """
         Aqf.step('Test spurious free dynamic range for wideband fine: (c8n856M32k)')
-        Aqf.step('32K mode not implemented yet.')
+        Aqf.failed('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
 
@@ -347,7 +355,7 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M32k_data_product(self):
         """CBF Imaging Data Product Set"""
         Aqf.step('Imaging Data Product Set: {}'.format(self.DEFAULT_INSTRUMENT))
-        Aqf.step('32K mode not implemented yet.')
+        Aqf.waived('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_data_product('c8n856M32k', no_channels=32768)
 
@@ -355,8 +363,7 @@ class test_CBF(unittest.TestCase):
     def test_a_product_switch_c8n856M32k(self):
         """CBF Data Product Switching Time"""
         Aqf.step('CBF Data Product Switching Time: {}'.format(self.DEFAULT_INSTRUMENT))
-        Aqf.step('32K mode not implemented yet.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        Aqf.waived('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_a_product_switch('c8n856M32k', no_channels=32768)
 
@@ -515,7 +522,7 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             amp = np.mean(np.abs(data)) / setup_data['n_accs']
 
-        return zip(phases, chan_resp)
+        return phases
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
 
@@ -1323,19 +1330,24 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel + 1:] == 0),
                     'Check that the spectrum is zero except in the test channel: [test_freq_channel+1:]')
 
-        for vacc_accumulations in test_acc_lens:
-            self.xengops.set_acc_len(vacc_accumulations)
-            no_accs = internal_accumulations * vacc_accumulations
-            expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
-            d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            response = complexise(d['xeng_raw'][:, 0, :])
-            # Check that the accumulator response is equal to the expected response
-            Aqf.is_true(np.array_equal(expected_response, response),
-                        'Check that the accumulator response is equal'
-                        ' to the expected response for {} accumulation length'
-                        .format(vacc_accumulations))
+        #for vacc_accumulations in test_acc_lens:
+            #self.xengops.set_acc_len(vacc_accumulations)
+        self.xengops.set_acc_len(test_acc_lens[0])
+            #no_accs = internal_accumulations * vacc_accumulations
+        no_accs = internal_accumulations * test_acc_lens[0]
+        expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
+        d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        response = complexise(d['xeng_raw'][:, 0, :])
+        # Check that the accumulator response is equal to the expected response
+        Aqf.is_true(np.array_equal(expected_response, response),
+                    'Check that the accumulator response is equal'
+                    ' to the expected response for {} accumulation length'
+                    #.format(vacc_accumulations))
+                    .format(test_acc_lens[0]))
+        Aqf.waived('On RTS, Accumulation is only being set only once.')
 
     def _test_a_product_switch(self, instrument, no_channels):
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Confirm that SPEAD packets are being produced,
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -1591,12 +1603,8 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                   delay_coefficients)
 
-        import IPython;IPython.embed()
-        actual_data = self._get_actual_data(setup_data, dump_counts,
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
-
-        actual_phases = [phases for phases, response in actual_data]
-        actual_response = [response for phases, response in actual_data]
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
@@ -1630,24 +1638,6 @@ class test_CBF(unittest.TestCase):
                      'expected and actual phase difference between integrations '
                      'is below 1 degree: {} degree\n'.format(abs_diff))
 
-            try:
-                delta_actual_s = delta_actual - (delta_actual % tolerance)
-                delta_expected_s = delta_expected - (delta_expected % tolerance)
-                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-            except AssertionError:
-                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                         'phases are not equal within {2} tolerance when fringe offset is {3}.'
-                         .format(delta_expected, delta_actual, tolerance, fringe_offset))
-                import IPython;IPython.embed()
-
-                aqf_plot_channels(
-                    actual_response, '{}_{}.svg'.format(self._testMethodName, fringe_offset),
-                    'Log channel response of Fringe offset: {}rads'.format(fringe_offset),
-                    log_dynamic_range=90,
-                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
-                            'phases are not equal within {2} tolerance when fringe offset is {3}.'
-                            .format(delta_expected, delta_actual, tolerance, fringe_offset))
-
     def _test_delay_rate(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
 
@@ -1673,12 +1663,8 @@ class test_CBF(unittest.TestCase):
 
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                   delay_coefficients)
-        import IPython;IPython.embed()
-        actual_data = self._get_actual_data(setup_data, dump_counts,
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
-
-        actual_phases = [phases for phases, response in actual_data]
-        actual_response = [response for phases, response in actual_data]
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
@@ -1711,23 +1697,6 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between expected and actual phase '
                      'difference between integrations is below 1 degree: {0:.3f} degree\n'
                      .format(abs_diff))
-            try:
-                delta_actual_s = delta_actual - (delta_actual % tolerance)
-                delta_expected_s = delta_expected - (delta_expected % tolerance)
-                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-            except AssertionError:
-                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                         'phases are not equal withing {2} tolerance when delay rate is {3}.'
-                          .format(delta_expected, delta_actual, tolerance, delay_rate))
-                import IPython;IPython.embed()
-
-                aqf_plot_channels(
-                    actual_response, '{}_{}.svg'.format(self._testMethodName, delay_rate),
-                    'Log channel response of Delay Rate: {}'.format(delay_rate),
-                    log_dynamic_range=90,
-                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
-                            'phases are not equal withing {2} tolerance when delay rate is {3}.'
-                            .format(delta_expected, delta_actual, tolerance, delay_rate))
 
     def _test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
@@ -1754,12 +1723,8 @@ class test_CBF(unittest.TestCase):
         expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                   delay_coefficients)
 
-        import IPython;IPython.embed()
-        actual_data = self._get_actual_data(setup_data, dump_counts,
+        actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
-
-        actual_phases = [phases for phases, response in actual_data]
-        actual_response = [response for phases, response in actual_data]
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
@@ -1791,25 +1756,6 @@ class test_CBF(unittest.TestCase):
                      'Check that the maximum degree between '
                      'expected and actual phase difference between integrations '
                      'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
-
-            try:
-                delta_actual_s = delta_actual - (delta_actual % tolerance)
-                delta_expected_s = delta_expected - (delta_expected % tolerance)
-                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-            except AssertionError:
-                Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                         'phases are not equal within {2} tolerance when fringe rate is {3}.'
-                         .format(delta_expected, delta_actual, tolerance, fringe_rate))
-                import IPython;IPython.embed()
-
-                aqf_plot_channels(
-                    actual_response, '{}_{}.svg'.format(self._testMethodName, fringe_rate),
-                    'Log channel response of Fringe offset: {}rads'.format(fringe_offset),
-                    log_dynamic_range=90,
-                    caption='Difference expected({0:.5f}) and actual({1:.5f}) '
-                            'phases are not equal within {2} tolerance when fringe rate is {3}.'
-                            .format(delta_expected, delta_actual, tolerance, fringe_rate))
-
 
     def _test_all_delays(self):
         """
@@ -2313,7 +2259,7 @@ class test_CBF(unittest.TestCase):
 
         hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
         user = 'root\n'
-        wait_time = 1
+        wait_time = 2
         temp_dict = {4:'Inlet', 1:'Outlet'}
         for hwmon_dir, label in temp_dict.iteritems():
             Aqf.step('Trigger Air {} Temperature Warning.'.format(label))
