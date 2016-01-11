@@ -193,17 +193,20 @@ class CorrelatorFixture(object):
             return False
         if not reply.succeeded:
             raise RuntimeError('Array request failed: {}'.format(reply))
-        instrument_products = set(reply.informs[0].arguments[1:])
+        # instrument_products = set(reply.informs[0].arguments[1:])
+        instrument_products = reply.informs[0].arguments[1:]
 
         # Get list of available data products and check that the products belonging to the
         # requested instrument is available
         reply = self.katcp_rct.req.capture_list()
         if not reply.succeeded:
             raise RuntimeError('Array request failed: {}'.format(reply))
-        products = set(i.arguments[0] for i in reply.informs)
+        # products = set(i.arguments[0] for i in reply.informs)
+        products = reply.informs[0].arguments[0][1:-1]
 
-        instrument_products_present = products.intersection(
-            instrument_products) == instrument_products
+        # instrument_products_present = products.intersection(
+        #     instrument_products) == instrument_products
+        instrument_products_present = products == instrument_products[0]
         if instrument_products_present:
             self.instrument = instrument
         return instrument_products_present
@@ -222,7 +225,7 @@ class CorrelatorFixture(object):
             self.array_name)
         if array_list_messages:
             reply = self.rct.req.array_halt(self.array_name)
-            if not reply.succeded:
+            if not reply.succeeded:
                 raise RuntimeError("Unable to halt array {}: {}"
                                    .format(self.array_name, reply))
 
