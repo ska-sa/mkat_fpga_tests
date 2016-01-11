@@ -283,6 +283,7 @@ class test_CBF(unittest.TestCase):
         self._test_config_report()
 
     @aqf_vr('TP.C.1.5.1')
+    @aqf_vr('TP.C.1.18')
     def test_c8n856M4k_overtemperature(self):
         """ROACH2 overtemperature display test """
         Aqf.step('ROACH2 overtemperature display test ')
@@ -290,6 +291,7 @@ class test_CBF(unittest.TestCase):
         self._test_overtemp()
 
     @aqf_vr('TP.C.1.5.2')
+    @aqf_vr('TP.C.1.18')
     def test_c8n856M4k_overvoltage(self):
         """ROACH2 overvoltage display test"""
         Aqf.step('ROACH2 overvoltage display test')
@@ -297,19 +299,12 @@ class test_CBF(unittest.TestCase):
         self._test_overvoltage()
 
     @aqf_vr('TP.C.1.5.3')
+    @aqf_vr('TP.C.1.18')
     def test_c8n856M4k_overcurrent(self):
         """ROACH2 overcurrent display test"""
         Aqf.step('ROACH2 overcurrent display test')
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_overcurrent()
-
-    @aqf_vr('TP.C.1.18')
-    def test_c8n856M4k_fault_detection(self):
-        """AR1 Fault detection"""
-        Aqf.step('AR1 Fault detection')
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_overtemp()
-        self._test_overvoltage()
 
     @aqf_vr('TP.C.1.27')
     def test_c8n856M4k_delay_inputs(self):
