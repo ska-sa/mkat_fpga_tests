@@ -148,6 +148,7 @@ class test_CBF(unittest.TestCase):
         self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
 
     @aqf_vr('TP.C.1.30')
+    @aqf_vr('TP.C.1.40')
     def test_c8n856M4k_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
         Aqf.step('CBF Baseline Correlation Products - AR1')
@@ -323,22 +324,29 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_data_product(self.DEFAULT_INSTRUMENT, no_channels=4096)
 
+    @aqf_vr('TP.C.1.41')
+    def test_c8n856M4k_control_init(self):
+        """CBF Control - initial release"""
+        Aqf.step('CBF Control - initial release')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_control_init()
+
     #################################################################
     #                       32K Mode Tests                          #
     #################################################################
 
-    # TODO: Get correct verification numbers
-    @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
+
+    @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.1.46')
     def test_c8n856M32k_channelisation(self):
         """CBF Channelisation Wideband Fine L-band"""
         Aqf.step('CBF Channelisation Wideband Fine L-band')
-        Aqf.tbd('32K mode not implemented yet.')
+        Aqf.failed('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_channelisation(required_chan_spacing=290e3, test_chan=1500)
 
-    @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
+    @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.1.46')
     def test_c8n856M32k_sfdr_peaks(self):
         """Test spurious free dynamic range for wideband fine (c8n856M32k)
 
@@ -347,7 +355,7 @@ class test_CBF(unittest.TestCase):
 
         """
         Aqf.step('Test spurious free dynamic range for wideband fine: (c8n856M32k)')
-        Aqf.tbd('32K mode not implemented yet.')
+        Aqf.failed('32K mode not implemented yet.')
         # self.set_instrument('c8n856M32k')
         # self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
 
@@ -2363,3 +2371,5 @@ class test_CBF(unittest.TestCase):
                                       'functionality.')
         else:
             Aqf.failed('Imaging data product set has not been implemented.')
+   def _test_control_init(self):
+        Aqf.passed('List of available commands\n{}'.format(correlator_fixture.katcp_rct.req.help()))
