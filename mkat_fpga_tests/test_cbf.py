@@ -335,7 +335,6 @@ class test_CBF(unittest.TestCase):
     #                       32K Mode Tests                          #
     #################################################################
 
-
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
     def test_c8n856M32k_channelisation(self):
@@ -2371,5 +2370,6 @@ class test_CBF(unittest.TestCase):
                                       'functionality.')
         else:
             Aqf.failed('Imaging data product set has not been implemented.')
-   def _test_control_init(self):
+
+    def _test_control_init(self):
         Aqf.passed('List of available commands\n{}'.format(correlator_fixture.katcp_rct.req.help()))
