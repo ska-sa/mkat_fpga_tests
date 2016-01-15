@@ -380,7 +380,6 @@ class test_CBF(unittest.TestCase):
         """CBF Data Product Switching Time"""
         Aqf.step('CBF Data Product Switching Time: {}'.format('c8n856M32k'))
         Aqf.tbd('32K mode not implemented yet.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # self.set_instrument('c8n856M32k')
         # self._test_product_switch('c8n856M32k', no_channels=32768)
 
@@ -430,7 +429,7 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4',
                            'input5', 'input6', 'input7']
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels(
             *local_src_names)
         Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
@@ -459,7 +458,7 @@ class test_CBF(unittest.TestCase):
                             time_stamp / scale_factor_timestamp)
         t_apply = dump_1_timestamp + 10 * int_time
         no_chans = range(self.corr_freqs.n_chans)
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels()
         source_names = reply.arguments[1:]
         # Get name for test_source_idx
         test_source = source_names[test_source_idx]
@@ -497,7 +496,7 @@ class test_CBF(unittest.TestCase):
 
         try:
             cmd_start_time = time.time()
-            reply = correlator_fixture.katcp_rct.req.delays(
+            reply = self.corr_fix.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
             Aqf.is_true(reply.reply.reply_ok(),
                         'Delays reply: {}'.format(reply.reply.arguments[1]))
@@ -632,7 +631,7 @@ class test_CBF(unittest.TestCase):
 
         for i, freq in enumerate(requested_test_freqs):
             if i <= print_counts:
-                print ('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.step ('Getting channel response for freq {}/{}: {} MHz.'
                         .format(i + 1, len(requested_test_freqs), freq / 1e6))
             elif i >= (len(requested_test_freqs) - print_counts) :
                 print ('Getting channel response for freq {}/{}: {} MHz.'
@@ -733,13 +732,7 @@ class test_CBF(unittest.TestCase):
             if max_chan != test_chan:
                 fault_freqs.append(freq)
                 fault_channels.append(max_chan)
-        if not fault_freqs:
-            Aqf.passed('The following input frequencies: {!r} respectively had '
-                       'peak channeliser responses in channels {!r},'
-                       'channel {} as expected.'
-                       .format(fault_freqs, fault_channels, test_chan))
-
-        else:
+        if fault_freqs:
             Aqf.failed('The following input frequencies: {!r} respectively had '
                        'peak channeliser responses in channels {!r}, not '
                        'channel {} as expected.'
@@ -826,10 +819,10 @@ class test_CBF(unittest.TestCase):
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan:], start_chan):
             if channel < print_counts:
-                print ('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.step ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             elif channel > (n_chans - print_counts):
-                print ('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.step ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             else:
                 LOGGER.info ('Getting channel response for freq {}/{}: {} MHz.'
@@ -887,7 +880,7 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
         # Set list for all the correlator input labels
         local_src_names = self.correlator.configd['fengine']['source_names'].split(',')
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels(*local_src_names)
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
         self.corr_fix.issue_metadata()
         test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # TODO (MM) 2015-10-22
@@ -1010,7 +1003,7 @@ class test_CBF(unittest.TestCase):
         source_period_in_samples = self.corr_freqs.n_chans*2
 
         for i, freq in enumerate(requested_test_freqs):
-            print ('Testing dump consistency {}/{} @ {} MHz.'.format(
+            Aqf.step ('Testing dump consistency {}/{} @ {} MHz.'.format(
                 i + 1, len(requested_test_freqs), freq / 1e6))
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
                                               repeatN=source_period_in_samples)
@@ -1138,7 +1131,7 @@ class test_CBF(unittest.TestCase):
                 t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
                            future_time)
 
-                reply = correlator_fixture.katcp_rct.req.delays(
+                reply = self.corr_fix.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
                 Aqf.is_true(reply.reply.reply_ok(),
                             'Delays Reply: {}'.format(reply.reply.arguments[1]))
@@ -1189,8 +1182,8 @@ class test_CBF(unittest.TestCase):
         """
         # Request a list of available sensors using KATCP command
         try:
-            sensors_req = correlator_fixture.rct.req
-            array_sensors_req = correlator_fixture.katcp_rct.req
+            sensors_req = self.corr_fix.rct.req
+            array_sensors_req = self.corr_fix.katcp_rct.req
 
             list_reply, list_informs = sensors_req.sensor_list()
             # Confirm the CBF replies with a number of sensor-list inform messages
@@ -1238,7 +1231,7 @@ class test_CBF(unittest.TestCase):
                    'Check that the time synchronised sensor values replies with !sensor-value ok 1')
 
         # Check all sensors statuses if they are nominal
-        for sensor in correlator_fixture.rct.sensor.values():
+        for sensor in self.corr_fix.rct.sensor.values():
             LOGGER.info(sensor.name + ' :' + str(sensor.get_value()))
             Aqf.equals(sensor.get_status(), 'nominal',
                        'Sensor status: {}, {} '
@@ -1247,7 +1240,7 @@ class test_CBF(unittest.TestCase):
     def _test_roach_qdr_sensors(self):
         """Sensor QDR memory error"""
         try:
-            array_sensors = correlator_fixture.katcp_rct.sensor
+            array_sensors = self.corr_fix.katcp_rct.sensor
         except Exception:
             Aqf.failed('KATCP connection encountered errors.')
 
@@ -1307,7 +1300,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
-        array_sensors = correlator_fixture.katcp_rct.sensor
+        array_sensors = self.corr_fix.katcp_rct.sensor
         Aqf.skipped('PFB sensor test not yet implemented.')
 
 
@@ -1372,7 +1365,7 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(self.corr_freqs.n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        reply, informs = correlator_fixture.katcp_rct.req.gain(test_input, *list(eqs))
+        reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, *list(eqs))
         Aqf.step('Gain factors set {}.'.format(reply.arguments[0]))
         self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=0.125,
                                           # Make dsim output periodic in FFT-length
@@ -1392,9 +1385,9 @@ class test_CBF(unittest.TestCase):
                     'Check that the spectrum is not zero in the test channel')
         # Check that the spectrum is zero except in the test channel
         Aqf.is_true(np.all(quantiser_spectrum[0:test_freq_channel] == 0),
-                    'Check that the spectrum is zero except in the test channel: [0:test_freq_channel]')
+                    'Check that the spectrum is zero except in the test channel: [0:{}(test_freq_channel)]'.format(test_freq_channel))
         Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel + 1:] == 0),
-                    'Check that the spectrum is zero except in the test channel: [test_freq_channel+1:]')
+                    'Check that the spectrum is zero except in the test channel: [(test_freq_channel){}+1:]'.format(test_freq_channel))
 
         for vacc_accumulations in test_acc_lens:
             self.xengops.set_acc_len(vacc_accumulations)
@@ -1409,7 +1402,8 @@ class test_CBF(unittest.TestCase):
                         .format(vacc_accumulations))
 
     def _test_product_switch(self, instrument, no_channels):
-        # Confirm that SPEAD packets are being produced,
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        Aqf.step('Confirm that SPEAD packets are being produced')
         # with the selected data product(s).
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         # Deprogram CBF
@@ -1431,7 +1425,7 @@ class test_CBF(unittest.TestCase):
 
         # Start timer and re-initialise the instrument and, start capturing data.
         start_time = time.time()
-        correlator_fixture.halt_array()
+        self.corr_fix.halt_array()
         Aqf.step('Initialising {instrument} instrument'.format(**locals()) )
         self.set_instrument(instrument)
         self.corr_fix.start_x_data()
@@ -1886,7 +1880,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_config_report(self):
         """CBF Report configuration"""
-        test_config = correlator_fixture.test_conf
+        test_config = self.corr_fix.test_conf
         def get_roach_config():
 
             Aqf.hop('DEngine :{}'.format(self.dhost.host))
@@ -2349,7 +2343,7 @@ class test_CBF(unittest.TestCase):
         expected_phases -= np.max(expected_phases) / 2.
 
         test_source_idx = 2
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels()
         source_names = reply.arguments[1:]
         last_pfb_counts = get_pfb_counts(
             get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
@@ -2371,7 +2365,7 @@ class test_CBF(unittest.TestCase):
             t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
                        future_time)
 
-            reply = correlator_fixture.katcp_rct.req.delays(
+            reply = self.corr_fix.katcp_rct.req.delays(
                 t_apply, *delay_coefficients)
             Aqf.is_true(reply.reply.reply_ok(), 'Delays Reply: {}'.format(reply.reply.arguments[1]))
             Aqf.wait(settling_time,
@@ -2433,7 +2427,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Imaging data product set has not been implemented.')
 
     def _test_control_init(self):
-        Aqf.passed('List of available commands\n{}'.format(correlator_fixture.katcp_rct.req.help()))
+        Aqf.passed('List of available commands\n{}'.format(self.corr_fix.katcp_rct.req.help()))
         # TODO 2016-01-14,Record in the observations section below which of the
         # following control commands have been implemented:
         # Downconversion frequency, Channelisation configuration,
