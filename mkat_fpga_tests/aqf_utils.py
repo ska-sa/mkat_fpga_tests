@@ -196,7 +196,7 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
         #axis.set_ybound(*new_ybound)
         if has_legend:
-            plt.legend(ncol=5 ,fontsize=9, fancybox=True).get_frame().set_alpha(0.5)
+            plt.legend(ncol=3 ,fontsize=9, fancybox=True).get_frame().set_alpha(0.5)
 
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
