@@ -133,10 +133,10 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         plt.grid(True)
         plt.ylabel('Phase [radians]')
         plt.xlabel('No. of Channels')
-        Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show()
-        plt.close()
+        plt.close('all')
 
 def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None,
@@ -196,9 +196,9 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
         #axis.set_ybound(*new_ybound)
         if has_legend:
-            plt.legend(fontsize=9, fancybox=True).get_frame().set_alpha(0.5)
+            plt.legend(ncol=5 ,fontsize=9, fancybox=True).get_frame().set_alpha(0.5)
 
-        Aqf.matplotlib_fig(plot_filename, caption=caption, close_fig=False)
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show()
         plt.close('all')
