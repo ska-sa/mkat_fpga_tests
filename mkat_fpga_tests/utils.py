@@ -1,12 +1,17 @@
 import collections
 import h5py
+import os
 import numpy as np
 import time
+import logging
+
 
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
 from mkat_fpga_tests import correlator_fixture
 
+
+LOGGER = logging.getLogger(__name__)
 
 VACC_FULL_RANGE = float(2**31)      # Max range of the integers coming out of VACC
 
@@ -351,7 +356,7 @@ def clear_all_delays(instrument, receiver):
                       dump['scale_factor_timestamp'].value)
     t_apply = (dump_timestamp + dump['int_time'].value + future_time)
     reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-    Aqf.is_true(reply.reply.reply_ok(), reply.reply.arguments[1])
+    LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
@@ -388,22 +393,25 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
     curr_pfb_counts = get_pfb_counts(
         fftoverflow_qdrstatus['fhosts'].items())
+
     # Test FFT Overflow status
-    [Aqf.equals(curr_pfb_value, last_pfb_value,
-        "Check if the is no PFB FFT overflow on {}".format(curr_pfb_host))
-    for (curr_pfb_host, curr_pfb_value), (curr_pfb_host, last_pfb_value) in zip(
-        last_pfb_counts.items(), curr_pfb_counts.items())
-        if curr_pfb_host is curr_pfb_host]
+    for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
+        last_pfb_counts.items(), curr_pfb_counts.items()):
+        if curr_pfb_host is curr_pfb_host_x:
+            if curr_pfb_value != last_pfb_value:
+                Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
     # Test QDR error flags
     for hosts_status in fftoverflow_qdrstatus.values():
         for host, hosts_status in hosts_status.items():
             if hosts_status['QDR_okay'] is False:
-                Aqf.step('QDR status on {} not Okay.'.format(host))
+                Aqf.failed('QDR status on {} not Okay.'.format(host))
                 QDR_error_roaches.add(host)
+           # else:
+           #     Aqf.passed('QDR status on {} Okay.'.format(host))
     # Test QDR status
-    Aqf.is_false(QDR_error_roaches,
-                 'Check for QDR errors.')
+    # Aqf.is_false(QDR_error_roaches,
+    #    'Check for QDR errors.')
     return QDR_error_roaches
 
 def get_vacc_offset(xeng_raw):
@@ -456,3 +464,18 @@ def get_pfb_counts(status_dict):
         pfb_list[host] = (pfb_value['pfb_of0_cnt'],
                           pfb_value['pfb_of1_cnt'])
     return pfb_list
+
+def get_default_instrument():
+    cmc_conf_path = '/etc/cmc.conf'
+    if os.path.isfile(cmc_conf_path):
+        filepath = open(cmc_conf_path, 'r').readline().strip()
+        try:
+            if os.path.exists(filepath.split('=')[-1]):
+                instrument_list = os.listdir(filepath.split('=')[-1])[-1]
+                array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
+
+        except Exception:
+            DEFAULT_INSTRUMENT = 'bc8n856M4k'
+            Aqf.waived('Could not get default instrument from {}/arrayX-instrument path does not exists.'
+                       .format(filepath.split('=')[-1]))
+    return DEFAULT_INSTRUMENT
