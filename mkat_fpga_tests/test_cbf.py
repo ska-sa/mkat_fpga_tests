@@ -140,7 +140,7 @@ class test_CBF(unittest.TestCase):
         self._test_sfdr_peaks(required_chan_spacing=290e3, cutoff=53)
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.40')
+    @aqf_vr('TP.C.1.44')
     def test_c8n856M4k_product_baselines(self):
         """CBF Baseline Correlation Products - AR1"""
         Aqf.step('CBF Baseline Correlation Products - AR1')
