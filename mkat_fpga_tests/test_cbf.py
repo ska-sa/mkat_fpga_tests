@@ -303,16 +303,18 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M4k_overvoltage(self):
         """ROACH2 overvoltage display test"""
         Aqf.step('ROACH2 overvoltage display test')
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_overvoltage()
+        Aqf.waived('Test is not Manually ran instead of Automated.')
+        # self.set_instrument(self.DEFAULT_INSTRUMENT)
+        # self._test_overvoltage()
 
     @aqf_vr('TP.C.1.5.3')
     @aqf_vr('TP.C.1.18')
     def test_c8n856M4k_overcurrent(self):
         """ROACH2 overcurrent display test"""
         Aqf.step('ROACH2 overcurrent display test')
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_overcurrent()
+        Aqf.waived('Test is not Manually ran instead of Automated.')
+        # self.set_instrument(self.DEFAULT_INSTRUMENT)
+        # self._test_overcurrent()
 
     @aqf_vr('TP.C.1.27')
     def test_c8n856M4k_delay_inputs(self):
