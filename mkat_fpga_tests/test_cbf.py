@@ -2255,14 +2255,20 @@ class test_CBF(unittest.TestCase):
             LOGGER.info('Test ran by: Jenkins on {}'.format(time.ctime()))
 
     def _test_overvoltage(self):
-        """ROACH2 overvoltage display test"""
+        """ROACH2 overvoltage display test
+
+        Test waived
+        """
         overvoltage_dict = {0: '1V0', 1: '1V5', 2: '1V8', 3: '2V5', 4: '3V3', 5: '5V', 6: '12V'}
         for port, label in overvoltage_dict.iteritems():
             Aqf.step('Trigger the {} overvoltage warning'.format(label))
             self._test_over_warning('hwmon2', 'in{}'.format(port), 'overvoltage')
 
     def _test_overcurrent(self):
-        """ROACH2 overcurrent display test"""
+        """ROACH2 overcurrent display test
+
+        Test waived
+        """
         overcurrent_dict = {4: '1V0', 3: '1V5', 2: '1V8', 1: '2V5', 0: '3V3'}
         for port, label in overcurrent_dict.iteritems():
             Aqf.step('Trigger the {} overcurrent current warning.'.format(label))
