@@ -1204,8 +1204,8 @@ class test_CBF(unittest.TestCase):
                          'phases are not equal at delay {2:.5f}ns within {3} tolerance.'
                          .format(delta_expected, delta_actual, delay * 1e9, tolerance))
                 chan_response = [responses
-                                for test_delays, responses in actual_response
-                                    if test_delays == delay][0]
+                                for test_delays_, responses in actual_response
+                                    if test_delays_ == delay][0]
                 aqf_plot_channels(
                     chan_response, '{}_{}.svg'.format(self._testMethodName, delay),
                     'Log channel response at {}ns'.format(delay),
