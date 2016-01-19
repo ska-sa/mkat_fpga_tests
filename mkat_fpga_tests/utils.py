@@ -417,6 +417,15 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     #    'Check for QDR errors.')
     return QDR_error_roaches
 
+def check_lru_okay(correlator):
+    """Checks if LRU's/Hosts is okay?
+    Param: correlator object
+    Return: None
+    """
+    [Aqf.failed('{} host/LRU is NOT okay!'.format(host.host))
+     for host in correlator.fhosts + correlator.xhosts
+        if host.host_okay() is False]
+
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
     b0 = np.abs(complexise(xeng_raw.value[:, 0]))
