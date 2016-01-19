@@ -2075,6 +2075,7 @@ class test_CBF(unittest.TestCase):
             import corr2
             import casperfpga
             import katcp
+            import spead2
 
             corr2_dir, _None = os.path.split(os.path.split(corr2.__file__)[0])
             corr2_name = corr2.__name__
@@ -2084,6 +2085,9 @@ class test_CBF(unittest.TestCase):
 
             katcp_dir, _None = os.path.split(os.path.split(katcp.__file__)[0])
             katcp_name = katcp.__name__
+
+            spead2_dir, _None = os.path.split(os.path.split(spead2.__file__)[0])
+            spead2_name = spead2.__name__
 
             bitstream_dir = self.correlator.configd['xengine']['bitstream']
             mkat_dir, _None = os.path.split(os.path.split(os.path.dirname(
@@ -2096,6 +2100,7 @@ class test_CBF(unittest.TestCase):
             return {corr2_name: corr2_dir,
                     casper_name: casper_dir,
                     katcp_name: katcp_dir,
+                    spead2_name: spead2_dir,
                     mkat_name: mkat_dir,
                     test_name: test_dir}
 
@@ -2118,11 +2123,11 @@ class test_CBF(unittest.TestCase):
                         ['git', '--git-dir={}/.git'.format(repo_dir),
                          '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
                 if bool(git_diff):
-                    Aqf.progress('Repo: {}: Contains changes not staged for commit.\n'
-                               'Difference: \n{}'
-                               .format(name, clrs.red(git_diff)))
+                    Aqf.progress('Repo: {}: Contains changes not staged for commit.\n\n'
+                                 'Difference: \n\n{}'
+                                 .format(name, clrs.red(git_diff)))
                 else:
-                    Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
+                    Aqf.hop('Repo: {}: Up-to-date.\n\n'.format(name))
 
         def get_pdu_config():
             host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
@@ -2240,6 +2245,13 @@ class test_CBF(unittest.TestCase):
                 remote_conn_pre.close()
 
         Aqf.step('CMC CBF Package Software version information.')
+        reply, informs = self.corr_fix.katcp_rct.req.version_list()
+        if reply.reply_ok():
+            katcp_dev, katcp_lib = [i.arguments[-1].split('-')[-1].strip('g')
+                for i in informs
+                if 'katcp-device' in i.arguments or 'katcp-library' in i.arguments]
+            Aqf.hop('Repo: katcp-device, Last Hash:{}\n'.format(katcp_dev))
+            Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
         get_package_versions()
         Aqf.step('CBF ROACH information.')
         get_roach_config()
