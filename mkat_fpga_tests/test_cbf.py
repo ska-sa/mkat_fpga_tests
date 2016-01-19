@@ -99,19 +99,19 @@ class test_CBF(unittest.TestCase):
         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
         self.xengops = self.correlator.xops
         self.fengops = self.correlator.fops
-        # Increase the dump rate so tests can run faster
-        # To Do:(MM) 2015-10-07: We should be applying acc time using the CMC
-        # correlator_fixture.katcp_rct.req.accumulation_length(
-        # self.DEFAULT_ACCUMULATION_TIME)
-        self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
-        self.addCleanup(self.corr_fix.stop_x_data)
-        self.receiver = CorrRx(port=8888, queue_size=1000)
-        start_thread_with_cleanup(self, self.receiver, start_timeout=1)
-        # TODO NM 2015-12-07 Should use array KATCP interface to start X data and
-        # issue meta data.
-        self.corr_fix.start_x_data()
-        self.corr_fix.issue_metadata()
-        self._test_qdr_fftoverlow()
+        reply = correlator_fixture.katcp_rct.req.accumulation_length(
+            self.DEFAULT_ACCUMULATION_TIME, timeout=10)
+        if reply.succeeded:
+            Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
+            # self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
+            self.addCleanup(self.corr_fix.stop_x_data)
+            self.receiver = CorrRx(port=8888, queue_size=1000)
+            start_thread_with_cleanup(self, self.receiver, start_timeout=1)
+            self.corr_fix.start_x_data()
+            self.corr_fix.issue_metadata()
+            self._test_qdr_fftoverlow()
+        else:
+            Aqf.failed('Failed to set Accumulation time. Reply: {}'.format(reply))
 
     #####################################################################
     #                          4k Test Method                           #
@@ -146,7 +146,8 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_product_baselines()
 
-    @aqf_vr('TP.C.dummy_vr_1')
+    @aqf_vr('TP.C.1.30')
+    @aqf_vr('TP.C.1.44')
     def test_c8n856M4k_back2back_consistency(self):
         Aqf.step("Check that back-to-back SPEAD dumps with same input are equal.")
         self.set_instrument(self.DEFAULT_INSTRUMENT)
@@ -441,7 +442,6 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.issue_metadata()
         Aqf.step('Getting initial SPEAD dump.')
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-
         # TODO: (MM) 2015-10-21 get sync time from digitiser
         # We believe that sync time should be the digitiser sync epoch but
         # in the dsim this is not an int, so we using correlator value for now
@@ -450,10 +450,7 @@ class test_CBF(unittest.TestCase):
         scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
         time_stamp = initial_dump['timestamp'].value
         n_accs = initial_dump['n_accs'].value
-        # TODO: (MM) 2015-10-07, get int time from dump
-        # (int_time = initial_dump['int_time'].value)
-        int_time = self.xengops.get_acc_time()
-        # TODO (MM) 2015-10-20
+        int_time = initial_dump['int_time'].value
         # 3ms added for the network round trip
         roundtrip = 0.003
         dump_1_timestamp = (sync_time + roundtrip +
@@ -1142,18 +1139,17 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
                                                               discard=0)
 
-                future_time = 200e-3
+                future_time = 900e-3
                 settling_time = 600e-3
                 dump_timestamp = (this_freq_dump['sync_time'].value +
                                   this_freq_dump['timestamp'].value /
                                   this_freq_dump['scale_factor_timestamp'].value)
                 t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
                            future_time)
-
                 reply = self.corr_fix.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
                 Aqf.is_true(reply.reply.reply_ok(),
-                            'Delays Reply: {}'.format(reply.reply.arguments[1]))
+                            'Delays Reply: {}, Intergration time:{}s'.format(reply.reply.arguments[1], this_freq_dump['int_time'].value))
                 Aqf.wait(settling_time,
                          'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
@@ -1760,7 +1756,7 @@ class test_CBF(unittest.TestCase):
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
-        tolerance = 0.01
+        tolerance = 1e-5
         decimal = len(str(tolerance).split('.')[-1])
         actual_phases = np.unwrap(actual_phases)
         expected_phases = np.unwrap([phase for label, phase in expected_phases])
@@ -1789,9 +1785,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
                          'phases are not equal within {2} tolerance when fringe offset is {3}.'
                          .format(delta_expected, delta_actual, tolerance, fringe_offset))
-
                 aqf_plot_channels(
-                    actual_response, '{}_{}.svg'.format(self._testMethodName, fringe_offset),
+                    actual_response[-1], '{}_{}.svg'.format(self._testMethodName, fringe_offset),
                     'Log channel response of Fringe offset: {}rads'.format(fringe_offset),
                     log_dynamic_range=90, log_normalise_to=1,
                     caption='Difference expected({0:.5f}) and actual({1:.5f}) '
@@ -2525,7 +2520,7 @@ class test_CBF(unittest.TestCase):
             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
                                                           discard=0)
 
-            future_time = 600e-3
+            future_time = 1000e-3
             settling_time = 600e-3
             dump_timestamp = (this_freq_dump['sync_time'].value +
                               this_freq_dump['timestamp'].value /
