@@ -196,7 +196,7 @@ class test_CBF(unittest.TestCase):
     def test_product_switch_c8n856M4k(self):
         """CBF Data Product Switching Time"""
         Aqf.step('CBF Data Product Switching Time: {}'.format(self.DEFAULT_INSTRUMENT))
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)te
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_product_switch(self.DEFAULT_INSTRUMENT, no_channels=4096)
 
@@ -303,7 +303,7 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M4k_overvoltage(self):
         """ROACH2 overvoltage display test"""
         Aqf.step('ROACH2 overvoltage display test')
-        Aqf.waived('Test is not Manually ran instead of Automated.')
+        Aqf.waived('Manual Test instead of being Automated.')
         # self.set_instrument(self.DEFAULT_INSTRUMENT)
         # self._test_overvoltage()
 
@@ -312,7 +312,7 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M4k_overcurrent(self):
         """ROACH2 overcurrent display test"""
         Aqf.step('ROACH2 overcurrent display test')
-        Aqf.waived('Test is not Manually ran instead of Automated.')
+        Aqf.waived('Manual Test instead of being Automated.')
         # self.set_instrument(self.DEFAULT_INSTRUMENT)
         # self._test_overcurrent()
 
