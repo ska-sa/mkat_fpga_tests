@@ -346,7 +346,7 @@ def clear_all_delays(instrument, receiver):
     """
     delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
     dump = receiver.get_clean_dump(10, discard=0)
-    future_time = 200e-3
+    future_time = 900e-3
     dump_timestamp = (dump['sync_time'] + dump['timestamp'] /
                       dump['scale_factor_timestamp'])
     t_apply = (dump_timestamp + dump['int_time'] + future_time)
