@@ -537,8 +537,15 @@ class test_CBF(unittest.TestCase):
 
         return phases
 
-    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
+    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
 
+        def calc_actual_delay (setup_data):
+            no_ch = len(setup_data['no_chans'])
+            first_dump = actual_phases[0]
+            actual_slope = np.polyfit(range(0,no_ch), first_dump,1)[0]*no_ch
+            actual_delay = setup_data['sample_period']*actual_slope/(np.pi)
+            return actual_delay
+            
         def gen_delay_vector(delay, setup_data):
             res = []
             no_ch = len(setup_data['no_chans'])
@@ -554,6 +561,12 @@ class test_CBF(unittest.TestCase):
             for dump in range(1, dump_counts + 1):
                 tot_delay = (delay + dump * delay_rate * setup_data['int_time'] -
                              .5 * delay_rate * setup_data['int_time'])
+                # The delay does not get applied on dump boundaries. This function
+                # calculates the offset between the expected delay and the actual delay
+                # and then adds this offset to all subsequent calculations.
+                if dump == 1:
+                    delay_offset = calc_actual_delay(setup_data) - tot_delay
+                tot_delay = tot_delay + delay_offset
                 expected_phases.append(gen_delay_vector(tot_delay, setup_data))
             return expected_phases
 
@@ -585,7 +598,7 @@ class test_CBF(unittest.TestCase):
         fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
         fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
 
-        import IPython;IPython.embed()
+        #import IPython; IPython.embed()
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
                                               setup_data)))
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
@@ -1623,11 +1636,12 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
+
 
         actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
@@ -1684,10 +1698,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
         actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
 
         no_chans = setup_data['no_chans']
         graph_units = ' '
@@ -1743,11 +1757,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
-
         actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
@@ -1816,11 +1829,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
-
         actual_phases = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
 
         no_chans = setup_data['no_chans']
         graph_units = ''
