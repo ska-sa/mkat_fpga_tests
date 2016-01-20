@@ -547,7 +547,8 @@ class test_CBF(unittest.TestCase):
             amp = np.mean(np.abs(data)) / setup_data['n_accs']
 
         return zip(phases, chan_resp)
- def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
+
+    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
 
         def calc_actual_delay (setup_data):
             no_ch = len(setup_data['no_chans'])
@@ -580,6 +581,14 @@ class test_CBF(unittest.TestCase):
                 expected_phases.append(gen_delay_vector(tot_delay, setup_data))
             return expected_phases
 
+        def calc_actual_offset(setup_data):
+            no_ch = len(setup_data['no_chans'])
+            mid_ch = no_ch/2
+            first_dump = actual_phases[0]
+            # Determine average offset around 5 middle channels
+            actual_offset = np.average(first_dump)#[mid_ch-3:mid_ch+3])
+            return actual_offset
+
         def gen_fringe_vector(offset, setup_data):
             return [offset] * len(setup_data['no_chans'])
 
@@ -587,6 +596,12 @@ class test_CBF(unittest.TestCase):
             expected_phases = []
             for dump in range(1, dump_counts + 1):
                 offset = -(fringe_offset + dump * fringe_rate * setup_data['int_time'])
+                # The delay does not get applied on dump boundaries. This function
+                # calculates the offset between the expected delay and the actual delay
+                # and then adds this offset to all subsequent calculations.
+                if dump == 1:
+                    delta_offset = calc_actual_offset(setup_data) - offset
+                offset = offset + delta_offset
                 expected_phases.append(gen_fringe_vector(offset, setup_data))
             return expected_phases
 
@@ -608,6 +623,7 @@ class test_CBF(unittest.TestCase):
         fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
         fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
 
+        #import IPython; IPython.embed()
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
                                               setup_data)))
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
@@ -1748,14 +1764,13 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
         actual_data = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
-
         actual_phases = [phases for phases, response in actual_data]
         actual_response = [response for phases, response in actual_data]
 
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
         no_chans = setup_data['no_chans']
         graph_units = 'rads'
         graph_title = 'Fringe Offset at {} {}.'.format(fringe_offset, graph_units)
@@ -1906,14 +1921,14 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
-
         actual_data = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
 
         actual_phases = [phases for phases, response in actual_data]
         actual_response = [response for phases, response in actual_data]
+
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
 
         no_chans = setup_data['no_chans']
         graph_units = 'rads/sec'
