@@ -547,8 +547,14 @@ class test_CBF(unittest.TestCase):
             amp = np.mean(np.abs(data)) / setup_data['n_accs']
 
         return zip(phases, chan_resp)
+ def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
 
-    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients):
+        def calc_actual_delay (setup_data):
+            no_ch = len(setup_data['no_chans'])
+            first_dump = actual_phases[0]
+            actual_slope = np.polyfit(range(0,no_ch), first_dump,1)[0]*no_ch
+            actual_delay = setup_data['sample_period']*actual_slope/(np.pi)
+            return actual_delay
 
         def gen_delay_vector(delay, setup_data):
             res = []
@@ -565,6 +571,12 @@ class test_CBF(unittest.TestCase):
             for dump in range(1, dump_counts + 1):
                 tot_delay = (delay + dump * delay_rate * setup_data['int_time'] -
                              .5 * delay_rate * setup_data['int_time'])
+                # The delay does not get applied on dump boundaries. This function
+                # calculates the offset between the expected delay and the actual delay
+                # and then adds this offset to all subsequent calculations.
+                if dump == 1:
+                    delay_offset = calc_actual_delay(setup_data) - tot_delay
+                tot_delay = tot_delay + delay_offset
                 expected_phases.append(gen_delay_vector(tot_delay, setup_data))
             return expected_phases
 
@@ -1816,14 +1828,13 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Fringe Offset: {}'.format(fringe_offset))
         Aqf.step('Fringe Rate: {}'.format(fringe_rate))
 
-        expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                  delay_coefficients)
         actual_data = self._get_actual_data(setup_data, dump_counts,
                                               delay_coefficients)
-
         actual_phases = [phases for phases, response in actual_data]
         actual_response = [response for phases, response in actual_data]
 
+        expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                  delay_coefficients, actual_phases)
         no_chans = setup_data['no_chans']
         graph_units = ' '
         graph_title = 'Delay Rate at {} ns/s'.format(delay_rate * 1e9)
