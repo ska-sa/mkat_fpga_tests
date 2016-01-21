@@ -542,7 +542,7 @@ class test_CBF(unittest.TestCase):
 
         def calc_actual_delay (setup_data):
             no_ch = len(setup_data['no_chans'])
-            first_dump = actual_phases[0]
+            first_dump = np.unwrap(actual_phases[0])
             actual_slope = np.polyfit(range(0,no_ch), first_dump,1)[0]*no_ch
             actual_delay = setup_data['sample_period']*actual_slope/(np.pi)
             return actual_delay
@@ -613,7 +613,6 @@ class test_CBF(unittest.TestCase):
         fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
         fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
 
-        #import IPython; IPython.embed()
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
                                               setup_data)))
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
