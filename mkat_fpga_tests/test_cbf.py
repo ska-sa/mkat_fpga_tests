@@ -10,7 +10,7 @@ import os
 import telnetlib
 import paramiko
 import subprocess
-import colors
+import colors  as clrs
 import operator
 import Queue
 
@@ -259,12 +259,6 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_fringe_offset()
 
-    def test_c8n856M4k_all_delays(self):
-        """CBF per-antenna phase error -- Fringe offset"""
-        Aqf.step('CBF per-antenna phase error -- Fringe offset')
-        self.set_instrument(self.DEFAULT_INSTRUMENT)
-        self._test_all_delays()        
-
     @aqf_vr('TP.C.1.28')
     def test_c8n856M4k_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
@@ -456,6 +450,7 @@ class test_CBF(unittest.TestCase):
         t_apply = dump_1_timestamp + 10 * int_time
         no_chans = range(self.corr_freqs.n_chans)
         reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+
         source_names = reply.arguments[1:][0].split()
         # Get name for test_source_idx
         test_source = source_names[test_source_idx]
@@ -551,7 +546,7 @@ class test_CBF(unittest.TestCase):
             actual_slope = np.polyfit(range(0,no_ch), first_dump,1)[0]*no_ch
             actual_delay = setup_data['sample_period']*actual_slope/(np.pi)
             return actual_delay
-            
+
         def gen_delay_vector(delay, setup_data):
             res = []
             no_ch = len(setup_data['no_chans'])
@@ -1863,7 +1858,7 @@ class test_CBF(unittest.TestCase):
 
 
         aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                               graph_units, graph_name, graph_title, caption, True)                       
+                               graph_units, graph_name, graph_title, caption)
 
         # Ignoring first dump because the delays might not be set for full
         # intergration.
@@ -1887,7 +1882,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_config_report(self):
         """CBF Report configuration"""
-        test_config = correlator_fixture.test_conf
+        test_config = self.corr_fix.test_conf
         def get_roach_config():
 
             Aqf.hop('DEngine :{}'.format(self.dhost.host))
@@ -1935,6 +1930,7 @@ class test_CBF(unittest.TestCase):
             import corr2
             import casperfpga
             import katcp
+            import spead2
 
             corr2_dir, _None = os.path.split(os.path.split(corr2.__file__)[0])
             corr2_name = corr2.__name__
@@ -1944,6 +1940,9 @@ class test_CBF(unittest.TestCase):
 
             katcp_dir, _None = os.path.split(os.path.split(katcp.__file__)[0])
             katcp_name = katcp.__name__
+
+            spead2_dir, _None = os.path.split(os.path.split(spead2.__file__)[0])
+            spead2_name = spead2.__name__
 
             bitstream_dir = self.correlator.configd['xengine']['bitstream']
             mkat_dir, _None = os.path.split(os.path.split(os.path.dirname(
@@ -1966,10 +1965,15 @@ class test_CBF(unittest.TestCase):
                                                    .format(repo_dir), 'rev-parse',
                                                    '--short', 'HEAD']).strip()
 
+                #git_branch = subprocess.check_output(['git', '--git-dir={}/.git'
+                                                     #.format(repo_dir), '--work-tree={}'
+                                                     #.format(repo_dir), 'rev-parse',
+                                                     #'--abbrev-ref', 'HEAD']).strip()
+
                 git_branch = subprocess.check_output(['git', '--git-dir={}/.git'
                                                      .format(repo_dir), '--work-tree={}'
-                                                     .format(repo_dir), 'rev-parse',
-                                                     '--abbrev-ref', 'HEAD']).strip()
+                                                     .format(repo_dir), 'name-rev',
+                                                     '--name-only', 'HEAD']).strip()
 
                 Aqf.hop('Repo: {}, Branch: {}, Last Hash: {}'
                            .format(name, git_branch, git_hash))
@@ -1978,11 +1982,12 @@ class test_CBF(unittest.TestCase):
                         ['git', '--git-dir={}/.git'.format(repo_dir),
                          '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
                 if bool(git_diff):
-                    Aqf.progress('Repo: {}: Contains changes not staged for commit.\n'
-                               'Difference: \n{}'
-                               .format(name, colors.red(git_diff)))
+                    Aqf.progress('Repo: {}: Contains changes not staged for commit.\n\n'
+                                 #'Difference: \n\n{}'
+                                 #.format(name, clrs.red(git_diff)))
+                                 .format(name))
                 else:
-                    Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
+                    Aqf.hop('Repo: {}: Up-to-date.\n\n'.format(name))
 
         def get_pdu_config():
             host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
@@ -2099,12 +2104,19 @@ class test_CBF(unittest.TestCase):
                 remote_conn.close()
                 remote_conn_pre.close()
 
-        Aqf.step('CMC CBF Package Software version information.')
+        Aqf.step('CMC CBF Package Software version information.\n')
+        reply, informs = self.corr_fix.katcp_rct.req.version_list()
+        if reply.reply_ok():
+            katcp_dev, katcp_lib = [i.arguments[-1].split('-')[-1].strip('g')
+                for i in informs
+                if 'katcp-device' in i.arguments or 'katcp-library' in i.arguments]
+            Aqf.hop('Repo: katcp-device, Last Hash:{}\n'.format(katcp_dev))
+            Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
         get_package_versions()
         Aqf.step('CBF ROACH information.')
         get_roach_config()
-        Aqf.step('CBF ROACH information on each PDU.')
-        get_pdu_config()
+        # Aqf.step('CBF ROACH information on each PDU.')
+        # get_pdu_config()
         Aqf.step('CBF ROACH information on each Data Switch.')
         get_data_switch()
         try:
