@@ -552,7 +552,7 @@ class test_CBF(unittest.TestCase):
 
         def calc_actual_delay (setup_data):
             no_ch = len(setup_data['no_chans'])
-            first_dump = actual_phases[0]
+            first_dump = np.unwrap(actual_phases[0])
             actual_slope = np.polyfit(range(0,no_ch), first_dump,1)[0]*no_ch
             actual_delay = setup_data['sample_period']*actual_slope/(np.pi)
             return actual_delay
