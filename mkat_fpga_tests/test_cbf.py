@@ -47,7 +47,7 @@ from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
 from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts
-from mkat_fpga_tests.utils import get_default_instrument, check_lru_okay
+from mkat_fpga_tests.utils import get_default_instrument, check_host_okay
 
 LOGGER = logging.getLogger(__name__)
 
@@ -395,7 +395,7 @@ class test_CBF(unittest.TestCase):
         self.last_pfb_counts = get_pfb_counts(
             get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
         self.addCleanup(check_fftoverflow_qdrstatus, self.correlator, self.last_pfb_counts)
-        self.addCleanup(check_lru_okay, self.correlator)
+        self.addCleanup(check_host_okay, self.correlator)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
