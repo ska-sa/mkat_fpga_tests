@@ -2071,28 +2071,31 @@ class test_CBF(unittest.TestCase):
                 hostname = host.host
                 Aqf.step('Host {}: {}'.format(count, hostname))
                 user = 'root\n'
-                tn = telnetlib.Telnet(hostname)
+                try:
+                    tn = telnetlib.Telnet(hostname)
 
-                tn.read_until('login: ')
-                tn.write(user)
-                tn.write(uboot_cmd)
-                tn.write(romfs_cmd)
-                tn.write(lnx_cmd)
-                tn.write("exit\n")
-                stdout = tn.read_all()
-                tn.close()
+                    tn.read_until('login: ')
+                    tn.write(user)
+                    tn.write(uboot_cmd)
+                    tn.write(romfs_cmd)
+                    tn.write(lnx_cmd)
+                    tn.write("exit\n")
+                    stdout = tn.read_all()
+                    tn.close()
 
-                Aqf.hop('Gateware :{}'.format(', Build Date: '.join(
-                    host.system_info.values()[1::2])))
+                    Aqf.hop('Gateware :{}'.format(', Build Date: '.join(
+                        host.system_info.values()[1::2])))
 
-                uboot_ver = stdout.splitlines()[-6]
-                Aqf.hop('Current UBoot Version: {}'.format(uboot_ver))
+                    uboot_ver = stdout.splitlines()[-6]
+                    Aqf.hop('Current UBoot Version: {}'.format(uboot_ver))
 
-                romfs_ver = stdout.splitlines()[-4]
-                Aqf.hop('Current ROMFS Version: {}'.format(romfs_ver))
+                    romfs_ver = stdout.splitlines()[-4]
+                    Aqf.hop('Current ROMFS Version: {}'.format(romfs_ver))
 
-                linux_ver = stdout.splitlines()[-2]
-                Aqf.hop('Linux Version: {}\n'.format(linux_ver))
+                    linux_ver = stdout.splitlines()[-2]
+                    Aqf.hop('Linux Version: {}\n'.format(linux_ver))
+                except Exception:
+                    Aqf.failed('Could not connect to host: {}'.format(hostname))
 
         def get_src_dir():
 
@@ -2160,61 +2163,64 @@ class test_CBF(unittest.TestCase):
                 password = 'apc\r\n'
                 model_cmd = 'prodInfo\r\n'
                 about_cmd = 'about\r\n'
-                tn = telnetlib.Telnet(host_ip)
+                try:
+                    tn = telnetlib.Telnet(host_ip, timeout=10)
 
-                tn.read_until('User Name : ')
-                tn.write(user)
-                if password:
-                    tn.read_until("Password")
-                    tn.write(password)
+                    tn.read_until('User Name : ')
+                    tn.write(user)
+                    if password:
+                        tn.read_until("Password")
+                        tn.write(password)
 
-                tn.write(model_cmd)
-                tn.write(about_cmd)
-                tn.write("exit\r\n")
-                stdout = tn.read_all()
-                tn.close()
+                    tn.write(model_cmd)
+                    tn.write(about_cmd)
+                    tn.write("exit\r\n")
+                    stdout = tn.read_all()
+                    tn.close()
 
-                if 'Model' in stdout:
-                    pdu_model = stdout[stdout.index('Model'):].split()[1]
-                    Aqf.step('Checking PDU no: {}'.format(count))
-                    Aqf.hop('PDU Model: {} on {}'.format(pdu_model, host_ip))
+                    if 'Model' in stdout:
+                        pdu_model = stdout[stdout.index('Model'):].split()[1]
+                        Aqf.step('Checking PDU no: {}'.format(count))
+                        Aqf.hop('PDU Model: {} on {}'.format(pdu_model, host_ip))
 
-                if 'Name' in stdout:
-                    pdu_name = (' '.join(stdout[stdout.index('Name'):stdout.index(
-                                'Date')].split()[-4:]))
-                    Aqf.hop('PDU Name: {}'.format(pdu_name))
+                    if 'Name' in stdout:
+                        pdu_name = (' '.join(stdout[stdout.index('Name'):stdout.index(
+                                    'Date')].split()[-4:]))
+                        Aqf.hop('PDU Name: {}'.format(pdu_name))
 
-                if 'Serial' in stdout:
-                    pdu_serial = (stdout[stdout.find('Hardware Factory'):]
-                                 .splitlines()[3].split()[-1])
-                    Aqf.hop('PDU Serial Number: {}'.format(pdu_serial))
+                    if 'Serial' in stdout:
+                        pdu_serial = (stdout[stdout.find('Hardware Factory'):]
+                                     .splitlines()[3].split()[-1])
+                        Aqf.hop('PDU Serial Number: {}'.format(pdu_serial))
 
-                if 'Revision' in stdout:
-                    pdu_hw_rev = (stdout[stdout.find('Hardware Factory'):]
-                                 .splitlines()[4].split()[-1])
-                    Aqf.hop('PDU HW Revision: {}'.format(pdu_hw_rev))
+                    if 'Revision' in stdout:
+                        pdu_hw_rev = (stdout[stdout.find('Hardware Factory'):]
+                                     .splitlines()[4].split()[-1])
+                        Aqf.hop('PDU HW Revision: {}'.format(pdu_hw_rev))
 
-                if 'Application Module' and 'Version' in stdout:
-                    pdu_app_ver = (stdout[stdout.find('Application Module'):]
-                                  .split()[6])
-                    Aqf.hop('PDU Application Module Version: {} '.format(
-                                pdu_app_ver))
+                    if 'Application Module' and 'Version' in stdout:
+                        pdu_app_ver = (stdout[stdout.find('Application Module'):]
+                                      .split()[6])
+                        Aqf.hop('PDU Application Module Version: {} '.format(
+                                    pdu_app_ver))
 
-                if 'APC OS(AOS)' in stdout:
-                    pdu_apc_name = (stdout[stdout.find('APC OS(AOS)'):]
-                                   .splitlines()[2].split()[-1])
-                    pdu_apc_ver = (stdout[stdout.find('APC OS(AOS)'):]
-                                  .splitlines()[3].split()[-1])
-                    Aqf.hop('PDU APC OS: {}'.format(pdu_apc_name))
-                    Aqf.hop('PDU APC OS ver: {}'.format(pdu_apc_ver))
+                    if 'APC OS(AOS)' in stdout:
+                        pdu_apc_name = (stdout[stdout.find('APC OS(AOS)'):]
+                                       .splitlines()[2].split()[-1])
+                        pdu_apc_ver = (stdout[stdout.find('APC OS(AOS)'):]
+                                      .splitlines()[3].split()[-1])
+                        Aqf.hop('PDU APC OS: {}'.format(pdu_apc_name))
+                        Aqf.hop('PDU APC OS ver: {}'.format(pdu_apc_ver))
 
-                if 'APC Boot Monitor' in stdout:
-                    pdu_apc_boot = (stdout[stdout.find('APC Boot Monitor'):]
-                                    .splitlines()[2].split()[-1])
-                    pdu_apc_ver = (stdout[stdout.find('APC Boot Monitor'):]
-                                  .splitlines()[3].split()[-1])
-                    Aqf.hop('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
-                    Aqf.hop('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
+                    if 'APC Boot Monitor' in stdout:
+                        pdu_apc_boot = (stdout[stdout.find('APC Boot Monitor'):]
+                                        .splitlines()[2].split()[-1])
+                        pdu_apc_ver = (stdout[stdout.find('APC Boot Monitor'):]
+                                      .splitlines()[3].split()[-1])
+                        Aqf.hop('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
+                        Aqf.hop('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
+                except Exception:
+                    Aqf.failed('Could not connect to PDU host: {}'.format(host_ip))
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
@@ -2233,7 +2239,7 @@ class test_CBF(unittest.TestCase):
                                             timeout=10)
                     remote_conn = remote_conn_pre.invoke_shell()
                     Aqf.step('Connected to Data switch {} on IP: {}'.format(count, ip))
-                except SSHException:
+                except paramiko.SSHException:
                     Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
                                 count, ip))
 
@@ -2400,119 +2406,123 @@ class test_CBF(unittest.TestCase):
 
             hwmon = '/sys/class/hwmon/{}'.format(hwmon_dir)
             hostname = hosts[randrange(len(hosts))]
-            tn = telnetlib.Telnet(hostname)
-            Aqf.step('Connected to Host: {}'.format(hostname))
-            tn.read_until('login: ', timeout=wait_time)
-            tn.write(user)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            # returns current temperature
-            read_cur_temp = 'cat {}/temp1_input\n'.format(hwmon)
-            tn.write(read_cur_temp)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                cur_temp = int(stdout.splitlines()[-2])
-                Aqf.step('Current Air {} Temp: {} deg'.format(label, int(cur_temp)/1000.))
-            except ValueError:
-                Aqf.failed('Failed to read current temp {}.'.format(hostname))
 
-            # returns 1 if the roach is overtemp, it should be 0
-            read_overtemp_ind = 'cat {}/temp1_max_alarm\n'.format(hwmon)
-            tn.write(read_overtemp_ind)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
             try:
+                tn = telnetlib.Telnet(hostname)
+                Aqf.step('Connected to Host: {}'.format(hostname))
+                tn.read_until('login: ', timeout=wait_time)
+                tn.write(user)
+                time.sleep(wait_time)
+                stdout = tn.read_until('#', timeout=wait_time)
+                # returns current temperature
+                read_cur_temp = 'cat {}/temp1_input\n'.format(hwmon)
+                tn.write(read_cur_temp)
+                time.sleep(wait_time)
+                stdout = tn.read_until('#', timeout=wait_time)
+                try:
+                    cur_temp = int(stdout.splitlines()[-2])
+                    Aqf.step('Current Air {} Temp: {} deg'.format(label, int(cur_temp)/1000.))
+                except ValueError:
+                    Aqf.failed('Failed to read current temp {}.'.format(hostname))
+
                 # returns 1 if the roach is overtemp, it should be 0
-                overtemp_ind = int(stdout.splitlines()[-2])
-                Aqf.is_false(overtemp_ind,
-                            'Confirm that the overtemp alarm is Not triggered.')
-            except ValueError:
-                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+                read_overtemp_ind = 'cat {}/temp1_max_alarm\n'.format(hwmon)
+                tn.write(read_overtemp_ind)
+                time.sleep(wait_time)
+                stdout = tn.read_until('#', timeout=wait_time)
+                try:
+                    # returns 1 if the roach is overtemp, it should be 0
+                    overtemp_ind = int(stdout.splitlines()[-2])
+                    Aqf.is_false(overtemp_ind,
+                                'Confirm that the overtemp alarm is Not triggered.')
+                except ValueError:
+                    Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
 
-            # returns 0 if the roach is undertemp, it should be 1
-            read_undertemp_ind = 'cat {}/temp1_min_alarm\n'.format(hwmon)
-            tn.write(read_undertemp_ind)
-            time.sleep(wait_time*3)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                # returns 1 if the roach is undertemp, it should be 1
-                undertemp_ind = int(stdout.splitlines()[-2])
-                Aqf.is_true(undertemp_ind,
-                            'Confirm that the undertemp alarm is Not triggered.')
-            except ValueError:
-                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
-
-            # set the max temp limit to 10 degrees
-            set_max_limit = 'echo "10000" > {}/temp1_max\n'.format(hwmon)
-            tn.write(set_max_limit)
-            Aqf.wait(wait_time, 'Setting max temp limit to 10 degrees')
-            stdout = tn.read_until('#', timeout=wait_time)
-
-            tn.write(read_overtemp_ind)
-            time.sleep(wait_time)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                overtemp_ind = int(stdout.splitlines()[-2])
-                Aqf.is_true(overtemp_ind,
-                            'Confirm that the overtemp alarm is Triggered.')
-            except ValueError:
-                Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
-
-            # set the min temp limit to below current temp
-            set_min_limit = 'echo "10000" > {}/temp1_min\n'.format(hwmon)
-            tn.write(set_min_limit)
-            Aqf.wait(wait_time*2, 'Setting min temp limit to 10 degrees')
-            stdout = tn.read_until('#', timeout=wait_time)
-
-            tn.write(read_undertemp_ind)
-            time.sleep(wait_time*3)
-            stdout = tn.read_until('#', timeout=wait_time)
-            try:
-                undertemp_ind = int(stdout.splitlines()[-2])
-                Aqf.is_false(undertemp_ind,
-                            'Confirm that the undertemp alarm is Triggered.')
-            except ValueError:
-                Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
-
-            # TODO MM add sensor sniffer, at the moment sensor in not implemented
-            # Confirm the CBF sends an error message
-            # "#log warn <> roach2hwmon Sensor\_alarm:\_Chip\_ad7414-i2c-0-4c:\_temp1:\_<>\_C\_(min\_=\_50.0\_C,\_max\_=\_10.0\_C)\_[ALARM]"
-
-            # set the max temp limit back to 55 degrees
-            default_max = 'echo "55000" > {}/temp1_max\n'.format(hwmon)
-            tn.write(default_max)
-            Aqf.wait(wait_time, 'Setting max temp limit back to 55 degrees')
-            stdout = tn.read_until('#', timeout=wait_time)
-
-            # set the min temp limit back to 50 degrees
-            default_min = 'echo "50000" > {}/temp1_min\n'.format(hwmon)
-            tn.write(default_min)
-            Aqf.wait(wait_time, 'Setting min temp limit back to 50 degrees')
-            stdout = tn.read_until('#', timeout=wait_time)
-
-            tn.write(read_overtemp_ind)
-            time.sleep(wait_time*3)
-            overtemp_ind  = tn.read_until('#', timeout=wait_time)
-
-            tn.write(read_undertemp_ind)
-            time.sleep(wait_time*3)
-            undertemp_ind  = tn.read_until('#', timeout=wait_time)
-
-            try:
-                overtemp_ind = int(overtemp_ind.splitlines()[-2])
-                # returns 1 if the roach is overtemp, it should be 0
-                Aqf.is_false(overtemp_ind,
-                            'Confirm that the overtemp alarm was set back to default.')
                 # returns 0 if the roach is undertemp, it should be 1
-                undertemp_ind = int(undertemp_ind.splitlines()[-2])
-                Aqf.is_true(undertemp_ind,
-                            'Confirm that the undertemp alarm was set back to default.\n')
-            except ValueError:
-                Aqf.failed('Failed to read undertemp alarm on {}.\n'.format(hostname))
+                read_undertemp_ind = 'cat {}/temp1_min_alarm\n'.format(hwmon)
+                tn.write(read_undertemp_ind)
+                time.sleep(wait_time*3)
+                stdout = tn.read_until('#', timeout=wait_time)
+                try:
+                    # returns 1 if the roach is undertemp, it should be 1
+                    undertemp_ind = int(stdout.splitlines()[-2])
+                    Aqf.is_true(undertemp_ind,
+                                'Confirm that the undertemp alarm is Not triggered.')
+                except ValueError:
+                    Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
 
-            tn.write("exit\n")
-            tn.close()
+                # set the max temp limit to 10 degrees
+                set_max_limit = 'echo "10000" > {}/temp1_max\n'.format(hwmon)
+                tn.write(set_max_limit)
+                Aqf.wait(wait_time, 'Setting max temp limit to 10 degrees')
+                stdout = tn.read_until('#', timeout=wait_time)
+
+                tn.write(read_overtemp_ind)
+                time.sleep(wait_time)
+                stdout = tn.read_until('#', timeout=wait_time)
+                try:
+                    overtemp_ind = int(stdout.splitlines()[-2])
+                    Aqf.is_true(overtemp_ind,
+                                'Confirm that the overtemp alarm is Triggered.')
+                except ValueError:
+                    Aqf.failed('Failed to read overtemp alarm on {}.'.format(hostname))
+
+                # set the min temp limit to below current temp
+                set_min_limit = 'echo "10000" > {}/temp1_min\n'.format(hwmon)
+                tn.write(set_min_limit)
+                Aqf.wait(wait_time*2, 'Setting min temp limit to 10 degrees')
+                stdout = tn.read_until('#', timeout=wait_time)
+
+                tn.write(read_undertemp_ind)
+                time.sleep(wait_time*3)
+                stdout = tn.read_until('#', timeout=wait_time)
+                try:
+                    undertemp_ind = int(stdout.splitlines()[-2])
+                    Aqf.is_false(undertemp_ind,
+                                'Confirm that the undertemp alarm is Triggered.')
+                except ValueError:
+                    Aqf.failed('Failed to read undertemp alarm on {}.'.format(hostname))
+
+                # TODO MM add sensor sniffer, at the moment sensor in not implemented
+                # Confirm the CBF sends an error message
+                # "#log warn <> roach2hwmon Sensor\_alarm:\_Chip\_ad7414-i2c-0-4c:\_temp1:\_<>\_C\_(min\_=\_50.0\_C,\_max\_=\_10.0\_C)\_[ALARM]"
+
+                # set the max temp limit back to 55 degrees
+                default_max = 'echo "55000" > {}/temp1_max\n'.format(hwmon)
+                tn.write(default_max)
+                Aqf.wait(wait_time, 'Setting max temp limit back to 55 degrees')
+                stdout = tn.read_until('#', timeout=wait_time)
+
+                # set the min temp limit back to 50 degrees
+                default_min = 'echo "50000" > {}/temp1_min\n'.format(hwmon)
+                tn.write(default_min)
+                Aqf.wait(wait_time, 'Setting min temp limit back to 50 degrees')
+                stdout = tn.read_until('#', timeout=wait_time)
+
+                tn.write(read_overtemp_ind)
+                time.sleep(wait_time*3)
+                overtemp_ind  = tn.read_until('#', timeout=wait_time)
+
+                tn.write(read_undertemp_ind)
+                time.sleep(wait_time*3)
+                undertemp_ind  = tn.read_until('#', timeout=wait_time)
+
+                try:
+                    overtemp_ind = int(overtemp_ind.splitlines()[-2])
+                    # returns 1 if the roach is overtemp, it should be 0
+                    Aqf.is_false(overtemp_ind,
+                                'Confirm that the overtemp alarm was set back to default.')
+                    # returns 0 if the roach is undertemp, it should be 1
+                    undertemp_ind = int(undertemp_ind.splitlines()[-2])
+                    Aqf.is_true(undertemp_ind,
+                                'Confirm that the undertemp alarm was set back to default.\n')
+                except ValueError:
+                    Aqf.failed('Failed to read undertemp alarm on {}.\n'.format(hostname))
+
+                tn.write("exit\n")
+                tn.close()
+            except Exception:
+                Aqf.failed('Could not connect to host: {}'.format(hostname))
 
         hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
         user = 'root\n'
