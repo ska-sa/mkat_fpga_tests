@@ -2277,9 +2277,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CMC CBF Package Software version information.')
         reply, informs = self.corr_fix.katcp_rct.req.version_list()
         if reply.reply_ok():
-            katcp_dev, katcp_lib = [i.arguments[-1].split('-')[-1].strip('g')
-                for i in informs
-                if 'katcp-device' in i.arguments or 'katcp-library' in i.arguments]
+            katcp_dev, katcp_lib = [i.arguments[-1].split('-')[-1][1:]
+                                    for i in informs
+                                    if ('katcp-device' in i.arguments or
+                                        'katcp-library' in i.arguments)]
             Aqf.hop('Repo: katcp-device, Last Hash:{}\n'.format(katcp_dev))
             Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
         get_package_versions()
