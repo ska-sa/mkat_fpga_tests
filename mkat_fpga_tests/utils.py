@@ -418,21 +418,40 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     return QDR_error_roaches
 
 def check_host_okay(correlator):
-    """Checks if ct,vacc and rx are okay?
+    """
+    Checks if corner turner, vacc and rx are okay?
     Param: correlator object
     Return: None
     """
-    [Aqf.failed('{}: corner turner NOT okay!'.format(host.host))
-     for host in correlator.fhosts
-        if host.ct_okay() is False]
+    for host in correlator.fhosts:
+        if host.ct_okay() is False:
+            Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host.host))
+        if host.check_tx_raw() is False:
+            Aqf.failed('Fhost: {}: Check to see whether this host is transmitting '
+                       'packets without error on all its GBE interfaces.'
+                       .format(host.host))
+        if host.check_rx_raw() is False:
+            Aqf.failed('Fhost: {}: Check that the host is receiving 10gbe data '
+                       'correctly?'.format(host.host))
+        if host.check_rx_spead() is False:
+            Aqf.failed('Fhost: {}: Check that this host is receiving SPEAD data.'
+                       .format(host.host))
+        if host.check_rx_reorder() is False:
+            Aqf.failed('Check that host reordering received data correctly?'
+                       .format(host.host))
 
-    [Aqf.failed('{}: VACC NOT okay!'.format(host.host))
-     for host in correlator.xhosts
-        if host.vacc_okay() is False]
-
-    [Aqf.failed('{}: NOT rx data!'.format(host.host))
-     for host in correlator.fhosts + correlator.xhosts
-        if host.check_rx() is False]
+    for host in correlator.xhosts:
+        if host.vacc_okay() is False:
+            Aqf.failed('{}: VACC NOT okay!'.format(host.host))
+        if host.check_rx_raw() is False:
+            Aqf.failed('Xhost: {}: Check that the host is receiving 10gbe data '
+                       'correctly?'.format(host.host))
+        if host.check_rx_spead() is False:
+            Aqf.failed('Xhost: {}: Check that this host is receiving SPEAD data.'
+                       .format(host.host))
+        if host.check_rx_reorder() is False:
+            Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'
+                       .format(host.host))
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
