@@ -103,13 +103,12 @@ class test_CBF(unittest.TestCase):
             self.DEFAULT_ACCUMULATION_TIME, timeout=10)
         if reply.succeeded:
             Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
-            # self.xengops.set_acc_time(self.DEFAULT_ACCUMULATION_TIME)
             self.addCleanup(self.corr_fix.stop_x_data)
             self.receiver = CorrRx(port=8888, queue_size=1000)
             start_thread_with_cleanup(self, self.receiver, start_timeout=1)
             self.corr_fix.start_x_data()
             self.corr_fix.issue_metadata()
-            self._test_qdr_fftoverlow()
+            self._systems_tests()
         else:
             Aqf.failed('Failed to set Accumulation time. Reply: {}'.format(reply))
 
@@ -390,11 +389,13 @@ class test_CBF(unittest.TestCase):
     #################################################################
 
 
-    def _test_qdr_fftoverlow(self):
+    def _systems_tests(self):
         # Test fft overflow and qdr status before
+
         self.last_pfb_counts = get_pfb_counts(
             get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
-        self.addCleanup(check_fftoverflow_qdrstatus, self.correlator, self.last_pfb_counts)
+        self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
+                        self.last_pfb_counts)
         self.addCleanup(check_host_okay, self.correlator)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
@@ -623,7 +624,6 @@ class test_CBF(unittest.TestCase):
         fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
         fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
 
-        #import IPython; IPython.embed()
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
                                               setup_data)))
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate,
