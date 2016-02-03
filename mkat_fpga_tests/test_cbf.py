@@ -340,6 +340,13 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_control_init()
 
+    @aqf_vr('TP.C.1.29')
+    def test_c8n856M4k_gain_correction(self):
+        """CBF Gain Correction"""
+        Aqf.step('CBF Gain Correction\n')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_gain_correction()
+
     #################################################################
     #                       32K Mode Tests                          #
     #################################################################
@@ -2662,9 +2669,23 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Imaging data product set has not been implemented.')
 
     def _test_control_init(self):
+        import IPython;IPython.embed()
         Aqf.passed('List of available commands\n{}'.format(self.corr_fix.katcp_rct.req.help()))
         # TODO 2016-01-14,Record in the observations section below which of the
         # following control commands have been implemented:
         # Downconversion frequency, Channelisation configuration,
         # Accumulation interval, Re-quantiser settings (Gain),
         # Complex gain correction, Polarisation correction
+
+    def _test_gain_correction(self):
+        """CBF Gain Correction"""
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        test_freq = self.corr_freqs.bandwidth / 2.
+        source = 0
+        test_input = [input['source'].name
+                      for input in self.correlator.fengine_sources][source]
+        gains = [0+2i, 0+6i, 6+0i]
+
+        get_and_restore_initial_eqs(self, self.correlator)
+        reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, 0)
+        Aqf.step('Gain factors set {}.'.format(reply.arguments[0]))
