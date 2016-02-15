@@ -2669,12 +2669,8 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Imaging data product set has not been implemented.')
 
     def _test_control_init(self):
-        Aqf.passed('List of available commands\n{}'.format(self.corr_fix.katcp_rct.req.help()))
-        # TODO 2016-01-14,Record in the observations section below which of the
-        # following control commands have been implemented:
-        # Downconversion frequency, Channelisation configuration,
-        # Accumulation interval, Re-quantiser settings (Gain),
-        # Complex gain correction, Polarisation correction
+        Aqf.passed('List of available commands\n{}'.format(
+                    self.corr_fix.katcp_rct.req.help()))
         Aqf.waived('Polarisation correction has not been implemented yet.')
         Aqf.is_true(self.corr_fix.katcp_rct.req.gain.is_active(),
                     'Re-quantiser settings (Gain) and Complex gain correction has '
@@ -2689,10 +2685,28 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         test_freq = self.corr_freqs.bandwidth / 2.
         source = 0
+        gains = [0, 1+0j, 2j, 6j, 6+0j]
+        legends = ['Gain set to {}'.format(x) for x in gains]
+
         test_input = [input['source'].name
                       for input in self.correlator.fengine_sources][source]
-        gains = [0+2i, 0+6i, 6+0i]
+        init_eqs = get_and_restore_initial_eqs(self, self.correlator)
 
-        get_and_restore_initial_eqs(self, self.correlator)
-        reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, 0)
-        Aqf.step('Gain factors set {}.'.format(reply.arguments[0]))
+        chan_resp = []
+        for gain in gains:
+            reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, gain)
+            if reply.reply_ok():
+                Aqf.step('Gain correction on input {} set to {}.'.format(test_input, gain))
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                response = normalised_magnitude(dump['xeng_raw'].value[:, source, :])
+                chan_resp.append(response)
+
+        aqf_plot_channels(zip(chan_resp, legends),
+                            plot_filename='{}.svg'.format(self._testMethodName),
+                            plot_title='Log channel response Gain Correction',
+                            log_dynamic_range=90, log_normalise_to=1,
+                            caption='Log channel response Gain Correction')
+
+        ([Aqf.step('Restored initial gains on {} to default {}'.format(source_name,
+                  self.corr_fix.katcp_rct.req.gain(source_name, gain_value[0])))
+        for source_name, gain_value in init_eqs.iteritems()])
