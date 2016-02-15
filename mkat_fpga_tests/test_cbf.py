@@ -340,6 +340,13 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_control_init()
 
+    @aqf_vr('TP.C.1.42')
+    def test_c8n856M4k_time_sync(self):
+        """CBF Time synchronisation """
+        Aqf.step('CBF Time synchronisation\n')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_time_sync()
+
     #################################################################
     #                       32K Mode Tests                          #
     #################################################################
@@ -2671,3 +2678,13 @@ class test_CBF(unittest.TestCase):
                     'Accumulation interval has been implemented')
         Aqf.is_true(self.corr_fix.katcp_rct.req.frequency_select.is_active(),
                     'Channelisation configuration has been implemented')
+
+    def _test_time_sync(self):
+        #Packets received by the CBF contains timestamps added by the digitiser.
+        #The CBF must convert this to UTC time. The accuracy of this conversion
+        #must be checked.
+        #This can be done by using a digitiser simulator that has a 1 PPS input
+        #and is capable
+        #of adding data on a timed trigger. The CBF data can then be analysed to
+        #make sure the
+        #expected pattern is present at the correct time.
