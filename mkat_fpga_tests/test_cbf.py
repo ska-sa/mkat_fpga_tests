@@ -2669,13 +2669,20 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Imaging data product set has not been implemented.')
 
     def _test_control_init(self):
-        import IPython;IPython.embed()
         Aqf.passed('List of available commands\n{}'.format(self.corr_fix.katcp_rct.req.help()))
         # TODO 2016-01-14,Record in the observations section below which of the
         # following control commands have been implemented:
         # Downconversion frequency, Channelisation configuration,
         # Accumulation interval, Re-quantiser settings (Gain),
         # Complex gain correction, Polarisation correction
+        Aqf.waived('Polarisation correction has not been implemented yet.')
+        Aqf.is_true(self.corr_fix.katcp_rct.req.gain.is_active(),
+                    'Re-quantiser settings (Gain) and Complex gain correction has '
+                    'been implemented')
+        Aqf.is_true(self.corr_fix.katcp_rct.req.accumulation_length.is_active(),
+                    'Accumulation interval has been implemented')
+        Aqf.is_true(self.corr_fix.katcp_rct.req.frequency_select.is_active(),
+                    'Channelisation configuration has been implemented')
 
     def _test_gain_correction(self):
         """CBF Gain Correction"""
