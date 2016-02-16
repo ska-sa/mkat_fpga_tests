@@ -352,6 +352,13 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_control_init()
 
+    @aqf_vr('TP.C.1.42')
+    def test_c8n856M4k_time_sync(self):
+        """CBF Time synchronisation """
+        Aqf.step('CBF Time synchronisation\n')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_time_sync()
+
     #################################################################
     #                       32K Mode Tests                          #
     #################################################################
@@ -2689,3 +2696,30 @@ class test_CBF(unittest.TestCase):
                     'Accumulation interval has been implemented')
         Aqf.is_true(self.corr_fix.katcp_rct.req.frequency_select.is_active(),
                     'Channelisation configuration has been implemented')
+
+    def _test_time_sync(self):
+        import ntplib
+        ntp_client = ntplib.NTPClient()
+        try:
+            ntp_time = ntp_client.request('pool.ntp.org').tx_time
+            unix_time = time.time() # 2ms difference between UNIX time and ntp
+        except Exception:
+            ntp_time = ntp_client.request('0.za.pool.ntp.org').tx_time
+
+        self.correlator.est_sync_epoch()
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        time_stamp = initial_dump['timestamp'].value
+        sync_time = initial_dump['sync_time'].value
+        scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
+        time_stamp = initial_dump['timestamp'].value
+        # Network round trip of 3ms
+        roundtrip = 0.003
+        dump_1_timestamp = (sync_time + roundtrip +
+                            time_stamp / scale_factor_timestamp)
+
+        time_diff = np.abs(ntp_time - dump_1_timestamp)
+        Aqf.less(time_diff, 5e-3,
+                'R.C.CG.22: CBF Time synchronisation: '
+                'Confirm that CBF synchronise time to within 5ms of '
+                'UTC time as provided via PTP on the CBF-TRF interface.')
