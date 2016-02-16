@@ -34,7 +34,8 @@ def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
 def loggerise(data, dynamic_range=70, normalise_to=None):
-    log_data = 10*np.log10(data)
+    with np.errstate(divide='ignore'):
+        log_data = 10*np.log10(data)
     if normalise_to:
         max_log = normalise_to
     else:
@@ -316,8 +317,6 @@ def rearrange_snapblock(snap_data, reverse=False):
 
 def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
-    #import IPython;IPython.embed()
-
     # TODO MM 2015-10-22
     # Hardcoded shit. fix it
     host = [i['host'] for i in instrument.fengine_sources][0]
