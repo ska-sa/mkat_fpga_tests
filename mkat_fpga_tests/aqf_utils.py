@@ -53,6 +53,28 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
     else:
         Aqf.passed(description)
 
+
+def Aqf_is_not_equals(result, expected, description):
+    """
+    Compares numerical result to an expected value and logs to Aqf.
+
+    Parameters
+    ----------
+
+    result: numeric type or array of type
+        Actual result to be checked.
+    expected: Same as result
+        Expected result
+    description: String
+        Message describing the purpose of the comparison.
+    """
+    try:
+        np.testing.assert_equal(result,expected)
+    except AssertionError:
+        Aqf.passed(description)
+    else:
+        Aqf.failed(description)
+
 def aqf_numpy_allclose(result, expected, description, **kwargs):
     """Compares numerical result to an expected value and logs to Aqf.
 
