@@ -124,6 +124,7 @@ class CorrelatorFixture(object):
                 self.correlator.initialise(program=False)
                 return self._correlator
             else:
+                LOGGER.info('Initialising default correlator parameters.')
                 self.start_correlator()
 
     def halt_array(self):
