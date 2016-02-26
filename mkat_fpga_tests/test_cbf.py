@@ -864,7 +864,7 @@ class test_CBF(unittest.TestCase):
         print_counts = 4
 
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:10], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
             if channel < print_counts:
                 Aqf.step ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
