@@ -396,25 +396,19 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     curr_pfb_counts = get_pfb_counts(
         fftoverflow_qdrstatus['fhosts'].items())
 
-    # Test FFT Overflow status
     for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
         last_pfb_counts.items(), curr_pfb_counts.items()):
         if curr_pfb_host is curr_pfb_host_x:
             if curr_pfb_value != last_pfb_value:
                 Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
-    # Test QDR error flags
     for hosts_status in fftoverflow_qdrstatus.values():
         for host, hosts_status in hosts_status.items():
             if hosts_status['QDR_okay'] is False:
                 Aqf.failed('QDR status on {} not Okay.'.format(host))
                 QDR_error_roaches.add(host)
-           # else:
-           #     Aqf.passed('QDR status on {} Okay.'.format(host))
-    # Test QDR status
-    # Aqf.is_false(QDR_error_roaches,
-    #    'Check for QDR errors.')
-    return QDR_error_roaches
+
+    return list(QDR_error_roaches)
 
 def check_host_okay(correlator):
     """
