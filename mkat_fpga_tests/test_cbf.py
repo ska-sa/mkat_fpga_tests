@@ -658,7 +658,7 @@ class test_CBF(unittest.TestCase):
     def _test_channelisation(self, required_chan_spacing, test_chan):
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=101, chans_around=2)
+            test_chan, samples_per_chan=101, chans_around=3)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
@@ -683,7 +683,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.info ('Getting channel response for freq {}/{}: {} MHz.'
                              .format(i + 1, len(requested_test_freqs), freq / 1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.6)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
