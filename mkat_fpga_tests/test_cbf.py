@@ -1438,14 +1438,27 @@ class test_CBF(unittest.TestCase):
     def _test_feng_link_error(self):
         # Select an F-engine that is being used to produce the test data product on
         # which to trigger the link error.
-        # To set: Using the roach2 KATCP interface
+        fhost = self.correlator.fhosts[0]
+
         # Record the current multicast desitination of one of the F-engine data
         # ethernet ports,
+        mul_ip = (fhost.katcprequest('wordread',
+                                     request_args=(['iptx_base']))[0].arguments[1])
+        cur_mul_ip_x = mul_ip[2:]
+        cur_mul_ip_int = [int(x+y, 16) for x,y in zip(
+                                            cur_mul_ip_x[::2], cur_mul_ip_x[1::2])]
+
         # configure the same port multicast destination to an unused address,
         # effectively dropping that data.
+        junk_ip = fhost.katcprequest('wordwrite',
+                                     requested_args=(['iptx_base', '0', '0xefefefef']))
+        dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+
         # To clear: Restore the data ethernet port multicast destination to the saved
         # value.
-        Aqf.tbd('Link Error: F-engine to X-engine test not yet implemented.')
+        restore_ip = fhost.katcprequest('wordwrite',
+                                        requested_args=(['iptx_base', '0', mul_ip]))
+
 
     def _test_deng_link_error(self):
         # To set: Disable data output on one of the digitiser simulator's outputs
