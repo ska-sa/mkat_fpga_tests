@@ -2683,10 +2683,10 @@ class test_CBF(unittest.TestCase):
         import ntplib
         ntp_client = ntplib.NTPClient()
         try:
-            ntp_time = ntp_client.request('pool.ntp.org').tx_time
+            ntp_time = ntp_client.request('192.168.194.2').tx_time
             unix_time = time.time() # 2ms difference between UNIX time and ntp
         except Exception:
-            ntp_time = ntp_client.request('0.za.pool.ntp.org').tx_time
+            ntp_time = ntp_client.request('192.168.1.21').tx_time
 
         self.correlator.est_sync_epoch()
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
