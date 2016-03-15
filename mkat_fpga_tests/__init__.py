@@ -7,6 +7,8 @@ import time
 from testconfig import config as test_config
 
 from corr2.dsimhost_fpga import FpgaDsimHost
+from casperfpga import utils as fpgautils
+from casperfpga import katcp_fpga
 
 from katcp import resource_client
 from katcp import ioloop_manager
@@ -41,8 +43,7 @@ class CorrelatorFixture(object):
 
     def __init__(self, test_config_filename=None):
         if test_config_filename is None:
-            test_config_filename = os.environ.get(
-                'CORR2TESTINI',
+            test_config_filename = os.environ.get('CORR2TESTINI',
                 './mkat_fpga_tests/config_templates/test_conf.ini')
             self.test_conf = utils.parse_ini_file(
                 test_config_filename)
@@ -91,14 +92,14 @@ class CorrelatorFixture(object):
             self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
             if self._dhost.is_running():
-                LOGGER.info('D-Eng is running')
+                LOGGER.info('D-Eng is already running.')
             else:
                 # Programming and starting D-Eng
                 self._dhost.initialise()
                 self._dhost.enable_data_output(enabled=True)
                 self._dhost.registers.control.write(gbe_txen=True)
                 if self._dhost.is_running():
-                    LOGGER.info('D-Eng Started succesfully')
+                    LOGGER.info('D-Eng started succesfully')
             return self._dhost
 
     @property
@@ -108,11 +109,12 @@ class CorrelatorFixture(object):
             return self._correlator
         else: # include a check, if correlator is running else start it.
             if not self._correlator_started:
+                LOGGER.info('Correlator not running, now starting.')
                 self.start_correlator()
 
-            # We assume either start_correlator() above has been called, or the instrument
-            # was started with the name contained in self.array_name before running the
-            # test.
+            # We assume either start_correlator() above has been called, or the
+            # instrument was started with the name contained in self.array_name
+            # before running the test.
 
             # TODO: hard-coded config location
             self.config_filename = '/etc/corr/{}-{}'.format(
@@ -146,16 +148,16 @@ class CorrelatorFixture(object):
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
             except IndexError:
-                raise RuntimeError('Failed to assign katcp array port number.')
+                raise RuntimeError('Failed to assign katcp array port number, IndexError')
 
             katcp_rc = resource_client.KATCPClientResource(
-                dict(name='localhost', address=(
-                    'localhost', '{}'.format(self.katcp_array_port)),
-                    controlled=True))
+                        dict(name='localhost', address=(
+                        'localhost', '{}'.format(self.katcp_array_port)),
+                        controlled=True))
             katcp_rc.set_ioloop(self.io_manager.get_ioloop())
             self._katcp_rct = (
-                resource_client.ThreadSafeKATCPClientResourceWrapper(
-                    katcp_rc, self.io_wrapper))
+                              resource_client.ThreadSafeKATCPClientResourceWrapper(
+                              katcp_rc, self.io_wrapper))
             self._katcp_rct.start()
             self._katcp_rct.until_synced()
         return self._katcp_rct
@@ -164,11 +166,17 @@ class CorrelatorFixture(object):
         LOGGER.info ('Start X data capture')
         self.output_product = (self.correlator.configd['xengine']
             ['output_products'][0])
-        self.katcp_rct.req.capture_start(self.output_product)
+        try:
+            self.katcp_rct.req.capture_start(self.output_product)
+        except Exception as errmsg:
+            raise RuntimeError('Failed to capture stop: {}'.format(errmsg))
 
     def stop_x_data(self):
         LOGGER.info ('Stop X data capture')
-        self.katcp_rct.req.capture_stop(self.output_product)
+        try:
+            self.katcp_rct.req.capture_stop(self.output_product)
+        except Exception as errmsg:
+            raise RuntimeError('Failed to capture stop: {}'.format(errmsg))
 
     def ensure_instrument(self, instrument, **kwargs):
         """Ensure that named instrument is active on the correlator array
@@ -177,16 +185,18 @@ class CorrelatorFixture(object):
 
         """
         if not self.check_instrument(instrument):
-            self.start_correlator(instrument, **kwargs)
+            LOGGER.info('Correlator not running requested instrument, will restart.')
+            self.instrument = instrument
+            self.start_correlator(self.instrument, **kwargs)
 
     def check_instrument(self, instrument):
         """Return true if named instrument is enabled on correlator array
 
-        Uses the correlator array KATCP interface to check if the requested instrument is
-        active
+        Uses the correlator array KATCP interface to check if the requested
+        instrument is active
 
         """
-        # Get a list of products associated with instrument
+        # Get a list of instruments associated with instrument
         try:
             _rsync = self.katcp_rct.start()
             if self.katcp_rct.state == 'synced':
@@ -195,38 +205,56 @@ class CorrelatorFixture(object):
                 raise RuntimeError('Could not resynchronise katcp connection.')
         except RuntimeError:
             # This probably means that no array has been defined yet and therefore the
-            # katcp_rct client cannot be created. IOW, the desired instrument would not be
-            # available
+            # katcp_rct client cannot be created. IOW, the desired instrument would
+            # not be available
             return False
         if not reply.succeeded:
             raise RuntimeError('Array request failed: {}'.format(reply))
-        # TODO MM 2016-01-13 some discrepancies on the logic, Something to look at
-        # Run manually and debug
-        instrument_products = set(reply.informs[0].arguments[1:])
-        #instrument_products = reply.informs[0].arguments[1:]
 
-        # Get list of available data products and check that the products belonging to the
-        # requested instrument is available
-        reply = self.katcp_rct.req.capture_list()
-        if not reply.succeeded:
-            raise RuntimeError('Array request failed: {}'.format(reply))
-        products = set(i.arguments[0] for i in reply.informs)
-        #products = reply.informs[0].arguments[0][1:-1]
+        instruments_available = [instrument_avail.arguments[0]
+                                 for instrument_avail in reply.informs]
+        # Test to see if requested instrument is available on the instrument list
+        if instrument not in instruments_available:
+            raise RuntimeError('Instrument: {} is not in instrument list: {}'.format(
+                                instrument, instruments_available))
 
-        instrument_products_present = products.intersection(
-            instrument_products) == instrument_products
-        # instrument_products_present = products == instrument_products[0]
-        if instrument_products_present:
+        # Get currently running instrument listed on the sensor(s)
+        reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        if not reply.istatus:
+            raise RuntimeError('Sensor request failed: {}'.format(reply))
+        running_intrument = reply.value
+
+        instrument_present = instrument == running_intrument
+        if instrument_present:
             self.instrument = instrument
-        return instrument_products_present
+        return instrument_present
+
+    def deprogram_fpgas(self):
+        hosts = []
+        masq_path = '/var/lib/misc/dnsmasq.leases'
+        if os.path.isfile(masq_path):
+            masqfile = open(masq_path)
+            for line in masqfile:
+                if line.find('roach') > 0:
+                    roachname = line[line.find('roach'):line.find(' ', line.find('roach') + 1)].strip()
+                    hosts.append(roachname)
+            masqfile.close()
+            HOSTCLASS = katcp_fpga.KatcpFpga
+            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+                                  HOSTCLASS, hosts)
+            deprogrammed_fpgas = fpgautils.threaded_fpga_function(
+                                    connected_fpgas, 10, 'deprogram')
+        LOGGER.info('FPGAs in dnsmasq all deprogrammed')
 
     def start_correlator(self, instrument='bc8n856M4k', retries=30, loglevel='INFO'):
+        self.deprogram_fpgas()
         success = False
         retries_requested = retries
         self.instrument = instrument
         self._correlator = None # Invalidate cached correlator instance
-        # starting d-engine before correlator
-        self.dhost
+        LOGGER.info('Confirm DEngine is runninf before starting correlator')
+        if not self.dhost.is_running():
+            raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
         _d = self.test_conf
         host_port = _d['test_confs']['katcp_port']
         multicast_ip = _d['test_confs']['source_mcast_ips']
@@ -243,7 +271,7 @@ class CorrelatorFixture(object):
                 self.rct.req.array_assign(self.array_name,
                     *multicast_ip.split(','))
 
-                LOGGER.info ("Starting Correlator.")
+                LOGGER.info ("Starting Correlator. Try: {}".format(retries))
                 reply, informs = self.katcp_rct.req.instrument_activate(
                     self.instrument, timeout=500)
 
@@ -256,8 +284,11 @@ class CorrelatorFixture(object):
                     LOGGER.warn('Failed to start correlator, {} attempts left.'
                         '\nRestarting Correlator.\nReply:{}, Informs: {}'
                             .format(retries, reply, informs))
+                    self.deprogram_fpgas()
                     self.rct.req.array_halt(self.array_name)
                     self.katcp_rct.stop()
+                    self._katcp_rct = None
+                    self.katcp_array_port = None
 
             except Exception:
                 try:
