@@ -178,6 +178,31 @@ class CorrelatorFixture(object):
         except Exception as errmsg:
             raise RuntimeError('Failed to capture stop: {}'.format(errmsg))
 
+    def deprogram_fpgas(self):
+        """
+        Deprogram CASPER devices listed on dnsmasq leases
+        """
+        hosts = []
+        masq_path = '/var/lib/misc/dnsmasq.leases'
+        if os.path.isfile(masq_path):
+            masqfile = open(masq_path)
+            for line in masqfile:
+                if line.find('roach') > 0:
+                    roachname = line[line.find('roach'):line.find(' ', line.find('roach') + 1)].strip()
+                    hosts.append(roachname)
+            masqfile.close()
+            HOSTCLASS = katcp_fpga.KatcpFpga
+            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+                                  HOSTCLASS, hosts)
+            try:
+                deprogrammed_fpgas = fpgautils.threaded_fpga_function(
+                                    connected_fpgas, 10, 'deprogram')
+                LOGGER.info('FPGAs in dnsmasq all deprogrammed')
+                return True
+            except Exception as errmsg:
+                LOGGER.error('Failed to deprogram FPGAs: {}'.format(errmsg))
+                return False
+
     def ensure_instrument(self, instrument, **kwargs):
         """Ensure that named instrument is active on the correlator array
 
@@ -186,6 +211,7 @@ class CorrelatorFixture(object):
         """
         if not self.check_instrument(instrument):
             LOGGER.info('Correlator not running requested instrument, will restart.')
+            self.deprogram_fpgas()
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
 
@@ -229,25 +255,7 @@ class CorrelatorFixture(object):
             self.instrument = instrument
         return instrument_present
 
-    def deprogram_fpgas(self):
-        hosts = []
-        masq_path = '/var/lib/misc/dnsmasq.leases'
-        if os.path.isfile(masq_path):
-            masqfile = open(masq_path)
-            for line in masqfile:
-                if line.find('roach') > 0:
-                    roachname = line[line.find('roach'):line.find(' ', line.find('roach') + 1)].strip()
-                    hosts.append(roachname)
-            masqfile.close()
-            HOSTCLASS = katcp_fpga.KatcpFpga
-            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                                  HOSTCLASS, hosts)
-            deprogrammed_fpgas = fpgautils.threaded_fpga_function(
-                                    connected_fpgas, 10, 'deprogram')
-        LOGGER.info('FPGAs in dnsmasq all deprogrammed')
-
     def start_correlator(self, instrument='bc8n856M4k', retries=30, loglevel='INFO'):
-        self.deprogram_fpgas()
         success = False
         retries_requested = retries
         self.instrument = instrument

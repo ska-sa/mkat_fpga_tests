@@ -27,7 +27,6 @@ from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 from collections import namedtuple
 from corr2 import utils
-from casperfpga import utils as fpgautils
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
@@ -185,7 +184,7 @@ class test_CBF(unittest.TestCase):
     def test_c8n856M4k_sensor_values(self, instrument='bc8n856M4k'):
         """Report sensor values (AR1)"""
         Aqf.step('Report sensor values (AR1)\n')
-        self.set_instrument()
+        self.set_instrument(instrument)
         self._test_sensor_values()
 
     @aqf_vr('TP.C.1.16')
@@ -204,7 +203,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.40')
     def test_product_switch_c8n856M4k(self, instrument='bc8n856M4k'):
-        """CBF Data Product Switching Time"""
+        """CBF Data Product Switching Time 4K """
         Aqf.step('CBF Data Product Switching Time: {}\n'.format(instrument))
         self.set_instrument(instrument)
         self._test_product_switch(instrument, no_channels=4096)
@@ -384,7 +383,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.40')
     def test_product_switch_c8n856M32k(self, instrument='c8n856M32k'):
-        """CBF Data Product Switching Time"""
+        """CBF Data Product Switching Time 32K"""
         Aqf.step('CBF Data Product Switching Time: {}\n'.format(instrument))
         self.set_instrument(instrument)
         self._test_product_switch(instrument, no_channels=32768)
@@ -654,8 +653,7 @@ class test_CBF(unittest.TestCase):
     def _test_channelisation(self, required_chan_spacing, test_chan):
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=9, chans_around=2)
-           # test_chan, samples_per_chan=101, chans_around=2)
+            test_chan, samples_per_chan=101, chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Put some noise on output
         # self.dhost.noise_sources.noise_0.set(scale=1e-3)
@@ -862,7 +860,7 @@ class test_CBF(unittest.TestCase):
         print_counts = 4
 
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:10], start_chan):
+                self.corr_freqs.chan_freqs[start_chan:], start_chan):
             if channel < print_counts:
                 Aqf.step ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
@@ -1544,18 +1542,16 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Confirm that SPEAD packets are being produced')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-        Aqf.step('Stopped Xengine data capturing/receiving.')
-        self.corr_fix.stop_x_data()
+        try:
+            self.corr_fix.stop_x_data()
+        except:
+            pass
         Aqf.step('Deprogramming xhosts first then fhosts avoid reorder timeout errors')
         xhosts = self.correlator.xhosts
         fhosts = self.correlator.fhosts
-
-        fpgautils.threaded_fpga_function(xhosts, 10, 'deprogram')
-        fpgautils.threaded_fpga_function(fhosts, 10, 'deprogram')
-        [Aqf.is_false(host.is_running(), '{} Deprogrammed'.format(host.host))
-         for host in xhosts + fhosts]
-        # Confirm that SPEAD packets are either no longer being produced, or
-        # that the data content is at least affected.
+        if self.corr_fix.deprogram_fpgas():
+            [Aqf.is_false(host.is_running(), '{} Deprogrammed'.format(host.host))
+            for host in xhosts + fhosts]
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
             Aqf.failed('SPEAD packets are still being produced.')
