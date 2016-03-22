@@ -5,7 +5,6 @@ import numpy as np
 import time
 import logging
 
-
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
 from mkat_fpga_tests import correlator_fixture
@@ -102,15 +101,19 @@ class CorrelatorFrequencyInfo(object):
         """
         self.corr_config = corr_config
         self.n_chans = int(corr_config['fengine']['n_chans'])
+        assert isinstance(self.n_chans, int)
         "Number of frequency channels"
         self.bandwidth = float(corr_config['fengine']['bandwidth'])
+        assert isinstance(self.bandwidth, float)
         "Correlator bandwidth"
         self.delta_f = self.bandwidth / self.n_chans
+        assert isinstance(self.delta_f, float)
         "Spacing between frequency channels"
         f_start = 0. # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
         "Channel centre frequencies"
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
+        assert isinstance(self.sample_freq, float)
         self.sample_period = 1 / self.sample_freq
         self.fft_period = self.sample_period*2*self.n_chans
         """Time length of a single FFT"""
@@ -396,25 +399,19 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     curr_pfb_counts = get_pfb_counts(
         fftoverflow_qdrstatus['fhosts'].items())
 
-    # Test FFT Overflow status
     for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
         last_pfb_counts.items(), curr_pfb_counts.items()):
         if curr_pfb_host is curr_pfb_host_x:
             if curr_pfb_value != last_pfb_value:
                 Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
-    # Test QDR error flags
     for hosts_status in fftoverflow_qdrstatus.values():
         for host, hosts_status in hosts_status.items():
             if hosts_status['QDR_okay'] is False:
                 Aqf.failed('QDR status on {} not Okay.'.format(host))
                 QDR_error_roaches.add(host)
-           # else:
-           #     Aqf.passed('QDR status on {} Okay.'.format(host))
-    # Test QDR status
-    # Aqf.is_false(QDR_error_roaches,
-    #    'Check for QDR errors.')
-    return QDR_error_roaches
+
+    return list(QDR_error_roaches)
 
 def check_host_okay(correlator):
     """
