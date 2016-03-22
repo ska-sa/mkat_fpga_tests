@@ -148,7 +148,8 @@ class CorrelatorFixture(object):
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
             except IndexError:
-                raise RuntimeError('Failed to assign katcp array port number, IndexError')
+                LOGGER.error('Failed to assign katcp array port number')
+                return False
 
             katcp_rc = resource_client.KATCPClientResource(
                         dict(name='localhost', address=(
@@ -163,20 +164,89 @@ class CorrelatorFixture(object):
         return self._katcp_rct
 
     def start_x_data(self):
+        """
+        Enable/Start output product capture
+        """
         LOGGER.info ('Start X data capture')
-        self.output_product = (self.correlator.configd['xengine']
-            ['output_products'][0])
         try:
-            self.katcp_rct.req.capture_start(self.output_product)
+            self.output_product = (self.correlator.configd['xengine']
+                ['output_products'][0])
+        except IndexError:
+            LOGGER.error('CORR2INI files does not contain Xengine output products')
+            raise RuntimeError('CORR2INI files does not contain Xengine output products')
+
+        try:
+            reply = self.katcp_rct.req.capture_start(self.output_product)
         except Exception as errmsg:
-            raise RuntimeError('Failed to capture stop: {}'.format(errmsg))
+            LOGGER.error('Failed to capture start: {}'.format(errmsg))
+            return False
+        else:
+            if not reply.succeeded:
+                return False
+            else:
+                return True
 
     def stop_x_data(self):
+        """
+        Disable/Stop output product capture
+        """
         LOGGER.info ('Stop X data capture')
         try:
-            self.katcp_rct.req.capture_stop(self.output_product)
+            reply = self.katcp_rct.req.capture_stop(self.output_product)
         except Exception as errmsg:
-            raise RuntimeError('Failed to capture stop: {}'.format(errmsg))
+            LOGGER.error('Failed to capture stop: {}'.format(errmsg))
+            return False
+        else:
+            if not reply.succeeded:
+                return False
+            else:
+                return True
+
+    def deprogram_fpgas(self):
+        """
+        Deprogram CASPER devices listed on dnsmasq leases
+        """
+        HOSTCLASS = katcp_fpga.KatcpFpga
+        try:
+            _running_instrument = self.katcp_rct.sensor.instrument_state.get_value()
+            config_file = '/etc/corr/{}-{}'.format(self.array_name, _running_instrument)
+            if os.path.exists(config_file):
+                fhosts = utils.parse_hosts(config_file, section='fengine')
+                xhosts = utils.parse_hosts(config_file, section='xengine')
+                hosts = fhosts + xhosts
+            else:
+                raise Exception
+        except Exception as errmsg:
+            LOGGER.error('Sensor request failed, off to plan B - dnsmasq')
+            hosts = []
+            masq_path = '/var/lib/misc/dnsmasq.leases'
+            if os.path.isfile(masq_path):
+                with open(masq_path) as masqfile:
+                    for line in masqfile:
+                        if line.find('roach') > 0:
+                            roachname = line[line.find('roach'):line.find(
+                                        ' ', line.find('roach') + 1)].strip()
+
+                            result = (subprocess.call(['ping', '-c', '1', roachname],
+                                      stdout = subprocess.PIPE, stderr = subprocess.PIPE))
+                            if result == 0:
+                                hosts.append(roachname)
+        try:
+            if not len(hosts) == 0:
+                connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+                                  HOSTCLASS, set(hosts))
+                deprogrammed_fpgas = fpgautils.threaded_fpga_function(
+                                    connected_fpgas, 10, 'deprogram')
+                LOGGER.info('FPGAs in dnsmasq all deprogrammed')
+                return True
+            else:
+                LOGGER.error('Failed to deprogram FPGAs no hosts available: {}'.format(
+                            errmsg))
+                raise RuntimeError('No hosts available.')
+                return False
+        except Exception as errmsg:
+            LOGGER.error('Failed to deprogram FPGAs: {}'.format(errmsg))
+            return False
 
     def ensure_instrument(self, instrument, **kwargs):
         """Ensure that named instrument is active on the correlator array
@@ -186,6 +256,7 @@ class CorrelatorFixture(object):
         """
         if not self.check_instrument(instrument):
             LOGGER.info('Correlator not running requested instrument, will restart.')
+            self.deprogram_fpgas()
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
 
@@ -199,60 +270,58 @@ class CorrelatorFixture(object):
         # Get a list of instruments associated with instrument
         try:
             _rsync = self.katcp_rct.start()
-            if self.katcp_rct.state == 'synced':
-                reply = self.katcp_rct.req.instrument_list(instrument)
-            else:
-                raise RuntimeError('Could not resynchronise katcp connection.')
+        except AttributeError:
+
+            LOGGER.error('katcp rct has no attribute.')
+            return False
+
         except RuntimeError:
             # This probably means that no array has been defined yet and therefore the
             # katcp_rct client cannot be created. IOW, the desired instrument would
             # not be available
+            LOGGER.error('Could not resynchronise katcp connection.')
             return False
-        if not reply.succeeded:
-            raise RuntimeError('Array request failed: {}'.format(reply))
 
-        instruments_available = [instrument_avail.arguments[0]
-                                 for instrument_avail in reply.informs]
-        # Test to see if requested instrument is available on the instrument list
-        if instrument not in instruments_available:
-            raise RuntimeError('Instrument: {} is not in instrument list: {}'.format(
-                                instrument, instruments_available))
+        else:
+            if self.katcp_rct.state == 'synced':
+                reply = self.katcp_rct.req.instrument_list(instrument)
+                if not reply.succeeded:
+                    return False
+                    LOGGER.error('Array request failed: {}'.format(reply))
+                    raise RuntimeError('Array request failed: {}'.format(reply))
+            else:
+                return False
+                LOGGER.error('Could not resynchronise katcp connection.')
+                raise RuntimeError('Could not resynchronise katcp connection.')
 
-        # Get currently running instrument listed on the sensor(s)
-        reply = self.katcp_rct.sensor.instrument_state.get_reading()
-        if not reply.istatus:
-            raise RuntimeError('Sensor request failed: {}'.format(reply))
-        running_intrument = reply.value
+            instruments_available = [instrument_avail.arguments[0]
+                                     for instrument_avail in reply.informs]
+            # Test to see if requested instrument is available on the instrument list
+            if instrument not in instruments_available:
+                return False
+                LOGGER.error('Instrument: {} is not in instrument list: {}'.format(
+                                    instrument, instruments_available))
+                raise RuntimeError('Instrument: {} is not in instrument list: {}'.format(
+                                    instrument, instruments_available))
 
-        instrument_present = instrument == running_intrument
-        if instrument_present:
-            self.instrument = instrument
-        return instrument_present
+            # Get currently running instrument listed on the sensor(s)
+            reply = self.katcp_rct.sensor.instrument_state.get_reading()
+            if not reply.istatus:
+                return False
+                raise RuntimeError('Sensor request failed: {}'.format(reply))
+            running_intrument = reply.value
 
-    def deprogram_fpgas(self):
-        hosts = []
-        masq_path = '/var/lib/misc/dnsmasq.leases'
-        if os.path.isfile(masq_path):
-            masqfile = open(masq_path)
-            for line in masqfile:
-                if line.find('roach') > 0:
-                    roachname = line[line.find('roach'):line.find(' ', line.find('roach') + 1)].strip()
-                    hosts.append(roachname)
-            masqfile.close()
-            HOSTCLASS = katcp_fpga.KatcpFpga
-            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                                  HOSTCLASS, hosts)
-            deprogrammed_fpgas = fpgautils.threaded_fpga_function(
-                                    connected_fpgas, 10, 'deprogram')
-        LOGGER.info('FPGAs in dnsmasq all deprogrammed')
+            instrument_present = instrument == running_intrument
+            if instrument_present:
+                self.instrument = instrument
+            return instrument_present
 
     def start_correlator(self, instrument='bc8n856M4k', retries=30, loglevel='INFO'):
-        self.deprogram_fpgas()
         success = False
         retries_requested = retries
         self.instrument = instrument
         self._correlator = None # Invalidate cached correlator instance
-        LOGGER.info('Confirm DEngine is runninf before starting correlator')
+        LOGGER.info('Confirm DEngine is running before starting correlator')
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
         _d = self.test_conf
