@@ -5,7 +5,6 @@ import numpy as np
 import time
 import logging
 
-
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
 from mkat_fpga_tests import correlator_fixture
@@ -102,15 +101,19 @@ class CorrelatorFrequencyInfo(object):
         """
         self.corr_config = corr_config
         self.n_chans = int(corr_config['fengine']['n_chans'])
+        assert isinstance(self.n_chans, int)
         "Number of frequency channels"
         self.bandwidth = float(corr_config['fengine']['bandwidth'])
+        assert isinstance(self.bandwidth, float)
         "Correlator bandwidth"
         self.delta_f = self.bandwidth / self.n_chans
+        assert isinstance(self.delta_f, float)
         "Spacing between frequency channels"
         f_start = 0. # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
         "Channel centre frequencies"
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
+        assert isinstance(self.sample_freq, float)
         self.sample_period = 1 / self.sample_freq
         self.fft_period = self.sample_period*2*self.n_chans
         """Time length of a single FFT"""
