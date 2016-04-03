@@ -227,10 +227,15 @@ class CorrelatorFixture(object):
                             roachname = line[line.find('roach'):line.find(
                                         ' ', line.find('roach') + 1)].strip()
 
-                            result = (subprocess.call(['ping', '-c', '1', roachname],
-                                      stdout = subprocess.PIPE, stderr = subprocess.PIPE))
-                            if result == 0:
-                                hosts.append(roachname)
+                            try:
+                                with open(os.devnull, 'wb') as devnull:
+                                    result = (subprocess.call(['ping', '-c', '1', roachname],
+                                              stdout = devnull, stderr = devnull))
+                                if result == 0:
+                                    hosts.append(roachname)
+                            except Exception:
+                                LOGGER.error('Unable to ping hosts in dnsmasq.leases')
+                                return False
         try:
             if not len(hosts) == 0:
                 connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
@@ -248,30 +253,17 @@ class CorrelatorFixture(object):
             LOGGER.error('Failed to deprogram FPGAs: {}'.format(errmsg))
             return False
 
-    def deprogram_fpgas(self):
+    def get_running_intrument(self):
         """
-        Deprogram CASPER devices listed on dnsmasq leases
+        Returns currently running instrument listed on the sensor(s)
         """
-        hosts = []
-        masq_path = '/var/lib/misc/dnsmasq.leases'
-        if os.path.isfile(masq_path):
-            masqfile = open(masq_path)
-            for line in masqfile:
-                if line.find('roach') > 0:
-                    roachname = line[line.find('roach'):line.find(' ', line.find('roach') + 1)].strip()
-                    hosts.append(roachname)
-            masqfile.close()
-            HOSTCLASS = katcp_fpga.KatcpFpga
-            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                                  HOSTCLASS, hosts)
-            try:
-                deprogrammed_fpgas = fpgautils.threaded_fpga_function(
-                                    connected_fpgas, 10, 'deprogram')
-                LOGGER.info('FPGAs in dnsmasq all deprogrammed')
-                return True
-            except Exception as errmsg:
-                LOGGER.error('Failed to deprogram FPGAs: {}'.format(errmsg))
-                return False
+        reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        if not reply.istatus:
+            return False
+            LOGGER.error('Sensor request failed: {}'.format(reply))
+            raise RuntimeError('Sensor request failed: {}'.format(reply))
+        running_intrument = reply.value
+        return running_intrument
 
     def ensure_instrument(self, instrument, **kwargs):
         """Ensure that named instrument is active on the correlator array
@@ -284,6 +276,7 @@ class CorrelatorFixture(object):
             self.deprogram_fpgas()
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
+        return self.check_instrument(instrument)
 
     def check_instrument(self, instrument):
         """Return true if named instrument is enabled on correlator array
@@ -408,6 +401,13 @@ class CorrelatorFixture(object):
                 'within {} retries'.format(retries_requested))
 
     def issue_metadata(self):
-        self.katcp_rct.req.capture_meta(self.output_product)
+        """Issue Spead metadata"""
+        try:
+            self.katcp_rct.req.capture_meta(self.output_product)
+            LOGGER.info('New metadata issued')
+            return True
+        except:
+            LOGGER.error('Failed to issue new metadata')
+            return False
 
 correlator_fixture = CorrelatorFixture()

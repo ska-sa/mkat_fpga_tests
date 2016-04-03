@@ -320,12 +320,10 @@ def rearrange_snapblock(snap_data, reverse=False):
 
 def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
-    # TODO MM 2015-10-22
-    # Hardcoded shit. fix it
     host = [i['host'] for i in instrument.fengine_sources][0]
-    source, source_index = ('m000_x', 0)#get_source_object_and_index(instrument, input_name)
+    source, source_index = get_source_object_and_index(instrument, input_name)
     snap_name = 'snap_quant{}_ss'.format(source_index)
-    snap = host.snapshots[snap_name] # source.host.snapshots[snap_name]
+    snap = host.snapshots[snap_name]
     snap_data = snap.read(
         man_valid=False, man_trig=False, timeout=timeout)['data']
 
@@ -360,8 +358,13 @@ def clear_all_delays(instrument, receiver):
     dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
                       dump['scale_factor_timestamp'].value)
     t_apply = (dump_timestamp + dump['int_time'].value + future_time)
-    reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-    LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
+    try:
+        reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+        LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
+        return True
+    except Exception:
+        LOGGER.error('Could not clear delays: {}'.format(reply.reply.arguments[1]))
+        return False
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
