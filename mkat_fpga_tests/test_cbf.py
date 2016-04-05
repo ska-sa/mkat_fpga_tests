@@ -352,6 +352,13 @@ class test_CBF(unittest.TestCase):
         self.set_instrument(self.DEFAULT_INSTRUMENT)
         self._test_control_init()
 
+    @aqf_vr('TP.C.1.29')
+    def test_c8n856M4k_gain_correction(self):
+        """CBF Gain Correction"""
+        Aqf.step('CBF Gain Correction\n')
+        self.set_instrument(self.DEFAULT_INSTRUMENT)
+        self._test_gain_correction()
+
     #################################################################
     #                       32K Mode Tests                          #
     #################################################################
@@ -2689,3 +2696,34 @@ class test_CBF(unittest.TestCase):
                     'Accumulation interval has been implemented')
         Aqf.is_true(self.corr_fix.katcp_rct.req.frequency_select.is_active(),
                     'Channelisation configuration has been implemented')
+
+    def _test_gain_correction(self):
+        """CBF Gain Correction"""
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        test_freq = self.corr_freqs.bandwidth / 2.
+        source = 0
+        gains = [0, 1+0j, 2j, 6j, 6+0j]
+        legends = ['Gain set to {}'.format(x) for x in gains]
+
+        test_input = [input['source'].name
+                      for input in self.correlator.fengine_sources][source]
+        init_eqs = get_and_restore_initial_eqs(self, self.correlator)
+
+        chan_resp = []
+        for gain in gains:
+            reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, gain)
+            if reply.reply_ok():
+                Aqf.step('Gain correction on input {} set to {}.'.format(test_input, gain))
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                response = normalised_magnitude(dump['xeng_raw'].value[:, source, :])
+                chan_resp.append(response)
+
+        aqf_plot_channels(zip(chan_resp, legends),
+                            plot_filename='{}.svg'.format(self._testMethodName),
+                            plot_title='Log channel response Gain Correction',
+                            log_dynamic_range=90, log_normalise_to=1,
+                            caption='Log channel response Gain Correction')
+
+        ([Aqf.step('Restored initial gains on {} to default {}'.format(source_name,
+                  self.corr_fix.katcp_rct.req.gain(source_name, gain_value[0])))
+        for source_name, gain_value in init_eqs.iteritems()])
