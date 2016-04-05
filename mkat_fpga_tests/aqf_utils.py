@@ -50,8 +50,10 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
         np.testing.assert_almost_equal(result, expected, **kwargs)
     except AssertionError, e:
         Aqf.failed('{} - {}'.format(str(e), description))
+        return False
     else:
         Aqf.passed(description)
+        return True
 
 
 def Aqf_is_not_equals(result, expected, description):
@@ -219,8 +221,7 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         #axis.set_ybound(*new_ybound)
         if has_legend:
             plt.legend(ncol=3 ,fontsize=9, fancybox=True).get_frame().set_alpha(0.5)
-
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show()
-        plt.close('all')
+        plt.clf()
