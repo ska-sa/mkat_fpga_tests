@@ -434,6 +434,20 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             self._test_data_product(instrument, no_channels=32768)
 
+    @aqf_vr('TP.C.1.42')
+    def test_c8n856M4k_time_sync(self, instrument='bc8n856M4k'):
+        """CBF Time synchronisation """
+        Aqf.step('CBF Time synchronisation\n')
+        if self.set_instrument(instrument):
+            self._test_time_sync()
+
+    @aqf_vr('TP.C.1.42')
+    def test_c8n856M4k_time_sync(self, instrument='c8n856M32k'):
+        """CBF Time synchronisation """
+        Aqf.step('CBF Time synchronisation\n')
+        if self.set_instrument(instrument):
+            self._test_time_sync()
+
     @aqf_vr('TP.C.1.41')
     def test_generic_control_init(self, instrument='bc8n856M4k'):
         """CBF Control - initial release"""
@@ -3042,3 +3056,32 @@ class test_CBF(unittest.TestCase):
                     'Accumulation interval has been implemented')
         Aqf.is_true(self.corr_fix.katcp_rct.req.frequency_select.is_active(),
                     'Channelisation configuration has been implemented')
+
+    def _test_time_sync(self):
+        import ntplib
+        ntp_client = ntplib.NTPClient()
+        try:
+            ntp_time = ntp_client.request('192.168.194.2').tx_time
+            unix_time = time.time() # 2ms difference between UNIX time and ntp
+        except Exception:
+            ntp_time = ntp_client.request('192.168.1.21').tx_time
+        # Network round trip of 3ms
+        roundtrip = 0.003
+        self.correlator.est_sync_epoch()
+        Aqf.step('Dsim configured to genetare correlated noise.')
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        Aqf.hop('Retrieving SPEAD dump time stamps with {}s network roundtrip.'.format(roundtrip))
+        time_stamp = initial_dump['timestamp'].value
+        sync_time = initial_dump['sync_time'].value
+        scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
+        time_stamp = initial_dump['timestamp'].value
+
+        dump_1_timestamp = (sync_time + roundtrip +
+                            time_stamp / scale_factor_timestamp)
+
+        time_diff = np.abs(ntp_time - dump_1_timestamp)
+        Aqf.less(time_diff, 5e-3,
+                'Confirm that CBF synchronise time to within 5ms of '
+                'UTC time as provided via PTP on the CBF-TRF interface. '
+                'However, in our case we comparing dump timestamp with ntp.')
