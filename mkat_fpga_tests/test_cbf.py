@@ -102,11 +102,11 @@ class test_CBF(unittest.TestCase):
         if reply.succeeded:
             Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
             self.addCleanup(self.corr_fix.stop_x_data)
-            self.receiver = CorrRx(port=8888, queue_size=1000)
+            self.receiver = CorrRx(port=8888, queue_size=10)
             start_thread_with_cleanup(self, self.receiver, start_timeout=1)
             self.corr_fix.start_x_data()
             self.corr_fix.issue_metadata()
-            #self._systems_tests()
+            self._systems_tests()
             self.correlator.est_synch_epoch()
             return True
         else:
@@ -577,7 +577,7 @@ class test_CBF(unittest.TestCase):
             get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
         self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
                         self.last_pfb_counts)
-        #self.addCleanup(check_host_okay, self.correlator)
+        self.addCleanup(check_host_okay, self.correlator)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):

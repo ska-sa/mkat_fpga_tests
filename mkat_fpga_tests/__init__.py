@@ -57,6 +57,7 @@ class CorrelatorFixture(object):
         # was started with the name contained in self.array_name before running the
         # test.
         self.array_name = 'array0'
+        self.instrument = None
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None
@@ -118,7 +119,7 @@ class CorrelatorFixture(object):
 
             # TODO: hard-coded config location
             self.config_filename = '/etc/corr/{}-{}'.format(
-            self.array_name, self.instrument)
+                self.array_name, self.instrument)
             if os.path.exists(self.config_filename):
                 LOGGER.info('Making new correlator instance')
                 self._correlator = fxcorrelator.FxCorrelator(
@@ -169,8 +170,11 @@ class CorrelatorFixture(object):
         """
         LOGGER.info ('Start X data capture')
         try:
-            self.output_product = (self.correlator.configd['xengine']
-                ['output_products'][0])
+            reply = self.katcp_rct.req.capture_list()
+            if reply.succeeded:
+                self.output_product = reply.informs[0].arguments[0]
+            else:
+                self.output_product = self.correlator.configd['xengine']['output_products'][0]
         except IndexError:
             LOGGER.error('CORR2INI files does not contain Xengine output products')
             raise RuntimeError('CORR2INI files does not contain Xengine output products')
