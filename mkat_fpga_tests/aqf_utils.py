@@ -189,8 +189,11 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         the same max...
 
         """
-        if not isinstance(channelisation[0], tuple):
-            channelisation = ((channelisation, None),)
+        try:
+            if not isinstance(channelisation[0], tuple):
+                channelisation = ((channelisation, None),)
+        except IndexError:
+            Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
         cycol = cycle(['red','black', 'green']).next
         intensity = cycle([1, .8]).next
         has_legend = False

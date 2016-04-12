@@ -225,21 +225,24 @@ class CorrelatorFixture(object):
             hosts = []
             masq_path = '/var/lib/misc/dnsmasq.leases'
             if os.path.isfile(masq_path):
-                with open(masq_path) as masqfile:
-                    for line in masqfile:
-                        if line.find('roach') > 0:
-                            roachname = line[line.find('roach'):line.find(
-                                        ' ', line.find('roach') + 1)].strip()
+                try:
+                    with open(masq_path) as masqfile:
+                        for line in masqfile:
+                            if line.find('roach') > 0:
+                                roachname = line[line.find('roach'):line.find(
+                                            ' ', line.find('roach') + 1)].strip()
 
-                            try:
-                                with open(os.devnull, 'wb') as devnull:
-                                    result = (subprocess.call(['ping', '-c', '1', roachname],
-                                              stdout = devnull, stderr = devnull))
-                                if result == 0:
-                                    hosts.append(roachname)
-                            except Exception:
-                                LOGGER.error('Unable to ping hosts in dnsmasq.leases')
-                                return False
+                                try:
+                                    with open(os.devnull, 'wb') as devnull:
+                                        result = (subprocess.call(['ping', '-c', '1', roachname],
+                                                  stdout = devnull, stderr = devnull))
+                                    if result == 0:
+                                        hosts.append(roachname)
+                                except Exception:
+                                    LOGGER.error('Unable to ping hosts in dnsmasq.leases')
+                                    return False
+                except IOError:
+                    raise RuntimeError('Investigate issue if failed here')
         try:
             if not len(hosts) == 0:
                 connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
@@ -280,6 +283,7 @@ class CorrelatorFixture(object):
             self.deprogram_fpgas()
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
+            return True
         return self.check_instrument(instrument)
 
     def check_instrument(self, instrument):
@@ -387,7 +391,8 @@ class CorrelatorFixture(object):
                 except IndexError:
                     raise RuntimeError("Unable to halt array due to empty array"
                         "number")
-
+                assert isinstance(self.katcp_rct,
+                    resource_client.ThreadSafeKATCPClientResourceWrapper)
                 self.katcp_rct.stop()
                 retries -= 1
                 LOGGER.warn ('\nFailed to start correlator,'
