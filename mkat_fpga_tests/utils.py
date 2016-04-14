@@ -5,7 +5,6 @@ import numpy as np
 import time
 import logging
 
-
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
 from mkat_fpga_tests import correlator_fixture
@@ -102,15 +101,19 @@ class CorrelatorFrequencyInfo(object):
         """
         self.corr_config = corr_config
         self.n_chans = int(corr_config['fengine']['n_chans'])
+        assert isinstance(self.n_chans, int)
         "Number of frequency channels"
         self.bandwidth = float(corr_config['fengine']['bandwidth'])
+        assert isinstance(self.bandwidth, float)
         "Correlator bandwidth"
         self.delta_f = self.bandwidth / self.n_chans
+        assert isinstance(self.delta_f, float)
         "Spacing between frequency channels"
         f_start = 0. # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
         "Channel centre frequencies"
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
+        assert isinstance(self.sample_freq, float)
         self.sample_period = 1 / self.sample_freq
         self.fft_period = self.sample_period*2*self.n_chans
         """Time length of a single FFT"""
@@ -317,12 +320,10 @@ def rearrange_snapblock(snap_data, reverse=False):
 
 def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
-    # TODO MM 2015-10-22
-    # Hardcoded shit. fix it
     host = [i['host'] for i in instrument.fengine_sources][0]
-    source, source_index = ('m000_x', 0)#get_source_object_and_index(instrument, input_name)
+    source, source_index = get_source_object_and_index(instrument, input_name)
     snap_name = 'snap_quant{}_ss'.format(source_index)
-    snap = host.snapshots[snap_name] # source.host.snapshots[snap_name]
+    snap = host.snapshots[snap_name]
     snap_data = snap.read(
         man_valid=False, man_trig=False, timeout=timeout)['data']
 
@@ -357,8 +358,13 @@ def clear_all_delays(instrument, receiver):
     dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
                       dump['scale_factor_timestamp'].value)
     t_apply = (dump_timestamp + dump['int_time'].value + future_time)
-    reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-    LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
+    try:
+        reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+        LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
+        return True
+    except Exception:
+        LOGGER.error('Could not clear delays: {}'.format(reply.reply.arguments[1]))
+        return False
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
@@ -396,25 +402,19 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
     curr_pfb_counts = get_pfb_counts(
         fftoverflow_qdrstatus['fhosts'].items())
 
-    # Test FFT Overflow status
     for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
         last_pfb_counts.items(), curr_pfb_counts.items()):
         if curr_pfb_host is curr_pfb_host_x:
             if curr_pfb_value != last_pfb_value:
                 Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
-    # Test QDR error flags
     for hosts_status in fftoverflow_qdrstatus.values():
         for host, hosts_status in hosts_status.items():
             if hosts_status['QDR_okay'] is False:
                 Aqf.failed('QDR status on {} not Okay.'.format(host))
                 QDR_error_roaches.add(host)
-           # else:
-           #     Aqf.passed('QDR status on {} Okay.'.format(host))
-    # Test QDR status
-    # Aqf.is_false(QDR_error_roaches,
-    #    'Check for QDR errors.')
-    return QDR_error_roaches
+
+    return list(QDR_error_roaches)
 
 def check_host_okay(correlator):
     """
