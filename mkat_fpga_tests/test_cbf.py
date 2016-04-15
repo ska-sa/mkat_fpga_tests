@@ -303,8 +303,8 @@ class test_CBF(unittest.TestCase):
     def test_c856M32k_vacc(self, instrument='c8n856M32k'):
         """Vector Accumulator Test"""
         if self.set_instrument(instrument):
-        Aqf.step('Vector Accumulator Test: {}\n'.format(
-            self.corr_fix.get_running_intrument()))
+            Aqf.step('Vector Accumulator Test: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
             self._systems_tests()
             chan_index = 4096
             test_chan = randrange(0, chan_index)
@@ -556,7 +556,8 @@ class test_CBF(unittest.TestCase):
     def test_generic_control_init(self, instrument='bc8n856M4k'):
         """CBF Control - initial release"""
         # Generic test
-        Aqf.step('CBF Control - initial release: {}\n')
+        Aqf.step('CBF Control - initial release: {}\n'.format(
+            self.corr_fix.get_running_intrument()))
         if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
             self.correlator = self.corr_fix.correlator
         else:
@@ -568,7 +569,8 @@ class test_CBF(unittest.TestCase):
     def test_generic_config_report(self, instrument='bc8n856M4k'):
         """CBF Report configuration"""
         # Generic test
-        Aqf.step('CBF Report configuration: {}\n')
+        Aqf.step('CBF Report configuration: {}\n'.format(
+            self.corr_fix.get_running_intrument()))
         if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
             self.correlator = self.corr_fix.correlator
         else:
@@ -581,7 +583,8 @@ class test_CBF(unittest.TestCase):
     def test_generic_overtemperature(self, instrument='bc8n856M4k'):
         """ROACH2 overtemperature display test """
         # Generic test
-        Aqf.step('ROACH2 overtemperature display test: {}\n')
+        Aqf.step('ROACH2 overtemperature display test: {}\n'.format(
+            self.corr_fix.get_running_intrument()))
         if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
             self.correlator = self.corr_fix.correlator
         else:
