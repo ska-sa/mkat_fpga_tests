@@ -172,11 +172,11 @@ class test_CBF(unittest.TestCase):
         frequency and that no other channels have significant relative power.
 
         """
-        Aqf.step('Test spurious free dynamic range for wideband fine: {}\n'
-                 .format(instrument))
-        if self.set_instrument(instrument):
-            self._test_sfdr_peaks(cutoff=53)
-            self._systems_tests()
+        Aqf.step('Test spurious free dynamic range for wideband fine, '
+                 'Skipped as it take long: {}\n'.format(instrument))
+        #if self.set_instrument(instrument):
+            #self._test_sfdr_peaks(cutoff=53)
+            #self._systems_tests()
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -270,7 +270,6 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_tracking()
 
-
     @aqf_vr('TP.C.1.27')
     def test_c856M32k_delay_tracking(self, instrument='c8n856M32k'):
         """
@@ -315,48 +314,6 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CBF Data Product Switching Time: {}\n'.format(instrument))
         if self.set_instrument(instrument):
             self._test_product_switch(instrument, no_channels=32768)
-
-    @aqf_vr('TP.C.1.38')
-    def test_c856M4k_overflow_flag(self, instrument='bc8n856M4k'):
-        """CBF flagging of data -- ADC overflow"""
-        Aqf.step('CBF flagging of data -- ADC overflow\n')
-        if self.set_instrument(instrument):
-            self._test_adc_overflow_flag()
-
-    @aqf_vr('TP.C.1.38')
-    def test_c856M32k_overflow_flag(self, instrument='c8n856M32k'):
-        """CBF flagging of data -- ADC overflow"""
-        Aqf.step('CBF flagging of data -- ADC overflow\n')
-        if self.set_instrument(instrument):
-            self._test_adc_overflow_flag()
-
-    @aqf_vr('TP.C.1.38')
-    def test_c856M4k_noise_diode_flag(self, instrument='bc8n856M4k'):
-        """CBF flagging of data -- noise diode fired"""
-        Aqf.step('CBF flagging of data -- noise diode fired\n')
-        if self.set_instrument(instrument):
-            self._test_noise_diode_flag()
-
-    @aqf_vr('TP.C.1.38')
-    def test_c856M32k_noise_diode_flag(self, instrument='c8n856M32k'):
-        """CBF flagging of data -- noise diode fired"""
-        Aqf.step('CBF flagging of data -- noise diode fired\n')
-        if self.set_instrument(instrument):
-            self._test_noise_diode_flag()
-
-    @aqf_vr('TP.C.1.38')
-    def test_c856M4k_fft_overflow_flag(self, instrument='bc8n856M4k'):
-        """CBF flagging of data -- FFT overflow"""
-        Aqf.step('CBF flagging of data -- FFT overflow\n')
-        if self.set_instrument(instrument):
-            self._test_fft_overflow_flag()
-
-    @aqf_vr('TP.C.1.38')
-    def test_c856M32k_fft_overflow_flag(self, instrument='c8n856M32k'):
-        """CBF flagging of data -- FFT overflow"""
-        Aqf.step('CBF flagging of data -- FFT overflow\n')
-        if self.set_instrument(instrument):
-            self._test_fft_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
     def test_c856M4k_roach_qdr_sensors(self, instrument='bc8n856M4k'):
@@ -422,56 +379,6 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_rate()
 
-    @aqf_vr('TP.C.1.28')
-    def test_c856M4k_all_delays(self, instrument='bc8n856M4k'):
-        """
-        CBF per-antenna phase error
-        -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
-        """
-        Aqf.step('CBF per-antenna phase error -- Delays, Delay Rate, '
-                 'Fringe Offset and Fringe Rate.\n')
-        Aqf.tbd('Values still needs to be defined.')
-        #if self.set_instrument(instrument):
-            #self._systems_tests()
-            #self._test_all_delays()
-
-    @aqf_vr('TP.C.1.28')
-    def test_c856M32k_all_delays(self, instrument='c8n856M32k'):
-        """
-        CBF per-antenna phase error
-        -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
-        """
-        Aqf.step('CBF per-antenna phase error -- Delays, Delay Rate, '
-                 'Fringe Offset and Fringe Rate.\n')
-        Aqf.tbd('Values still needs to be defined.')
-        #if self.set_instrument(instrument):
-            #self._systems_tests()
-            #self._test_all_delays()
-
-    @aqf_vr('TP.C.1.27')
-    def test_c856M4k_delay_inputs(self, instrument='bc8n856M4k'):
-        """CBF Delay Compensation/LO Fringe stopping polynomial
-           Delay applied to the correct input
-        """
-        Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial -- '
-                 'Delay applied to the correct input\n')
-        if self.set_instrument(instrument):
-            self._systems_tests()
-            self._test_delay_inputs()
-
-
-    @aqf_vr('TP.C.1.27')
-    def test_c856M32k_delay_inputs(self, instrument='c8n856M32k'):
-        """CBF Delay Compensation/LO Fringe stopping polynomial
-           Delay applied to the correct input
-        """
-        Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial -- '
-                 'Delay applied to the correct input\n')
-        if self.set_instrument(instrument):
-            self._systems_tests()
-            self._test_delay_inputs()
-
-
     @aqf_vr('TP.C.1.47')
     def test_c856M4k_data_product(self, instrument='bc8n856M4k'):
         """CBF Imaging Data Product Set"""
@@ -487,39 +394,6 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             self._systems_tests()
             self._test_data_product(instrument, no_channels=32768)
-
-    @aqf_vr('TP.C.1.42')
-    def test_c856M4k_time_sync(self, instrument='bc8n856M4k'):
-        """CBF Time synchronisation """
-        Aqf.step('CBF Time synchronisation\n')
-        if self.set_instrument(instrument):
-            self._systems_tests()
-            self._test_time_sync()
-
-    @aqf_vr('TP.C.1.42')
-    def test_c856M32k_time_sync(self, instrument='c8n856M32k'):
-        """CBF Time synchronisation """
-        Aqf.step('CBF Time synchronisation\n')
-        if self.set_instrument(instrument):
-            self._systems_tests()
-            self._test_time_sync()
-
-    @aqf_vr('TP.C.1.29')
-    def test_c856M4k_gain_correction(self, instrument='bc8n856M4k'):
-        """CBF Gain Correction"""
-        Aqf.step('CBF Gain Correction\n')
-        if self.set_instrument(instrument):
-            self._systems_tests()
-            self._test_gain_correction()
-
-    @aqf_vr('TP.C.1.29')
-    def test_c856M32k_gain_correction(self, instrument='c8n856M32k'):
-        """CBF Gain Correction"""
-        if self.set_instrument(instrument):
-            Aqf.step('CBF Gain Correction: {}\n'.format(
-                    self.corr_fix.get_running_intrument()))
-            self._systems_tests()
-            self._test_gain_correction()
 
     @aqf_vr('TP.C.1.41')
     def test_generic_control_init(self, instrument='bc8n856M4k'):
@@ -544,68 +418,6 @@ class test_CBF(unittest.TestCase):
             self.set_instrument(instrument)
         self._systems_tests()
         self._test_config_report()
-
-    @aqf_vr('TP.C.1.5.1')
-    @aqf_vr('TP.C.1.18')
-    def test_generic_overtemperature(self, instrument='bc8n856M4k'):
-        """ROACH2 overtemperature display test """
-        # Generic test
-        Aqf.step('ROACH2 overtemperature display test\n')
-        if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
-            self.correlator = self.corr_fix.correlator
-        else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_overtemp()
-
-    @aqf_vr('TP.C.1.5.2')
-    @aqf_vr('TP.C.1.18')
-    def test_generic_overvoltage(self, instrument='bc8n856M4k'):
-        """ROACH2 overvoltage display test"""
-        Aqf.waived('ROACH2 overvoltage display test '
-                   'Manual Test instead of being Automated.')
-
-    @aqf_vr('TP.C.1.5.3')
-    @aqf_vr('TP.C.1.18')
-    def test_c856M4k_overcurrent(self, instrument='bc8n856M4k'):
-        """ROACH2 overcurrent display test"""
-        Aqf.waived('ROACH2 overcurrent display test '
-                   'Manual Test instead of being Automated.')
-
-    @aqf_vr('TP.C.1.38')
-    def test_generic_roach_pfb_sensors(self, instrument='bc8n856M4k'):
-        """PFB Error Test: Sensors"""
-        Aqf.step('PFB Error Test: Sensors\n')
-        if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
-            self.correlator = self.corr_fix.correlator
-        else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_roach_pfb_sensors()
-
-    @aqf_vr('TP.C.5.5')
-    @aqf_vr('TP.C.1.38')
-    def test_generic_deng_link_error(self, instrument='bc8n856M4k'):
-        """Link Error :D-Engine to F-engine"""
-        Aqf.step('Link Error :D-Engine to F-engine\n')
-        if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
-            self.correlator = self.corr_fix.correlator
-        else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_deng_link_error()
-
-    @aqf_vr('TP.C.5.5')
-    @aqf_vr('TP.C.1.38')
-    def test_generic_feng_link_error(self, instrument='bc8n856M4k'):
-        """Link Error :F-Engine to X-engine"""
-        Aqf.step('Link Error :F-Engine to X-engine\n')
-        if self.corr_fix.ensure_instrument(self.corr_fix.get_running_intrument()):
-            self.correlator = self.corr_fix.correlator
-        else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_feng_link_error()
 
     @aqf_vr('TP.C.1.16')
     def test_generic_sensor_values(self, instrument='bc8n856M4k'):
