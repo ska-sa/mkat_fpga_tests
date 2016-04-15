@@ -159,12 +159,11 @@ class test_CBF(unittest.TestCase):
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
         """
-        #if self.set_instrument(instrument):
-            #Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: : {}\n'.format(
-                #self.corr_fix.get_running_intrument()))
-            #self._test_sfdr_peaks(cutoff=53)
-            #self._systems_tests()
-        pass
+        if self.set_instrument(instrument):
+            Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: : {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._test_sfdr_peaks(cutoff=53)
+            self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
@@ -175,12 +174,11 @@ class test_CBF(unittest.TestCase):
         frequency and that no other channels have significant relative power.
 
         """
-        #if self.set_instrument(instrument):
-            #Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
-                #self.corr_fix.get_running_intrument()))
-            #self._test_sfdr_peaks(cutoff=53)
-            #self._systems_tests()
-        pass
+        if self.set_instrument(instrument):
+            Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._test_sfdr_peaks(cutoff=53)
+            self._systems_tests()
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -304,13 +302,13 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     def test_c856M32k_vacc(self, instrument='c8n856M32k'):
         """Vector Accumulator Test"""
-        #if self.set_instrument(instrument):
-        #Aqf.step('Vector Accumulator Test: {}\n'.format(
-            #self.corr_fix.get_running_intrument()))
-            #self._systems_tests()
-            #chan_index = 4096
-            #test_chan = randrange(0, chan_index)
-            #self._test_vacc(test_chan, chan_index)
+        if self.set_instrument(instrument):
+        Aqf.step('Vector Accumulator Test: {}\n'.format(
+            self.corr_fix.get_running_intrument()))
+            self._systems_tests()
+            chan_index = 4096
+            test_chan = randrange(0, chan_index)
+            self._test_vacc(test_chan, chan_index)
 
     @aqf_vr('TP.C.1.40')
     def test_c856M4k_product_switch(self, instrument='bc8n856M4k'):
@@ -722,7 +720,7 @@ class test_CBF(unittest.TestCase):
         if not self.corr_fix.issue_metadata():
             Aqf.failed('Could not issues new metadata')
         Aqf.step('Getting initial SPEAD dump.')
-        for i in range(10):
+        for i in range(2):
             self.corr_fix.issue_metadata()
             self.corr_fix.start_x_data()
         initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -737,7 +735,7 @@ class test_CBF(unittest.TestCase):
         int_time = initial_dump['int_time'].value
         # 3ms added for the network round trip
         roundtrip = 0.003
-        future_time = 1300e-3
+        future_time = 0
         dump_1_timestamp = (sync_time + roundtrip +
                             time_stamp / scale_factor_timestamp)
         t_apply = dump_1_timestamp + 10 * int_time + future_time
@@ -803,7 +801,7 @@ class test_CBF(unittest.TestCase):
             dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
             dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
                               setup_data['scale_factor_timestamp'])
-            if (np.abs(dump_timestamp - last_discard) < 0.5 * setup_data['int_time']):
+            if (np.abs(dump_timestamp - last_discard) < 0.05 * setup_data['int_time']):
                 Aqf.step('Received final accumulation before fringe '
                          'application with timestamp {}.'.format(dump_timestamp))
                 break
