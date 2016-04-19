@@ -566,7 +566,7 @@ class test_CBF(unittest.TestCase):
         self._test_control_init()
 
     @aqf_vr('TP.C.1.17')
-    def test_generic_config_report(self, instrument='bc8n856M4k'):
+    def test_generic_config_report(self, instrument='bc8n856M4k', verbose=False):
         """CBF Report configuration"""
         # Generic test
         Aqf.step('CBF Report configuration: {}\n'.format(
@@ -576,7 +576,7 @@ class test_CBF(unittest.TestCase):
         else:
             self.set_instrument(instrument)
         self._systems_tests()
-        self._test_config_report()
+        self._test_config_report(verbose)
 
     @aqf_vr('TP.C.1.5.1')
     @aqf_vr('TP.C.1.18')
@@ -2538,7 +2538,7 @@ class test_CBF(unittest.TestCase):
                      ' difference between intergrations is below 1 degree: {0:.3f}'
                      ' degree\n'.format(abs_diff))
 
-    def _test_config_report(self):
+    def _test_config_report(self, verbose):
         """CBF Report configuration"""
         test_config = self.corr_fix.test_conf
 
@@ -2641,9 +2641,12 @@ class test_CBF(unittest.TestCase):
                             ['git', '--git-dir={}/.git'.format(repo_dir),
                             '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
                     if bool(git_diff):
-                        Aqf.progress('Repo: {}: Contains changes not staged for commit.\n\n'
-                                     'Difference: \n\n{}'
-                                     .format(name, clrs.red(git_diff)))
+                        if verbose:
+                            Aqf.progress('Repo: {}: Contains changes not staged for'
+                                         ' commit.'.format(name))
+                        else:
+                            Aqf.progress('Repo: {}: Contains changes not staged for commit.\n\n'
+                                         'Difference: \n\n{}'.format(name, clrs.red(git_diff)))
                     else:
                         Aqf.hop('Repo: {}: Up-to-date.\n\n'.format(name))
                 except (subprocess.CalledProcessError, AssertionError, OSError):
