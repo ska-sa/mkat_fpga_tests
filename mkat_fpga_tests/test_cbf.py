@@ -2585,7 +2585,7 @@ class test_CBF(unittest.TestCase):
                     linux_ver = stdout.splitlines()[-2]
                     Aqf.hop('Linux Version: {}\n'.format(linux_ver))
                 except Exception:
-                    Aqf.failed('Could not connect to host: {}'.format(hostname))
+                    Aqf.failed('Could not connect to host: {}\n'.format(hostname))
 
         def get_src_dir():
 
@@ -2642,11 +2642,11 @@ class test_CBF(unittest.TestCase):
                             '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
                     if bool(git_diff):
                         if verbose:
-                            Aqf.progress('Repo: {}: Contains changes not staged for'
-                                         ' commit.'.format(name))
-                        else:
                             Aqf.progress('Repo: {}: Contains changes not staged for commit.\n\n'
                                          'Difference: \n\n{}'.format(name, clrs.red(git_diff)))
+                        else:
+                            Aqf.progress('Repo: {}: Contains changes not staged for'
+                                         ' commit.\n\n'.format(name))
                     else:
                         Aqf.hop('Repo: {}: Up-to-date.\n\n'.format(name))
                 except (subprocess.CalledProcessError, AssertionError, OSError):
@@ -2680,7 +2680,7 @@ class test_CBF(unittest.TestCase):
                             Aqf.step('Checking PDU no: {}'.format(count))
                             Aqf.hop('PDU Model: {} on {}'.format(pdu_model, host_ip))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU model')
+                            Aqf.failed('Could not retrieve PDU model\n')
 
                     if 'Name' in stdout:
                         try:
@@ -2688,7 +2688,7 @@ class test_CBF(unittest.TestCase):
                                     'Date')].split()[-4:]))
                             Aqf.hop('PDU Name: {}'.format(pdu_name))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU name')
+                            Aqf.failed('Could not retrieve PDU name\n')
 
                     if 'Serial' in stdout:
                         try:
@@ -2696,14 +2696,14 @@ class test_CBF(unittest.TestCase):
                                          .splitlines()[3].split()[-1])
                             Aqf.hop('PDU Serial Number: {}'.format(pdu_serial))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU serial number.')
+                            Aqf.failed('Could not retrieve PDU serial number.\n')
                     if 'Revision' in stdout:
                         try:
                             pdu_hw_rev = (stdout[stdout.find('Hardware Factory'):]
                                      .splitlines()[4].split()[-1])
                             Aqf.hop('PDU HW Revision: {}'.format(pdu_hw_rev))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU HW Revision.')
+                            Aqf.failed('Could not retrieve PDU HW Revision.\n')
 
                     if 'Application Module' and 'Version' in stdout:
                         try:
@@ -2712,7 +2712,7 @@ class test_CBF(unittest.TestCase):
                             Aqf.hop('PDU Application Module Version: {} '.format(
                                     pdu_app_ver))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU Application Module Version.')
+                            Aqf.failed('Could not retrieve PDU Application Module Version.\n')
 
                     if 'APC OS(AOS)' in stdout:
                         try:
@@ -2723,7 +2723,7 @@ class test_CBF(unittest.TestCase):
                             Aqf.hop('PDU APC OS: {}'.format(pdu_apc_name))
                             Aqf.hop('PDU APC OS ver: {}'.format(pdu_apc_ver))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU APC OS info.')
+                            Aqf.failed('Could not retrieve PDU APC OS info.\n')
 
                     if 'APC Boot Monitor' in stdout:
                         try:
@@ -2734,10 +2734,10 @@ class test_CBF(unittest.TestCase):
                             Aqf.hop('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
                             Aqf.hop('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
                         except IndexError:
-                            Aqf.failed('Could not retrieve PDU Boot info.')
+                            Aqf.failed('Could not retrieve PDU Boot info.\n')
 
                 except Exception:
-                    Aqf.failed('Could not connect to PDU host: {}'.format(host_ip))
+                    Aqf.failed('Could not connect to PDU host: {}\n'.format(host_ip))
 
         def get_data_switch():
             '''Verify info on each Data Switch'''
@@ -2757,7 +2757,7 @@ class test_CBF(unittest.TestCase):
                     remote_conn = remote_conn_pre.invoke_shell()
                     Aqf.step('Connected to Data switch {} on IP: {}'.format(count, ip))
                 except paramiko.SSHException:
-                    Aqf.failed('Failed to connect to Data switch {} on IP: {}'.format(
+                    Aqf.failed('Failed to connect to Data switch {} on IP: {}\n'.format(
                                 count, ip))
 
                 remote_conn.send("\n")
@@ -2776,7 +2776,7 @@ class test_CBF(unittest.TestCase):
                         serial_number = inventory.split()[9]
                         Aqf.hop('Data Switch Serial no: {}'.format(serial_number))
                     except IndexError:
-                        Aqf.failed('Could not retrieve Switches Part/Serial number.')
+                        Aqf.failed('Could not retrieve Switches Part/Serial number.\n')
 
                 remote_conn.send("show version\n")
                 while not remote_conn.recv_ready():
@@ -2791,24 +2791,31 @@ class test_CBF(unittest.TestCase):
                         build_date = version[version.find('Build date:'):].split()[2]
                         Aqf.hop('Software Build date: {}\n'.format(build_date))
                     except IndexError:
-                        Aqf.failed('Could not retrieve software product name/release.')
+                        Aqf.failed('Could not retrieve software product name/release.\n')
 
                 remote_conn.send("exit\n")
                 remote_conn.close()
                 remote_conn_pre.close()
 
-        Aqf.step('CMC CBF Package Software version information.')
+        Aqf.step('CMC CBF Package Software version information.\n')
         try:
             reply, informs = self.corr_fix.katcp_rct.req.version_list()
             if reply.reply_ok():
-                katcp_dev, katcp_lib = [i.arguments[-1].split('-')[-1][1:]
-                                        for i in informs
-                                        if ('katcp-device' in i.arguments or
-                                            'katcp-library' in i.arguments)]
-                Aqf.hop('Repo: katcp-device, Last Hash:{}\n'.format(katcp_dev))
+                katcp_dev_lst, katcp_lib_lst = [
+                    i.arguments[-1].split('-')
+                    for i in informs
+                        if ('katcp-device' in i.arguments or
+                        'katcp-library' in i.arguments)]
+
+                katcp_dev = [x.replace('g', '') for x in katcp_dev_lst
+                             if x.startswith('g')][0]
+                katcp_lib = [x.replace('g', '') for x in katcp_lib_lst
+                             if x.startswith('g')][0]
+
+                Aqf.hop('Repo: katcp-device, Last Hash:{}'.format(katcp_dev))
                 Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
         except Exception:
-            Aqf.failed('Could not retrieve katcp hashes.')
+            Aqf.failed('Could not retrieve katcp hashes.\n')
         get_package_versions()
         Aqf.step('CBF ROACH information.\n')
         get_roach_config()
