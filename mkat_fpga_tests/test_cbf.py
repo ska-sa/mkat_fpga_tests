@@ -2427,7 +2427,7 @@ class test_CBF(unittest.TestCase):
             caption = ('Actual and expected Unwrapped Correlation Phase Rate, '
                        'dashed line indicates expected value.')
             graph_title = 'Fringe Rate at {} {}.'.format(fringe_rate, graph_units)
-            graph_name = 'Fringe_Rate_Response.svg'.format(self.corr_freqs.n_chans/1024)
+            graph_name = 'Fringe_Rate_Response_{}.svg'.format(self.corr_freqs.n_chans/1024)
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                    graph_units, graph_name, graph_title, caption)
 
