@@ -167,17 +167,45 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
-    def test_c856M32k_channelisation_sfdr_peaks(self, instrument='c8n856M32k'):
-        """Test spurious free dynamic range for wideband fine (c8n856M32k)
+    def test_c856M32k_channelisation_sfdr_peaks_slow(self, instrument='c8n856M32k'):
+        """
+        Test spurious free dynamic range for wideband fine (c8n856M32k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
 
+        This is the slow version that sweeps through all 32768 channels.
+
+        _____________________________NOTE____________________________
+        Usage: Run nosetests with -e
+        Example: nosetests  -s -v --with-katreport --exclude=slow
         """
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(cutoff=53)
+            self._test_sfdr_peaks(cutoff=53, stepsize=None)
+            self._systems_tests()
+
+    @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.1.46')
+    def test_c856M32k_channelisation_sfdr_peaks_fast(self, instrument='c8n856M32k'):
+        """
+        Test spurious free dynamic range for wideband fine (c8n856M32k)
+
+        Check that the correct channels have the peak response to each
+        frequency and that no other channels have significant relative power.
+
+        This is the faster version that sweeps through 32768 channels
+        whilst stepping through `x`, where x is the step size given.
+
+        _____________________________NOTE____________________________
+        Usage: Run nosetests with -e
+        Example: nosetests  -s -v --with-katreport --exclude=slow
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._test_sfdr_peaks(cutoff=53, stepsize=8)
             self._systems_tests()
 
     @aqf_vr('TP.C.1.19')
@@ -1113,7 +1141,7 @@ class test_CBF(unittest.TestCase):
             'is {desired_cutoff_resp} +- {acceptable_co_var} dB relative to '
             'channel centre response.'.format(**locals()))
 
-    def _test_sfdr_peaks(self, cutoff):
+    def _test_sfdr_peaks(self, cutoff, stepsize):
         """Test channel spacing and out-of-channel response
 
         Will loop over all the channels, placing the source frequency as close to the
@@ -1140,9 +1168,11 @@ class test_CBF(unittest.TestCase):
         n_chans = self.corr_freqs.n_chans
         print_counts = 4
         Aqf.step('Dsim configured to generate cw tone.')
-
+        if stepsize:
+            Aqf.step('Running FASTER version of Channelisation SFDR test '
+                     'with {} step size.'.format(stepsize))
         for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan:], start_chan):
+                self.corr_freqs.chan_freqs[start_chan::stepsize], start_chan):
             if channel < print_counts:
                 Aqf.step ('Getting channel response for freq {}/{}: {} MHz.'
                    .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
