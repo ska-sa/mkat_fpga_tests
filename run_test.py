@@ -643,4 +643,4 @@ if __name__ == "__main__":
         if settings['gen_html']:
             generate_html_sphinx_docs(settings, log_func)
 
-os.system(rm *.svg)
+#os.system('rm *.svg')
