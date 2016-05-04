@@ -237,8 +237,8 @@ class StoreTestRun(object):
             step_success = True
         else:  # UNKNOWN, ERROR, FAIL
             # Record step as a failure
-            stack = traceback.format_stack()
-            action['stack'] = stack
+            # stack = traceback.format_stack()
+            # action['stack'] = stack
             step_success = False
             #Aqf.log_traceback('Last 6 lines of stack:\n' +
             #                  ' '.join(stack[-7:-1]))
@@ -260,7 +260,7 @@ class StoreTestRun(object):
             data['tb'] = str(err_obj[2])
             if hasattr(err_obj[2], 'format_tb'):
                 data['traceback'] = err_obj[2].format_tb()
-                data['stack'] = err_obj[2].format_stack()
+                #data['stack'] = err_obj[2].format_stack()
 
         self._update_test(test_name, data)
 
