@@ -178,7 +178,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.46')
     def test_c856M32k_channelisation_sfdr_peaks_slow(self, instrument='c8n856M32k'):
         """
-        Test spurious free dynamic range for wideband fine (c8n856M32k)
+        Slow Test spurious free dynamic range for wideband fine (c8n856M32k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
@@ -199,7 +199,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.46')
     def test_c856M32k_channelisation_sfdr_peaks_fast(self, instrument='c8n856M32k'):
         """
-        Test spurious free dynamic range for wideband fine (c8n856M32k)
+        Fast Test spurious free dynamic range for wideband fine (c8n856M32k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
@@ -1179,13 +1179,19 @@ class test_CBF(unittest.TestCase):
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         n_chans = self.corr_freqs.n_chans
-        print_counts = 4
         Aqf.step('Dsim configured to generate cw tone.')
         if stepsize:
             Aqf.step('Running FASTER version of Channelisation SFDR test '
                      'with {} step size.'.format(stepsize))
+            print_counts = 4 * stepsize
+        else:
+            print_counts = 4
+
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan::stepsize], start_chan):
+
+            if stepsize:
+                channel *= stepsize
             if channel < print_counts:
                 Aqf.step('Getting channel response for freq {}/{}: {} MHz.'
                          .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
