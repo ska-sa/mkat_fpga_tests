@@ -35,7 +35,7 @@ def teardown_package():
         fn, args, kwargs = cleanups.pop()
         try:
             fn(*args, **kwargs)
-        except Exception:
+        except:
             LOGGER.exception('Exception calling cleanup fn')
 
 
@@ -122,10 +122,14 @@ class CorrelatorFixture(object):
                 self.array_name, self.instrument)
             if os.path.exists(self.config_filename):
                 LOGGER.info('Making new correlator instance')
-                self._correlator = fxcorrelator.FxCorrelator(
+                try:
+                    self._correlator = fxcorrelator.FxCorrelator(
                     'test correlator', config_source=self.config_filename)
-                self.correlator.initialise(program=False)
-                return self._correlator
+                    self.correlator.initialise(program=False)
+                    return self._correlator
+                except:
+                    import IPython;IPython.embed()
+                    self.start_correlator()
             else:
                 self.start_correlator()
 
@@ -148,7 +152,7 @@ class CorrelatorFixture(object):
             try:
                 self.katcp_array_port = int(
                     self.rct.req.array_list()[1][0].arguments[1])
-            except IndexError:
+            except (IndexError, TypeError):
                 LOGGER.error('Failed to assign katcp array port number')
                 return False
 
@@ -181,8 +185,9 @@ class CorrelatorFixture(object):
 
         try:
             reply = self.katcp_rct.req.capture_start(self.output_product)
-        except Exception as errmsg:
-            LOGGER.error('Failed to capture start: {}'.format(errmsg))
+        except:
+            errmsg = 'Failed to capture start'
+            LOGGER.exception(errmsg)
             return False
         else:
             if not reply.succeeded:
@@ -197,8 +202,8 @@ class CorrelatorFixture(object):
         LOGGER.info ('Stop X data capture')
         try:
             reply = self.katcp_rct.req.capture_stop(self.output_product)
-        except Exception as errmsg:
-            LOGGER.error('Failed to capture stop: {}'.format(errmsg))
+        except:
+            LOGGER.exception('Failed to capture stop')
             return False
         else:
             if not reply.succeeded:
@@ -220,7 +225,7 @@ class CorrelatorFixture(object):
                 hosts = fhosts + xhosts
             else:
                 raise Exception
-        except Exception as errmsg:
+        except:
             LOGGER.error('Sensor request failed, off to plan B - dnsmasq')
             hosts = []
             masq_path = '/var/lib/misc/dnsmasq.leases'
@@ -238,8 +243,8 @@ class CorrelatorFixture(object):
                                                   stdout = devnull, stderr = devnull))
                                     if result == 0:
                                         hosts.append(roachname)
-                                except Exception:
-                                    LOGGER.error('Unable to ping hosts in dnsmasq.leases')
+                                except:
+                                    LOGGER.exception('Unable to ping hosts in dnsmasq.leases')
                                     return False
                 except IOError:
                     raise RuntimeError('Investigate issue if failed here')
@@ -256,8 +261,8 @@ class CorrelatorFixture(object):
                             errmsg))
                 raise RuntimeError('No hosts available.')
                 return False
-        except Exception as errmsg:
-            LOGGER.error('Failed to deprogram FPGAs: {}'.format(errmsg))
+        except:
+            LOGGER.exception('Failed to deprogram FPGAs')
             return False
 
     def get_running_intrument(self):
@@ -416,7 +421,7 @@ class CorrelatorFixture(object):
             LOGGER.info('New metadata issued')
             return True
         except:
-            LOGGER.error('Failed to issue new metadata')
+            LOGGER.exception('Failed to issue new metadata')
             return False
 
 correlator_fixture = CorrelatorFixture()
