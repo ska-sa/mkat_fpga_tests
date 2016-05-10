@@ -95,14 +95,11 @@ class test_CBF(unittest.TestCase):
         except:
             errmsg = 'Could get retrieve dhost system information'
             log_exception_failed(errmsg)
-        # Initialise dsim sources.
-        init_dsim_sources(self.dhost)
         self.receiver = None
 
     def set_instrument(self, instrument):
         # Initialise dsim sources.
         init_dsim_sources(self.dhost)
-
         if self.receiver:
             self.receiver.stop()
             self.receiver = None
@@ -717,7 +714,7 @@ class test_CBF(unittest.TestCase):
             get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
         self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
                         self.last_pfb_counts)
-        self.addCleanup(check_host_okay, self.correlator)
+        # self.addCleanup(check_host_okay, self.correlator)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
