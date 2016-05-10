@@ -174,8 +174,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            # self._test_sfdr_peaks(cutoff=53)
-            # self._systems_tests()
+            self._test_sfdr_peaks(cutoff=53)
+            self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
@@ -250,7 +250,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Baseline Correlation Products - AR1: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_product_baselines
+            self._test_product_baselines()
             self._systems_tests()
 
     @aqf_vr('TP.C.1.30')
@@ -260,7 +260,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Baseline Correlation Products - AR1: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_product_baselines
+            self._test_product_baselines()
             self._systems_tests()
 
     @aqf_vr('TP.C.1.30')
