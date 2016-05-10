@@ -49,7 +49,7 @@ from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
 from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts
-from mkat_fpga_tests.utils import get_default_instrument, check_host_okay, log_exception_failed
+from mkat_fpga_tests.utils import get_default_instrument, check_host_okay
 
 LOGGER = logging.getLogger(__name__)
 
@@ -94,7 +94,8 @@ class test_CBF(unittest.TestCase):
             self.dhost.get_system_information()
         except:
             errmsg = 'Could get retrieve dhost system information'
-            log_exception_failed(errmsg)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
         self.receiver = None
 
     def set_instrument(self, instrument):
@@ -112,7 +113,8 @@ class test_CBF(unittest.TestCase):
                 self.DEFAULT_ACCUMULATION_TIME, timeout=acc_timeout)
         except TimeoutError:
             errmsg = 'Timed-Out: Failed to set accumulation time withing {}s'.format(acc_timeout)
-            log_exception_failed(errmsg)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
             return False
         else:
             try:
@@ -129,7 +131,8 @@ class test_CBF(unittest.TestCase):
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 except:
                     errmsg = 'Correlator Receiver could not be instantiated.'
-                    log_exception_failed(errmsg)
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
                     return False
                 else:
                     start_thread_with_cleanup(self, self.receiver, start_timeout=1)
@@ -846,7 +849,8 @@ class test_CBF(unittest.TestCase):
 
         except:
             errmsg = 'Failed to set delays'
-            log_exception_failed(errmsg)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
 
         last_discard = setup_data['t_apply'] - setup_data['int_time']
         num_discards = 0
@@ -1588,7 +1592,8 @@ class test_CBF(unittest.TestCase):
                         retries -= 1
                         if retries == 0:
                             errmsg = 'Could not restart the correlator after 5 tries.'
-                            log_exception_failed(errmsg)
+                            Aqf.failed(errmsg)
+                            LOGGER.exception(errmsg)
 
                 if corr_init:
                     host = (xhosts + fhosts)[randrange(len(xhosts + fhosts))]
@@ -1812,7 +1817,8 @@ class test_CBF(unittest.TestCase):
             array_sens_lst_stat, array_numSensors = array_list_reply.arguments
         except:
             errmsg = 'KATCP connection encountered errors.'
-            log_exception_failed(errmsg)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
         else:
             # Confirm the CBF replies with "!sensor-list ok numSensors"
             # where numSensors is the number of sensor-list informs sent.
@@ -2111,7 +2117,8 @@ class test_CBF(unittest.TestCase):
                 retries -= 1
                 if retries == 0:
                     errmsg = 'Could not restart the correlator after 5 tries.'
-                    log_exception_failed(errmsg)
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
 
         if corr_init:
             [Aqf.is_true(host.is_running(),
@@ -2826,7 +2833,8 @@ class test_CBF(unittest.TestCase):
 
                 except:
                     errmsg = ('Could not connect to PDU host: {}\n'.format(host_ip))
-                    log_exception_failed(errmsg)
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
 
         def get_data_switch():
             """Verify info on each Data Switch"""
@@ -2848,7 +2856,8 @@ class test_CBF(unittest.TestCase):
                 except:
                     errmsg = 'Failed to connect to Data switch {} on IP: {}\n'.format(
                         count, ip)
-                    log_exception_failed(errmsg)
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
                 else:
                     remote_conn.send("\n")
                     while not remote_conn.recv_ready():
@@ -2906,7 +2915,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
         except:
             errmsg('Could not retrieve katcp hashes.\n')
-            log_exception_failed(errmsg)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
 
         get_package_versions()
         Aqf.step('CBF ROACH information.\n')
@@ -3152,7 +3162,8 @@ class test_CBF(unittest.TestCase):
                 tn.close()
             except:
                 errmsg = ('Could not connect to host: {}'.format(hostname))
-                log_exception_failed(errmsg)
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
 
         hosts = [host.host for host in self.correlator.xhosts + self.correlator.fhosts]
         user = 'root\n'

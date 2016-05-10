@@ -517,7 +517,3 @@ def get_default_instrument():
             Aqf.waived('Could not get default instrument from {}/arrayX-instrument path does not exists.'
                        .format(filepath.split('=')[-1]))
     return DEFAULT_INSTRUMENT
-def log_exception_failed(errmsg):
-    """Failure report and exception logger"""
-    Aqf.failed(errmsg)
-    LOGGER.exception(errmsg)
