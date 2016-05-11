@@ -148,8 +148,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('CBF Channelisation Wideband Coarse L-band: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
             self._systems_tests()
-            #test_chan = randrange(0, self.corr_freqs.n_chans)
-            test_chan = 1587
+            test_chan = randrange(0, self.corr_freqs.n_chans)
             self._test_channelisation(test_chan)
 
     @aqf_vr('TP.C.1.20')
@@ -174,7 +173,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(cutoff=53)
+            self._test_sfdr_peaks(required_chan_spacing=(856e6/4096.))
             self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
@@ -195,7 +194,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(cutoff=53, stepsize=None)
+            self._test_sfdr_peaks(required_chan_spacing=(856e6/32768.))
             self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
@@ -217,7 +216,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(cutoff=53, stepsize=8)
+            self._test_sfdr_peaks(required_chan_spacing=(856e6/32768.), stepsize=8)
             self._systems_tests()
 
     @aqf_vr('TP.C.1.19')
@@ -1088,7 +1087,7 @@ class test_CBF(unittest.TestCase):
                 plt.show()
             plt.close()
 
-        graph_name_all = 'channel_response_{}k.svg'.format(self.corr_freqs.n_chans / 1024)
+        graph_name_all = '{}_{}k.svg'.format(self._testMethodName, self.corr_freqs.n_chans / 1024)
         plot_data_all = loggerise(chan_responses[:, test_chan],
                                   dynamic_range=90)
         plot_and_save(actual_test_freqs, plot_data_all, graph_name_all,
@@ -1104,7 +1103,7 @@ class test_CBF(unittest.TestCase):
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
         assert isinstance(self.corr_freqs.n_chans, int)
-        graph_name_central = 'channel_response_central_{}k.svg'.format(self.corr_freqs.n_chans / 1024)
+        graph_name_central = '{}_central_{}k.svg'.format(self._testMethodName, self.corr_freqs.n_chans / 1024)
         plot_data_central = loggerise(central_chan_responses[:, test_chan],
                                       dynamic_range=90)
         plot_and_save(central_chan_test_freqs, plot_data_central, graph_name_central,
@@ -1176,7 +1175,7 @@ class test_CBF(unittest.TestCase):
             'is {desired_cutoff_resp} +- {acceptable_co_var} dB relative to '
             'channel centre response.'.format(**locals()))
 
-    def _test_sfdr_peaks(self, cutoff, stepsize=None):
+    def _test_sfdr_peaks(self, required_chan_spacing, stepsize=None, cutoff=53):
         """Test channel spacing and out-of-channel response
 
         Will loop over all the channels, placing the source frequency as close to the
@@ -1271,7 +1270,6 @@ class test_CBF(unittest.TestCase):
                        .format(**locals()))
 
         df = self.corr_freqs.delta_f
-        required_chan_spacing = int(self.corr_freqs.bandwidth / self.corr_freqs.n_chans)
         Aqf.less(df, required_chan_spacing,
                  'Test that computed channel spacing {} HZ is less than {} Hz. '
                  'This comparison is only valid if the peak response test '
@@ -1600,6 +1598,14 @@ class test_CBF(unittest.TestCase):
                     Aqf.is_true(host,
                                 'Confirm that the instrument is initialised by '
                                 'checking if a random host: {} is programmed and running.'.format(host.host))
+                    try:
+                        self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                    except Queue.Empty:
+                        errmsg = 'Could not retrieve clean SPEAD dump: Queue is Empty.'
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+                        return False
+
                     Aqf.equals(
                         self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value.shape[0],
                         no_channels,
