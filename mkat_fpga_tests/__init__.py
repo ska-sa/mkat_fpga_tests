@@ -306,7 +306,6 @@ class CorrelatorFixture(object):
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
             return True
-        return self.check_instrument(instrument)
 
     def check_instrument(self, instrument):
         """Return true if named instrument is enabled on correlator array
@@ -315,10 +314,9 @@ class CorrelatorFixture(object):
         instrument is active
 
         """
-        # Get a list of instruments associated with instrument
         try:
-            if self.katcp_rct != True or self.katcp_rct is None:
-                return False
+            assert isinstance(self.katcp_rct,
+                        resource_client.ThreadSafeKATCPClientResourceWrapper)
         except:
             # This probably means that no array has been defined yet and therefore the
             # katcp_rct client cannot be created. IOW, the desired instrument would
