@@ -357,6 +357,7 @@ class CorrelatorFixture(object):
             instrument_present = instrument == running_intrument
             if instrument_present:
                 self.instrument = instrument
+                LOGGER.info('Confirm that the named instrument is enabled on correlator array.'.format(self.instrument))
             return instrument_present
 
     def start_correlator(self, instrument='bc8n856M4k', retries=30, loglevel='INFO'):
@@ -375,7 +376,7 @@ class CorrelatorFixture(object):
         if array_list_messages:
             reply = self.rct.req.array_halt(self.array_name)
             if not reply.succeeded:
-                LOGGER.exception("Unable to halt array {}: {}".format(self.array_name, reply))
+                LOGGER.exception('Unable to halt array {}: {}'.format(self.array_name, reply))
                 return False
 
         while retries and not success:
