@@ -391,7 +391,7 @@ def get_fftoverflow_qdrstatus(correlator):
     dicts['xhosts'] = xhosts
     return dicts
 
-def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
+def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     """Checks if FFT overflows and QDR status on roaches
     Param: Correlator object, last known pfb counts
     Return: list:
@@ -406,12 +406,14 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts):
         last_pfb_counts.items(), curr_pfb_counts.items()):
         if curr_pfb_host is curr_pfb_host_x:
             if curr_pfb_value != last_pfb_value:
-                Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
+                if status:
+                    Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
     for hosts_status in fftoverflow_qdrstatus.values():
         for host, hosts_status in hosts_status.items():
             if hosts_status['QDR_okay'] is False:
-                Aqf.failed('QDR status on {} not Okay.'.format(host))
+                if status:
+                    Aqf.failed('QDR status on {} not Okay.'.format(host))
                 QDR_error_roaches.add(host)
 
     return list(QDR_error_roaches)
@@ -502,18 +504,3 @@ def get_pfb_counts(status_dict):
         pfb_list[host] = (pfb_value['pfb_of0_cnt'],
                           pfb_value['pfb_of1_cnt'])
     return pfb_list
-
-def get_default_instrument():
-    cmc_conf_path = '/etc/cmc.conf'
-    if os.path.isfile(cmc_conf_path):
-        filepath = open(cmc_conf_path, 'r').readline().strip()
-        try:
-            if os.path.exists(filepath.split('=')[-1]):
-                instrument_list = os.listdir(filepath.split('=')[-1])[-1]
-                array_name, DEFAULT_INSTRUMENT = instrument_list.split('-')
-
-        except Exception:
-            DEFAULT_INSTRUMENT = 'bc8n856M4k'
-            Aqf.waived('Could not get default instrument from {}/arrayX-instrument path does not exists.'
-                       .format(filepath.split('=')[-1]))
-    return DEFAULT_INSTRUMENT
