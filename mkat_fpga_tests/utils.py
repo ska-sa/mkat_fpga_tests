@@ -347,24 +347,31 @@ def get_baselines_lookup(spead):
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
-def clear_all_delays(instrument, receiver):
+def clear_all_delays(instrument, receiver, timeout=10):
     """Clears all delays on all fhosts.
     Param: Correlator object
-    Return: None
+         : Rx object
+         : timeout (int)
+    Return: bool
     """
     delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
-    dump = receiver.get_clean_dump(10, discard=0)
-    future_time = 200e-3
-    dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
-                      dump['scale_factor_timestamp'].value)
-    t_apply = (dump_timestamp + dump['int_time'].value + future_time)
     try:
-        reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-        LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
-        return True
-    except Exception:
-        LOGGER.error('Could not clear delays: {}'.format(reply.reply.arguments[1]))
+        dump = receiver.get_clean_dump(timeout, discard=0)
+    except Queue.Empty:
+        LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
         return False
+    else:
+        future_time = 200e-3
+        dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
+                          dump['scale_factor_timestamp'].value)
+        t_apply = (dump_timestamp + dump['int_time'].value + future_time)
+        try:
+            reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
+            return True
+        except Exception:
+            LOGGER.error('Could not clear delays: {}'.format(reply.reply.arguments[1]))
+            return False
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
