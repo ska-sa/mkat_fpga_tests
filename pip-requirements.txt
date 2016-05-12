@@ -1,0 +1,23 @@
+# Uncomment below if not installing these packages from a local source
+#git+https://github.com/ska-sa/katcp-python#egg=katcp
+#git+https://github.com/ska-sa/casperfpga#egg=casperfpga
+#git+https://github.com/ska-sa/corr2#egg=corr2
+###
+
+git+https://github.com/ska-sa/PySPEAD#egg=spead
+git+https://katpull:katpull4git@github.com/ska-sa/katpoint.git#egg=katpoint
+h5py
+ipython[all]
+matplotlib
+mpld3
+bokeh
+sphinxcontrib-napoleon
+sphinx
+breathe
+alabaster
+trollius
+dpkt
+bitstring
+nose
+nose-testconfig
+pexpect
