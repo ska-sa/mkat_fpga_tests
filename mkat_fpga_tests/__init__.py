@@ -56,7 +56,7 @@ class CorrelatorFixture(object):
         # We assume either start_correlator() above has been called, or the instrument
         # was started with the name contained in self.array_name before running the
         # test.
-        self.array_name = 'array0'
+        self.array_name = 'array1'
         self.instrument = None
         self._correlator = None
         self._dhost = None
