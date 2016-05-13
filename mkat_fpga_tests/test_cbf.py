@@ -3381,3 +3381,302 @@ class test_CBF(unittest.TestCase):
 
             self.corr_fix.katcp_rct.req.gain(test_input,
                                              int(self.correlator.configd['fengine']['eq_poly_ant0_x']))
+
+
+    @aqf_vr('TP.C.1.36')
+    @aqf_vr('TP.C.1.35')
+    def test_bc8n856M4k_beamforming(self, instrument='bc8n856M4k'):
+        """Test beamformer functionality (bc8n856M4k)
+
+        Apply weights and capture beamformer data. Verify that weights are correctly applied.
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Testing beamforming weights and capturing beamformer output products: : {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._test_beamforming(ants=4)
+
+    @aqf_vr('TP.C.1.36')
+    @aqf_vr('TP.C.1.35')
+    def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
+        """Test beamformer functionality (bc16n856M4k)
+
+        Apply weights and capture beamformer data. Verify that weights are correctly applied.
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Testing beamforming weights and capturing beamformer output products: : {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._test_beamforming(ants=8)
+
+    def _test_beamforming(self, ants=4):
+        from subprocess import Popen, PIPE
+        import h5py, sys, datetime, os, glob
+        # Put some correlated noise on both outputs
+        self.dhost.noise_sources.noise_corr.set(scale=0.1)
+        # Set list for all the correlator input labels
+        if ants == 4:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
+        elif ants == 8:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
+
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('c856M4k')
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
+        dsim_clk_factor = 1.712e9/self.corr_freqs.sample_freq
+        #dsim_clk_factor = 1
+        print 'Dsim_clock_Factor = {}'.format(dsim_clk_factor)
+        bw = self.corr_freqs.bandwidth*dsim_clk_factor
+
+        def get_beam_data(beam, in_wgts, target_pb, target_cfreq):
+            # reply, informs = correlator_fixture.katcp_rct.req.beam_passband(
+            #     beam, target_pb, target_cfreq)
+            # if reply.reply_ok():
+            #     pb = float(reply.arguments[2])*dsim_clk_factor
+            #     cf = float(reply.arguments[3])*dsim_clk_factor
+            #     Aqf.step('Beam {0} passband set to {1} at center frequency {2}'
+            #             .format(reply.arguments[1], pb, cf))
+            # else:
+            #     Aqf.failed('Beam passband not succesfully set '
+            #                '(requested cf = {}, pb = {}): {}'.format(target_cfreq, target_pb, reply.arguments))
+            # import IPython; IPython.embed()
+            pb = target_pb
+            cf = target_cfreq
+
+
+            #reply, informs = correlator_fixture.katcp_rct.req.beam_weights(
+            #    'beam_0x', local_src_names[1], 2)
+            for key in in_wgts:
+                reply, informs = correlator_fixture.katcp_rct.req.beam_weights(
+                    beam, key, in_wgts[key])
+                if reply.reply_ok():
+                    Aqf.step('Input {0} weight set to {1}'.format(key, reply.arguments[1]))
+                else:
+                    Aqf.failed('Beam weights not succesfully set: {}'.format(reply.arguments))
+
+            ingst_nd = 'localhost'
+            ingst_nd_p = '2050'
+            p =  Popen(['kcpcmd', '-s', ingst_nd+':'+ingst_nd_p, 'capture-init'], stdin=PIPE,
+                                                                                  stdout=PIPE,
+                                                                                  stderr=PIPE)
+            output, err = p.communicate()
+            rc = p.returncode
+            if rc != 0:
+                Aqf.failed('Failure issuing capture-init to ingest process on ' + ingst_nd)
+                Aqf.failed('Stdout: \n' + output)
+                Aqf.failed('Stderr: \n' + err)
+            else:
+                Aqf.step('Capture-init issued on {}'.format(ingst_nd))
+            reply, informs = correlator_fixture.katcp_rct.req.capture_meta(beam)
+            if reply.reply_ok():
+                Aqf.step('Meta data issued for beam {}'.format(beam))
+            else:
+                Aqf.failed('Meta data issue failed: {}'.format(reply.arguments))
+            reply, informs = correlator_fixture.katcp_rct.req.capture_start(beam)
+            if reply.reply_ok():
+                Aqf.step('Data transmission for beam {} started'.format(beam))
+            else:
+                Aqf.failed('Data transmission start failed: {}'.format(reply.arguments))
+            time.sleep(0.3)
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(beam)
+            if reply.reply_ok():
+                Aqf.step('Data transmission for beam {} stopped'.format(beam))
+            else:
+                Aqf.failed('Data transmission stop failed: {}'.format(reply.arguments))
+            p =  Popen(['kcpcmd', '-s', ingst_nd+':'+ingst_nd_p, 'capture-done'], stdin=PIPE,
+                                                                                  stdout=PIPE,
+                                                                                  stderr=PIPE)
+            output, err = p.communicate()
+            rc = p.returncode
+            if rc != 0:
+                Aqf.failed('Failure issuing capture-done to ingest process on ',
+                           + ingst_nd)
+                Aqf.failed('Stdout: \n' + output)
+                Aqf.failed('Stderr: \n' + err)
+            else:
+                Aqf.step('Capture-done issued on {}.'.format(ingst_nd))
+
+            p =  Popen(['rsync', '-aPh', ingst_nd+':/ramdisk/', 'mkat_fpga_tests/bf_data'],
+                        stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            output, err = p.communicate()
+            rc = p.returncode
+            if rc != 0:
+                Aqf.failed('rsync of beam data failed from' + ingst_nd)
+                Aqf.failed('Stdout: \n' + output)
+                Aqf.failed('Stderr: \n' + err)
+            else:
+                Aqf.step('Data transferred from ' + ingst_nd)
+            newest_f = max(glob.iglob('mkat_fpga_tests/bf_data/*.h5'), key=os.path.getctime)
+            # Read data file
+            fin = h5py.File(newest_f,'r')
+            data = fin['Data'].values()
+            # Extract data
+            bf_raw = np.array(data[0])
+            timestamps = np.array(data[1])
+            fin.close()
+            num_caps = 20000
+            cap = [0] * num_caps
+            for i in range(0,num_caps):
+                cap[i] = np.array(complexise(bf_raw[:,i,:]))
+            cap_mag = np.abs(cap)
+            cap_avg = cap_mag.sum(axis=0)/num_caps
+            cap_db = 20*np.log(cap_avg)
+            #cap_phase = numpy.angle(cap)
+            #ts = [datetime.datetime.fromtimestamp(float(timestamp)/1000).strftime("%H:%M:%S") for timestamp in timestamps]
+
+            # Average over timestamp show passband
+            #for i in range(0,len(cap)):
+            #    plt.plot(10*numpy.log(numpy.abs(cap[i])))
+            # Build title
+            lbls = self.correlator.get_labels()
+            weights = ''
+            # NOT WORKING
+            for lbl in lbls:
+                bm = beam[-1]
+                if lbl.find(bm) != -1:
+                    wght = self.correlator.bops.get_beam_weights(beam, lbl)
+                    #print lbl, wght
+                    weights += (lbl+"={} ").format(wght)
+            weights = ''
+            for key in in_wgts:
+                weights += (key+"={} ").format(in_wgts[key])
+            weights = weights + ' Mean={0:0.1f}dB'.format(np.mean(cap_db))
+            return cap_db, weights
+            #plt.plot(cap_db, label = weights)
+            #plt.plot(cap_avg, label = weights)
+            #plt.ylabel('Passband Magnitude [db]')
+            #plt.xlabel('Channels [#] (Channels Captured = {})'.format(len(cap_db)))
+            #plt.title('Beam = {}, Passband = {}, Center Frequency = {}\n'
+            #          'Integrated over {} captures'.format(beam, pb, cf, num_caps))
+            #plt.legend()
+
+        target_cfreq = bw + bw*0.5
+        partitions = 1
+        part_size = bw / 16
+        target_pb = partitions * part_size
+        ch_bw = bw/4096
+        target_pb = 100
+        num_caps = 20000
+        beam = 'beam_0y'
+        if ants == 4:
+            beamx_dict = {'m000_x':1.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':1.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':1.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':1.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
+
+        self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw, scale=0.1)
+        self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw, scale=0.1)
+        this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+        this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+        Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
+
+
+        reply, informs = correlator_fixture.katcp_rct.req.beam_passband(
+            beam, target_pb, target_cfreq)
+        if reply.reply_ok():
+            pb = float(reply.arguments[2])*dsim_clk_factor
+            cf = float(reply.arguments[3])*dsim_clk_factor
+            Aqf.step('Beam {0} passband set to {1} at center frequency {2}'
+                    .format(reply.arguments[1], pb, cf))
+        else:
+            Aqf.failed('Beam passband not succesfully set '
+                       '(requested cf = {}, pb = {}): {}'.format(target_cfreq, target_pb, reply.arguments))
+
+        beam_data = []
+        beam_labl = []
+
+        d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        beam_data.append(d)
+        beam_labl.append(l)
+
+        self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw+ch_bw, scale=0.1)
+        self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw+ch_bw, scale=0.1)
+        this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+        this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+        Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
+        d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        beam_data.append(d)
+        beam_labl.append(l)
+
+        self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw+ch_bw*2, scale=0.1)
+        self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw+ch_bw*2, scale=0.1)
+        this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+        this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+        Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':1.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':1.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':1.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':1.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
+        d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        beam_data.append(d)
+        beam_labl.append(l)
+
+        self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw+ch_bw*3, scale=0.1)
+        self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw+ch_bw*3, scale=0.1)
+        this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+        this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+        Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
+        d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        beam_data.append(d)
+        beam_labl.append(l)
+
+        self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw+ch_bw*4, scale=0.1)
+        self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw+ch_bw*4, scale=0.1)
+        this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+        this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+        Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':2.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':2.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':2.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':2.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
+        d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        beam_data.append(d)
+        beam_labl.append(l)
+
+        aqf_plot_channels(zip(beam_data, beam_labl),
+                          plot_filename='{}.svg'.format(self._testMethodName),
+                          plot_title='Beam = {}, Passband = {}, Center Frequency = {}\nIntegrated over {} captures'.format(beam, pb, cf, num_caps),
+                          log_dynamic_range=90, log_normalise_to=1,
+                          caption='Captured beamformer data')
+
+
+    def get_adc_raw (correlator):
+        fpga = correlator.fhosts[0]
+        data = fpga.get_adc_snapshots()
+        rv = {'p0': [], 'p1': []}
+        for ctr in range(0, len(data['p0']['d0'])):
+            for ctr2 in range(0, 8):
+                rv['p0'].append(data['p0']['d%i' % ctr2][ctr])
+                rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
+        return rv
