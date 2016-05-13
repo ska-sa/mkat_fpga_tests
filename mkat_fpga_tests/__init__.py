@@ -56,7 +56,7 @@ class CorrelatorFixture(object):
         # We assume either start_correlator() above has been called, or the instrument
         # was started with the name contained in self.array_name before running the
         # test.
-        self.array_name = 'array1'
+        self.array_name = 'array0'
         self.instrument = None
         self._correlator = None
         self._dhost = None
@@ -128,7 +128,6 @@ class CorrelatorFixture(object):
                     self.correlator.initialise(program=False)
                     return self._correlator
                 except:
-                    import IPython;IPython.embed()
                     self.start_correlator()
             else:
                 self.start_correlator()
@@ -289,7 +288,7 @@ class CorrelatorFixture(object):
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
             return True
-        return self.check_instrument(instrument)
+        #return self.check_instrument(instrument)
 
     def check_instrument(self, instrument):
         """Return true if named instrument is enabled on correlator array
