@@ -212,7 +212,7 @@ class StoreTestRun(object):
             Alternative description for when an image cannot be displayed
 
         """
-        matplotlib.pyplot.savefig(filename, format='svg')
+        matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=100)
         self.add_image(filename, caption, alt)
         matplotlib.pyplot.clf()
         for i in range(100):
