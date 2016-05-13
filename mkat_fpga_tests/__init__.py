@@ -128,7 +128,6 @@ class CorrelatorFixture(object):
                     self.correlator.initialise(program=False)
                     return self._correlator
                 except:
-                    import IPython;IPython.embed()
                     self.start_correlator()
             else:
                 self.start_correlator()
@@ -289,7 +288,7 @@ class CorrelatorFixture(object):
             self.instrument = instrument
             self.start_correlator(self.instrument, **kwargs)
             return True
-        return self.check_instrument(instrument)
+        #return self.check_instrument(instrument)
 
     def check_instrument(self, instrument):
         """Return true if named instrument is enabled on correlator array
