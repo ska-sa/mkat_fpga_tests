@@ -3387,17 +3387,35 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Testing beamforming weights and capturing beamformer output products: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_beamforming()
+            self._test_beamforming(ants=4)
 
-    def _test_beamforming(self):
+    @aqf_vr('TP.C.1.36')
+    @aqf_vr('TP.C.1.35')
+    def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
+        """Test beamformer functionality (bc16n856M4k)
+
+        Apply weights and capture beamformer data. Verify that weights are correctly applied.
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Testing beamforming weights and capturing beamformer output products: : {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._test_beamforming(ants=8)
+
+    def _test_beamforming(self, ants=4):
         from subprocess import Popen, PIPE
         import h5py, sys, datetime, os, glob
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.1)
         # Set list for all the correlator input labels
-        local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 'm002_x',
-                           'm002_y', 'm003_x', 'm003_y']
-
+        if ants == 4:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
+        elif ants == 8:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y', 
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
+            
         reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
         reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
         reply, informs = correlator_fixture.katcp_rct.req.capture_stop('c856M4k')
@@ -3538,8 +3556,14 @@ class test_CBF(unittest.TestCase):
         target_pb = 100
         num_caps = 20000
         beam = 'beam_0y'
-        beamx_dict = {'m000_x':1.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0}
-        beamy_dict = {'m000_y':1.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0}
+        if ants == 4:
+            beamx_dict = {'m000_x':1.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':1.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':1.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':1.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
 
         self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw, scale=0.1)
         self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw, scale=0.1)
@@ -3571,7 +3595,14 @@ class test_CBF(unittest.TestCase):
         this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
         this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
         Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
-        beamy_dict = {'m000_y':2.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0}
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':1.0, 'm002_x':1.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':1.0, 'm002_y':1.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
         d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
         beam_data.append(d)
         beam_labl.append(l)
@@ -3581,7 +3612,14 @@ class test_CBF(unittest.TestCase):
         this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
         this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
         Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
-        beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':1.0, 'm003_y':1.0}
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':1.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':1.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':1.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':1.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
         d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
         beam_data.append(d)
         beam_labl.append(l)
@@ -3591,7 +3629,14 @@ class test_CBF(unittest.TestCase):
         this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
         this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
         Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
-        beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':1.0}
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':1.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':1.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':1.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
         d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
         beam_data.append(d)
         beam_labl.append(l)
@@ -3601,7 +3646,14 @@ class test_CBF(unittest.TestCase):
         this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
         this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
         Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
-        beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':2.0}
+        if ants == 4:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':2.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':2.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x':2.0, 'm001_x':2.0, 'm002_x':2.0, 'm003_x':2.0,
+                          'm004_x':1.0, 'm005_x':1.0, 'm006_x':1.0, 'm007_x':1.0}
+            beamy_dict = {'m000_y':2.0, 'm001_y':2.0, 'm002_y':2.0, 'm003_y':2.0,
+                          'm004_y':1.0, 'm005_y':1.0, 'm006_y':1.0, 'm007_y':1.0}
         d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
         beam_data.append(d)
         beam_labl.append(l)
