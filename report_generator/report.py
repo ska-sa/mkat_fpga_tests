@@ -1175,15 +1175,18 @@ class Report(object):
                 line.append(docproducer.str_style(action_type))
                 line.append(action.get('msg', ''))
                 # Do not write out the "CONTROL start" and "CONTROL end" lines
-                if action_type != 'CONTROL':
-                    docproducer.add_line("  ".join([l for l in line if l]))
-                if action_type == 'CHECKBOX':
-                    docproducer.add_line('        **PASSED / FAILED** ')
-                #if action.get('stack'):
-                    #docproducer.add_sourcecode(''.join(action['stack']))
-                if action_type == 'IMAGE':
-                    docproducer.add_figure(
-                        action['filename'], action['caption'], action['alt'])
+                try:
+                    if action_type != 'CONTROL':
+                        docproducer.add_line("  ".join([l for l in line if l]))
+                    if action_type == 'CHECKBOX':
+                        docproducer.add_line('        **PASSED / FAILED** ')
+                    #if action.get('stack'):
+                        #docproducer.add_sourcecode(''.join(action['stack']))
+                    if action_type == 'IMAGE':
+                        docproducer.add_figure(
+                            action['filename'], action['caption'], action['alt'])
+                except:
+                    pass
 
         if not test_data.get('success'):
             docproducer.add_sourcecode(

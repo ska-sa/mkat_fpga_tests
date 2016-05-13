@@ -162,9 +162,10 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
             plt.show()
         plt.close('all')
 
-def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
+def aqf_plot_channels(channelisation, plot_filename='test_plt.svg', plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None,
-                      caption="", show=False):
+                      caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
+                      show=False):
         """Simple magnitude plot of a channelised result
         return: None
 
@@ -223,7 +224,13 @@ def aqf_plot_channels(channelisation, plot_filename, plot_title=None,
         new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
         #axis.set_ybound(*new_ybound)
         if has_legend:
-            plt.legend(ncol=3 ,fontsize=9, fancybox=True).get_frame().set_alpha(0.5)
+            plt.legend(fontsize=9, fancybox=True,
+                        loc='center left', bbox_to_anchor=(1, .95)).set_alpha(0.5)
+        if hlines:
+            plt.axhline(hlines, linestyle='--', linewidth=0.5)
+        if ylimits:
+            plt.ylim(ylimits)
+        #plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show()
