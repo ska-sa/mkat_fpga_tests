@@ -125,7 +125,11 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
                 self.addCleanup(self.corr_fix.stop_x_data)
-                self.receiver = CorrRx(port=8888, queue_size=10)
+                if instrument.upper().find('M4K') > 0:
+                    self.receiver = CorrRx(port=8888, queue_size=1000)
+                else:
+                    self.receiver = CorrRx(port=8888, queue_size=10)
+
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 except:
