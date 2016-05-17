@@ -3022,8 +3022,8 @@ class test_CBF(unittest.TestCase):
         def get_pdu_config():
             host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
             for count, host_ip in enumerate(host_ips, start=1):
-                user = 'apc\r\n'
-                password = 'apc\r\n'
+                user = 'kat\r\n'
+                password = 'kat\r\n'
                 model_cmd = 'prodInfo\r\n'
                 about_cmd = 'about\r\n'
                 try:
