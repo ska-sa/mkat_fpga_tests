@@ -52,7 +52,7 @@ from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_ok
 
 LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
 
 # From
 # https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
