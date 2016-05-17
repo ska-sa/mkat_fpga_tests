@@ -38,27 +38,42 @@ def teardown_package():
 
 class CorrelatorFixture(object):
 
-    def __init__(self, test_config_filename=None):
-        if test_config_filename is None:
-            test_config_filename = os.environ.get('CORR2TESTINI',
-                './mkat_fpga_tests/config_templates/test_conf.ini')
-            self.test_conf = corr2.utils.parse_ini_file(
-                test_config_filename)
-            self.dsim_conf = self.test_conf['dsimengine']
-        # Assume the correlator is already started if start_correlator is False
-        self._correlator_started = not int(
-            test_config.get('start_correlator', False))
+    def __init__(self, test_config_filename=None, array='array0', instrument=None):
 
         # TODO: hard-coded Array number
         # We assume either start_correlator() above has been called, or the instrument
         # was started with the name contained in self.array_name before running the
         # test.
-        self.array_name = 'array0'
-        self.instrument = None
+
+        self.array_name = array
+        self.instrument = instrument
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None
         self._rct = None
+        # Assume the correlator is already started if start_correlator is False
+        self._correlator_started = not int(
+            test_config.get('start_correlator', False))
+
+        try:
+            default_conf = '/etc/corr/default_conf.ini'
+            test_conf_file = './mkat_fpga_tests/config_templates/test_conf.ini'
+            if os.path.exists(default_conf):
+                self.dsim_conf_file = corr2.utils.parse_ini_file(default_conf)
+
+            elif test_config_filename is None:
+                if os.path.exists(test_conf_file):
+                    self.dsim_conf_file = corr2.utils.parse_ini_file(test_conf_file)
+            else:
+                LOGGER.error('Could not find default dsim config file: {} and {}'.format(
+                    default_conf, test_conf_file))
+                raise Exception
+        except:
+            errmsg = 'Could not retrieve config files.'
+            LOGGER.exception(errmsg)
+            raise RuntimeError(errmsg)
+        else:
+            self.dsim_conf = self.dsim_conf_file['dsimengine']
 
     @property
     def rct(self):
@@ -368,7 +383,14 @@ class CorrelatorFixture(object):
         LOGGER.info('Confirm DEngine is running before starting correlator')
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
-        _d = self.test_conf
+
+        try:
+            test_conf_file = './mkat_fpga_tests/config_templates/test_conf.ini'
+            _d = corr2.utils.parse_ini_file(test_conf_file)
+        except IOError:
+            test_conf_file = './config_templates/test_conf.ini'
+            _d = corr2.utils.parse_ini_file(test_conf_file)
+
         host_port = _d['test_confs']['katcp_port']
         multicast_ip = _d['test_confs']['source_mcast_ips']
         array_list_status, array_list_messages = self.rct.req.array_list(
