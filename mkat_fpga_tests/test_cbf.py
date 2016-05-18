@@ -1535,7 +1535,7 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         Aqf.step('Dsim configured to genetare correlated noise.')
         self.dhost.noise_sources.noise_corr.set(scale=0.5)
-        # Set list for all the correlator input labels
+        Aqf.step('Set list for all the correlator input labels')
         local_src_names = self.correlator.configd['fengine']['source_names'].split(',')
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
         if not self.corr_fix.issue_metadata():
@@ -1550,22 +1550,22 @@ class test_CBF(unittest.TestCase):
         else:
             # Get bls ordering from get dump
             bls_ordering = test_dump['bls_ordering'].value
-            # Get list of all the correlator input labels
+            Aqf.hop('Get list of all the correlator input labels')
             input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
-            # Get list of all the baselines present in the correlator output
+            Aqf.step('Get list of all the baselines present in the correlator output')
             baselines_lookup = get_baselines_lookup(test_dump)
             present_baselines = sorted(baselines_lookup.keys())
 
-            # Make a list of all possible baselines (including redundant baselines)
-            # for the given list of inputs
+            Aqf.step('List of all possible baselines (including redundant baselines) '
+                     'for the given list of inputs')
             possible_baselines = set()
             for li in input_labels:
                 for lj in input_labels:
                     possible_baselines.add((li, lj))
 
             test_bl = sorted(list(possible_baselines))
-            # Test that each baseline (or its reverse-order counterpart) is present
-            # in the correlator output
+            Aqf.step('Check that each baseline (or its reverse-order counterpart) is present '
+                     'in the correlator output')
             baseline_is_present = {}
             for test_bl in possible_baselines:
                 baseline_is_present[test_bl] = (test_bl in present_baselines or
@@ -1588,18 +1588,18 @@ class test_CBF(unittest.TestCase):
                         'Check that all baselines are present in correlator output.')
 
             test_data = test_dump['xeng_raw'].value
-            # Expect all baselines and all channels to be non-zero
+            Aqf.step('Expect all baselines and all channels to be non-zero')
             Aqf.is_false(zero_baselines(test_data),
                          'Check that no baselines have all-zero visibilities')
             Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
                        'Check that all baseline visibilities are non-zero accross '
                        'all channels')
 
-            # Save initial f-engine equalisations, and ensure they are restored
-            # at the end of the test
+            Aqf.step('Save initial f-engine equalisations, and ensure they are restored '
+                     'at the end of the test')
             initial_equalisations = get_and_restore_initial_eqs(self, self.correlator)
 
-            # Set all inputs to zero, and check that output product is all-zero
+            Aqf.step('Set all inputs to zero, and check that output product is all-zero')
             _input = None
             for _input in input_labels:
                 try:
@@ -1626,7 +1626,8 @@ class test_CBF(unittest.TestCase):
                         else:
                             zeros.add((inp_i, inp_j))
                 return zeros, nonzeros
-
+            Aqf.step('Stepping through input combinations, verifying for each that '
+                     'the correct output appears in the correct baseline product.')
             for inp in input_labels:
                 old_eq = initial_equalisations[inp]
                 self.corr_fix.katcp_rct.req.gain(inp, old_eq)
