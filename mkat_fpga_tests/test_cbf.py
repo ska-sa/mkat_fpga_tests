@@ -85,10 +85,9 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        if not self.corr_fix.dhost.is_running():
-            errmsg = 'Failed to initialise the DEngine.'
-            LOGGER.error(errmsg)
-            raise RuntimeError(errmsg)
+        # TODO: Think of a way to get this to work without hardcoding instrument
+        # Default instrument inorder to program dsim automatically
+        self.corr_fix.instrument = 'bc8n856M4k'
         self.dhost = self.corr_fix.dhost
         try:
             self.dhost.get_system_information()
@@ -97,6 +96,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         self.receiver = None
+        self.corr_fix.instrument = None
 
     def set_instrument(self, instrument):
         # Initialise dsim sources.
