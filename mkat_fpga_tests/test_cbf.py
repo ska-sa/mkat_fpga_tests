@@ -1343,7 +1343,7 @@ class test_CBF(unittest.TestCase):
             # TODO Normalise plot to frequency bins
             plt.xlabel('Frequency (Hz)')
             if cutoff:
-                plt.axhline(cutoff,, color='r', ls='--', label='Cutoff @ -53dB', linewidth=0.5)
+                plt.axhline(cutoff, color='r', ls='--', label='Cutoff @ -53dB', linewidth=0.5)
             Aqf.matplotlib_fig(plot_filename, caption=caption)
             if show:
                 plt.show()
