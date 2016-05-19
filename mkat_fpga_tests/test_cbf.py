@@ -181,7 +181,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
     def test_bc8n856M4k_channelisation_sfdr_peaks(self, instrument='bc8n856M4k'):
-        """Test spurious free dynamic range for wideband coarse (c8n856M4k)
+        """Test spurious free dynamic range for wideband coarse (4k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
@@ -189,13 +189,13 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=250e3)#Hz
+            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)#Hz
             self._systems_tests()
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
     def test_bc16n856M4k_channelisation_sfdr_peaks(self, instrument='bc16n856M4k'):
-        """Test spurious free dynamic range for wideband coarse (bc16n856M4k)
+        """Test spurious free dynamic range for wideband coarse (4k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
@@ -203,14 +203,14 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=32768)#Hz
+            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)#Hz
             self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
     def test_c8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='c8n856M32k'):
         """
-        Slow Test spurious free dynamic range for wideband fine (c8n856M32k)
+        Slow Test spurious free dynamic range for wideband fine (32k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
@@ -231,7 +231,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.46')
     def test_c8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='c8n856M32k'):
         """
-        Fast Test spurious free dynamic range for wideband fine (c8n856M32k)
+        Fast Test spurious free dynamic range for wideband fine (32k)
 
         Check that the correct channels have the peak response to each
         frequency and that no other channels have significant relative power.
@@ -1540,7 +1540,7 @@ class test_CBF(unittest.TestCase):
                        'and processing bandwidth: {}Hz.'.format(initial_dump['bandwidth'].value))
             chan_spacing = initial_dump['bandwidth'].value/initial_dump['xeng_raw'].value.shape[0]
             # [CBF-REQ-0043]
-            Aqf.less(chan_spacing, req_chan_spacing,
+            Aqf.less(chan_spacing, required_chan_spacing,
                     'Verify that the calculated channel frequency step size is <= {} Hz'.format(
                     required_chan_spacing))
 
