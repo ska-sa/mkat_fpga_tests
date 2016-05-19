@@ -162,7 +162,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
             plt.show()
         plt.close('all')
 
-def aqf_plot_channels(channelisation, plot_filename='test_plt.svg', plot_title=None,
+def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None,
                       caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
                       show=False):
