@@ -19,3 +19,5 @@ gfortran
 swig
 dialog
 libopenblas-dev
+libssl-dev
+libffi-dev
