@@ -203,7 +203,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=250e3)#Hz
+            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=32768)#Hz
             self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
@@ -224,7 +224,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=30e3)#Hz
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)#Hz
             self._systems_tests()
 
     @aqf_vr('TP.C.1.20')
@@ -246,7 +246,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=30e3, stepsize=8) #Hz
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8) #Hz
             self._systems_tests()
 
     @aqf_vr('TP.C.1.19')
@@ -1268,10 +1268,10 @@ class test_CBF(unittest.TestCase):
         print_counts = 3
         for i, freq in enumerate(requested_test_freqs):
             if i < print_counts:
-                Aqf.step('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
                          .format(i + 1, len(requested_test_freqs), freq / 1e6))
             elif i >= (len(requested_test_freqs) - print_counts):
-                Aqf.step('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
                          .format(i + 1, len(requested_test_freqs), freq / 1e6))
             else:
                 LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
@@ -1491,7 +1491,7 @@ class test_CBF(unittest.TestCase):
             'channel centre response.'.format(**locals()))
 
 
-    def _test_sfdr_peaks(self, required_chan_spacing, stepsize=None, cutoff=53):
+    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53):
         """Test channel spacing and out-of-channel response
 
         Will loop over all the channels, placing the source frequency as close to the
@@ -1499,6 +1499,9 @@ class test_CBF(unittest.TestCase):
 
         Parameters
         ----------
+        required_chan_spacing: float
+        no_channels: int
+        stepsize: int
         cutoff : float
             Responses in other channels must be at least `-cutoff` dB below the response
             of the channel with centre frequency corresponding to the source frequency
@@ -1516,24 +1519,43 @@ class test_CBF(unittest.TestCase):
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         n_chans = self.corr_freqs.n_chans
-        Aqf.step('Dsim configured to generate cw tone.')
+        Aqf.step('Configure digitiser simulator to generate a continuos wave.')
         if stepsize:
             Aqf.step('Running FASTER version of Channelisation SFDR test '
                      'with {} step size.'.format(stepsize))
             print_counts = 4 * stepsize
         else:
             print_counts = 4
+        # Abitrary frequency
+        self.dhost.sine_sources.sin_0.set(frequency=300e6, scale=0.6)
+        try:
+            initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        except Queue.Empty:
+            errmsg = 'Could not retrieve clean SPEAD dump: Queue is Empty.'
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+        else:
+            Aqf.equals(initial_dump['xeng_raw'].value.shape[0], no_channels,
+                       'Capture an initial correlator dump, determine the number of channels '
+                       'and processing bandwidth: {}Hz.'.format(initial_dump['bandwidth'].value))
+            chan_spacing = initial_dump['bandwidth'].value/initial_dump['xeng_raw'].value.shape[0]
+            # [CBF-REQ-0043]
+            Aqf.less(chan_spacing, req_chan_spacing,
+                    'Verify that the calculated channel frequency step size is <= {} Hz'.format(
+                    required_chan_spacing))
 
+        Aqf.step('Sweeping the digitiser simulator over the all channels that fall '
+                 'within the complete L-band.')
         for channel, channel_f0 in enumerate(
                 self.corr_freqs.chan_freqs[start_chan::stepsize], start_chan):
 
             if stepsize:
                 channel *= stepsize
             if channel < print_counts:
-                Aqf.step('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
                          .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             elif channel > (n_chans - print_counts):
-                Aqf.step('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
                          .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             else:
                 LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
@@ -1552,12 +1574,15 @@ class test_CBF(unittest.TestCase):
             else:
                 this_freq_response = (
                     normalised_magnitude(this_freq_data[:, test_baseline, :]))
+
+                plt_filename =  '{}_channel_resp.png'.format(self._testMethodName)
+                plt_title = 'Log channel response at {} @ {} MHz'.format(
+                            channel, this_source_freq / 1e6)
+
                 if channel in (n_chans // 10, n_chans // 2, 9 * n_chans // 10):
                     aqf_plot_channels(
-                        this_freq_response, '{}_channel_resp.png'.format(
-                            self._testMethodName),
-                        'Log channel response at {} MHz'.format(this_source_freq / 1e6),
-                        log_dynamic_range=90, hlines=-cutoff)
+                        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
+                        hlines=-cutoff)
 
                 max_chan = np.argmax(this_freq_response)
                 max_channels.append(max_chan)
@@ -1585,12 +1610,12 @@ class test_CBF(unittest.TestCase):
             Aqf.failed("Check that no other channels responded > -{cutoff} dB"
                        .format(**locals()))
 
-        df = self.corr_freqs.delta_f
-        Aqf.less(df, required_chan_spacing,
-                 'Test that computed channel spacing {} HZ is less than {} Hz. '
-                 'This comparison is only valid if the peak response test '
-                 'above passed, since a failure may imply that the computed '
-                 'spacing is invalid.'.format(df, required_chan_spacing))
+        #df = self.corr_freqs.delta_f
+        #Aqf.less(df, required_chan_spacing,
+                 #'Test that computed channel spacing {} HZ is less than {} Hz. '
+                 #'This comparison is only valid if the peak response test '
+                 #'above passed, since a failure may imply that the computed '
+                 #'spacing is invalid.'.format(df, required_chan_spacing))
 
     def _test_product_baselines(self):
         # Put some correlated noise on both outputs
