@@ -511,3 +511,13 @@ def get_pfb_counts(status_dict):
         pfb_list[host] = (pfb_value['pfb_of0_cnt'],
                           pfb_value['pfb_of1_cnt'])
     return pfb_list
+
+def get_adc_raw (correlator):
+    fpga = correlator.fhosts[0]
+    data = fpga.get_adc_snapshots()
+    rv = {'p0': [], 'p1': []}
+    for ctr in range(0, len(data['p0']['d0'])):
+        for ctr2 in range(0, 8):
+            rv['p0'].append(data['p0']['d%i' % ctr2][ctr])
+            rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
+    return rv
