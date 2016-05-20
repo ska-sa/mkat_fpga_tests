@@ -415,7 +415,7 @@ def generate_report(settings, log_func):
         if not files[f] or not os.path.isfile(files.get(f, '')):
             log_func('ERROR', "The {0} data file {1} could not be found.".
                      format(f, files[f]))
-
+    import report_generator
     from report_generator.report import Report
 
     report = Report(system_data=files['system'],
