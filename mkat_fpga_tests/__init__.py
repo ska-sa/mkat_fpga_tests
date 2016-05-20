@@ -259,29 +259,16 @@ class CorrelatorFixture(object):
                 raise Exception
         except:
             LOGGER.error('Could not get instrument from sensors and config file does not exist'
-                        ', Resorting to plan B - retreiving roach list from dnsmasq')
-            if not os.path.exists('/etc/corr/{}-{}'.format(self.array_name, self.instrument)):
-                hosts = []
-                masq_path = '/var/lib/misc/dnsmasq.leases'
-                if os.path.isfile(masq_path):
-                    try:
-                        with open(masq_path) as masqfile:
-                            for line in masqfile:
-                                if line.find('roach') > 0:
-                                    roachname = line[line.find('roach'):line.find(
-                                                ' ', line.find('roach') + 1)].strip()
+                        ', Resorting to plan B - retreiving roach list from CORR2INI')
+            corr2ini_link = os.environ.get('CORR2INI')
+            if corr2ini_link is not None:
+                fhosts = corr2.utils.parse_hosts(corr2ini_link, section='fengine')
+                xhosts = corr2.utils.parse_hosts(corr2ini_link, section='fengine')
+                hosts = fhosts + xhosts
+            else:
+                LOGGER.error('Failed to retrieve hosts from CORR2INI')
+                return False
 
-                                    try:
-                                        with open(os.devnull, 'wb') as devnull:
-                                            result = (subprocess.call(['ping', '-c', '1', roachname],
-                                                      stdout = devnull, stderr = devnull))
-                                        if result == 0:
-                                            hosts.append(roachname)
-                                    except:
-                                        LOGGER.exception('Unable to ping hosts in dnsmasq.leases')
-                                        return False
-                    except IOError:
-                        raise RuntimeError('Investigate issue if failed here')
         try:
             if not len(hosts) == 0:
                 connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
@@ -372,7 +359,8 @@ class CorrelatorFixture(object):
             instrument_present = instrument == running_intrument
             if instrument_present:
                 self.instrument = instrument
-                LOGGER.info('Confirm that the named instrument is enabled on correlator array.'.format(self.instrument))
+                LOGGER.info('Confirm that the named instrument is enabled on '
+                            'correlator array.'.format(self.instrument))
             return instrument_present
 
     def test_config_file(self):

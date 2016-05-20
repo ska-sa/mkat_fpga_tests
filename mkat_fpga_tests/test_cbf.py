@@ -16,6 +16,9 @@ import Queue
 import corr2
 import katcp
 
+import warnings
+import matplotlib.cbook
+
 from functools import partial
 from random import randrange
 from concurrent.futures import TimeoutError
@@ -77,6 +80,8 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 # the mode name from the function to make an all singing all dancing decorator that does
 # everything automagically?
 
+def disable_maplotlib_warning():
+    warnings.filterwarnings("ignore",category=matplotlib.cbook.mplDeprecation)
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -1227,6 +1232,7 @@ class test_CBF(unittest.TestCase):
     #                       Test Methods                            #
     #################################################################
     def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None):
+        disable_maplotlib_warning()
         Aqf.step('Choose a frequency channel to test: {}'.format(test_chan))
         Aqf.step('Calculate the expected channel frequency step size and '
                  'the centre frequency of each channel (bin).')
