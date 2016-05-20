@@ -21,3 +21,4 @@ bitstring
 nose
 nose-testconfig
 pexpect
+requests[security]
