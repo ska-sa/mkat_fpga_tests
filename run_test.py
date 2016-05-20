@@ -8,7 +8,8 @@ import time
 from optparse import OptionParser
 from process_core_xml import process_xml_to_json
 
-
+import report_generator
+from report_generator.report import Report
 def option_parser():
     usage = "usage: %prog [options] [tests]"
     parser = OptionParser(usage)
@@ -415,8 +416,7 @@ def generate_report(settings, log_func):
         if not files[f] or not os.path.isfile(files.get(f, '')):
             log_func('ERROR', "The {0} data file {1} could not be found.".
                      format(f, files[f]))
-    import report_generator
-    from report_generator.report import Report
+
 
     report = Report(system_data=files['system'],
                     acceptance_report=settings.get('site_acceptance'))
