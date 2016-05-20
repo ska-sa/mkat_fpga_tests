@@ -2992,7 +2992,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_config_report(self, verbose):
         """CBF Report configuration"""
-        test_config = self.corr_fix.test_conf
+        test_config = self.corr_fix.test_config_file()
 
         def get_roach_config():
 
@@ -3107,12 +3107,20 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed('{}'.format(repo_dir))
 
         def get_pdu_config():
-            host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
-            for count, host_ip in enumerate(host_ips, start=1):
-                user = 'kat\r\n'
-                password = 'kat\r\n'
-                model_cmd = 'prodInfo\r\n'
-                about_cmd = 'about\r\n'
+            try:
+                pdu_host_info = test_config['pdu_hosts']
+                pdu_host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
+            except KeyError:
+                Aqf.failed('Could not retrieve PDU ip`s from config file')
+                return False
+            else:
+                user = (pdu_host_info['username'] + '\r\n')
+                password = (pdu_host_info['passwd'] + '\r\n')
+            model_cmd = 'prodInfo\r\n'
+            about_cmd = 'about\r\n'
+
+            for count, host_ip in enumerate(pdu_host_ips, start=1):
+
                 try:
                     tn = telnetlib.Telnet(host_ip, timeout=10)
 
@@ -3197,12 +3205,19 @@ class test_CBF(unittest.TestCase):
 
         def get_data_switch():
             """Verify info on each Data Switch"""
-            host_ips = test_config['data_switch_hosts']['data_switch_ips'].split(',')
-            username = 'admin'
-            password = 'admin'
+            try:
+                data_switches = test_config['data_switch_hosts']
+                data_switches_ips = test_config['data_switch_hosts']['data_switch_ips'].split(',')
+            except KeyError:
+                Aqf.failed('Could not retrieve Data switches ip`s from config file')
+                return False
+            else:
+                username = data_switches['username']
+                password = data_switches['passwd']
+
             nbytes = 2048
             wait_time = 1
-            for count, ip in enumerate(host_ips, start=1):
+            for count, ip in enumerate(data_switches_ips, start=1):
                 try:
                     remote_conn_pre = paramiko.SSHClient()
                     # Load host keys from a system file.
@@ -3666,7 +3681,7 @@ class test_CBF(unittest.TestCase):
         except NTPException:
             ntp_offset = ntplib.NTPClient().request('192.168.1.21', version=3).offset * 1e3
 
-        Aqf.less(time_diff, 5e-3,
+        Aqf.less(ntp_offset, 5e-3,
                  'Confirm that CBF synchronise time to within 5ms of '
                  'UTC time as provided via PTP on the CBF-TRF interface.')
 
@@ -3802,6 +3817,7 @@ class test_CBF(unittest.TestCase):
                            + ingst_nd)
                 Aqf.failed('Stdout: \n' + output)
                 Aqf.failed('Stderr: \n' + err)
+                return False
             else:
                 Aqf.step('Capture-done issued on {}.'.format(ingst_nd))
 
@@ -3897,7 +3913,11 @@ class test_CBF(unittest.TestCase):
         beam_data = []
         beam_labl = []
 
-        d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        try:
+            d, l = get_beam_data(beam, beamy_dict, target_pb, target_cfreq)
+        except TypeError:
+            Aqf.failed('Failed to retrieve beam data')
+            return False
         beam_data.append(d)
         beam_labl.append(l)
 
@@ -3974,14 +3994,3 @@ class test_CBF(unittest.TestCase):
                           plot_title='Beam = {}, Passband = {}, Center Frequency = {}\nIntegrated over {} captures'.format(beam, pb, cf, num_caps),
                           log_dynamic_range=90, log_normalise_to=1,
                           caption='Captured beamformer data')
-
-
-    def get_adc_raw (correlator):
-        fpga = correlator.fhosts[0]
-        data = fpga.get_adc_snapshots()
-        rv = {'p0': [], 'p1': []}
-        for ctr in range(0, len(data['p0']['d0'])):
-            for ctr2 in range(0, 8):
-                rv['p0'].append(data['p0']['d%i' % ctr2][ctr])
-                rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
-        return rv

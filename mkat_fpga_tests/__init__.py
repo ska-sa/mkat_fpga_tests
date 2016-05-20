@@ -375,6 +375,19 @@ class CorrelatorFixture(object):
                 LOGGER.info('Confirm that the named instrument is enabled on correlator array.'.format(self.instrument))
             return instrument_present
 
+    def test_config_file(self):
+        """
+        Configuration file containing information such as dsim, pdu and dataswitch ip's
+        return: Dict
+        """
+        try:
+            test_conf_file = './mkat_fpga_tests/config_templates/test_conf.ini'
+            test_conf = corr2.utils.parse_ini_file(test_conf_file)
+        except IOError:
+            test_conf_file = './config_templates/test_conf.ini'
+            test_conf = corr2.utils.parse_ini_file(test_conf_file)
+        return test_conf
+
     def start_correlator(self, instrument='bc8n856M4k', retries=30, loglevel='INFO'):
         success = False
         retries_requested = retries
@@ -383,14 +396,7 @@ class CorrelatorFixture(object):
         LOGGER.info('Confirm DEngine is running before starting correlator')
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
-
-        try:
-            test_conf_file = './mkat_fpga_tests/config_templates/test_conf.ini'
-            _d = corr2.utils.parse_ini_file(test_conf_file)
-        except IOError:
-            test_conf_file = './config_templates/test_conf.ini'
-            _d = corr2.utils.parse_ini_file(test_conf_file)
-
+        _d = self.test_config_file()
         host_port = _d['test_confs']['katcp_port']
         multicast_ip = _d['test_confs']['source_mcast_ips']
         array_list_status, array_list_messages = self.rct.req.array_list(
