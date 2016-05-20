@@ -84,9 +84,7 @@ def disable_maplotlib_warning():
     warnings.filterwarnings("ignore",category=matplotlib.cbook.mplDeprecation)
 
 def teardown_module():
-    from run_test import run_report_gen
-    run_report_gen()
-
+    pass
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
