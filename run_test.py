@@ -53,7 +53,7 @@ def option_parser():
                       help="Only generate the reports. No tests will be run.\n"
                       "Valid options are: local, jenkins, skip and results. 'results' will print the katreport[_accept].json test results")
     parser.add_option("--nose", dest="nose_args",
-                      action="store", type="string", default='',
+                      action="store", type="string", default=None,
                       help="Additional arguments to pass on to nosetests. "
                       "eg --nose \"-x -s -v\"")
     parser.add_option("--jenkins", dest="jenkins",
@@ -568,11 +568,32 @@ def gather_system_settings(settings, log_func):
     with open(filename, 'w') as fh:
         fh.write(json.dumps(data, indent=4))
 
-if __name__ == "__main__":
-    options, args = option_parser()
-    settings = dict((k, getattr(options, k)) for k in dir(options)
-                    if not callable(getattr(options, k))
-                    and not k.startswith('_'))
+# MMphego 2016-05-20
+# Commented code below to disable argument parsing in order to generate report
+
+#if __name__ == "__main__":
+    #options, args = option_parser()
+    #settings = dict((k, getattr(options, k)) for k in dir(options)
+                    #if not callable(getattr(options, k))
+                    #and not k.startswith('_'))
+
+def run_report_gen():
+    # Default dict
+    args = []
+    settings = { 'cleanup': False,
+                 'demo': False,
+                 'dev_update': False,
+                 'dry_run': False,
+                 'gen_html': True,
+                 'jenkins': False,
+                 'katreport_quick': False,
+                 'manual_systype': None,
+                 'nose_args': '',
+                 'report': 'local',
+                 'site_acceptance': False,
+                 'slow_test': True,
+                 'verbose': None}
+
     settings.update(get_system_info())
     if settings['manual_systype']:
         settings['systype'] = settings['manual_systype']
@@ -642,5 +663,3 @@ if __name__ == "__main__":
         generate_report(settings, log_func)
         if settings['gen_html']:
             generate_html_sphinx_docs(settings, log_func)
-
-#os.system('rm *.svg')

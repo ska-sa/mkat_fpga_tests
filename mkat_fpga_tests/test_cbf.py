@@ -83,6 +83,11 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 def disable_maplotlib_warning():
     warnings.filterwarnings("ignore",category=matplotlib.cbook.mplDeprecation)
 
+def teardown_module():
+    from run_test import run_report_gen
+    run_report_gen()
+
+
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
 
