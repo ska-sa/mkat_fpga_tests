@@ -237,6 +237,7 @@ class CorrelatorFixture(object):
         self.instrument = instrument
         try:
             try:
+                LOGGER.info('Retrieving running instrument from sensors')
                 _running_instrument = self.katcp_rct.sensor.instrument_state.get_value()
             except:
                 if self.instrument is not None:
@@ -245,11 +246,7 @@ class CorrelatorFixture(object):
             if len(_running_instrument) < 6:
                 config_file = '/etc/corr/{}-{}'.format(self.array_name, _running_instrument)
             else:
-                try:
-                    config_file = '/etc/corr/{}-{}'.format(self.array_name, _running_instrument)
-                except:
-                    config_file = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
-
+                config_file = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
 
             if os.path.exists(config_file):
                 fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
