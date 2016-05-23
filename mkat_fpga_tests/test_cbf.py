@@ -124,6 +124,11 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return False
+        except AttributeError:
+            errmsg = 'Failed to set accumulation time withing {}s, due to katcp request errors'.format(acc_timeout)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
         else:
             try:
                 if not reply.succeeded:
@@ -1270,7 +1275,8 @@ class test_CBF(unittest.TestCase):
             Aqf.less(chan_spacing, req_chan_spacing,
                     'Verify that the calculated channel frequency step size is <= {} Hz'.format(
                     req_chan_spacing))
-        quant_snap = get_quant_snapshot(self.correlator, 'ant0_x')
+
+        #quant_snap = get_quant_snapshot(self.correlator, 'ant0_x')
 
         Aqf.step('Sweeping the digitser simulator over the centre frequencies of at '
                  'least all the channels that fall within the complete L-band')
@@ -3732,9 +3738,10 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed('Could not create channel response list, '
                            'therefore no image can be produced.')
-
-            self.corr_fix.katcp_rct.req.gain(test_input,
-                                             int(self.correlator.configd['fengine']['eq_poly_ant0_x']))
+            eq_labels = [i for i in  self.correlator.configd['fengine'] if i.startswith('eq')]
+            for eq_label in eq_labels:
+                self.corr_fix.katcp_rct.req.gain(test_input,
+                    self.correlator.configd['fengine'][eq_label])
 
     def _test_beamforming(self, ants=4):
         from subprocess import Popen, PIPE

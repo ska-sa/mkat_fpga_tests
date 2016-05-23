@@ -154,7 +154,7 @@ class CorrelatorFixture(object):
     def halt_array(self):
         if not self._correlator:
             raise RuntimeError('Array not yet initialised')
-
+        LOGGER.info('Halting primary array.')
         self.katcp_rct.req.halt()
         self._correlator_started = False
         self.katcp_rct.stop()
@@ -289,7 +289,12 @@ class CorrelatorFixture(object):
         """
         Returns currently running instrument listed on the sensor(s)
         """
-        reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        try:
+            reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        except AttributeError:
+            LOGGER.error('KATCP Request does not contain attributes')
+            return False
+
         if not reply.istatus:
             LOGGER.error('Sensor request failed: {}'.format(reply))
             return False
@@ -397,6 +402,7 @@ class CorrelatorFixture(object):
 
         while retries and not success:
             try:
+                LOGGER.info('Assigning array port number')
                 self.rct.req.array_assign(self.array_name,
                     *multicast_ip.split(','))
 
@@ -430,10 +436,15 @@ class CorrelatorFixture(object):
                 except AssertionError:
                     return False
                 else:
-                    self.katcp_rct.stop()
-                    retries -= 1
-                    LOGGER.warn ('\nFailed to start correlator,'
-                        '{} attempts left.\n'.format(retries))
+                    try:
+                        self.katcp_rct.stop()
+                    except AttributeError:
+                        LOGGER.error('KATCP request does not contain attributes')
+                        return False
+                    else:
+                        retries -= 1
+                        LOGGER.warn ('\nFailed to start correlator,'
+                            '{} attempts left.\n'.format(retries))
         if success:
             self._correlator_started = True
         else:
