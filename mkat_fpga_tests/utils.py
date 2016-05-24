@@ -521,3 +521,15 @@ def get_adc_raw (correlator):
             rv['p0'].append(data['p0']['d%i' % ctr2][ctr])
             rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
     return rv
+
+def set_default_eq(instrument):
+    """ Iterate through config sources and set eq's as per config file
+    Param: Correlator: Object
+    Return: None
+    """
+    eq_levels = [complex(instrument.configd['fengine'][eq_label])
+                    for eq_label in [i for i in instrument.configd['fengine']
+                    if i.startswith('eq')]]
+    ant_inputs = instrument.configd['fengine']['source_names'].split(',')
+    [instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
+        for _input, eq_val in zip(ant_inputs, eq_levels)]
