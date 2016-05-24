@@ -249,6 +249,7 @@ class CorrelatorFixture(object):
                 config_file = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
 
             if os.path.exists(config_file):
+                LOGGER.info('Retrieving running hosts from running config')
                 fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
                 xhosts = corr2.utils.parse_hosts(config_file, section='xengine')
                 hosts = fhosts + xhosts

@@ -15,6 +15,7 @@ import operator
 import Queue
 import corr2
 import katcp
+import pandas
 
 import warnings
 import matplotlib.cbook
@@ -52,7 +53,7 @@ from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
 from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_okay
-
+from mkat_fpga_tests.utils import set_default_eq
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
@@ -107,8 +108,6 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.instrument = None
 
     def set_instrument(self, instrument):
-        # Initialise dsim sources.
-        init_dsim_sources(self.dhost)
         if self.receiver:
             self.receiver.stop()
             self.receiver = None
@@ -158,6 +157,11 @@ class test_CBF(unittest.TestCase):
                     self.correlator.est_synch_epoch()
                     return True
 
+    def tearDown(self):
+        # Initialise dsim sources.
+        LOGGER.info('Reset digitiser simulator to Zero')
+        init_dsim_sources(self.dhost)
+
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
     def test_bc8n856M4k_channelisation(self, instrument='bc8n856M4k'):
@@ -202,8 +206,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)#Hz
             self._systems_tests()
+            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)#Hz
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -216,8 +220,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test Spurious Free Dynamic Range for Wideband Coarse: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)#Hz
             self._systems_tests()
+            self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)#Hz
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
@@ -237,8 +241,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)#Hz
             self._systems_tests()
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)#Hz
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
@@ -259,8 +263,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Test spurious free dynamic range for wideband fine: : {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8) #Hz
             self._systems_tests()
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8) #Hz
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -271,8 +275,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Frequency Scan Consistency Test: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_freq_scan_consistency()
             self._systems_tests()
+            self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -283,8 +287,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Frequency Scan Consistency Test: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_freq_scan_consistency()
             self._systems_tests()
+            self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -295,6 +299,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Frequency Scan Consistency Test: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
+            self._systems_tests()
             self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.30')
@@ -304,8 +309,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Baseline Correlation Products - AR1: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_product_baselines()
             self._systems_tests()
+            self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
@@ -314,8 +319,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Baseline Correlation Products - AR1: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_product_baselines()
             self._systems_tests()
+            self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
@@ -324,8 +329,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Baseline Correlation Products - AR1: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._test_product_baselines()
             self._systems_tests()
+            self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
@@ -824,6 +829,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Testing beamforming weights and capturing beamformer '
                      'output products: : {}\n'.format(
                       self.corr_fix.get_running_intrument()))
+            self._systems_tests()
             self._test_beamforming(ants=4)
 
     @aqf_vr('TP.C.1.36')
@@ -838,6 +844,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Testing beamforming weights and capturing beamformer '
                      'output products: {}\n'.format(
                      self.corr_fix.get_running_intrument()))
+            self._systems_tests()
             self._test_beamforming(ants=8)
 
     @aqf_vr('TP.C.1.41')
@@ -966,6 +973,7 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
                         self.last_pfb_counts)
         # self.addCleanup(check_host_okay, self.correlator)
+        set_default_eq(self.correlator)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
@@ -1431,7 +1439,12 @@ class test_CBF(unittest.TestCase):
                 fault_freqs.append(freq)
                 fault_channels.append(max_chan)
         if fault_freqs:
-            Aqf.failed('The following input frequencies: {!r} respectively had '
+            Aqf.failed('The following input frequencies (first and last): {!r} respectively had '
+                       'peak channeliser responses in channels {!r}\n, and not '
+                       'test channel {} as expected.'
+                       .format(fault_freqs[1::-1], sorted(fault_channels), test_chan))
+
+            LOGGER.error('The following input frequencies: {!r} respectively had '
                        'peak channeliser responses in channels {!r}, not '
                        'channel {} as expected.'
                        .format(fault_freqs, fault_channels, test_chan))
@@ -1469,10 +1482,9 @@ class test_CBF(unittest.TestCase):
                  '{} Hz'.format(expected_fc, fc_src_freq))
 
         desired_cutoff_resp = -3  # dB
-        #acceptable_co_var = 0.1  # dB, TODO 2015-12-09 NM: thumbsuck number
+        acceptable_co_var = 0.1  # dB, TODO 2015-12-09 NM: thumbsuck number
         #co_low_rel_resp = 10 * np.log10(co_low_resp / fc_resp)
         #co_high_rel_resp = 10 * np.log10(co_high_resp / fc_resp)
-
         co_low_rel_resp = 10 * np.log10(co_low_resp)
         co_high_rel_resp = 10 * np.log10(co_high_resp)
 
@@ -1481,8 +1493,8 @@ class test_CBF(unittest.TestCase):
         co_lo_band_edge_rel_resp = desired_cutoff_resp - co_low_rel_resp
         co_hi_band_edge_rel_resp = desired_cutoff_resp - co_high_rel_resp
 
-        low_rel_resp_accept = desired_cutoff_resp + desired_cutoff_resp / 100
-        hi_rel_resp_accept = desired_cutoff_resp - desired_cutoff_resp / 100
+        low_rel_resp_accept = np.abs(desired_cutoff_resp + acceptable_co_var)
+        hi_rel_resp_accept = np.abs(desired_cutoff_resp - acceptable_co_var)
 
         #Aqf.less(
             #np.abs(desired_cutoff_resp - co_low_rel_resp), acceptable_co_var,
@@ -1625,18 +1637,11 @@ class test_CBF(unittest.TestCase):
             Aqf.failed("Check that no other channels responded > -{cutoff} dB"
                        .format(**locals()))
 
-        #df = self.corr_freqs.delta_f
-        #Aqf.less(df, required_chan_spacing,
-                 #'Test that computed channel spacing {} HZ is less than {} Hz. '
-                 #'This comparison is only valid if the peak response test '
-                 #'above passed, since a failure may imply that the computed '
-                 #'spacing is invalid.'.format(df, required_chan_spacing))
-
     def _test_product_baselines(self):
-        # Put some correlated noise on both outputs
-        Aqf.step('Dsim configured to genetare correlated noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.5)
-        Aqf.step('Set list for all the correlator input labels')
+        noise_scale = 0.125
+        Aqf.step('Dsim configured to generate correlated noise: scale @ {}.'.format(noise_scale))
+        self.dhost.noise_sources.noise_corr.set(scale=noise_scale)
+        Aqf.step('Set list for all the correlator input labels as per config file')
         local_src_names = self.correlator.configd['fengine']['source_names'].split(',')
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
         if not self.corr_fix.issue_metadata():
@@ -1651,9 +1656,9 @@ class test_CBF(unittest.TestCase):
         else:
             # Get bls ordering from get dump
             bls_ordering = test_dump['bls_ordering'].value
-            Aqf.hop('Get list of all the correlator input labels')
+            Aqf.hop('Get list of all the correlator input labels that where set from config file')
             input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
-            Aqf.step('Get list of all the baselines present in the correlator output')
+            Aqf.step('Get list of all the baselines present in the correlator output from spead packet')
             baselines_lookup = get_baselines_lookup(test_dump)
             present_baselines = sorted(baselines_lookup.keys())
 
@@ -1687,15 +1692,13 @@ class test_CBF(unittest.TestCase):
                 for bl, ind in zip(plot_baselines, plot_baseline_inds))
             Aqf.is_true(all(baseline_is_present.values()),
                         'Check that all baselines are present in correlator output.')
-
             test_data = test_dump['xeng_raw'].value
-            Aqf.step('Expect all baselines and all channels to be non-zero')
+            Aqf.step('Expect all baselines and all channels to be non-zero with correlator noise')
             Aqf.is_false(zero_baselines(test_data),
                          'Check that no baselines have all-zero visibilities')
             Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
                        'Check that all baseline visibilities are non-zero accross '
                        'all channels')
-
             Aqf.step('Save initial f-engine equalisations, and ensure they are restored '
                      'at the end of the test')
             initial_equalisations = get_and_restore_initial_eqs(self, self.correlator)
@@ -1704,9 +1707,13 @@ class test_CBF(unittest.TestCase):
             _input = None
             for _input in input_labels:
                 try:
-                    self.corr_fix.katcp_rct.req.gain(_input, 0)
+                    reply, informs = self.corr_fix.katcp_rct.req.gain(_input, 0)
+                    if not reply.reply_ok():
+                        raise ValueError
+                    time.sleep(0.01)
                 except ValueError:
                     Aqf.failed('Failed to set equalisations on input: {}'.format(_input))
+            Aqf.wait(.5, 'Wait for equalisations/gains to be set')
             test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
             Aqf.is_false(nonzero_baselines(test_data),
                          "Check that all baseline visibilities are zero")
@@ -1729,37 +1736,55 @@ class test_CBF(unittest.TestCase):
                 return zeros, nonzeros
             Aqf.step('Stepping through input combinations, verifying for each that '
                      'the correct output appears in the correct baseline product.')
+
+            dataFrame = pandas.DataFrame(index=sorted(input_labels),
+                                         columns=list(sorted(present_baselines)))
             for inp in input_labels:
-                old_eq = initial_equalisations[inp]
-                self.corr_fix.katcp_rct.req.gain(inp, old_eq)
-                zero_inputs.remove(inp)
-                nonzero_inputs.add(inp)
-                expected_z_bls, expected_nz_bls = (
-                    calc_zero_and_nonzero_baselines(nonzero_inputs))
-                test_data = self.receiver.get_clean_dump()['xeng_raw'].value
-                plot_data = [normalised_magnitude(test_data[:, i, :])
-                             for i in plot_baseline_inds]
-                aqf_plot_channels(zip(plot_data, plot_baseline_legends),
-                                  plot_filename='{}_fc_channel_resp_{}.png'
-                                  .format(self._testMethodName, inp),
-                                  log_dynamic_range=90, log_normalise_to=1,
-                                  caption='Baseline channel response with the '
-                                          'following non-zero inputs: {}'
-                                  .format(sorted(nonzero_inputs)))
-                actual_nz_bls_indices = all_nonzero_baselines(test_data)
-                actual_nz_bls = set(tuple(bls_ordering[i])
-                                    for i in actual_nz_bls_indices)
+                old_eq = complex(initial_equalisations[inp][0])
+                reply, informs = self.corr_fix.katcp_rct.req.gain(inp, old_eq)
+                msg = 'Gain correction on input {} set to {}.'.format(inp, old_eq)
+                if reply.reply_ok():
+                    Aqf.passed(msg)
+                    zero_inputs.remove(inp)
+                    nonzero_inputs.add(inp)
+                    expected_z_bls, expected_nz_bls = (
+                        calc_zero_and_nonzero_baselines(nonzero_inputs))
+                    test_data = self.receiver.get_clean_dump()['xeng_raw'].value
+                    plot_data = [normalised_magnitude(test_data[:, i, :])
+                                 for i in plot_baseline_inds]
+                    aqf_plot_channels(zip(plot_data, plot_baseline_legends),
+                                      plot_filename='{}_fc_channel_resp_{}.png'.format(
+                                                    self._testMethodName, inp),
+                                      log_dynamic_range=90, log_normalise_to=1,
+                                      caption='Baseline channel response with the '
+                                              'following non-zero inputs: {}'
+                                      .format(sorted(nonzero_inputs)))
 
-                actual_z_bls_indices = zero_baselines(test_data)
-                actual_z_bls = set(tuple(bls_ordering[i])
-                                   for i in actual_z_bls_indices)
+                    actual_nz_bls_indices = all_nonzero_baselines(test_data)
+                    actual_nz_bls = set(tuple(bls_ordering[i])
+                                        for i in actual_nz_bls_indices)
 
-                Aqf.equals(actual_nz_bls, expected_nz_bls,
-                           'Check that expected baseline visibilities are nonzero with '
-                           'non-zero inputs {}.'.format(sorted(nonzero_inputs)))
+                    actual_z_bls_indices = zero_baselines(test_data)
+                    actual_z_bls = set(tuple(bls_ordering[i])
+                                        for i in actual_z_bls_indices)
 
-                Aqf.equals(actual_z_bls, expected_z_bls,
-                           "Also check that expected baselines visibilities are zero.")
+                    Aqf.equals(actual_nz_bls, expected_nz_bls,
+                               'Check that expected baseline visibilities are nonzero with '
+                               'non-zero inputs {}.'.format(sorted(nonzero_inputs)))
+                    Aqf.equals(actual_z_bls, expected_z_bls,
+                               "Also check that expected baselines visibilities are zero.\n")
+
+                    # Sum of all baselines powers expected to be non zeros
+                    sum_of_bl_powers = [np.sum(normalised_magnitude(test_data[:,expected_bl,:]))
+                                        for expected_bl in [baselines_lookup[expected_nz_bl_ind]
+                                        for expected_nz_bl_ind in sorted(expected_nz_bls)]]
+                    dataFrame.loc[inp][expected_nz_bls] = sum_of_bl_powers
+                else:
+                    Aqf.failed(msg)
+
+            print dataFrame.T
+            dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
+            dataFrame.to_csv('{}_1.csv'.format(self._testMethodName), encoding='utf-8')
 
     def _test_back2back_consistency(self):
         threshold = 1e-7  # Threshold: -70dB
@@ -1771,7 +1796,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Check that back-to-back dumps with same input are equal on '
                  'channel({}) @ {}MHz.'.format(test_chan, expected_fc / 1e6))
         source_period_in_samples = self.corr_freqs.n_chans * 2
-        Aqf.step('Dsim configured to generate cw tone.')
+        Aqf.step('Digitiser simulator configured to generate continuous wave')
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
@@ -1841,6 +1866,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
+            Aqf.step('Digitiser simulator configured to generate continuous wave')
             for scan_i in xrange(3):
                 scan_dumps = []
                 scans.append(scan_dumps)
@@ -1891,6 +1917,7 @@ class test_CBF(unittest.TestCase):
         threshold = 1e-7
         test_chan = randrange(self.corr_freqs.n_chans)
         test_baseline = 0
+        Aqf.step('Digitiser simulator configured to generate continuous wave')
 
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
@@ -3646,7 +3673,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
-        Aqf.step('Configured DSim to produce correlated noise.')
+        Aqf.step('Digitiser simulator configured to generate continuous wave')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
@@ -3720,7 +3747,7 @@ class test_CBF(unittest.TestCase):
 
             chan_resp = []
             for gain in gains:
-                reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, gain)
+                reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, complex(gain))
                 if reply.reply_ok():
                     Aqf.passed('Gain correction on input {} set to {}.'.format(test_input, gain))
                     dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -3741,7 +3768,7 @@ class test_CBF(unittest.TestCase):
             eq_labels = [i for i in  self.correlator.configd['fengine'] if i.startswith('eq')]
             for eq_label in eq_labels:
                 self.corr_fix.katcp_rct.req.gain(test_input,
-                    self.correlator.configd['fengine'][eq_label])
+                    complex(self.correlator.configd['fengine'][eq_label]))
 
     def _test_beamforming(self, ants=4):
         from subprocess import Popen, PIPE
