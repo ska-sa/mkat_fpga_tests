@@ -1782,9 +1782,9 @@ class test_CBF(unittest.TestCase):
                 else:
                     Aqf.failed(msg)
 
-            print dataFrame.T
+            #print dataFrame.T
             dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
-            dataFrame.to_csv('{}_1.csv'.format(self._testMethodName), encoding='utf-8')
+            #dataFrame.to_csv('{}_1.csv'.format(self._testMethodName), encoding='utf-8')
 
     def _test_back2back_consistency(self):
         threshold = 1e-7  # Threshold: -70dB
