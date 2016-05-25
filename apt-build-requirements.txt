@@ -21,3 +21,6 @@ dialog
 libopenblas-dev
 libssl-dev
 libffi-dev
+build-essential
+gfortran 
+libatlas-base-dev
