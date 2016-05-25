@@ -452,7 +452,7 @@ class CorrelatorFixture(object):
                 self._katcp_rct = None
                 self._correlator = None
             except:
-                LOGGER.exception('Could not successfully start correlator '
+                LOGGER.critical('Could not successfully start correlator '
                                  'within {} retries'.format(retries_requested))
                 raise RuntimeError('Could not successfully start correlator '
                                    'within {} retries'.format(retries_requested))
