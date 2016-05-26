@@ -1609,7 +1609,8 @@ class test_CBF(unittest.TestCase):
                 this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
             except Queue.Empty:
                 spead_failure_counter += 1
-                errmsg = 'Could not retrieve clean SPEAD packet, as Queue is Empty.'
+                errmsg = 'Could not retrieve clean SPEAD packet, as #{} Queue is Empty.'.format(
+                spead_failure_counter)
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if spead_failure_counter > 5:
