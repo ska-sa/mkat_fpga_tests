@@ -1301,6 +1301,8 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Sweeping the digitser simulator over the centre frequencies of at '
                  'least all the channels that fall within the complete L-band')
         print_counts = 3
+        spead_failure_counter = 0
+
         for i, freq in enumerate(requested_test_freqs):
             if i < print_counts:
                 Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
@@ -1326,9 +1328,16 @@ class test_CBF(unittest.TestCase):
             try:
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Queue.Empty:
-                errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
+                spead_failure_counter += 1
+                errmsg = 'Could not retrieve clean SPEAD packet, as #{} Queue is Empty.'.format(
+                spead_failure_counter)
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
+                if spead_failure_counter > 5:
+                    spead_failure_counter = 0
+                    Aqf.failed('Bailed: Kept receiving empty Spead packets')
+                    return False
+
             else:
                 this_freq_data = this_freq_dump['xeng_raw'].value
                 this_freq_response = normalised_magnitude(
