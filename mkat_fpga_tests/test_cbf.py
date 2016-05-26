@@ -3623,7 +3623,7 @@ class test_CBF(unittest.TestCase):
                 delays = [0] * setup_data['num_inputs']
                 # Get index for input to delay
                 test_source_idx = source_names.index(delayed_input)
-                Aqf.step('Delayed input = {}'.format(delayed_input))
+                Aqf.step('Delayed input: {}'.format(delayed_input))
                 delays[test_source_idx] = test_delay
                 delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
@@ -3639,14 +3639,14 @@ class test_CBF(unittest.TestCase):
 
                 reply = self.corr_fix.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
-                Aqf.is_true(reply.reply.reply_ok(), 'Delays Reply: {}'.format(reply.reply.arguments[1]))
+                Aqf.is_true(reply.reply.reply_ok(),
+                    'Delays set to input: {} with reply: {}'.format(
+                        delayed_input, reply.reply.arguments[1]))
                 Aqf.wait(settling_time,
                          'Settling time in order to set delay: {} ns.'
                          .format(test_delay * 1e9))
                 QDR_error_roaches = check_fftoverflow_qdrstatus(self.correlator,
                                                                 last_pfb_counts)
-                if QDR_error_roaches:
-                    Aqf.failed(QDR_error_roaches)
                 dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                 baselines = get_baselines_lookup(this_freq_dump)
                 sorted_bls = sorted(baselines.items(), key=operator.itemgetter(1))
@@ -3661,10 +3661,11 @@ class test_CBF(unittest.TestCase):
                     b_line_phase_max = np.max(b_line_phase)
                     if ((delayed_input in b_line[0]) and
                                 b_line[0] != (delayed_input, delayed_input)):
-                        aqf_array_abs_error_less(np.abs(b_line_phase),
-                            np.abs(expected_phases),
-                             'Checking baseline {0}, index = {1:02d}.'
-                             'expecting a delay. '.format(b_line[0], b_line_val), 0.01)
+                        msg = ('Checking baseline {0}, index = {1:02d}. expecting a delay.'.format(
+                            b_line[0], b_line_val))
+                        if not aqf_array_abs_error_less(
+                            np.abs(b_line_phase), np.abs(expected_phases), msg, 0.01):
+                                Aqf.failed(msg)
                     else:
                         desc = ('Checking baseline {0}, index = {1:02d}... '
                                 .format(b_line[0], b_line_val))
@@ -3672,6 +3673,10 @@ class test_CBF(unittest.TestCase):
                             Aqf.failed(desc + 'phase offset found, maximum value = {0:0.8f}'
                                        .format(b_line_phase_max))
                             chan_response.append(normalised_magnitude(b_line_dump))
+
+            if QDR_error_roaches:
+                Aqf.failed('The following roaches contains QDR errors: {}'.format(
+                    set(QDR_error_roaches)))
 
             if chan_response:
                 Aqf.step('Delay applied to the correct input')
