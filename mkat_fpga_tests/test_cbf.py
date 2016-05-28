@@ -136,6 +136,7 @@ class test_CBF(unittest.TestCase):
                 if not reply.succeeded:
                     raise Exception
             except:
+                self.corr_fix.halt_array()
                 Aqf.failed('Failed to set Accumulation time via kcs. KATCP Reply: {}'.format(reply))
                 return False
             else:
