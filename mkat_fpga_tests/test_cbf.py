@@ -8,19 +8,17 @@ import subprocess
 import threading
 import os
 import telnetlib
-import paramiko
-import subprocess
-import colors as clrs
 import operator
 import Queue
-import corr2
-import katcp
-import pandas
+import colors as clrs
 
 import warnings
 import matplotlib.cbook
 
-from functools import partial
+import corr2
+import katcp
+import pandas
+
 from random import randrange
 from concurrent.futures import TimeoutError
 
@@ -33,7 +31,6 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 from collections import namedtuple
-from corr2 import utils
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
@@ -43,17 +40,13 @@ from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_r
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, Aqf_is_not_equals
 
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
-from mkat_fpga_tests.utils import init_dsim_sources, get_dsim_source_info
+from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
-from mkat_fpga_tests.utils import CorrelatorFrequencyInfo, TestDataH5
-from mkat_fpga_tests.utils import get_snapshots, clear_all_delays
 from mkat_fpga_tests.utils import get_fftoverflow_qdrstatus, check_fftoverflow_qdrstatus
-# from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
-from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
-from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
-from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
-from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_okay
-from mkat_fpga_tests.utils import set_default_eq
+from mkat_fpga_tests.utils import get_quant_snapshot, get_baselines_lookup
+from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits
+from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay
+from mkat_fpga_tests.utils import set_default_eq, clear_all_delays
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
@@ -70,7 +63,7 @@ DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
 # Also see the digitser end of the story in table 4, word 7 here:
 # https://drive.google.com/a/ska.ac.za/file/d/0BzImdYPNWrAkV1hCR0hzQTYzQlE/view
 
-flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
+xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
     34, 33, 32)
 
 
@@ -82,6 +75,7 @@ flags_xeng_raw_bits = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 # everything automagically?
 
 def disable_maplotlib_warning():
+    """This function disable matplotlibs deprecation warnings"""
     warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
 
@@ -92,7 +86,7 @@ def teardown_module():
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
-
+    """ Unittesting class for mkat_fpga_tests"""
     DEFAULT_ACCUMULATION_TIME = 0.2
 
     def setUp(self):
@@ -115,7 +109,11 @@ class test_CBF(unittest.TestCase):
             self.receiver.stop()
             self.receiver = None
         acc_timeout = 60
-        self.corr_fix.ensure_instrument(instrument)
+        if not self.corr_fix.ensure_instrument(instrument):
+            errmsg = ('Could not initialise instrument: {}'.format(instrument))
+            LOGGER.error(errmsg)
+            Aqf.failed(errmsg)
+            return False
         self.correlator = self.corr_fix.correlator
         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
         try:
@@ -136,8 +134,8 @@ class test_CBF(unittest.TestCase):
                 if not reply.succeeded:
                     raise Exception
             except:
-                self.corr_fix.halt_array()
                 Aqf.failed('Failed to set Accumulation time via kcs. KATCP Reply: {}'.format(reply))
+                self.corr_fix.halt_array()
                 return False
             else:
                 Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
@@ -146,7 +144,6 @@ class test_CBF(unittest.TestCase):
                     self.receiver = CorrRx(port=8888, queue_size=1000)
                 else:
                     self.receiver = CorrRx(port=8888, queue_size=10)
-
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 except:
@@ -163,7 +160,7 @@ class test_CBF(unittest.TestCase):
 
     def tearDown(self):
         # Initialise dsim sources.
-        LOGGER.info('Reset digitiser simulator to Zero')
+        LOGGER.info('Reset digitiser simulator to all Zeros')
         init_dsim_sources(self.dhost)
 
     @aqf_vr('TP.C.1.19')
@@ -416,7 +413,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial '
                      '-- Delay tracking: {}\n'.format(
-                    self.corr_fix.get_running_intrument()))
+                         self.corr_fix.get_running_intrument()))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -428,7 +425,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial '
                      '-- Delay tracking: {}\n'.format(
-                     self.corr_fix.get_running_intrument()))
+                         self.corr_fix.get_running_intrument()))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -440,7 +437,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial '
                      '-- Delay tracking: {}\n'.format(
-                     self.corr_fix.get_running_intrument()))
+                         self.corr_fix.get_running_intrument()))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -595,7 +592,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial '
                      '-- Delay Rate: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
+                         self.corr_fix.get_running_intrument()))
             self._systems_tests()
             self._test_delay_rate()
 
@@ -606,7 +603,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('CBF Delay Compensation/LO Fringe stopping polynomial '
                      '-- Delay Rate: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
+                         self.corr_fix.get_running_intrument()))
             self._systems_tests()
             self._test_delay_rate()
 
@@ -1419,7 +1416,7 @@ class test_CBF(unittest.TestCase):
         legends = ['Channel {} ({} MHz) response'.format(
             ((test_chan + i) - 1), self.corr_freqs.chan_freqs[test_chan + i] / 1e6) for i in range(
             no_of_responses)]
-        channel_response_list = [chan_responses[:,test_chan + i - 1] for i in range(
+        channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(
             no_of_responses)]
 
         aqf_plot_channels(zip(channel_response_list, legends),
@@ -1807,7 +1804,7 @@ class test_CBF(unittest.TestCase):
                                "Also check that expected baselines visibilities are zero.\n")
 
                     # Sum of all baselines powers expected to be non zeros
-                    sum_of_bl_powers = [np.sum(normalised_magnitude(test_data[:, expected_bl ,:]))
+                    sum_of_bl_powers = [np.sum(normalised_magnitude(test_data[:, expected_bl,:]))
                                         for expected_bl in [baselines_lookup[expected_nz_bl_ind]
                                         for expected_nz_bl_ind in sorted(expected_nz_bls)]]
                     dataFrame.loc[inp][expected_nz_bls] = sum_of_bl_powers
@@ -1970,7 +1967,7 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump['xeng_raw'].value[:, test_baseline, :])
             filename = '{}_channel_resp.png'.format(self._testMethodName)
             title = 'Log channel response at {} MHz.\n'.format(expected_fc / 1e6)
-            caption=(
+            caption = (
                 'This is merely a sanity check to plot an overrall frequency  response '
                 'at the center frequency.')
             aqf_plot_channels(init_source_freq, filename, title, log_dynamic_range=90,
@@ -2387,7 +2384,7 @@ class test_CBF(unittest.TestCase):
         mul_ip = (fhost.katcprequest('wordread',
                                      request_args=(['iptx_base']))[0].arguments[1])
         cur_mul_ip_x = mul_ip[2:]
-        cur_mul_ip_int = [int(x+y, 16) for x,y in zip(cur_mul_ip_x[::2], cur_mul_ip_x[1::2])]
+        cur_mul_ip_int = [int(x + y, 16) for x, y in zip(cur_mul_ip_x[::2], cur_mul_ip_x[1::2])]
 
         # configure the same port multicast destination to an unused address,
         # effectively dropping that data.
@@ -2589,9 +2586,9 @@ class test_CBF(unittest.TestCase):
         condition = 'ADC overflow flag on the digitiser simulator'
         dump1, dump2, dump3, = self.get_flag_dumps(enable_adc_overflow,
                                                    disable_adc_overflow, condition)
-        flag_bit = flags_xeng_raw_bits.overrange
+        flag_bit = xeng_raw_bits_flags.overrange
         # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
-        all_bits = set(flags_xeng_raw_bits)
+        all_bits = set(xeng_raw_bits_flags)
         other_bits = all_bits - set([flag_bit])
         flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'ADC overrange'
@@ -2637,9 +2634,9 @@ class test_CBF(unittest.TestCase):
         dump1, dump2, dump3, = self.get_flag_dumps(
             enable_noise_diode, disable_noise_diode, condition)
 
-        flag_bit = flags_xeng_raw_bits.noise_diode
+        flag_bit = xeng_raw_bits_flags.noise_diode
         # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
-        all_bits = set(flags_xeng_raw_bits)
+        all_bits = set(xeng_raw_bits_flags)
         other_bits = all_bits - set([flag_bit])
         flag_descr = 'noise diode fired, bit {},'.format(flag_bit)
         flag_condition = 'digitiser noise diode fired flag'
@@ -2706,9 +2703,9 @@ class test_CBF(unittest.TestCase):
                      'a pure tone input')
         dump1, dump2, dump3, = self.get_flag_dumps(enable_fft_overflow,
                                                    disable_fft_overflow, condition)
-        flag_bit = flags_xeng_raw_bits.overrange
+        flag_bit = xeng_raw_bits_flags.overrange
         # All the non-debug bits, ie. all the bitfields listed in flags_xeng_raw_bit
-        all_bits = set(flags_xeng_raw_bits)
+        all_bits = set(xeng_raw_bits_flags)
         other_bits = all_bits - set([flag_bit])
         flag_descr = 'overrange in data path, bit {},'.format(flag_bit)
         flag_condition = 'FFT overrange'
@@ -3275,6 +3272,7 @@ class test_CBF(unittest.TestCase):
                     LOGGER.exception(errmsg)
 
         def get_data_switch():
+            import paramiko
             """Verify info on each Data Switch"""
             try:
                 data_switches = test_config['data_switch_hosts']
