@@ -235,3 +235,20 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         if show:
             plt.show()
         plt.clf()
+
+def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None, caption="",
+                       bins=256, range=(-1,1), ylabel='Samples per Bin', xlabel='ADC Sample Bins',
+                       show=False):
+        """Simple histogram plot of a data set
+        return: None
+        """
+        plt.grid(True)
+        plt.hist(data_set, bins=bins, range=range)
+        if plot_title:
+            plt.title(plot_title)
+        plt.ylabel(ylabel)
+        plt.xlabel(xlabel)
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
+        if show:
+            plt.show()
+        plt.clf()
