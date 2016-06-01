@@ -37,15 +37,17 @@ from mkat_fpga_tests import correlator_fixture
 
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
-from mkat_fpga_tests.aqf_utils import aqf_plot_channels, Aqf_is_not_equals
+from mkat_fpga_tests.aqf_utils import aqf_plot_channels, Aqf_is_not_equals, aqf_plot_histogram
 
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import get_fftoverflow_qdrstatus, check_fftoverflow_qdrstatus
-from mkat_fpga_tests.utils import get_quant_snapshot, get_baselines_lookup
-from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits
-from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay
+# from mkat_fpga_tests.utils import rearrange_snapblock, get_feng_snapshots
+from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
+from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
+from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
+from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_okay, get_adc_snapshot
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays
 LOGGER = logging.getLogger(__name__)
 
@@ -4066,3 +4068,401 @@ class test_CBF(unittest.TestCase):
                           plot_title='Beam = {}, Passband = {}, Center Frequency = {}\nIntegrated over {} captures'.format(beam, pb, cf, num_caps),
                           log_dynamic_range=90, log_normalise_to=1,
                           caption='Captured beamformer data')
+
+
+    def test_input_levels(self, instrument='bc8n856M4k'):
+        """Testing Dsim input levels (bc8n856M4k)
+        Set input levels to requested values and check that the ADC and the
+        quantiser block do not see saturated samples.
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._set_input_levels_and_gain(profile='cw', cw_freq=800513075,
+                                            trgt_bits=1.5, trgt_q_std = 0.33)
+
+    def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,
+                                   cw_margin = 0.05, trgt_bits=3.5,
+                                   trgt_q_std = 0.30):
+        """ Set the digitiser simulator (dsim) output levels, FFT shift
+            and quantiser gain to optimum levels. ADC and quantiser snapshot
+            data is used to determine levels.
+            Param:
+                profile (default = noise):
+                    noise - digitiser output is gaussian noise.
+                    cw    - digitiser output is a constant wave pertubated by
+                            noise
+                cw_freq
+                    required cw frequency, the center of the closest channel
+                    will be chosen and then offset by 50 Hz. Center freqency
+                    is not used as this contains DC.
+                cw_src
+                    required cw source
+                cw_margin
+                    margin from full scale for cw tone. 0.1 equates to approx
+                    1.2 bits
+                trgt_bits (default = 3.5, valid = 1-9):
+                    the standard deviation of ADC snapblock data is calculated.
+                    This value sets the target standard deviation expressed in
+                    ADC bits toggling for noise. If a cw is selected, the noise
+                    specified here will be added.
+                trgt_q_std (default = 0.3):
+                    the target standard deviation of a quantiser snapblock,
+                    will be used to set the quantiser gain if profile = noise.
+                    In the case of a CW this value is not used.
+
+            Return:
+                dict containing input labels, for each input:
+                    std_dev   : ADC snapblock standard deviation. If profile =
+                                CW then this is of the added noise.
+                    bits_t    : calculated bits toggling at standard deviation
+                    fft_shift : current FFT shift value
+                    scale     : dsim output scale
+                    profile   : dsim output profile (noise or cw)
+                    adc_satr  : ADC snapshot contains saturated samples
+                    q_gain    : quantiser gain
+                    q_std_dev : quantiser snapshot standard deviation
+                    q_satr    : quantiser snapshot contains saturated samples
+                    num_sat   : number of quantiser snapshot saturated samples
+                    cw_freq   : actual returned cw frequency
+
+        """
+        # helper functions
+        def set_sine_source(scale, cw_freq, cw_src):
+            #if cw_src == 0:
+            self.dhost.sine_sources.sin_0.set(frequency=cw_freq,
+                                                  scale=scale)
+            #    return self.dhost.sine_sources.sin_0.frequency
+            #else:
+            self.dhost.sine_sources.sin_1.set(frequency=cw_freq,
+                                                  scale=scale)
+            return self.dhost.sine_sources.sin_1.frequency
+
+        # main code
+        sources = {}
+        try:
+            # Build dictionary with inputs and
+            # which fhosts they are associated with.
+            reply, informs = self.corr_fix.katcp_rct.req.input_labels()
+            if not reply.reply_ok():
+                raise Exception
+            for key in reply.arguments[1:]:
+                for fpga in self.correlator.fhosts:
+                    for pol in [0,1]:
+                        if str(fpga.data_sources[pol]).find(key) != -1:
+                            sources[key] = ('p'+str(pol), fpga)
+        except:
+            Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
+                       ''.format(reply))
+            return False
+
+        # Set digitiser input level of one random input,
+        # store values from other inputs for checking
+        ret_dict = {}
+        for key in sources.keys():
+            ret_dict[key] = {}
+        inp = sources.keys()[0]
+        scale = 0.1
+        margin = 0.005
+        self.dhost.noise_sources.noise_corr.set(scale=scale)
+        # Get target standard deviation. ADC is represented by Q10.9
+        # signed fixed point.
+        target_std = pow(2.0,trgt_bits)/512
+        found = False
+        count = 0
+        pol = sources[inp][0]
+        fpga = sources[inp][1]
+        while not found:
+            adc_data = get_adc_snapshot(fpga)[pol]
+            cur_std  = np.std(adc_data)
+            cur_diff = target_std - cur_std
+            if (abs(cur_diff) < margin) or count > 5:
+                found = True
+            else:
+                count +=1
+                perc_change = target_std/cur_std
+                scale = scale*perc_change
+                # Maximum noise power
+                if scale > 1:
+                    scale=1
+                    found = True
+                self.dhost.noise_sources.noise_corr.set(scale=scale)
+        p_std = np.std(adc_data)
+        p_bits = np.log2(p_std * 512)
+
+        if profile == 'cw':
+            bw = float(self.dhost.config['sample_rate_hz'])/2
+            # Find closest center frequency to requested value to ensure
+            # correct quantiser gain is set. Requested frequency will be set
+            # at the end.
+            reply, informs = correlator_fixture.katcp_rct. \
+                req.quantiser_snapshot(inp)
+            data = [eval(v) for v in (reply.arguments[1:][1:])]
+            nr_ch = len(data)
+            ch_bw = bw / nr_ch
+            freq_ch = int(round(cw_freq / ch_bw))
+            ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
+            scale = 1.0
+            step = 0.005
+            count = 0
+            found = False
+            while not found:
+                set_sine_source(scale, ch_list[freq_ch]+50, cw_src)
+                adc_data = get_adc_snapshot(fpga)[pol]
+                if (count < 4) and (np.abs(np.max(adc_data) or
+                                    np.min(adc_data)) >= 0b111111111 / 512.0):
+                    scale -= step
+                    count += 1
+                else:
+                    scale -= (step + cw_margin)
+                    freq = set_sine_source(scale, ch_list[freq_ch]+50, cw_src)
+                    adc_data = get_adc_snapshot(fpga)[pol]
+                    found = True
+
+
+        if profile == 'cw':
+            aqf_plot_histogram(adc_data,
+                               plot_filename='adc_hist_{}.png'.format(inp),
+                               plot_title='ADC Histogram for input {}\n'\
+                                          'Added Noise Profile: '\
+                                          'Std Dev: {:.3f} equates ' \
+                                          'to {:.1f} bits toggling.' \
+                                          ''.format(inp, p_std, p_bits),
+                               caption='ADC Input Histogram',
+                               bins=256, range=(-1, 1))
+
+        else:
+            aqf_plot_histogram(adc_data,
+                   plot_filename='adc_hist_{}.png'.format(inp),
+                   plot_title='ADC Histogram for input {}\n'\
+                              ' Standard Deviation: {:.3f} equates ' \
+                              'to {:.1f} bits toggling'\
+                              ''.format(inp, p_std, p_bits),
+                   caption='ADC Input Histogram',
+                   bins=256, range=(-1, 1))
+
+        for key in sources.keys():
+            pol = sources[key][0]
+            fpga = sources[key][1]
+            adc_data = get_adc_snapshot(fpga)[pol]
+            if profile != 'cw': #use standard deviation of noise before CW
+                p_std = np.std(adc_data)
+                p_bits = np.log2(p_std * 512)
+            ret_dict[key]['std_dev'] = p_std
+            ret_dict[key]['bits_t'] = p_bits
+            ret_dict[key]['scale'] = scale
+            ret_dict[key]['profile'] = profile
+            ret_dict[key]['adc_satr'] = False
+            if np.abs(np.max(adc_data) or np.min(
+                    adc_data)) >= 0b111111111 / 512.0:
+                ret_dict[key]['adc_satr'] = True
+
+        # Set the fft shift to 511 for noise. This should be automated once
+        # a sensor is available to determine fft shift overflow.
+        if profile == 'cw':
+            fft_shft = 8191
+        else:
+            fft_shft = 511
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shft)
+            if not reply.reply_ok():
+                raise Exception
+            for key in sources.keys():
+                ret_dict[key]['fft_shift'] = reply.arguments[1:][0]
+        except:
+            Aqf.failed('Failed to set FFT shift. KATCP Reply: {}' \
+                       ''.format(reply))
+            return False
+
+
+        if profile == 'cw':
+            gain = 1
+            gain_str = '{}'.format(int(gain)) + '+0j'
+            try:
+                reply, informs = self.corr_fix.katcp_rct. \
+                    req.gain(inp, gain_str)
+                if not reply.arguments[1:] != gain_str:
+                    raise Exception
+            except:
+                Aqf.failed(
+                    'Failed to set quantiser gain. KATCP Reply: {}' \
+                    ''.format(reply))
+                return False
+            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            baseline_lookup = get_baselines_lookup(dump)
+            inp_autocorr_idx = baseline_lookup[(inp, inp)]
+            dval = dump['xeng_raw'].value
+            auto_corr = dval[:, inp_autocorr_idx, :]
+            ch_val = auto_corr[freq_ch][0]
+            next_ch_val = 0
+            n_accs = dump['n_accs'].value
+            ch_val_array = []
+            ch_val_array.append([ch_val, gain])
+            count = 0
+            prev_ch_val_diff = 0
+            found = False
+            max_count = 100
+            while count < max_count:
+                count += 1
+                ch_val = next_ch_val
+                gain += 1
+                gain_str = '{}'.format(int(gain)) + '+0j'
+                try:
+                    reply, informs = self.corr_fix.katcp_rct. \
+                        req.gain(inp, gain_str)
+                    if not reply.arguments[1:] != gain_str:
+                        raise Exception
+                except:
+                    Aqf.failed(
+                        'Failed to set quantiser gain. KATCP Reply: {}' \
+                        ''.format(reply))
+                    return False
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                dval = dump['xeng_raw'].value
+                auto_corr = dval[:, inp_autocorr_idx, :]
+                next_ch_val = auto_corr[freq_ch][0]
+                ch_val_diff = next_ch_val - ch_val
+                # When the gradient start decreasing the center of the linear
+                # section has been found. Grab the same number of points from
+                # this point.
+                if (not found) and (ch_val_diff < prev_ch_val_diff):
+                    found = True
+                    count = max_count - count - 1
+                ch_val_array.append([next_ch_val, gain])
+                prev_ch_val_diff = ch_val_diff
+
+            y = [x[0] for x in ch_val_array]
+            grad = np.gradient(y)
+            grad_delta = []
+            for i in range(len(grad) - 1):
+                grad_delta.append(grad[i + 1] / grad[i])
+            # The setpoint is where grad_delta is closest to 1
+            grad_delta = np.asarray(grad_delta)
+            set_point = np.argmax(grad_delta - 1.0 < 0) + 1
+            gain_str = '{}'.format(int(set_point)) + '+0j'
+            plt.plot(y, label='Channel Response')
+            plt.plot(set_point, y[set_point], 'ro', label='Gain Set Point = ' \
+                                                    '{}'.format(set_point))
+            plt.title('CW Channel Response for Quantiser Gain\n' \
+                      'Channel = {}, Frequency = {}Hz'.format(freq_ch, freq))
+            plt.ylabel('Channel Magnitude')
+            plt.xlabel('Quantiser Gain')
+            plt.legend(loc='upper left')
+            caption = 'CW Channel Response for Quantiser Gain'
+            plot_filename = 'cw_ch_response_{}.png'.format(inp)
+            Aqf.matplotlib_fig(plot_filename, caption=caption)
+        else:
+            # Set quantiser gain for selected input to produces required
+            # standard deviation of quantiser snapshot
+            found = False
+            count = 0
+            margin = 0.01
+            gain = 300
+            gain_str = '{}'.format(int(gain)) + '+0j'
+            try:
+                reply, informs = self.corr_fix.katcp_rct. \
+                    req.gain(inp, gain_str)
+                if not reply.arguments[1:] != gain_str:
+                    raise Exception
+            except:
+                Aqf.failed('Failed to set quantiser gain. KATCP Reply: {}' \
+                           ''.format(reply))
+                return False
+            while (not found):
+                reply, informs = correlator_fixture.katcp_rct. \
+                    req.quantiser_snapshot(inp)
+                data = [eval(v) for v in (reply.arguments[1:][1:])]
+                cur_std = np.std(data)
+                cur_diff = trgt_q_std - cur_std
+                if (abs(cur_diff) < margin) or count > 20:
+                    found = True
+                else:
+                    count += 1
+                    perc_change = trgt_q_std / cur_std
+                    gain = gain * perc_change
+                    gain_str = '{}'.format(int(gain)) + '+0j'
+                    try:
+                        reply, informs = self.corr_fix.katcp_rct. \
+                            req.gain(inp, gain_str)
+                        if not reply.arguments[1:] != gain_str:
+                            raise Exception
+                    except:
+                        Aqf.failed(
+                            'Failed to set quantiser gain. KATCP Reply: {}' \
+                            ''.format(reply))
+                        return False
+
+        # Set calculated gain for remaining inputs
+        for key in sources.keys():
+            if profile == 'cw':
+                ret_dict[key]['cw_freq'] = freq
+            try:
+                reply, informs = self.corr_fix.katcp_rct. \
+                    req.gain(key, gain_str)
+                if not reply.arguments[1:] != gain_str:
+                    raise Exception
+            except:
+                Aqf.failed(
+                    'Failed to set quantiser gain. KATCP Reply: {}' \
+                    ''.format(reply))
+                return False
+            pol = sources[key][0]
+            fpga = sources[key][1]
+            reply, informs = correlator_fixture.katcp_rct. \
+                req.quantiser_snapshot(key)
+            data = [eval(v) for v in (reply.arguments[1:][1:])]
+            p_std = np.std(data)
+            ret_dict[key]['q_gain']    = gain_str
+            ret_dict[key]['q_std_dev'] = p_std
+            ret_dict[key]['q_satr']    = False
+            rmax = np.max(np.asarray(data).real)
+            rmin = np.min(np.asarray(data).real)
+            imax = np.max(np.asarray(data).imag)
+            imin = np.min(np.asarray(data).imag)
+            if abs(rmax or rmin or imax or imin) >= 0b1111111/128.0:
+                ret_dict[key]['q_satr'] = True
+                count = 0
+                for val in data:
+                    if abs(val) >= 0b1111111/128.0:
+                        count +=1
+                ret_dict[key]['num_sat'] = count
+
+        if profile == 'cw':
+            plot_filename='quant_plot_{}.png'.format(key)
+            plot_title = 'Quantiser Channel Magnitudes for Input {}\n'\
+                         'Quantiser Gain: {}'.format(key, gain_str)
+            caption = 'Quantiser Channel Magnitues'
+            aqf_plot_channels(auto_corr, plot_filename=plot_filename,
+                              plot_title=plot_title, caption=caption)
+        else:
+            p_std = np.std(data)
+            aqf_plot_histogram(np.abs(data), plot_filename='quant_hist_{}.png'\
+                               ''.format(key),
+                               plot_title='Quantiser Histogram for input {}\n'\
+                               ' Standard Deviation: {:.3f}, Quantiser Gain: '\
+                               '{}'.format(key, p_std, gain_str),
+                               caption='Quantiser Histogram',
+                               bins=64, range=(0, 1.5))
+
+        key = ret_dict.keys()[0]
+        Aqf.passed('Dsim profile: {} scaled at {:0.3f}' \
+                   ''.format(ret_dict[key]['profile'],
+                             ret_dict[key]['scale']))
+        Aqf.passed('FFT Shift set to {}'\
+                   ''.format(ret_dict[key]['fft_shift']))
+        for key in sources.keys():
+            Aqf.passed('{} ADC standard deviation: {:0.3f} toggling '\
+                       '{:0.2f} bits'.format(key,
+                                             ret_dict[key]['std_dev'],
+                                             ret_dict[key]['bits_t']))
+            Aqf.passed('{} quantiser standard deviation: {:0.3f} at a '\
+                       'gain of {}'.format(key,
+                                           ret_dict[key]['q_std_dev'],
+                                           ret_dict[key]['q_gain']))
+            if ret_dict[key]['adc_satr']:
+                Aqf.failed('ADC snapshot for {} contains saturated '\
+                           'samples.'.format(key))
+            if ret_dict[key]['q_satr']:
+                Aqf.failed('Quantiser snapshot for {} contains saturated '\
+                           'samples.'.format(key))
+                Aqf.failed('{} saturated samples found'.format(ret_dict[key]['num_sat']))

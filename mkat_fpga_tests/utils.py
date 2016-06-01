@@ -68,7 +68,7 @@ def all_nonzero_baselines(xeng_raw):
                     bldata.astype(np.float64), axis=1) != 0))
 
 def init_dsim_sources(dhost):
-    """Select dsim signal output, zero all sources, output scalings to 0.5
+    """Select dsim signal output, zero all sources, output scalings to 1
 
     Also clear noise diode and adc overrange flags
     """
@@ -85,7 +85,7 @@ def init_dsim_sources(dhost):
         noise_source.set(scale=0)
     for output in dhost.outputs:
         output.select_output('signal')
-        output.scale_output(0.5)
+        output.scale_output(1)
 
 class CorrelatorFrequencyInfo(object):
     """Derrive various bits of correlator frequency info using correlator config"""
@@ -512,8 +512,7 @@ def get_pfb_counts(status_dict):
                           pfb_value['pfb_of1_cnt'])
     return pfb_list
 
-def get_adc_raw (correlator):
-    fpga = correlator.fhosts[0]
+def get_adc_snapshot(fpga):
     data = fpga.get_adc_snapshots()
     rv = {'p0': [], 'p1': []}
     for ctr in range(0, len(data['p0']['d0'])):
