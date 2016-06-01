@@ -19,7 +19,8 @@ setup(name='mkat_fpga_tests',
         ],
 
       install_requires=['casperfpga', 'corr2', 'katcp', 'matplotlib', 'iniparse',
-                      'numpy', 'spead', 'h5py', 'lxml', 'nose-testconfig', 'paramiko', 'sphinx', 'ntplib'],
+                      'numpy', 'spead', 'h5py', 'lxml', 'nose-testconfig', 'paramiko',
+                      'sphinx', 'ntplib', 'pandas', 'pillow'],
       provides=['mkat_fpga_tests'],
       packages=['mkat_fpga_tests'],
       scripts=glob.glob('scripts/*')

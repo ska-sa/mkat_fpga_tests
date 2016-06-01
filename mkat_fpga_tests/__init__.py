@@ -154,7 +154,7 @@ class CorrelatorFixture(object):
     def halt_array(self):
         if not self._correlator:
             raise RuntimeError('Array not yet initialised')
-
+        LOGGER.info('Halting primary array.')
         self.katcp_rct.req.halt()
         self._correlator_started = False
         self.katcp_rct.stop()
@@ -237,6 +237,7 @@ class CorrelatorFixture(object):
         self.instrument = instrument
         try:
             try:
+                LOGGER.info('Retrieving running instrument from sensors')
                 _running_instrument = self.katcp_rct.sensor.instrument_state.get_value()
             except:
                 if self.instrument is not None:
@@ -245,13 +246,10 @@ class CorrelatorFixture(object):
             if len(_running_instrument) < 6:
                 config_file = '/etc/corr/{}-{}'.format(self.array_name, _running_instrument)
             else:
-                try:
-                    config_file = '/etc/corr/{}-{}'.format(self.array_name, _running_instrument)
-                except:
-                    config_file = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
-
+                config_file = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
 
             if os.path.exists(config_file):
+                LOGGER.info('Retrieving running hosts from running config')
                 fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
                 xhosts = corr2.utils.parse_hosts(config_file, section='xengine')
                 hosts = fhosts + xhosts
@@ -289,7 +287,12 @@ class CorrelatorFixture(object):
         """
         Returns currently running instrument listed on the sensor(s)
         """
-        reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        try:
+            reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        except AttributeError:
+            LOGGER.error('KATCP Request does not contain attributes')
+            return False
+
         if not reply.istatus:
             LOGGER.error('Sensor request failed: {}'.format(reply))
             return False
@@ -397,6 +400,7 @@ class CorrelatorFixture(object):
 
         while retries and not success:
             try:
+                LOGGER.info('Assigning array port number')
                 self.rct.req.array_assign(self.array_name,
                     *multicast_ip.split(','))
 
@@ -430,10 +434,15 @@ class CorrelatorFixture(object):
                 except AssertionError:
                     return False
                 else:
-                    self.katcp_rct.stop()
-                    retries -= 1
-                    LOGGER.warn ('\nFailed to start correlator,'
-                        '{} attempts left.\n'.format(retries))
+                    try:
+                        self.katcp_rct.stop()
+                    except AttributeError:
+                        LOGGER.error('KATCP request does not contain attributes')
+                        return False
+                    else:
+                        retries -= 1
+                        LOGGER.warn ('\nFailed to start correlator,'
+                            '{} attempts left.\n'.format(retries))
         if success:
             self._correlator_started = True
         else:
@@ -443,7 +452,7 @@ class CorrelatorFixture(object):
                 self._katcp_rct = None
                 self._correlator = None
             except:
-                LOGGER.exception('Could not successfully start correlator '
+                LOGGER.critical('Could not successfully start correlator '
                                  'within {} retries'.format(retries_requested))
                 raise RuntimeError('Could not successfully start correlator '
                                    'within {} retries'.format(retries_requested))
