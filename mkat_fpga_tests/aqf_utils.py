@@ -56,7 +56,7 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
         return True
 
 
-def Aqf_is_not_equals(result, expected, description):
+def aqf_is_not_equals(result, expected, description):
     """
     Compares numerical result to an expected value and logs to Aqf.
 
@@ -165,7 +165,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
 def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None,
                       caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
-                      show=False):
+                      xlabel=None, show=False):
         """Simple magnitude plot of a channelised result
         return: None
 
@@ -216,7 +216,10 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
             if plot_title:
                 plt.title(plot_title)
             plt.ylabel(ylabel)
-            plt.xlabel('Channel number')
+            if xlabel:
+                plt.xlabel(xlabel)
+            else:
+                plt.xlabel('Channel number')
 
         axis = plt.gcf().get_axes()[0]
         ybound = axis.get_ybound()
