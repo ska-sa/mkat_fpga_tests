@@ -179,36 +179,33 @@ class CorrelatorFixture(object):
     def katcp_rct(self):
         multicast_ip = self._d['test_confs']['source_mcast_ips']
         if self._katcp_rct is None:
-            reply, inform = self.rct.req.array_list()
-            try:
-                assert isinstance(reply.arguments[-1], int)
-            except AssertionError:
-                LOGGER.error('Array port number has not been assigned yet, will try to assign.')
-
-            try:
-                LOGGER.info('Assigning array port number.')
-                reply, informs = self.rct.req.array_assign(self.array_name,
-                    *multicast_ip.split(','))
-            except ValueError:
-                LOGGER.exception('')
+            reply, informs = self.rct.req.array_list(self.array_name)
+            # If no sub-array present create one, but this could cause problems
+            # if more than one sub-array is present. Update this to check for
+            # required sub-array.
+            if reply.reply_ok():
+                self.katcp_array_port = int(informs[0].arguments[1])
             else:
-                if len(reply.arguments) == 2:
-                    try:
-                        assert isinstance(reply.arguments[-1], int)
-                    except AssertionError:
-                        self.rct.req.array_halt(self.array_name)
-                        self.rct.stop()
-                        self.rct.start()
-                        self.rct.until_synced()
-                        reply, informs = self.rct.req.array_assign(self.array_name,
-                            *multicast_ip.split(','))
-
-                    self.katcp_array_port = int(reply.arguments[-1])
-                    LOGGER.info('Array {} assigned successfully'.format(self.katcp_array_port))
-
-            if not reply.reply_ok():
-                LOGGER.error('Array already exist, will try to halt array.')
-                self.rct.req.array_halt(self.array_name)
+                LOGGER.error('Array has not been assigned yet, will try to assign.')
+                try:
+                    reply, informs = self.rct.req.array_assign(self.array_name,
+                        *multicast_ip.split(','))
+                except ValueError:
+                    LOGGER.exception('')
+                else:
+                    if len(reply.arguments) == 2:
+                        try:
+                            self.katcp_array_port = int(reply.arguments[-1])
+                            LOGGER.info('Array {} assigned successfully'\
+                                        ''.format(self.katcp_array_port))
+                        except ValueError:
+                            LOGGER.exception('Array assign failed: {}'.format(reply))
+                            #self.rct.req.array_halt(self.array_name)
+                            #self.rct.stop()
+                            #self.rct.start()
+                            #self.rct.until_synced()
+                            #reply, informs = self.rct.req.array_assign(self.array_name,
+                                #*multicast_ip.split(','))
 
             katcp_rc = resource_client.KATCPClientResource(
                         dict(name='{}'.format(self.resource_clt),
@@ -380,12 +377,6 @@ class CorrelatorFixture(object):
             LOGGER.error('katcp rct has no attribute or no correlator instance is running.')
             return False
         else:
-            try:
-                _rsync = self.katcp_rct.start()
-            except:
-                LOGGER.error('katcp rct has no attribute or no correlator instance is running.')
-                return False
-
             if self.katcp_rct.state == 'synced':
                 reply = self.katcp_rct.req.instrument_list(instrument)
                 if not reply.succeeded:

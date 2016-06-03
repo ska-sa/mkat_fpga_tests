@@ -35,7 +35,7 @@ from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
 
-from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal
+from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal, aqf_plot_histogram
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_is_not_equals
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
@@ -50,7 +50,7 @@ from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_ok
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays
 LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 
 # From
 # https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
@@ -1285,7 +1285,44 @@ class test_CBF(unittest.TestCase):
         last_source_freq = None
 
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.6)
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.88)
+        self.dhost.noise_sources.noise_corr.set(scale=0.02225401115202507)
+        fft_shft = 511
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shft)
+            if not reply.reply_ok():
+                raise Exception
+        except:
+            Aqf.failed('Failed to set FFT shift. KATCP Reply: {}' \
+                       ''.format(reply))
+            return False
+
+        try:
+            # Build dictionary with inputs and
+            # which fhosts they are associated with.
+            reply, informs = self.corr_fix.katcp_rct.req.input_labels()
+            if not reply.reply_ok():
+                raise Exception
+            sources = reply.arguments[1:]
+
+        except:
+            Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
+                       ''.format(reply))
+            return False
+        gain_str = '327'
+        for key in sources:
+            try:
+                reply, informs = self.corr_fix.katcp_rct. \
+                    req.gain(key, gain_str)
+                if not reply.arguments[1:] != gain_str:
+                    raise Exception
+            except:
+                Aqf.failed(
+                    'Failed to set quantiser gain. KATCP Reply: {}' \
+                    ''.format(reply))
+                return False
+
+
         try:
             initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
@@ -1320,7 +1357,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
                             .format(i + 1, len(requested_test_freqs), freq / 1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.6)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.88)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -1355,7 +1392,8 @@ class test_CBF(unittest.TestCase):
             # a sanity check
 
             plt_filename = '{}_channel_resp_sanity_check.png'.format(self._testMethodName)
-            plt_title = 'Log: Channel response at {} ({}MHz).'.format(test_chan, this_source_freq / 1e6)
+            plt_title = 'Log: overrall frequency response at {} ({}MHz).'.format(
+                test_chan, this_source_freq / 1e6)
             plt_caption = ('This is merely a sanity check to plot '
                           'an overrall frequency response at the '
                           'center frequency.')
@@ -1400,13 +1438,13 @@ class test_CBF(unittest.TestCase):
             #plt.close()
             plt.clf()
 
-        plt_filename = '{}.png'.format(self._testMethodName)
+        plt_filename = '{}_Channel{}_Response.png'.format(self._testMethodName, test_chan)
         plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plt_caption = 'Channel {} response vs source frequency'.format(test_chan)
         plt_title = 'Channel {} @ {} MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
-        plot_and_save(actual_test_freqs, plot_data, plt_filename, plt_title, plt_caption, cutoff)
 
+        plot_and_save(actual_test_freqs, plot_data, plt_filename, plt_title, plt_caption, cutoff)
 
         # Plot PFB channel response with -3dB cuttoff horizontal line
         no_of_responses = 3
@@ -4442,3 +4480,4 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Quantiser snapshot for {} contains saturated '\
                            'samples.'.format(key))
                 Aqf.failed('{} saturated samples found'.format(ret_dict[key]['num_sat']))
+        return ret_dict
