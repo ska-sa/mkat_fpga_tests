@@ -1036,8 +1036,8 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Dsim configured to generate correlated noise.')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.correlator.est_synch_epoch()
-        local_src_names = ['input0', 'input1', 'input2', 'input3', 'input4',
-                           'input5', 'input6', 'input7']
+        local_src_names = ['input{}'.format(x) for x in xrange(
+            self.correlator.n_antennas * 2)]
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(
             *local_src_names)
         Aqf.step('Source names changed to: ' + str(reply))
