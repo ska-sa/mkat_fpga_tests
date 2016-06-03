@@ -1468,7 +1468,7 @@ class test_CBF(unittest.TestCase):
         plot_title = 'PFB Central Channel Response'
         caption = 'Sample PFB central channel response between {}'.format(
             test_chan)
-        aqf_plot_channels(zip(norm_ch_response_list, legends), plot_filename,
+        aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
                           plot_title,
                           log_dynamic_range=90, log_normalise_to=1,
                           caption=caption,
