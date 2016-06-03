@@ -96,7 +96,8 @@ class test_CBF(unittest.TestCase):
         # Default instrument inorder to program dsim automatically
         self.corr_fix.instrument = 'bc8n856M4k'
         self.corr_fix.array_name = 'array0'
-        self.corr_fix.resource_clt = 'localhost'
+        get_client = self.corr_fix.test_config_file()['test_confs']['katcp_client']
+        self.corr_fix.resource_clt = get_client
         if self.corr_fix.resource_clt is None:
             raise SystemExit('No Resource Client Listed, Exiting!!!')
         self.dhost = self.corr_fix.dhost
@@ -121,14 +122,14 @@ class test_CBF(unittest.TestCase):
                 self.DEFAULT_ACCUMULATION_TIME, timeout=acc_timeout)
         except TimeoutError:
             errmsg = 'Timed-Out: Failed to set accumulation time withing {}s'.format(acc_timeout)
-            self.corr_fix.halt_array()
+            self.corr_fix.deprogram_fpgas(instrument)
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return False
         except AttributeError:
             errmsg = ('Failed to set accumulation time withing {}s, '
                       'due to katcp request errors'.format(acc_timeout))
-            self.corr_fix.halt_array()
+            self.corr_fix.deprogram_fpgas(instrument)
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return False
