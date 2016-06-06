@@ -228,7 +228,8 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         #axis.set_ybound(*new_ybound)
         if has_legend:
             plt.legend(fontsize=9, fancybox=True,
-                        loc='center left', bbox_to_anchor=(1, .95)).set_alpha(0.5)
+                       loc='center left', bbox_to_anchor=(1, .95),
+                       borderaxespad=0.).set_alpha(0.5)
         if hlines:
             plt.axhline(hlines, linestyle='--', linewidth=0.5)
         if ylimits:

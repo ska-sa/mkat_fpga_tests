@@ -308,18 +308,11 @@ class CorrelatorFixture(object):
                           hostclass, list(set(hosts)))
             hosts = [host.host for host in connected_fpgas if host.ping() == True]
             connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                          hostclass, hosts)
-            [host.deprogram() for host in connected_fpgas]
+                                  HOSTCLASS, hosts)
+            deprogrammed_fpgas = fpgautils.threaded_fpga_function(
+                                    connected_fpgas, 10, 'deprogram')
             LOGGER.info('FPGAs in dnsmasq all deprogrammed')
-            deprogrammed = [host.is_running() for host in connected_fpgas if host.is_running()==True]
-            del connected_fpgas
-            try:
-                if deprogrammed:
-                    return False
-                else:
-                    return True
-            except IndexError:
-                return False
+            return True
         else:
             LOGGER.error('Failed to deprogram FPGAs no hosts available')
             return False

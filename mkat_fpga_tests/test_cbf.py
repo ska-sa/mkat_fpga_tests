@@ -92,12 +92,12 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        # TODO: Think of a way to get this to work without hardcoding instrument
-        # Default instrument inorder to program dsim automatically
-        self.corr_fix.instrument = 'bc8n856M4k'
-        self.corr_fix.array_name = 'array0'
-        get_client = self.corr_fix.test_config_file()['test_confs']['katcp_client']
-        self.corr_fix.resource_clt = get_client
+        self.test_conf = self.corr_fix.test_config_file()
+        _conf = self.test_conf['test_confs']
+        self.corr_fix.instrument = _conf['default_instrument']
+        self.corr_fix.array_name = _conf['subarray']
+        self.corr_fix.resource_clt = _conf['katcp_client']
+
         if self.corr_fix.resource_clt is None:
             raise SystemExit('No Resource Client Listed, Exiting!!!')
         self.dhost = self.corr_fix.dhost
