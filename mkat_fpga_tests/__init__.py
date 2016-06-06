@@ -39,7 +39,7 @@ def teardown_package():
 
 class CorrelatorFixture(object):
 
-    def __init__(self, test_config_filename=None, array=None, instrument=None, resource_clt=None):
+    def __init__(self, array=None, instrument=None, resource_clt=None):
 
         # TODO: hard-coded Array number
         # We assume either start_correlator() above has been called, or the instrument
@@ -60,12 +60,14 @@ class CorrelatorFixture(object):
 
         try:
             default_conf = '/etc/corr/default_conf.ini'
-            test_conf_file = './mkat_fpga_tests/config_templates/test_conf.ini'
+            path, _None = os.path.split(__file__)
+            conf_path = '/config_templates/test_conf.ini'
+            test_conf_file = path + conf_path
+
             if os.path.exists(default_conf):
                 self.dsim_conf_file = corr2.utils.parse_ini_file(default_conf)
 
-            elif test_config_filename is None:
-                if os.path.exists(test_conf_file):
+            elif os.path.exists(test_conf_file):
                     self.dsim_conf_file = corr2.utils.parse_ini_file(test_conf_file)
             else:
                 LOGGER.error('Could not find default dsim config file: {} and {}'.format(
@@ -406,13 +408,12 @@ class CorrelatorFixture(object):
         Configuration file containing information such as dsim, pdu and dataswitch ip's
         return: Dict
         """
-        try:
-            test_conf_file = './mkat_fpga_tests/config_templates/test_conf.ini'
-            test_conf = corr2.utils.parse_ini_file(test_conf_file)
-        except IOError:
-            test_conf_file = './config_templates/test_conf.ini'
-            test_conf = corr2.utils.parse_ini_file(test_conf_file)
-        return test_conf
+        path, _None = os.path.split(__file__)
+        conf_path = '/config_templates/test_conf.ini'
+        config_file = path + conf_path
+        if os.path.exists(config_file):
+            test_conf = corr2.utils.parse_ini_file(config_file)
+            return test_conf
 
     def start_correlator(self, instrument=None, retries=5, loglevel='INFO'):
         LOGGER.info('Will now try to start the correlator')
