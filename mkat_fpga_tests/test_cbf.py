@@ -1273,7 +1273,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Calculate the expected channel frequency step size and '
                  'the centre frequency of each channel (bin).')
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=10, chans_around=2)
+            test_chan, samples_per_chan=101, chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
