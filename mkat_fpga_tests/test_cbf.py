@@ -32,6 +32,7 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 from collections import namedtuple
+
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
@@ -4475,7 +4476,6 @@ class test_CBF(unittest.TestCase):
             plot_title = 'Spectrum for Input {}\n'\
                          'Quantiser Gain: {}'.format(key, gain_str)
             caption = 'Spectrum for CW input'
-            import IPython; IPython.embed()
             aqf_plot_channels(10*np.log10(auto_corr[:,0]),
                               plot_filename=plot_filename,
                               plot_title=plot_title, caption=caption, show=True)
