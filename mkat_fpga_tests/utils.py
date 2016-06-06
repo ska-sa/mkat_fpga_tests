@@ -534,3 +534,61 @@ def set_default_eq(instrument):
     ant_inputs = instrument.configd['fengine']['source_names'].split(',')
     [instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
         for _input, eq_val in zip(ant_inputs, eq_levels)]
+
+def set_input_levels(corr_fix, dhost, awgn_scale=None,cw_scale=None, freq=None,
+    fft_shift=None, gain=None):
+    """
+    Set the digitiser simulator (dsim) output levels, FFT shift
+    and quantiser gain to optimum levels - Hardcoded.
+    Param:
+        corr_fix: Object
+            correlator_fixture object
+        dhost: Object
+            digitiser simulator object
+        awgn_scale : Float
+            gaussian noise digitiser output scale.
+        cw_scale: Float
+            constant wave digitiser output scale.
+        freq: Float
+            abitrary frequency to set with the digitiser simulator
+        fft_shift: Int
+            current FFT shift value
+        gain: Complex/Str
+            quantiser gain value
+    Return: Bool
+    """
+    dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+    dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+    try:
+        reply, informs = corr_fix.katcp_rct.req.fft_shift(fft_shift)
+        if not reply.reply_ok():
+            raise Exception
+    except:
+        Aqf.failed('Failed to set FFT shift. KATCP Reply: {}' \
+                   ''.format(reply))
+        return False
+
+    try:
+        # Build dictionary with inputs and
+        # which fhosts they are associated with.
+        reply, informs = corr_fix.katcp_rct.req.input_labels()
+        if not reply.reply_ok():
+            raise Exception
+        sources = reply.arguments[1:]
+    except:
+        Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
+                   ''.format(reply))
+        return False
+
+    for key in sources:
+        try:
+            reply, informs = corr_fix.katcp_rct. \
+                req.gain(key, gain)
+            if not reply.reply_ok():
+                raise Exception
+        except:
+            Aqf.failed(
+                'Failed to set quantiser gain. KATCP Reply: {}' \
+                ''.format(reply))
+            return False
+    return True
