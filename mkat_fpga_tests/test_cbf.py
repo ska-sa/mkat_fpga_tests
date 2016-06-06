@@ -26,6 +26,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
+
 from unittest.util import strclass
 from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -1286,9 +1287,9 @@ class test_CBF(unittest.TestCase):
         last_source_freq = None
 
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.88)
-        self.dhost.noise_sources.noise_corr.set(scale=0.02225401115202507)
-        fft_shft = 511
+        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.675)
+        self.dhost.noise_sources.noise_corr.set(scale=0.05)
+        fft_shft = 8191
         try:
             reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shft)
             if not reply.reply_ok():
@@ -1310,7 +1311,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
                        ''.format(reply))
             return False
-        gain_str = '327'
+        gain_str = '11+0j'
         for key in sources:
             try:
                 reply, informs = self.corr_fix.katcp_rct. \
@@ -1358,7 +1359,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
                             .format(i + 1, len(requested_test_freqs), freq / 1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.88)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.675)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -1439,14 +1440,13 @@ class test_CBF(unittest.TestCase):
             #plt.close()
             plt.clf()
 
-        plt_filename = '{}_Channel{}_Response.png'.format(self._testMethodName, test_chan)
+        plt_filename = '{}_Channel_Response.png'.format(self._testMethodName)
         plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90)
         plt_caption = 'Channel {} response vs source frequency'.format(test_chan)
         plt_title = 'Channel {} @ {} MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
 
         plot_and_save(actual_test_freqs, plot_data, plt_filename, plt_title, plt_caption, cutoff)
-
         # Plot PFB channel response with -3dB cuttoff horizontal line
         no_of_responses = 3
         legends = ['Channel {} ({} MHz) response'.format(
@@ -1459,15 +1459,19 @@ class test_CBF(unittest.TestCase):
         caption = 'Sample PFB channel response between {}'.format(test_chan)
         aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
                           plot_title, log_dynamic_range=90, log_normalise_to=1,
-                          caption=caption, hlines=-3)
+                          caption=caption, hlines=-6)
 
         # Plot Central PFB channel response with ylimit 0 to -6dB
-        y_axis_limits = (-6, 0)
-        plot_filename = '{}_central_adjacent_channels.png'.format(self._testMethodName)
+        y_axis_limits = (-7, 0)
+        plot_filename = '{}_central_adjacent_channels.png'.format(
+            self._testMethodName)
         plot_title = 'PFB Central Channel Response'
-        caption = 'Sample PFB central channel response between {}'.format(test_chan)
-        aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
-                          log_dynamic_range=90, log_normalise_to=1, caption=caption,
+        caption = 'Sample PFB central channel response between {}'.format(
+            test_chan)
+        aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
+                          plot_title,
+                          log_dynamic_range=90, log_normalise_to=1,
+                          caption=caption,
                           ylimits=y_axis_limits, show=False)
 
         # Get responses for central 80% of channel
@@ -1517,7 +1521,7 @@ class test_CBF(unittest.TestCase):
         min_central_chan_response = np.min(10 * np.log10(
             central_chan_responses[:, test_chan]))
         chan_ripple = max_central_chan_response - min_central_chan_response
-        acceptable_ripple_lt = 0.3
+        acceptable_ripple_lt = 1.5
         Aqf.less(chan_ripple, acceptable_ripple_lt,
                  'Check that ripple within 80% of channel fc is < {} dB'
                  .format(acceptable_ripple_lt))
@@ -1540,28 +1544,31 @@ class test_CBF(unittest.TestCase):
                  'the channel centre at {} Hz, actual source freq '
                  '{} Hz'.format(expected_fc, fc_src_freq))
 
-        desired_cutoff_resp = -3  # dB
+        desired_cutoff_resp = -6  # dB
         acceptable_co_var = 0.1  # dB, TODO 2015-12-09 NM: thumbsuck number
+        co_mid_rel_resp = 10 * np.log10(fc_resp)
         co_low_rel_resp = 10 * np.log10(co_low_resp)
         co_high_rel_resp = 10 * np.log10(co_high_resp)
 
-        co_lo_band_edge_rel_resp = desired_cutoff_resp - co_low_rel_resp
-        co_hi_band_edge_rel_resp = desired_cutoff_resp - co_high_rel_resp
+        co_lo_band_edge_rel_resp = co_mid_rel_resp - co_low_rel_resp
+        co_hi_band_edge_rel_resp = co_mid_rel_resp - co_high_rel_resp
 
         low_rel_resp_accept = np.abs(desired_cutoff_resp + acceptable_co_var)
         hi_rel_resp_accept = np.abs(desired_cutoff_resp - acceptable_co_var)
 
         Aqf.is_true(low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
-            'Check that relative response at the low band-edge ({co_low_rel_resp} '
+            'Check that relative response at the low band-edge ({co_lo_band_edge_rel_resp} '
             'dB @ {co_low_freq} Hz, actual source freq {co_low_src_freq}) '
             'is within the range of {desired_cutoff_resp} +- 1% relative to '
             'channel centre response.'.format(**locals()))
 
         Aqf.is_true(low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
-            'Check that relative response at the high band-edge ({co_high_rel_resp} '
+            'Check that relative response at the high band-edge ({co_hi_band_edge_rel_resp} '
             'dB @ {co_high_freq} Hz, actual source freq {co_high_src_freq}) '
             'is within the range of {desired_cutoff_resp} +- 1% relative to '
             'channel centre response.'.format(**locals()))
+
+
 
 
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53):
@@ -4093,8 +4100,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._set_input_levels_and_gain(profile='cw', cw_freq=800513075,
-                                            trgt_bits=1.5, trgt_q_std = 0.33)
+            self._set_input_levels_and_gain(profile='cw', cw_freq=800513075, cw_margin = 0.3,
+                                            trgt_bits=4.5, trgt_q_std = 0.30)
 
     def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,
                                    cw_margin = 0.05, trgt_bits=3.5,
@@ -4146,11 +4153,11 @@ class test_CBF(unittest.TestCase):
         def set_sine_source(scale, cw_freq, cw_src):
             #if cw_src == 0:
             self.dhost.sine_sources.sin_0.set(frequency=cw_freq,
-                                                  scale=scale)
+                                              scale=round(scale,3))
             #    return self.dhost.sine_sources.sin_0.frequency
             #else:
             self.dhost.sine_sources.sin_1.set(frequency=cw_freq,
-                                                  scale=scale)
+                                              scale=round(scale,3))
             return self.dhost.sine_sources.sin_1.frequency
 
         # main code
@@ -4179,7 +4186,7 @@ class test_CBF(unittest.TestCase):
         inp = sources.keys()[0]
         scale = 0.1
         margin = 0.005
-        self.dhost.noise_sources.noise_corr.set(scale=scale)
+        self.dhost.noise_sources.noise_corr.set(scale=round(scale,3))
         # Get target standard deviation. ADC is represented by Q10.9
         # signed fixed point.
         target_std = pow(2.0,trgt_bits)/512
@@ -4188,7 +4195,8 @@ class test_CBF(unittest.TestCase):
         pol = sources[inp][0]
         fpga = sources[inp][1]
         while not found:
-            adc_data = get_adc_snapshot(fpga)[pol]
+            for i in range (5):
+                adc_data = get_adc_snapshot(fpga)[pol]
             cur_std  = np.std(adc_data)
             cur_diff = target_std - cur_std
             if (abs(cur_diff) < margin) or count > 5:
@@ -4201,7 +4209,8 @@ class test_CBF(unittest.TestCase):
                 if scale > 1:
                     scale=1
                     found = True
-                self.dhost.noise_sources.noise_corr.set(scale=scale)
+                self.dhost.noise_sources.noise_corr.set(scale=round(scale,3))
+        noise_scale = scale
         p_std = np.std(adc_data)
         p_bits = np.log2(p_std * 512)
 
@@ -4266,6 +4275,7 @@ class test_CBF(unittest.TestCase):
             ret_dict[key]['std_dev'] = p_std
             ret_dict[key]['bits_t'] = p_bits
             ret_dict[key]['scale'] = scale
+            ret_dict[key]['noise_scale'] = noise_scale
             ret_dict[key]['profile'] = profile
             ret_dict[key]['adc_satr'] = False
             if np.abs(np.max(adc_data) or np.min(
@@ -4443,12 +4453,17 @@ class test_CBF(unittest.TestCase):
                 ret_dict[key]['num_sat'] = count
 
         if profile == 'cw':
-            plot_filename='quant_plot_{}.png'.format(key)
-            plot_title = 'Quantiser Channel Magnitudes for Input {}\n'\
+            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            dval = dump['xeng_raw'].value
+            auto_corr = dval[:, inp_autocorr_idx, :]
+            plot_filename='spectrum_plot_{}.png'.format(key)
+            plot_title = 'Spectrum for Input {}\n'\
                          'Quantiser Gain: {}'.format(key, gain_str)
-            caption = 'Quantiser Channel Magnitues'
-            aqf_plot_channels(auto_corr, plot_filename=plot_filename,
-                              plot_title=plot_title, caption=caption)
+            caption = 'Spectrum for CW input'
+            import IPython; IPython.embed()
+            aqf_plot_channels(10*np.log10(auto_corr[:,0]),
+                              plot_filename=plot_filename,
+                              plot_title=plot_title, caption=caption, show=True)
         else:
             p_std = np.std(data)
             aqf_plot_histogram(np.abs(data), plot_filename='quant_hist_{}.png'\
@@ -4460,17 +4475,19 @@ class test_CBF(unittest.TestCase):
                                bins=64, range=(0, 1.5))
 
         key = ret_dict.keys()[0]
-        Aqf.passed('Dsim profile: {} scaled at {:0.3f}' \
-                   ''.format(ret_dict[key]['profile'],
-                             ret_dict[key]['scale']))
-        Aqf.passed('FFT Shift set to {}'\
+        if profile == 'cw':
+            Aqf.step('Dsim Sine Wave scaled at {:0.3f}' \
+                       ''.format(ret_dict[key]['scale']))
+        Aqf.step('Dsim Noise scaled at {:0.3f}' \
+                 ''.format(ret_dict[key]['noise_scale']))
+        Aqf.step('FFT Shift set to {}'\
                    ''.format(ret_dict[key]['fft_shift']))
         for key in sources.keys():
-            Aqf.passed('{} ADC standard deviation: {:0.3f} toggling '\
+            Aqf.step('{} ADC standard deviation: {:0.3f} toggling '\
                        '{:0.2f} bits'.format(key,
                                              ret_dict[key]['std_dev'],
                                              ret_dict[key]['bits_t']))
-            Aqf.passed('{} quantiser standard deviation: {:0.3f} at a '\
+            Aqf.step('{} quantiser standard deviation: {:0.3f} at a '\
                        'gain of {}'.format(key,
                                            ret_dict[key]['q_std_dev'],
                                            ret_dict[key]['q_gain']))
