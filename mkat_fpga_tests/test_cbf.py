@@ -1273,7 +1273,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Calculate the expected channel frequency step size and '
                  'the centre frequency of each channel (bin).')
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
-            test_chan, samples_per_chan=101, chans_around=2)
+            test_chan, samples_per_chan=10, chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
@@ -1417,7 +1417,9 @@ class test_CBF(unittest.TestCase):
             axes = fig.get_axes()
             ybound = axes.get_ybound()
             yb_diff = abs(ybound[1] - ybound[0])
-            new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
+            #new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
+            new_ybound = [ybound[0]*1.1, ybound[1]*1.1]
+            new_ybound = [y if y != 0 else yb_diff*0.05 for y in new_ybound]
             plt.vlines(expected_fc, *new_ybound, colors='r', label='chan fc')
             plt.vlines(expected_fc - df / 2, *new_ybound, label='chan min/max')
             plt.vlines(expected_fc - 0.8 * df / 2, *new_ybound, label='chan +-40%',
@@ -1441,13 +1443,13 @@ class test_CBF(unittest.TestCase):
             plt.clf()
 
         plt_filename = '{}_Channel_Response.png'.format(self._testMethodName)
-        plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90)
+        plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True)
         plt_caption = 'Channel {} response vs source frequency'.format(test_chan)
         plt_title = 'Channel {} @ {} MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
-
         plot_and_save(actual_test_freqs, plot_data, plt_filename, plt_title, plt_caption, cutoff)
-        # Plot PFB channel response with -3dB cuttoff horizontal line
+
+        # Plot PFB channel response with -6dB cuttoff horizontal line
         no_of_responses = 3
         legends = ['Channel {} ({} MHz) response'.format(
             ((test_chan + i) - 1), self.corr_freqs.chan_freqs[test_chan + i] / 1e6) for i in range(
@@ -1459,10 +1461,11 @@ class test_CBF(unittest.TestCase):
         caption = 'Sample PFB channel response between {}'.format(test_chan)
         aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
                           plot_title, log_dynamic_range=90, log_normalise_to=1,
-                          caption=caption, hlines=-6)
+                          normalise=True, caption=caption,
+                          xlabel = 'Sample Steps', hlines=-6)
 
         # Plot Central PFB channel response with ylimit 0 to -6dB
-        y_axis_limits = (-7, 0)
+        y_axis_limits = (-7, 1)
         plot_filename = '{}_central_adjacent_channels.png'.format(
             self._testMethodName)
         plot_title = 'PFB Central Channel Response'
@@ -1471,8 +1474,9 @@ class test_CBF(unittest.TestCase):
         aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
                           plot_title,
                           log_dynamic_range=90, log_normalise_to=1,
-                          caption=caption,
-                          ylimits=y_axis_limits, show=False)
+                          normalise = True, caption=caption,
+                          xlabel='Sample Steps', ylimits=y_axis_limits,
+                          show=False)
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
@@ -1484,7 +1488,7 @@ class test_CBF(unittest.TestCase):
 
         # Plot channel response for central 80% of channel
         graph_name_central = '{}_central.png'.format(self._testMethodName)
-        plot_data_central = loggerise(central_chan_responses[:, test_chan], dynamic_range=90)
+        plot_data_central = loggerise(central_chan_responses[:, test_chan], dynamic_range=90, normalise=True)
         caption = 'Channel {} central response vs source frequency on max channels {}'.format(
                     test_chan, self.corr_freqs.n_chans)
         plt_title = 'Channel {} ({} MHz) response @ 80%'.format(test_chan, expected_fc / 1e6)

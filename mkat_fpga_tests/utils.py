@@ -32,7 +32,7 @@ def normalise(input_data):
 def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
-def loggerise(data, dynamic_range=70, normalise_to=None):
+def loggerise(data, dynamic_range=70, normalise_to=None, normalise=False):
     with np.errstate(divide='ignore'):
         log_data = 10*np.log10(data)
     if normalise_to:
@@ -41,6 +41,8 @@ def loggerise(data, dynamic_range=70, normalise_to=None):
         max_log = np.max(log_data)
     min_log_clip = max_log - dynamic_range
     log_data[log_data < min_log_clip] = min_log_clip
+    if normalise:
+        log_data = np.asarray(log_data)-np.max(log_data)
     return log_data
 
 def baseline_checker(xeng_raw, check_fn):

@@ -163,7 +163,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
         plt.close('all')
 
 def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=None,
-                      log_dynamic_range=None, log_normalise_to=None,
+                      log_dynamic_range=None, log_normalise_to=None, normalise = False,
                       caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
                       xlabel=None, show=False):
         """Simple magnitude plot of a channelised result
@@ -189,6 +189,9 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         normalised to it's own max value, which can be confusing if they don't all have
         the same max...
 
+        If Normalise = True the maximum log value will be subtracted from the loggerised 
+        data.
+
         """
         try:
             if not isinstance(channelisation[0], tuple):
@@ -205,7 +208,7 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
                 kwargs['label'] = legend
             if log_dynamic_range is not None:
                 plot_data = loggerise(plot_data, log_dynamic_range,
-                                      normalise_to=log_normalise_to)
+                                      normalise_to=log_normalise_to, normalise = normalise)
                 ylabel = 'Channel response [dB]'
             else:
                 ylabel = 'Channel response (linear)'
@@ -224,8 +227,10 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         axis = plt.gcf().get_axes()[0]
         ybound = axis.get_ybound()
         yb_diff = abs(ybound[1] - ybound[0])
-        new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-        #axis.set_ybound(*new_ybound)
+        #new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+        new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
+        new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
+        axis.set_ybound(*new_ybound)
         if has_legend:
             plt.legend(fontsize=9, fancybox=True,
                        loc='center left', bbox_to_anchor=(1, .95),
