@@ -15,6 +15,8 @@ import shutil
 import stat
 import subprocess
 import gc
+import unittest
+import nose
 
 log = logging.getLogger('nose.plugins.nosekatreport')
 
@@ -67,6 +69,7 @@ class StoreTestRun(object):
         self.test_image_counter = 0
         self.requirements_file = None
         self.test_passed = True
+        self.test_failed = False
         self.test_skipped = False
         self.test_tbd = False
         self.test_waived = False
@@ -959,6 +962,8 @@ class Aqf(object):
             cls.passed(message)
         elif passed is False:
             cls.failed(message)
+            _state.store.test_failed = True#, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
+                    #(_state.store.test_name, _state.store.error_msg))
 
         _state.store.test_ack = True
         _state.store._update_step({'_updated': True},
@@ -966,6 +971,10 @@ class Aqf(object):
         if _state.store.test_skipped or _state.store.test_tbd or _state.store.test_waived:
             import nose
             raise nose.plugins.skip.SkipTest
+        elif _state.store.test_failed:
+            _state.store.test_failed = False
+            assert _state.store.test_failed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
+                    (_state.store.test_name, _state.store.error_msg))
         else:
             assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
                     (_state.store.test_name, _state.store.error_msg))
