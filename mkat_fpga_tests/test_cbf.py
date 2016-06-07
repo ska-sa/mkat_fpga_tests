@@ -4096,6 +4096,61 @@ class test_CBF(unittest.TestCase):
                           caption='Captured beamformer data')
 
 
+    def test_timestamp_accuracy(self, instrument='bc8n856M4k'):
+        """Testing timestamp accuracy (bc8n856M4k)
+        Confirm that the CBF subsystem do not modify and correctly interprets
+        timestamps contained in each digitiser SPEAD packets (dump)
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Checking timestamp accuracy: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._timestamp_accuracy()
+
+    def _timestamp_accuracy(self):
+        def load_dsim_impulse(load_timestamp):
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=2)
+            self.dhost.registers.impulse_delay_correction.write(reg=16)
+            print load_timestamp
+            load_timestamp = load_timestamp/8.0
+            print load_timestamp
+            load_timestamp = int(load_timestamp)
+            print load_timestamp
+            reg_size = 32
+            load_ts_lsw = load_timestamp & (pow(2,reg_size)-1)
+            load_ts_msw = load_timestamp >> reg_size
+
+            dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()['data']['reg']
+            dsim_loc_msw = self.dhost.registers.local_time_msw.read()['data']['reg']
+            dsim_loc_time = dsim_loc_msw * pow(2,reg_size) + dsim_loc_lsw
+            print 'timestamp difference: {}'.format((load_timestamp - dsim_loc_time)/dump['scale_factor_timestamp'].value)
+            self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
+            self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
+            #import IPython; IPython.embed()
+
+        self.dhost.noise_sources.noise_corr.set(scale=0)
+        dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        baseline_lookup = get_baselines_lookup(dump)
+        inp = dump['input_labelling'].value[0][0]
+        inp_autocorr_idx = baseline_lookup[(inp, inp)]
+        dump_ts = dump['timestamp'].value
+        dump_ticks = dump['int_time'].value*dump['adc_sample_rate'].value
+        load_timestamp = dump_ts + dump_ticks*3
+        load_dsim_impulse(load_timestamp)
+        for i in range(20):
+            dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+            dval = dump['xeng_raw'].value
+            auto_corr = dval[:, inp_autocorr_idx, :]
+            curr_ts   = dump['timestamp'].value
+            delta_ts  = curr_ts-dump_ts
+            dump_ts   = curr_ts
+            if delta_ts != dump_ticks:
+                Aqf.failed('Accumulation dropped, Expected timestamp = {}, '\
+                           'received timestamp = {}'\
+                           ''.format(dump_ts+dump_ticks, curr_ts))
+            print 'Maximum value found in dump = {}'.format(np.max(auto_corr))
+
+        #import IPython; IPython.embed()
+
     def test_input_levels(self, instrument='bc8n856M4k'):
         """Testing Dsim input levels (bc8n856M4k)
         Set input levels to requested values and check that the ADC and the
