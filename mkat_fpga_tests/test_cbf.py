@@ -32,6 +32,7 @@ from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 from collections import namedtuple
+
 from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
@@ -48,7 +49,7 @@ from mkat_fpga_tests.utils import set_coarse_delay, get_quant_snapshot
 from mkat_fpga_tests.utils import get_source_object_and_index, get_baselines_lookup
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_bit_flag, get_set_bits
 from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_okay, get_adc_snapshot
-from mkat_fpga_tests.utils import set_default_eq, clear_all_delays
+from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
@@ -1034,8 +1035,14 @@ class test_CBF(unittest.TestCase):
 
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
-        Aqf.step('Dsim configured to generate correlated noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        Aqf.step('Configure digitiser simulator to generate gaussian noise.')
+        #self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.0645,
+            fft_shift=511, gain='113+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
             self.correlator.n_antennas * 2)]
@@ -1287,43 +1294,11 @@ class test_CBF(unittest.TestCase):
         last_source_freq = None
 
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=0.675)
-        self.dhost.noise_sources.noise_corr.set(scale=0.05)
-        fft_shft = 8191
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shft)
-            if not reply.reply_ok():
-                raise Exception
-        except:
-            Aqf.failed('Failed to set FFT shift. KATCP Reply: {}' \
-                       ''.format(reply))
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
+            cw_scale=0.675, freq=expected_fc, fft_shift=8191, gain='11+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
             return False
-
-        try:
-            # Build dictionary with inputs and
-            # which fhosts they are associated with.
-            reply, informs = self.corr_fix.katcp_rct.req.input_labels()
-            if not reply.reply_ok():
-                raise Exception
-            sources = reply.arguments[1:]
-
-        except:
-            Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
-                       ''.format(reply))
-            return False
-        gain_str = '11+0j'
-        for key in sources:
-            try:
-                reply, informs = self.corr_fix.katcp_rct. \
-                    req.gain(key, gain_str)
-                if not reply.arguments[1:] != gain_str:
-                    raise Exception
-            except:
-                Aqf.failed(
-                    'Failed to set quantiser gain. KATCP Reply: {}' \
-                    ''.format(reply))
-                return False
-
 
         try:
             initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -1603,15 +1578,22 @@ class test_CBF(unittest.TestCase):
         # Checking for all channels.
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         n_chans = self.corr_freqs.n_chans
-        Aqf.step('Configure digitiser simulator to generate a continuos wave.')
+
         if stepsize:
             Aqf.step('Running FASTER version of Channelisation SFDR test '
                      'with {} step size.'.format(stepsize))
             print_counts = 4 * stepsize
         else:
             print_counts = 4
+
         # Abitrary frequency
-        self.dhost.sine_sources.sin_0.set(frequency=300e6, scale=0.6)
+        Aqf.step('Configure digitiser simulator to generate a continuos wave.')
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
+            cw_scale=0.675, freq=self.corr_freqs.bandwidth / 2.0, fft_shift=8191, gain='11+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
         try:
             initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
@@ -1702,9 +1684,14 @@ class test_CBF(unittest.TestCase):
                        .format(**locals()))
 
     def _test_product_baselines(self):
-        noise_scale = 0.125
+        noise_scale = 0.05
         Aqf.step('Dsim configured to generate correlated noise: scale @ {}.'.format(noise_scale))
-        self.dhost.noise_sources.noise_corr.set(scale=noise_scale)
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=noise_scale,
+            fft_shift=511, gain='113+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
         Aqf.step('Set list for all the correlator input labels as per config file')
         local_src_names = self.correlator.configd['fengine']['source_names'].split(',')
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
@@ -1849,7 +1836,9 @@ class test_CBF(unittest.TestCase):
                     sum_of_bl_powers = [normalised_magnitude(test_data[:, expected_bl,:])
                                        for expected_bl in [baselines_lookup[expected_nz_bl_ind]
                                        for expected_nz_bl_ind in sorted(expected_nz_bls)]]
-                    dataFrame.loc[inp][expected_nz_bls] = np.sum(sum_of_bl_powers)
+
+                    dataFrame.loc[inp][sorted([i for i in expected_nz_bls])[-1]] = np.sum(
+                        sum_of_bl_powers)
                 else:
                     Aqf.failed(msg)
             dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
@@ -1864,7 +1853,14 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Check that back-to-back SPEAD packets with same input are equal on '
                  'channel({}) @ {}MHz.'.format(test_chan, expected_fc / 1e6))
         source_period_in_samples = self.corr_freqs.n_chans * 2
+        cw_scale = 0.675
         Aqf.step('Digitiser simulator configured to generate continuous wave')
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
+            cw_scale=cw_scale, freq=expected_fc, fft_shift=8191, gain='11+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
@@ -1872,10 +1868,11 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
+            spead_failure_counter = 0
             for i, freq in enumerate(requested_test_freqs):
                 Aqf.hop('Testing SPEAD packet consistency {}/{} @ {} MHz.'.format(
                     i + 1, len(requested_test_freqs), freq / 1e6))
-                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125,
+                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale,
                                                   repeatN=source_period_in_samples)
                 this_source_freq = self.dhost.sine_sources.sin_0.frequency
                 dumps_data = []
@@ -1885,7 +1882,19 @@ class test_CBF(unittest.TestCase):
                         this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                         initial_max_freq = np.max(this_freq_dump['xeng_raw'].value)
                     else:
-                        this_freq_dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+                        try:
+                            this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                        except Queue.Empty:
+                            spead_failure_counter += 1
+                            errmsg = ('Could not retrieve clean SPEAD packet, as #{} '
+                                     'Queue is Empty.'.format(spead_failure_counter))
+                            Aqf.failed(errmsg)
+                            LOGGER.exception(errmsg)
+                            if spead_failure_counter > 5:
+                                spead_failure_counter = 0
+                                Aqf.failed('Bailed: Kept receiving empty Spead packets')
+                                return False
+
                     this_freq_data = this_freq_dump['xeng_raw'].value
                     dumps_data.append(this_freq_data)
                     this_freq_response = normalised_magnitude(
@@ -2326,8 +2335,11 @@ class test_CBF(unittest.TestCase):
                 host = hosts[1]
                 host.clear_status()
                 Aqf.step("Selected host: {} - {}".format(host.host, engine_type))
-                host_sensor = getattr(array_sensors, '{}_{}_qdr'.format(
-                    host.host.lower(), engine_type))
+                try:
+                    host_sensor = getattr(array_sensors, '{}_{}_qdr'.format(
+                        host.host.lower(), engine_type))
+                except AttributeError:
+                    Aqf.failed('Could not get sensor attributes on {}'.format(host.host))
 
                 # Check if qdr is okay
                 Aqf.is_true(host_sensor.get_value(),
@@ -4519,7 +4531,6 @@ class test_CBF(unittest.TestCase):
             plot_title = 'Spectrum for Input {}\n'\
                          'Quantiser Gain: {}'.format(key, gain_str)
             caption = 'Spectrum for CW input'
-            import IPython; IPython.embed()
             aqf_plot_channels(10*np.log10(auto_corr[:,0]),
                               plot_filename=plot_filename,
                               plot_title=plot_title, caption=caption, show=True)
