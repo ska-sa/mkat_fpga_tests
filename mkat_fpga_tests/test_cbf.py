@@ -1577,9 +1577,11 @@ class test_CBF(unittest.TestCase):
             print_counts = 4
 
         # Abitrary frequency
+        cw_scale = 0.675
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
-            cw_scale=0.675, freq=self.corr_freqs.bandwidth / 2.0, fft_shift=8191, gain='11+0j')
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,cw_scale=cw_scale,
+                                            freq=self.corr_freqs.bandwidth / 2.0,
+                                            fft_shift=8191, gain='11+0j')
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
@@ -1618,7 +1620,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
                             .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=0.125)
+            self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
