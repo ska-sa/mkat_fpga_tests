@@ -46,7 +46,6 @@ class CorrelatorFixture(object):
         # was started with the name contained in self.array_name before running the
         # test.
         self.array_name = array
-        LOGGER.info('SubArray selected: {}'.format(self.array_name))
         self.instrument = instrument
         self.resource_clt = resource_clt
         self._correlator = None

@@ -189,7 +189,7 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         normalised to it's own max value, which can be confusing if they don't all have
         the same max...
 
-        If Normalise = True the maximum log value will be subtracted from the loggerised 
+        If Normalise = True the maximum log value will be subtracted from the loggerised
         data.
 
         """
@@ -233,7 +233,7 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         axis.set_ybound(*new_ybound)
         if has_legend:
             plt.legend(fontsize=9, fancybox=True,
-                       loc='center left', bbox_to_anchor=(1, .95),
+                       loc='center left', bbox_to_anchor=(1, .90),
                        borderaxespad=0.).set_alpha(0.5)
         if hlines:
             plt.axhline(hlines, linestyle='--', linewidth=0.5)

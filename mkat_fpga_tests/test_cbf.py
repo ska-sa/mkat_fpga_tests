@@ -1486,8 +1486,8 @@ class test_CBF(unittest.TestCase):
 
         Aqf.less(
             np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
-            'Check that VACC output is at < 99% of maximum value, otherwise '
-            'something, somewhere, is probably overranging.')
+            'Check that VACC output is at < 99% of maximum value, if fails '
+            'then it is probably overranging.')
         max_central_chan_response = np.max(10 * np.log10(
             central_chan_responses[:, test_chan]))
         min_central_chan_response = np.min(10 * np.log10(
