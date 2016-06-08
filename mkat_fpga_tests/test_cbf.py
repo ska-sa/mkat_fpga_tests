@@ -111,6 +111,8 @@ class test_CBF(unittest.TestCase):
         if not instrument_state:
             errmsg = ('Could not initialise instrument or ensure running '
                       'instrument: {}'.format(instrument))
+            self.corr_fix.deprogram_fpgas(instrument)
+            self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
             LOGGER.error(errmsg)
             Aqf.end(passed=False, message=errmsg)
             return False
@@ -141,10 +143,17 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
                 self.addCleanup(self.corr_fix.stop_x_data)
+                try:
+                    corrRx_port = int(self.test_conf['test_confs']['corr_rx_port'])
+                except ValueError:
+                    corrRx_port = 8888
+                    LOGGER.info('Failed to retrieve corr rx port from config file.'
+                                'Setting it to default port: {}'.format(corrRx_port))
+
                 if instrument.upper().find('M4K') > 0:
-                    self.receiver = CorrRx(port=8888, queue_size=1000)
+                    self.receiver = CorrRx(port=corrRx_port, queue_size=1000)
                 else:
-                    self.receiver = CorrRx(port=8888, queue_size=10)
+                    self.receiver = CorrRx(port=corrRx_port, queue_size=10)
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 except AssertionError:
