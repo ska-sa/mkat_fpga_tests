@@ -462,7 +462,8 @@ class CorrelatorFixture(object):
                         LOGGER.fatal('Failed to assign array port number on {}'.format(self.array_name))
                         return False
                 """
-                instrument_param = self._d['test_confs']['instrument_param']
+                instrument_param = [int(i) for i in self._d['test_confs']['instrument_param']
+                                    if i != ',']
                 LOGGER.info ("Starting Correlator with {} parameters. Try #{}".format(
                     instrument_param, retries))
                 reply, informs = self.katcp_rct.req.instrument_activate(
