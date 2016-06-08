@@ -120,22 +120,23 @@ class test_CBF(unittest.TestCase):
         except TimeoutError:
             errmsg = 'Timed-Out: Failed to set accumulation time withing {}s'.format(acc_timeout)
             self.corr_fix.deprogram_fpgas(instrument)
-            LOGGER.exception(errmsg)
+            self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            LOGGER.exception(errmsg + 'Deprogramming FPGAs')
             Aqf.failed(errmsg)
             return False
         except AttributeError:
             errmsg = ('Failed to set accumulation time withing {}s, '
                       'due to katcp request errors'.format(acc_timeout))
-            self.corr_fix.deprogram_fpgas(instrument)
-            LOGGER.exception(errmsg)
+            LOGGER.exception(errmsg + 'Deprogramming FPGAs')
             Aqf.failed(errmsg)
             return False
         else:
             if not reply.succeeded:
                 errmsg = 'Failed to set Accumulation time via kcs. KATCP Reply: {}'.format(reply)
-                LOGGER.error(errmsg)
+                self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+                self.corr_fix.deprogram_fpgas(instrument)
+                LOGGER.error(errmsg + 'Deprogramming FPGAs')
                 Aqf.failed(errmsg)
-                self.corr_fix.halt_array()
                 return False
             else:
                 Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
