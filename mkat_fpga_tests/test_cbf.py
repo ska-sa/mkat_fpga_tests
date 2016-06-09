@@ -185,7 +185,8 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_intrument()
             Aqf.step('CBF Channelisation Wideband Coarse L-band: {}\n'.format(_running_inst))
             self._systems_tests()
-            test_chan = randrange(self.corr_freqs.n_chans)
+            n_chans = self.corr_freqs.n_chans
+            test_chan = randrange(start=n_chans % 100,  stop=n_chans - 1)
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
 
     @aqf_vr('TP.C.1.19')
@@ -196,7 +197,8 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_intrument()
             Aqf.step('CBF Channelisation Wideband Coarse L-band: {}\n'.format(_running_inst))
             self._systems_tests()
-            test_chan = randrange(self.corr_freqs.n_chans)
+            n_chans = self.corr_freqs.n_chans
+            test_chan = randrange(start=n_chans % 100,  stop=n_chans - 1)
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
 
     @aqf_vr('TP.C.1.19')
