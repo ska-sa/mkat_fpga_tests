@@ -478,8 +478,9 @@ class test_CBF(unittest.TestCase):
         Check that results are consistent on correlator restart"""
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step('Correlator Restart Consistency Test: {}\n'.format(_running_inst))
-            self._test_restart_consistency(instrument, no_channels=4096)
+            Aqf.tbd('Correlator startup needs to be revisited.')
+            #Aqf.step('Correlator Restart Consistency Test: {}\n'.format(_running_inst))
+            #self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
