@@ -14,6 +14,10 @@ from casperfpga import katcp_fpga
 from katcp import resource_client
 from katcp import ioloop_manager
 
+from katcp import KatcpClientError
+from katcp import KatcpDeviceError
+from katcp import KatcpSyntaxError
+
 from corr2 import fxcorrelator
 
 LOGGER = logging.getLogger(__name__)
@@ -305,15 +309,26 @@ class CorrelatorFixture(object):
                 return False
 
         if not len(hosts) == 0:
-            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+
+            try:
+                connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
                           hostclass, list(set(hosts)))
-            hosts = [host.host for host in connected_fpgas if host.ping() == True]
-            connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                                  hostclass, hosts)
-            deprogrammed_fpgas = fpgautils.threaded_fpga_function(
-                                    connected_fpgas, 10, 'deprogram')
-            LOGGER.info('FPGAs in dnsmasq all deprogrammed')
-            return True
+                hosts = [host.host for host in connected_fpgas if host.ping() == True]
+                connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+                                      hostclass, hosts)
+                deprogrammed_fpgas = fpgautils.threaded_fpga_function(
+                                        connected_fpgas, 10, 'deprogram')
+                LOGGER.info('FPGAs in dnsmasq all deprogrammed')
+                return True
+            except (katcp_fpga.KatcpRequestFail, KatcpClientError, KatcpDeviceError, KatcpSyntaxError):
+                errmsg = 'Failed to connect to roaches, reboot devices to fix.'
+                LOGGER.exception(errmsg)
+                raise SystemExit(errmsg)
+            except Exception:
+                errmsg = 'Failed to connect to roaches, reboot devices to fix.'
+                LOGGER.exception(errmsg)
+                raise SystemExit(errmsg)
+
         else:
             LOGGER.error('Failed to deprogram FPGAs no hosts available')
             return False
@@ -467,7 +482,7 @@ class CorrelatorFixture(object):
                 LOGGER.info ("Starting Correlator with {} parameters. Try #{}".format(
                     instrument_param, retries))
                 reply, informs = self.katcp_rct.req.instrument_activate(
-                    self.instrument, *[instrument_param], timeout=500)
+                    self.instrument, *instrument_param, timeout=500)
 
                 success = reply.reply_ok()
                 retries -= 1
