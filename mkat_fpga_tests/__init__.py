@@ -482,7 +482,7 @@ class CorrelatorFixture(object):
                 LOGGER.info ("Starting Correlator with {} parameters. Try #{}".format(
                     instrument_param, retries))
                 reply, informs = self.katcp_rct.req.instrument_activate(
-                    self.instrument, *[instrument_param], timeout=500)
+                    self.instrument, *instrument_param, timeout=500)
 
                 success = reply.reply_ok()
                 retries -= 1
