@@ -80,8 +80,8 @@ def disable_maplotlib_warning():
 
 def teardown_module():
     """This method is run once after test class is executed"""
-    pass
-
+    correlator_fixture.katcp_rct.stop()
+    correlator_fixture.rct.stop()
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -95,9 +95,6 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.instrument = _conf['default_instrument']
         self.corr_fix.array_name = _conf['subarray']
         self.corr_fix.resource_clt = _conf['katcp_client']
-
-        if self.corr_fix.resource_clt is None:
-            sys.exit('No Resource Client Listed, Exiting!!!')
         self.dhost = self.corr_fix.dhost
         self.dhost.get_system_information()
         self.receiver = None
@@ -110,36 +107,40 @@ class test_CBF(unittest.TestCase):
         acc_timeout = 60
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if not instrument_state:
-            errmsg = ('Could not initialise instrument or ensure running '
-                      'instrument: {}'.format(instrument))
-            self.corr_fix.deprogram_fpgas(instrument)
             self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            errmsg = ('Could not initialise instrument or ensure running instrument: {}, '
+                      'SubArray will be halted and restarted with next test'.format(instrument))
             LOGGER.error(errmsg)
             Aqf.end(passed=False, message=errmsg)
             return False
         try:
+            self.corr_fix.katcp_rct.start()
+            self.corr_fix.katcp_rct.until_synced(timeout=acc_timeout)
             reply = self.corr_fix.katcp_rct.req.accumulation_length(
                 self.default_acc_time, timeout=acc_timeout)
+
         except TimeoutError:
-            errmsg = 'Timed-Out: Failed to set accumulation time withing {}s'.format(acc_timeout)
-            self.corr_fix.deprogram_fpgas(instrument)
-            self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
-            LOGGER.exception(errmsg + 'Deprogramming FPGAs')
+            reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            errmsg = ('Timed-Out: Failed to set accumulation time withing {}s, '
+                     'SubArray will be halted and restarted with next test'.format(acc_timeout))
+            LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return False
+
         except AttributeError:
-            errmsg = ('Failed to set accumulation time withing {}s, '
-                      'due to katcp request errors'.format(acc_timeout))
-            LOGGER.exception(errmsg + 'Deprogramming FPGAs')
+            reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            errmsg = ('Failed to set accumulation time withing {}s, due to katcp request errors. '
+                      'SubArray will be halted and restarted with next test'.format(acc_timeout))
+            LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return False
+
         else:
             if not reply.succeeded:
                 errmsg = 'Failed to set Accumulation time via kcs. KATCP Reply: {}'.format(reply)
-                self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
-                self.corr_fix.deprogram_fpgas(instrument)
-                LOGGER.error(errmsg + 'Deprogramming FPGAs')
+                LOGGER.error(errmsg)
                 Aqf.failed(errmsg)
+                reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
                 return False
             else:
                 Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
@@ -155,13 +156,16 @@ class test_CBF(unittest.TestCase):
                     self.receiver = CorrRx(port=corrRx_port, queue_size=1000)
                 else:
                     self.receiver = CorrRx(port=corrRx_port, queue_size=10)
+
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
+
                 except AssertionError:
                     errmsg = 'Correlator Receiver could not be instantiated.'
                     LOGGER.exception(errmsg)
                     Aqf.failed(errmsg)
                     return False
+
                 else:
                     start_thread_with_cleanup(self, self.receiver, start_timeout=1)
                     self.correlator = self.corr_fix.correlator
@@ -175,7 +179,6 @@ class test_CBF(unittest.TestCase):
 
     def tearDown(self):
         # Reset digitiser simulator to all Zeros
-        LOGGER.info('Reset digitiser simulator to all Zeros')
         init_dsim_sources(self.dhost)
 
     @aqf_vr('TP.C.1.19')
@@ -285,7 +288,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_intrument()
             Aqf.step('Test spurious free dynamic range for wideband fine: {}\n'.format(_running_inst))
             self._systems_tests()
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)  #Hz
+            self._test_sfdr_peaks(required_chan_spacing=[15e3, 30e3], no_channels=32768)  #Hz
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
@@ -307,7 +310,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_intrument()
             Aqf.step('Test spurious free dynamic range for wideband fine: {}\n'.format(_running_inst))
             self._systems_tests()
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  #Hz
+            self._test_sfdr_peaks(required_chan_spacing=[15e3, 30e3], no_channels=32768, stepsize=8)  #Hz
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -479,9 +482,8 @@ class test_CBF(unittest.TestCase):
         Check that results are consistent on correlator restart"""
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.tbd('Correlator startup needs to be revisited.')
-            #Aqf.step('Correlator Restart Consistency Test: {}\n'.format(_running_inst))
-            #self._test_restart_consistency(instrument, no_channels=4096)
+            Aqf.step('Correlator Restart Consistency Test: {}\n'.format(_running_inst))
+            self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
@@ -1090,28 +1092,27 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.17')
     def test_generic_config_report(self, instrument='bc8n856M4k'):
         """CBF Report configuration """
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('CBF Report configuration: {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_config_report(verbose=False)
+            _running_inst = instrument
+        Aqf.step('CBF Report configuration: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            self._systems_tests()
+            self._test_config_report(verbose=False)
 
     @aqf_vr('TP.C.1.5.1')
     @aqf_vr('TP.C.1.18')
     def test_generic_overtemperature(self, instrument='bc8n856M4k'):
         """ROACH2 overtemperature display test """
-
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('ROACH2 overtemperature display test: {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_overtemp()
+            _running_inst = instrument
+        Aqf.step('ROACH2 overtemperature display test: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            self._systems_tests()
+            self._test_overtemp()
 
     @aqf_vr('TP.C.1.5.2')
     @aqf_vr('TP.C.1.18')
@@ -1130,67 +1131,67 @@ class test_CBF(unittest.TestCase):
     #@aqf_vr('TP.C.1.38')
     def _test_generic_roach_pfb_sensors(self, instrument='bc8n856M4k'):
         """PFB Error Test: Sensors"""
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('PFB Error Test: Sensors: {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        Aqf.tbd('PFB sensor test not yet implemented.')
-        # self._systems_tests()
-        # self._test_roach_pfb_sensors()
+            _running_inst = instrument
+        Aqf.step('PFB Error Test: Sensors: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            Aqf.tbd('PFB sensor test not yet implemented.')
+            # self._systems_tests()
+            # self._test_roach_pfb_sensors()
 
     #@aqf_vr('TP.C.5.5')
     #@aqf_vr('TP.C.1.38')
     def _test_generic_deng_link_error(self, instrument='bc8n856M4k'):
         """Link Error :D-Engine to F-engine"""
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('Link Error :D-Engine to F-engine: {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        Aqf.tbd('Link Error: D-engine to F-engine test not yet implemented.')
-        # self._systems_tests()
-        # self._test_deng_link_error()
+            _running_inst = instrument
+        Aqf.step('Link Error :D-Engine to F-engine: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            Aqf.tbd('Link Error: D-engine to F-engine test not yet implemented.')
+            # self._systems_tests()
+            # self._test_deng_link_error()
 
     #@aqf_vr('TP.C.5.5')
     #@aqf_vr('TP.C.1.38')
     def _test_generic_feng_link_error(self, instrument='bc8n856M4k'):
         """Link Error :F-Engine to X-engine"""
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('Link Error :F-Engine to X-engine: {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        Aqf.tbd('Link Error: F-engine to X-engine test not yet implemented.')
-        # self._systems_tests()
-        # self._test_feng_link_error()
+            _running_inst = instrument
+        Aqf.step('Link Error :F-Engine to X-engine: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            Aqf.tbd('Link Error: F-engine to X-engine test not yet implemented.')
+            # self._systems_tests()
+            # self._test_feng_link_error()
 
     @aqf_vr('TP.C.1.16')
     def test_generic_sensor_values(self, instrument='bc8n856M4k'):
         """Report sensor values (AR1)"""
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('Report sensor values (AR1): {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_sensor_values()
+            _running_inst = instrument
+        Aqf.step('Report sensor values (AR1): {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            self._systems_tests()
+            self._test_sensor_values()
 
     @aqf_vr('TP.C.1.16')
     def test_generic_roach_sensors_status(self, instrument='bc8n856M4k'):
         """ Test all roach sensors status are not failing and count verification."""
-        _running_inst = self.corr_fix.get_running_intrument()
-        Aqf.step('Sensors Status Verification Test: {}\n'.format(_running_inst))
-        if self.corr_fix.ensure_instrument(_running_inst):
-            self.correlator = self.corr_fix.correlator
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
         else:
-            self.set_instrument(instrument)
-        self._systems_tests()
-        self._test_roach_sensors_status()
+            _running_inst = instrument
+        Aqf.step('PFB Error Test: Sensors: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            self._systems_tests()
+            self._test_roach_sensors_status()
 
     def _systems_tests(self):
         """Run tests fft overflow and qdr status before or after."""
@@ -1515,11 +1516,17 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(initial_dump['xeng_raw'].value.shape[0], no_channels,
                        'Capture an initial correlator SPEAD packet, determine the number of channels '
                        'and processing bandwidth: {}Hz.'.format(initial_dump['bandwidth'].value))
-            chan_spacing = initial_dump['bandwidth'].value/initial_dump['xeng_raw'].value.shape[0]
+            chan_spacing = initial_dump['bandwidth'].value / initial_dump['xeng_raw'].value.shape[0]
             # [CBF-REQ-0043]
-            Aqf.less(chan_spacing, req_chan_spacing,
+            if len(req_chan_spacing) == 2:
+                Aqf.is_true(req_chan_spacing[0] <= chan_spacing <= req_chan_spacing[1],
+                    'Verify that the calculated channel frequency step size is between {} and {} Hz'.format(
+                    req_chan_spacing[0], req_chan_spacing[1]))
+            else:
+                Aqf.less(chan_spacing, req_chan_spacing,
                     'Verify that the calculated channel frequency step size is <= {} Hz'.format(
                     req_chan_spacing))
+
 
         Aqf.step('Sweeping the digitser simulator over the centre frequencies of at '
                  'least all the channels that fall within the complete L-band')
@@ -3617,10 +3624,10 @@ class test_CBF(unittest.TestCase):
         get_package_versions()
         Aqf.step('CBF ROACH information.\n')
         get_roach_config()
-        Aqf.step('CBF information on each PDU.\n')
-        get_pdu_config()
-        Aqf.step('CBF information on each Data Switch.\n')
-        get_data_switch()
+        #Aqf.step('CBF information on each PDU.\n')
+        #get_pdu_config()
+        #Aqf.step('CBF information on each Data Switch.\n')
+        #get_data_switch()
         try:
             Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
         except OSError:
@@ -4089,7 +4096,6 @@ class test_CBF(unittest.TestCase):
             # else:
             #     Aqf.failed('Beam passband not succesfully set '
             #                '(requested cf = {}, pb = {}): {}'.format(target_cfreq, target_pb, reply.arguments))
-            # import IPython; IPython.embed()
             pb = target_pb
             cf = target_cfreq
 
