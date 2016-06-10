@@ -203,7 +203,6 @@ class CorrelatorFixture(object):
                             LOGGER.info('Array {} assigned successfully'\
                                         ''.format(self.katcp_array_port))
                         except ValueError:
-                            import IPython;IPython.embed()
                             LOGGER.exception('Array assign failed: {}'.format(reply))
                             #self.rct.req.array_halt(self.array_name)
                             #self.rct.stop()
