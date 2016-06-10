@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import subprocess
 import time
@@ -233,13 +234,14 @@ class CorrelatorFixture(object):
         LOGGER.info ('Start X data capture')
         try:
             reply = self.katcp_rct.req.capture_list()
+        except IndexError:
+            LOGGER.error('Config file does not contain Xengine output products.')
+            return False
+        else:
             if reply.succeeded:
                 self.output_product = reply.informs[0].arguments[0]
             else:
                 self.output_product = self.correlator.configd['xengine']['output_products'][0]
-        except IndexError:
-            LOGGER.error('Config file does not contain Xengine output products.')
-            return False
 
         try:
             reply = self.katcp_rct.req.capture_start(self.output_product)
@@ -323,12 +325,11 @@ class CorrelatorFixture(object):
             except (katcp_fpga.KatcpRequestFail, KatcpClientError, KatcpDeviceError, KatcpSyntaxError):
                 errmsg = 'Failed to connect to roaches, reboot devices to fix.'
                 LOGGER.exception(errmsg)
-                raise SystemExit(errmsg)
+                sys.exit(errmsg)
             except Exception:
                 errmsg = 'Failed to connect to roaches, reboot devices to fix.'
                 LOGGER.exception(errmsg)
-                raise SystemExit(errmsg)
-
+                sys.exit(errmsg)
         else:
             LOGGER.error('Failed to deprogram FPGAs no hosts available')
             return False
@@ -404,18 +405,23 @@ class CorrelatorFixture(object):
                 return False
 
             # Get currently running instrument listed on the sensor(s)
-            reply = self.katcp_rct.sensor.instrument_state.get_reading()
-            if not reply.istatus:
-                LOGGER.error('Sensor request failed: {}'.format(reply))
+            try:
+                reply = self.katcp_rct.sensor.instrument_state.get_reading()
+            except AttributeError:
+                LOGGER.error('Instrument state could not be retrieved from the sensors')
                 return False
-            running_intrument = reply.value
+            else:
+                if not reply.istatus:
+                    LOGGER.error('Sensor request failed: {}'.format(reply))
+                    return False
+                running_intrument = reply.value
 
-            instrument_present = instrument == running_intrument
-            if instrument_present:
-                self.instrument = instrument
-                LOGGER.info('Confirm that the named instrument is enabled on '
-                            'correlator array.'.format(self.instrument))
-            return instrument_present
+                instrument_present = instrument == running_intrument
+                if instrument_present:
+                    self.instrument = instrument
+                    LOGGER.info('Confirm that the named instrument is enabled on '
+                                'correlator array.'.format(self.instrument))
+                return instrument_present
 
     def test_config_file(self):
         """
@@ -426,8 +432,13 @@ class CorrelatorFixture(object):
         conf_path = '/config_templates/test_conf.ini'
         config_file = path + conf_path
         if os.path.exists(config_file):
-            test_conf = corr2.utils.parse_ini_file(config_file)
-            return test_conf
+            try:
+                test_conf = corr2.utils.parse_ini_file(config_file)
+                return test_conf
+            except IOError:.
+                errmsg = 'Failed to read test config file, Test will exit'
+                LOGGER.error(errmsg)
+                sys.exit(errmsg)
 
     def start_correlator(self, instrument=None, retries=5, loglevel='INFO'):
         LOGGER.info('Will now try to start the correlator')

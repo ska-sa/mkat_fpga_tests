@@ -7,6 +7,7 @@ import itertools
 import subprocess
 import threading
 import os
+import sys
 import telnetlib
 import operator
 import Queue
@@ -96,7 +97,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.resource_clt = _conf['katcp_client']
 
         if self.corr_fix.resource_clt is None:
-            raise SystemExit('No Resource Client Listed, Exiting!!!')
+            sys.exit('No Resource Client Listed, Exiting!!!')
         self.dhost = self.corr_fix.dhost
         self.dhost.get_system_information()
         self.receiver = None
