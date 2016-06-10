@@ -435,7 +435,7 @@ class CorrelatorFixture(object):
             try:
                 test_conf = corr2.utils.parse_ini_file(config_file)
                 return test_conf
-            except IOError:.
+            except IOError:
                 errmsg = 'Failed to read test config file, Test will exit'
                 LOGGER.error(errmsg)
                 sys.exit(errmsg)
