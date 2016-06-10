@@ -106,7 +106,7 @@ class CorrelatorFixture(object):
                 self.io_wrapper))
             self._rct.start()
             add_cleanup(self._rct.stop)
-            self._rct.until_synced()
+            self._rct.until_synced(timeout=60)
         return self._rct
 
     @property
@@ -169,9 +169,7 @@ class CorrelatorFixture(object):
         if not self._correlator:
             raise RuntimeError('Array not yet initialised')
         LOGGER.info('Halting primary array.')
-        self.katcp_rct.req.halt()
         self.rct.req.array_halt(self.array_name)
-        self.katcp_rct.stop()
         self.rct.stop()
 
         self._rct = None
@@ -209,7 +207,7 @@ class CorrelatorFixture(object):
                             #self.rct.req.array_halt(self.array_name)
                             #self.rct.stop()
                             #self.rct.start()
-                            #self.rct.until_synced()
+                            #self.rct.until_synced(timeout=60)
                             #reply, informs = self.rct.req.array_assign(self.array_name,
                                 #*multicast_ip.split(','))
 
@@ -223,8 +221,11 @@ class CorrelatorFixture(object):
                               resource_client.ThreadSafeKATCPClientResourceWrapper(
                               katcp_rc, self.io_wrapper))
             self._katcp_rct.start()
-            self._katcp_rct.until_synced()
+            self._katcp_rct.until_synced(timeout=60)
             add_cleanup(self._katcp_rct.stop)
+        else:
+            self._katcp_rct.start()
+            self._katcp_rct.until_synced(timeout=60)
         return self._katcp_rct
 
     def start_x_data(self):
@@ -311,15 +312,26 @@ class CorrelatorFixture(object):
                 return False
 
         if not len(hosts) == 0:
-
             try:
-                connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+                try:
+                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
                           hostclass, list(set(hosts)))
-                hosts = [host.host for host in connected_fpgas if host.ping() == True]
-                connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
+                except:
+                    raise Exception
+                try:
+                    hosts = [host.host for host in connected_fpgas if host.ping() == True]
+                except:
+                    raise Exception
+                try:
+                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
                                       hostclass, hosts)
-                deprogrammed_fpgas = fpgautils.threaded_fpga_function(
+                except:
+                    raise Exception
+                try:
+                    deprogrammed_fpgas = fpgautils.threaded_fpga_function(
                                         connected_fpgas, 10, 'deprogram')
+                except:
+                    raise Exception
                 LOGGER.info('FPGAs in dnsmasq all deprogrammed')
                 return True
             except (katcp_fpga.KatcpRequestFail, KatcpClientError, KatcpDeviceError, KatcpSyntaxError):
@@ -380,6 +392,8 @@ class CorrelatorFixture(object):
         try:
             assert isinstance(self.katcp_rct,
                         resource_client.ThreadSafeKATCPClientResourceWrapper)
+            self.katcp_rct.start()
+            self.katcp_rct.until_synced()
         except:
             # This probably means that no array has been defined yet and therefore the
             # katcp_rct client cannot be created. IOW, the desired instrument would
@@ -419,7 +433,7 @@ class CorrelatorFixture(object):
                 instrument_present = instrument == running_intrument
                 if instrument_present:
                     self.instrument = instrument
-                    LOGGER.info('Confirm that the named instrument is enabled on '
+                    LOGGER.info('Confirm that the named instrument {} is enabled on '
                                 'correlator array.'.format(self.instrument))
                 return instrument_present
 
@@ -451,9 +465,12 @@ class CorrelatorFixture(object):
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
         multicast_ip = self._d['test_confs']['source_mcast_ips']
+        self.rct.start()
+        self.rct.until_synced(timeout=60)
         reply, informs = self.rct.req.array_list(self.array_name)
+
         if not reply.reply_ok():
-            LOGGER.error('Failed to halt down the array in primary interface')
+            LOGGER.error('Failed to halt down the array in primary interface: reply: {}'.format(reply))
             return False
         else:
             try:
@@ -490,8 +507,8 @@ class CorrelatorFixture(object):
                 """
                 instrument_param = [int(i) for i in self._d['test_confs']['instrument_param']
                                     if i != ',']
-                LOGGER.info ("Starting Correlator with {} parameters. Try #{}".format(
-                    instrument_param, retries))
+                LOGGER.info ("Starting {} with {} parameters. Try #{}".format(
+                    self.instrument, instrument_param, retries))
                 reply, informs = self.katcp_rct.req.instrument_activate(
                     self.instrument, *instrument_param, timeout=500)
 
@@ -504,7 +521,6 @@ class CorrelatorFixture(object):
                     LOGGER.warn('Failed to start correlator, {} attempts left. '
                         'Restarting Correlator. Reply:{}, Informs: {}'
                             .format(retries, reply, informs))
-                    self.deprogram_fpgas(self.instrument)
                     #self.halt_array()
                     reply, informs = self.rct.req.array_halt(self.array_name)
                     self.rct.stop()
@@ -551,6 +567,7 @@ class CorrelatorFixture(object):
                 self._katcp_rct = None
                 self._correlator = None
             except:
+                self.deprogram_fpgas(self.instrument)
                 LOGGER.critical('Could not successfully start correlator '
                                  'within {} retries'.format(retries_requested))
                 return False

@@ -75,6 +75,7 @@ def init_dsim_sources(dhost):
     Also clear noise diode and adc overrange flags
     """
     # Reset flags
+    LOGGER.info('Reset digitiser simulator to all Zeros')
     dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0,
                                      load_flags='pulse')
     for sin_source in dhost.sine_sources:
