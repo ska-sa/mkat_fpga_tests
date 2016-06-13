@@ -61,29 +61,7 @@ class CorrelatorFixture(object):
         # Assume the correlator is already started if start_correlator is False
         self._correlator_started = not int(
             test_config.get('start_correlator', False))
-
-        try:
-            default_conf = '/etc/corr/default_conf.ini'
-            path, _None = os.path.split(__file__)
-            conf_path = '/config_templates/test_conf.ini'
-            test_conf_file = path + conf_path
-
-            if os.path.exists(default_conf):
-                self.dsim_conf_file = corr2.utils.parse_ini_file(default_conf)
-
-            elif os.path.exists(test_conf_file):
-                    self.dsim_conf_file = corr2.utils.parse_ini_file(test_conf_file)
-            else:
-                LOGGER.error('Could not find default dsim config file: {} and {}'.format(
-                    default_conf, test_conf_file))
-                raise Exception
-        except:
-            errmsg = 'Could not retrieve config files.'
-            LOGGER.error(errmsg)
-            raise RuntimeError(errmsg)
-        else:
-            self.dsim_conf = self.dsim_conf_file['dsimengine']
-        self._d = self.test_config_file()
+        self.test_conf = self.test_config_file()
 
     @property
     def rct(self):
@@ -121,6 +99,7 @@ class CorrelatorFixture(object):
                 dig_host = self.dsim_conf['host']
             else:
                 LOGGER.error('Could not retrieve information from config file, resorting to test_conf.ini')
+                self.dsim_conf = self.test_conf['dsimengine']
                 dig_host = self.dsim_conf['host']
             self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
@@ -181,7 +160,7 @@ class CorrelatorFixture(object):
 
     @property
     def katcp_rct(self):
-        multicast_ip = self._d['test_confs']['source_mcast_ips']
+        multicast_ip = self.test_conf['test_confs']['source_mcast_ips']
         if self._katcp_rct is None:
             reply, informs = self.rct.req.array_list(self.array_name)
             # If no sub-array present create one, but this could cause problems
@@ -443,7 +422,8 @@ class CorrelatorFixture(object):
         return: Dict
         """
         path, _None = os.path.split(__file__)
-        conf_path = '/config_templates/test_conf.ini'
+        path, _None = os.path.split(path)
+        conf_path = '/config/test_conf.ini'
         config_file = path + conf_path
         if os.path.exists(config_file):
             try:
@@ -464,7 +444,7 @@ class CorrelatorFixture(object):
         LOGGER.info('Confirm DEngine is running before starting correlator')
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
-        multicast_ip = self._d['test_confs']['source_mcast_ips']
+        multicast_ip = self.test_conf['test_confs']['source_mcast_ips']
         self.rct.start()
         self.rct.until_synced(timeout=60)
         reply, informs = self.rct.req.array_list(self.array_name)
@@ -477,7 +457,7 @@ class CorrelatorFixture(object):
                 informs = informs[0]
                 self.katcp_array_port = int([i for i in informs.arguments if len(i) == 5][0])
             except ValueError:
-                LOGGER.exception('Failed kjsjwerfjiehnrfiorfo')
+                LOGGER.exception('Failed to assign katcp port: Reply: {}'.format(reply))
                 reply = self.rct.req.array_halt(self.array_name)
                 if not reply.succeeded:
                     LOGGER.error('Unable to halt array {}: {}'.format(self.array_name, reply))
@@ -505,7 +485,7 @@ class CorrelatorFixture(object):
                         LOGGER.fatal('Failed to assign array port number on {}'.format(self.array_name))
                         return False
                 """
-                instrument_param = [int(i) for i in self._d['test_confs']['instrument_param']
+                instrument_param = [int(i) for i in self.test_conf['test_confs']['instrument_param']
                                     if i != ',']
                 LOGGER.info ("Starting {} with {} parameters. Try #{}".format(
                     self.instrument, instrument_param, retries))

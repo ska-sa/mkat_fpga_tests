@@ -98,7 +98,6 @@ class test_CBF(unittest.TestCase):
         self.dhost = self.corr_fix.dhost
         self.dhost.get_system_information()
         self.receiver = None
-        self.corr_fix.instrument = None
 
     def set_instrument(self, instrument):
         if self.receiver:
