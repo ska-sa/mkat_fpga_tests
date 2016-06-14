@@ -3,6 +3,7 @@ from __future__ import division
 import unittest
 import logging
 import time
+import datetime
 import itertools
 import subprocess
 import threading
@@ -11,6 +12,9 @@ import telnetlib
 import operator
 import Queue
 import colors as clrs
+import h5py
+import sys
+import glob
 
 import warnings
 import matplotlib.cbook
@@ -21,6 +25,7 @@ import pandas
 
 from random import randrange
 from concurrent.futures import TimeoutError
+from subprocess import Popen, PIPE
 
 import numpy as np
 import matplotlib
@@ -3842,8 +3847,7 @@ class test_CBF(unittest.TestCase):
                     complex(self.correlator.configd['fengine'][eq_label]))
 
     def _test_beamforming(self, ants=4):
-        from subprocess import Popen, PIPE
-        import h5py, sys, datetime, os, glob
+
         # Put some correlated noise on both outputs
         self.dhost.noise_sources.noise_corr.set(scale=0.1)
         # Set list for all the correlator input labels
@@ -4107,6 +4111,201 @@ class test_CBF(unittest.TestCase):
                           log_dynamic_range=90, log_normalise_to=1,
                           caption='Captured beamformer data')
 
+    def test_cap_beam(self, instrument='bc8n856M4k'):
+        """Testing timestamp accuracy (bc8n856M4k)
+        Confirm that the CBF subsystem do not modify and correctly interprets
+        timestamps contained in each digitiser SPEAD packets (dump)
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Checking timestamp accuracy: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            main_offset = 2153064
+            minor_offset = 0
+            minor_offset = -6*4096*2
+            manual_offset = main_offset + minor_offset
+
+            ants = 4
+            if ants == 4:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                                   'm002_x', 'm002_y', 'm003_x', 'm003_y']
+            elif ants == 8:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                                   'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                                   'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                                   'm006_x', 'm006_y', 'm007_x', 'm007_y']
+
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
+                'beam_0x')
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
+                'beam_0y')
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
+                'c856M4k')
+            reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+                *local_src_names)
+            dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
+            Aqf.hop('Dsim_clock_Factor = {}'.format(dsim_clk_factor))
+            bw = self.corr_freqs.bandwidth # * dsim_clk_factor
+
+
+
+            target_cfreq = bw + bw * 0.5
+            partitions = 1
+            part_size = bw / 16
+            target_pb = partitions * part_size
+            ch_bw = bw / 4096
+            target_pb = 100
+            num_caps = 20000
+            beam = 'beam_0y'
+            if ants == 4:
+                beamx_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
+                              'm003_x': 1.0}
+                beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
+                              'm003_y': 1.0}
+            elif ants == 8:
+                beamx_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
+                              'm003_x': 1.0,
+                              'm004_x': 1.0, 'm005_x': 1.0, 'm006_x': 1.0,
+                              'm007_x': 1.0}
+                beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
+                              'm003_y': 1.0,
+                              'm004_y': 1.0, 'm005_y': 1.0, 'm006_y': 1.0,
+                              'm007_y': 1.0}
+
+            self.dhost.sine_sources.sin_0.set(frequency=target_cfreq - bw,
+                                              scale=0.1)
+            self.dhost.sine_sources.sin_1.set(frequency=target_cfreq - bw,
+                                              scale=0.1)
+            this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+            this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+            Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(
+                this_source_freq0 + bw, this_source_freq1 + bw))
+
+            bf_raw, cap_ts, bf_ts, weights = self.capture_beam_data(beam,
+                beamy_dict, target_pb, target_cfreq)
+
+            #cap_ts_diff = np.diff(cap_ts)
+            #a = np.nonzero(np.diff(cap_ts)-8192)
+            #cap_ts[a[0]+1]
+
+
+
+
+
+    def capture_beam_data(self, beam, in_wgts, target_pb, target_cfreq,
+                          capture_time = 0.3):
+        """
+
+        Parameters
+        ----------
+        in_wgts
+        target_pb
+        target_cfreq
+
+        Returns
+        -------
+
+        """
+        reply, informs = correlator_fixture.katcp_rct.req.beam_passband(
+            beam, target_pb, target_cfreq)
+        if reply.reply_ok():
+            pb = float(reply.arguments[2])
+            cf = float(reply.arguments[3])
+            Aqf.step(
+                'Beam {0} passband set to {1} at center frequency {2}'.format(
+                    reply.arguments[1], pb, cf))
+        else:
+            Aqf.failed('Beam passband not succesfully set '
+                       '(requested cf = {}, pb = {}): {}'.format(target_cfreq,
+                                                                 target_pb,
+                                                                 reply.arguments))
+        # for key in in_wgts:
+        #     reply, informs = correlator_fixture.katcp_rct.req.beam_weights(
+        #         beam, key, in_wgts[key])
+        #     if reply.reply_ok():
+        #         Aqf.step('Input {0} weight set to {1}'.format(key,
+        #             reply.arguments[1]))
+        #     else:
+        #         Aqf.failed('Beam weights not succesfully set: {}'.format(
+        #             reply.arguments))
+
+
+        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+        ingst_nd_p = self.corr_fix._test_config_file['beamformer']\
+                                                    ['ingest_node_port']
+        p = Popen(
+            ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-init'],
+            stdin=PIPE,
+            stdout=PIPE,
+            stderr=PIPE)
+        output, err = p.communicate()
+        rc = p.returncode
+        if rc != 0:
+            Aqf.failed(
+                'Failure issuing capture-init to ingest process on ' + ingst_nd)
+            Aqf.failed('Stdout: \n' + output)
+            Aqf.failed('Stderr: \n' + err)
+        else:
+            Aqf.step('Capture-init issued on {}'.format(ingst_nd))
+        reply, informs = correlator_fixture.katcp_rct.req.capture_meta(beam)
+        if reply.reply_ok():
+            Aqf.step('Meta data issued for beam {}'.format(beam))
+        else:
+            Aqf.failed('Meta data issue failed: {}'.format(reply.arguments))
+        reply, informs = correlator_fixture.katcp_rct.req.capture_start(beam)
+        if reply.reply_ok():
+            Aqf.step('Data transmission for beam {} started'.format(beam))
+        else:
+            Aqf.failed(
+                'Data transmission start failed: {}'.format(reply.arguments))
+        time.sleep(capture_time)
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop(beam)
+        if reply.reply_ok():
+            Aqf.step('Data transmission for beam {} stopped'.format(beam))
+        else:
+            Aqf.failed(
+                'Data transmission stop failed: {}'.format(reply.arguments))
+        p = Popen(
+            ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-done'],
+            stdin=PIPE,
+            stdout=PIPE,
+            stderr=PIPE)
+        output, err = p.communicate()
+        rc = p.returncode
+        if rc != 0:
+            Aqf.failed('Failure issuing capture-done to ingest process on ',
+                       + ingst_nd)
+            Aqf.failed('Stdout: \n' + output)
+            Aqf.failed('Stderr: \n' + err)
+            return False
+        else:
+            Aqf.step('Capture-done issued on {}.'.format(ingst_nd))
+
+        p = Popen(['rsync', '-aPh', ingst_nd + ':/ramdisk/',
+                   'mkat_fpga_tests/bf_data'],
+                  stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        output, err = p.communicate()
+        rc = p.returncode
+        if rc != 0:
+            Aqf.failed('rsync of beam data failed from' + ingst_nd)
+            Aqf.failed('Stdout: \n' + output)
+            Aqf.failed('Stderr: \n' + err)
+        else:
+            Aqf.step('Data transferred from ' + ingst_nd)
+        newest_f = max(glob.iglob('mkat_fpga_tests/bf_data/*.h5'),
+                       key=os.path.getctime)
+        # Read data file
+        fin = h5py.File(newest_f, 'r')
+        data = fin['Data'].values()
+        # Extract data
+        bf_raw = np.array(data[0])
+        cap_ts = np.array(data[1])
+        bf_ts  = np.array(data[2])
+        fin.close()
+        weights = ''
+        for key in in_wgts:
+            weights += (key + "={} ").format(in_wgts[key])
+        return bf_raw, cap_ts, bf_ts, weights
+
 
     def test_timestamp_accuracy(self, instrument='bc8n856M4k'):
         """Testing timestamp accuracy (bc8n856M4k)
@@ -4116,52 +4315,343 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Checking timestamp accuracy: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._timestamp_accuracy()
+            main_offset = 2153064
+            minor_offset = 0
+            minor_offset = -6*4096*2
+            manual_offset = main_offset + minor_offset
+            self._timestamp_accuracy(manual=True, manual_offset=manual_offset)
 
-    def _timestamp_accuracy(self):
-        def load_dsim_impulse(load_timestamp):
+    def _timestamp_accuracy(self, manual=False, manual_offset=0,
+                            future_dump=3):
+        """
+
+        Parameters
+        ----------
+        manual : Manually set the offset from the future_dump point.
+        manual_offset : Offset in adc sample clocks.
+        future_dump : Dump in which impulse is expected
+
+        Returns
+        -------
+
+        """
+        def load_dsim_impulse(load_timestamp, offset=0):
             self.dhost.registers.src_sel_cntrl.write(src_sel_0=2)
+            self.dhost.registers.src_sel_cntrl.write(src_sel_1=0)
             self.dhost.registers.impulse_delay_correction.write(reg=16)
-            print load_timestamp
-            load_timestamp = load_timestamp/8.0
-            print load_timestamp
+            load_timestamp = load_timestamp + offset
+            lt_abs_t = datetime.datetime.fromtimestamp(
+                sync_time + load_timestamp/scale_factor_timestamp)
+            print 'Impulse load time = {}:{}.{}'.format(lt_abs_t.minute,
+                                                        lt_abs_t.second,
+                                                        lt_abs_t.microsecond)
+            print 'Number of dumps in future = {:.10f}'.format(
+                (load_timestamp-dump_ts)/dump_ticks)
+            # Dsim local clock factor of 8 slower
+            # (FPGA clock = sample clock / 8).
+            load_timestamp = load_timestamp/8
+            if not load_timestamp.is_integer():
+                Aqf.failed('Timestamp received in accumulation not divisible'\
+                           ' by 8: {:.15f}'.format(load_timestamp))
             load_timestamp = int(load_timestamp)
-            print load_timestamp
             reg_size = 32
             load_ts_lsw = load_timestamp & (pow(2,reg_size)-1)
             load_ts_msw = load_timestamp >> reg_size
 
-            dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()['data']['reg']
-            dsim_loc_msw = self.dhost.registers.local_time_msw.read()['data']['reg']
-            dsim_loc_time = dsim_loc_msw * pow(2,reg_size) + dsim_loc_lsw
-            print 'timestamp difference: {}'.format((load_timestamp - dsim_loc_time)/dump['scale_factor_timestamp'].value)
+            #dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()['data']['reg']
+            #dsim_loc_msw = self.dhost.registers.local_time_msw.read()['data']['reg']
+            #dsim_loc_time = dsim_loc_msw * pow(2,reg_size) + dsim_loc_lsw
+            #print 'timestamp difference: {}'.format((load_timestamp - dsim_loc_time)*8/dump['scale_factor_timestamp'].value)
             self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
             self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
             #import IPython; IPython.embed()
 
-        self.dhost.noise_sources.noise_corr.set(scale=0)
+        # try:
+        #     reply, informs = self.corr_fix.katcp_rct.req.accumulation_length(1, timeout=60)
+        #     if not reply.reply_ok():
+        #         raise Exception
+        # except:
+        #     errmsg = 'Failed to set accumulation time withing {}s'.format(
+        #         reply)
+        #     LOGGER.exception(errmsg)
+        #     Aqf.failed(errmsg)
+        #     return False
+
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
+                                            awgn_scale=0.0,
+                                            cw_scale=0.0, freq=100000000,
+                                            fft_shift=0, gain='32767+0j')
+        self.dhost.outputs.out_1.scale_output(0)
         dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         baseline_lookup = get_baselines_lookup(dump)
+        sync_time = dump['sync_time'].value
+        scale_factor_timestamp = dump['scale_factor_timestamp'].value
         inp = dump['input_labelling'].value[0][0]
         inp_autocorr_idx = baseline_lookup[(inp, inp)]
-        dump_ts = dump['timestamp'].value
-        dump_ticks = dump['int_time'].value*dump['adc_sample_rate'].value
-        load_timestamp = dump_ts + dump_ticks*3
-        load_dsim_impulse(load_timestamp)
-        for i in range(20):
-            dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            dval = dump['xeng_raw'].value
-            auto_corr = dval[:, inp_autocorr_idx, :]
-            curr_ts   = dump['timestamp'].value
-            delta_ts  = curr_ts-dump_ts
-            dump_ts   = curr_ts
-            if delta_ts != dump_ticks:
-                Aqf.failed('Accumulation dropped, Expected timestamp = {}, '\
-                           'received timestamp = {}'\
-                           ''.format(dump_ts+dump_ticks, curr_ts))
-            print 'Maximum value found in dump = {}'.format(np.max(auto_corr))
+        # FFT input sliding window size = 8 spectra
+        fft_sliding_window = dump['n_chans'].value*2*8
+        # Get number of ticks per dump and ensure it is divisible by 8 (FPGA
+        # clock runs 8 times slower)
+        dump_ticks = dump['int_time'].value * dump['adc_sample_rate'].value
+        print dump_ticks
+        dump_ticks = dump['n_accs'].value*dump['n_chans'].value*2
+        print dump_ticks
+        print dump['adc_sample_rate'].value
+        print dump['timestamp'].value
+        if not (dump_ticks/8.0).is_integer():
+            Aqf.failed('Number of ticks per dump is not divisible' \
+                       ' by 8: {:.3f}'.format(dump_ticks))
+        # Create a linear array spaced by 8 for finding dump timestamp edge
+        tick_array = np.linspace(-dump_ticks/2, dump_ticks/2,
+                                 num=(dump_ticks/8)+1)
+                                 #num=fft_sliding_window+1)
+        # Offset into tick array to step impulse.
+        tckar_idx = len(tick_array)/2
+        tckar_upper_idx = len(tick_array)-1
+        tckar_lower_idx = 0
+        future_ticks = dump_ticks*future_dump
+        found = False
+        prev_imp_loc = 0
+        first_run = True
+        split_found = False
+        single_step = False
+        while not found:
+            if manual:
+                found = True
+                offset = manual_offset
+            else:
+                offset = tick_array[int(tckar_idx)]
+            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            print dump['timestamp'].value
+            dump_ts = dump['timestamp'].value
+            dump_abs_t = datetime.datetime.fromtimestamp(
+                               sync_time + dump_ts/scale_factor_timestamp)
+            print 'Start dump time = {}:{}.{}'.format(dump_abs_t.minute,
+                                                      dump_abs_t.second,
+                                                      dump_abs_t.microsecond)
+            load_timestamp = dump_ts + future_ticks
+            load_dsim_impulse(load_timestamp, offset)
+            dump_list = []
+            cnt = 0
+            for i in range(future_dump):
+                cnt += 1
+                dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+                print dump['timestamp'].value
+                dval = dump['xeng_raw'].value
+                auto_corr = dval[:, inp_autocorr_idx, :]
+                curr_ts   = dump['timestamp'].value
+                delta_ts  = curr_ts-dump_ts
+                dump_ts   = curr_ts
+                if delta_ts != dump_ticks:
+                    Aqf.failed('Accumulation dropped, Expected timestamp = {}, '\
+                               'received timestamp = {}'\
+                               ''.format(dump_ts+dump_ticks, curr_ts))
+                print 'Maximum value found in dump {} = {}, average = {}'\
+                      ''.format(cnt, np.max(auto_corr), np.average(auto_corr))
+                dump_list.append(dval)
+            # Find dump containing impulse, check that other dumps are empty.
+            val_found = 0
+            auto_corr = []
+            auto_corr_avg = []
+            dumps_nzero = 0
+            for idx in range(len(dump_list)):
+                dmp = dump_list[idx][:, inp_autocorr_idx, :]
+                auto_corr.append(dmp)
+                auto_corr_std = np.std(dmp)
+                auto_corr_avg_val = np.average(dmp)
+                if auto_corr_avg_val > 0:
+                    print auto_corr_avg_val
+                    print auto_corr_std
+                    print auto_corr_avg_val-auto_corr_std
+                    if abs(auto_corr_avg_val-auto_corr_std) < (auto_corr_avg_val*0.4):
+                        dumps_nzero += 1
+                        auto_corr_avg.append(auto_corr_avg_val)
+                    else:
+                        dumps_nzero = 3
+                        auto_corr_avg.append(0)
+                else:
+                    auto_corr_avg.append(0)
+            #imp_loc = np.argmax(auto_corr_avg) + 1
+            imp_loc = next((i for i,x in enumerate(auto_corr_avg) if x),None)+1
+            #if (dumps_nzero == 1) and split_found:
+            #    single_step = True
+            if (dumps_nzero == 2):
+                Aqf.step('Two dumps found containing impulse.')
+                # Only start stepping by one once the split is close
+                split_found = True
+            elif dumps_nzero > 2:
+                Aqf.failed('Invalid data found in dumps.')
+                #for dmp in auto_corr:
+                #    plt.plot(dmp)
+                #plt.show()
+            # Set the index into the time stamp offset array
+            print
+            print
+            if first_run:
+                tckar_idx_prev = tckar_idx
+                first_run = False
+                if imp_loc == future_dump-1:
+                    tckar_idx = tckar_upper_idx
+                elif imp_loc == future_dump:
+                    tckar_idx = tckar_lower_idx
+                else:
+                    Aqf.failed('Impulse not where expected.')
+                    found = True
+            else:
+                idx_diff = abs(tckar_idx_prev-tckar_idx)
+                tckar_idx_prev = tckar_idx
+                if single_step and (dumps_nzero == 1):
+                    found = True
+                    print 'Edge of dump found at offset {} (ticks)'.format(
+                        offset)
+                elif ((idx_diff < 10) and (dumps_nzero == 2)) or single_step:
+                    single_step = True
+                    tckar_idx += 1
+                elif (imp_loc == future_dump-1):
+                    tckar_lower_idx = tckar_idx
+                    tckar_idx = tckar_idx+(tckar_upper_idx-tckar_idx)/2
+                elif (imp_loc == future_dump):
+                    tckar_upper_idx = tckar_idx
+                    tckar_idx = tckar_idx-(tckar_idx-tckar_lower_idx)/2
+                else:
+                    Aqf.failed('Impulse not where expected.')
+                    found = True
+            print 'Tick array index = {}, Diff = {}'.format(tckar_idx,
+                                                            tckar_idx - tckar_idx_prev)
+
+
+                    # for idx in range(len(auto_corr_list)):
+        #     #plt.plot(auto_corr_list[idx][:,inp_autocorr_idx,:])
+        #     if idx != future_dump-2:
+        #         for i in range(4096):
+        #             for j in range(40):
+        #                 if auto_corr_list[idx][i, j, 0] > 0:
+        #                     print i, j
+
+        #plt.show()
 
         #import IPython; IPython.embed()
+
+        #import IPython; IPython.embed()
+
+    def test_timestamp_shift(self, instrument='bc8n856M4k'):
+        """Testing timestamp accuracy (bc8n856M4k)
+        Confirm that the CBF subsystem do not modify and correctly interprets
+        timestamps contained in each digitiser SPEAD packets (dump)
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Checking timestamp accuracy: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            main_offset = 2153064
+            minor_offset = 0
+            minor_offset = -10*4096*2
+            manual_offset = main_offset + minor_offset
+            self._timestamp_shift(offset=manual_offset)
+
+    def _timestamp_shift(self, shift_nr=12, offset=0, future_dump=3):
+        """
+
+        Parameters
+        ----------
+        shift_nr : Number of shifts to perform during shift test
+        future_dump : Dump in which impulse is expected
+
+        Returns
+        -------
+
+        """
+        def load_dsim_impulse(load_timestamp, offset=0):
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=2)
+            self.dhost.registers.src_sel_cntrl.write(src_sel_1=0)
+            self.dhost.registers.impulse_delay_correction.write(reg=16)
+            load_timestamp = load_timestamp + offset
+            lt_abs_t = datetime.datetime.fromtimestamp(
+                sync_time + load_timestamp / scale_factor_timestamp)
+            print 'Impulse load time = {}:{}.{}'.format(lt_abs_t.minute,
+                                                        lt_abs_t.second,
+                                                        lt_abs_t.microsecond)
+            print 'Number of dumps in future = {:.10f}'.format(
+                (load_timestamp - dump_ts) / dump_ticks)
+            # Dsim local clock factor of 8 slower
+            # (FPGA clock = sample clock / 8).
+            load_timestamp = load_timestamp / 8
+            if not load_timestamp.is_integer():
+                Aqf.failed('Timestamp received in accumulation not divisible' \
+                           ' by 8: {:.15f}'.format(load_timestamp))
+            load_timestamp = int(load_timestamp)
+            reg_size = 32
+            load_ts_lsw = load_timestamp & (pow(2, reg_size) - 1)
+            load_ts_msw = load_timestamp >> reg_size
+            self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
+            self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
+
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
+                                            awgn_scale=0.0,
+                                            cw_scale=0.0, freq=100000000,
+                                            fft_shift=0, gain='32767+0j')
+        self.dhost.outputs.out_1.scale_output(0)
+        dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        baseline_lookup = get_baselines_lookup(dump)
+        sync_time = dump['sync_time'].value
+        scale_factor_timestamp = dump['scale_factor_timestamp'].value
+        inp = dump['input_labelling'].value[0][0]
+        inp_autocorr_idx = baseline_lookup[(inp, inp)]
+        # FFT input sliding window size = 8 spectra
+        fft_sliding_window = dump['n_chans'].value * 2 * 8
+        # Get number of ticks per dump and ensure it is divisible by 8 (FPGA
+        # clock runs 8 times slower)
+        dump_ticks = dump['int_time'].value * dump['adc_sample_rate'].value
+        dump_ticks = dump['n_accs'].value * dump['n_chans'].value * 2
+        input_spec_ticks = dump['n_chans'].value*2
+        if not (dump_ticks / 8.0).is_integer():
+            Aqf.failed('Number of ticks per dump is not divisible' \
+                       ' by 8: {:.3f}'.format(dump_ticks))
+        future_ticks = dump_ticks * future_dump
+        shift_set   = [[[],[]] for x in range(5)]
+        for shift in range(len(shift_set)):
+            set_offset = offset + 1024*shift
+            list0 = []
+            list1 = []
+            for step in range(shift_nr):
+                set_offset = set_offset + input_spec_ticks
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                dump_ts = dump['timestamp'].value
+                dump_abs_t = datetime.datetime.fromtimestamp(
+                    sync_time + dump_ts / scale_factor_timestamp)
+                print 'Start dump time = {}:{}.{}'.format(dump_abs_t.minute,
+                                                          dump_abs_t.second,
+                                                          dump_abs_t.microsecond)
+                load_timestamp = dump_ts + future_ticks
+                load_dsim_impulse(load_timestamp, set_offset)
+                dump_list = []
+                cnt = 0
+                for i in range(future_dump):
+                    cnt += 1
+                    dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+                    print dump['timestamp'].value
+                    dval = dump['xeng_raw'].value
+                    auto_corr = dval[:, inp_autocorr_idx, :]
+                    curr_ts = dump['timestamp'].value
+                    delta_ts = curr_ts - dump_ts
+                    dump_ts = curr_ts
+                    if delta_ts != dump_ticks:
+                        Aqf.failed('Accumulation dropped, Expected timestamp = {}, ' \
+                                   'received timestamp = {}' \
+                                   ''.format(dump_ts + dump_ticks, curr_ts))
+                    print 'Maximum value found in dump {} = {}, average = {}' \
+                          ''.format(cnt, np.max(auto_corr), np.average(auto_corr))
+                    dump_list.append(auto_corr)
+                list0.append(np.std(dump_list[future_dump-1]))
+                list1.append(np.std(dump_list[future_dump-2]))
+            shift_set[shift][0] = list0
+            shift_set[shift][1] = list1
+
+        #shift_output0 = [np.log(x) if x > 0 else 0 for x in shift_output0]
+        #shift_output1 = [np.log(x) if x > 0 else 0 for x in shift_output1]
+        for std_dev_set in shift_set:
+            plt.plot(std_dev_set[0])
+            plt.plot(std_dev_set[1])
+        plt.show()
 
     def test_input_levels(self, instrument='bc8n856M4k'):
         """Testing Dsim input levels (bc8n856M4k)
@@ -4174,9 +4664,21 @@ class test_CBF(unittest.TestCase):
             self._set_input_levels_and_gain(profile='cw', cw_freq=800513075, cw_margin = 0.3,
                                             trgt_bits=4.5, trgt_q_std = 0.30)
 
+    def test_c8n856M32k_input_levels(self, instrument='c8n856M32k'):
+        """Testing Dsim input levels (c8n856M32k)
+        Set input levels to requested values and check that the ADC and the
+        quantiser block do not see saturated samples.
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            fft_shift = pow(2,16)-1
+            self._set_input_levels_and_gain(profile='cw', cw_freq=800513075, cw_margin = 0.3,
+                                            trgt_bits=4.5, trgt_q_std = 0.30, fft_shift=fft_shift)
+
     def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,
                                    cw_margin = 0.05, trgt_bits=3.5,
-                                   trgt_q_std = 0.30):
+                                   trgt_q_std = 0.30, fft_shift=511):
         """ Set the digitiser simulator (dsim) output levels, FFT shift
             and quantiser gain to optimum levels. ADC and quantiser snapshot
             data is used to determine levels.
@@ -4355,12 +4857,9 @@ class test_CBF(unittest.TestCase):
 
         # Set the fft shift to 511 for noise. This should be automated once
         # a sensor is available to determine fft shift overflow.
-        if profile == 'cw':
-            fft_shft = 8191
-        else:
-            fft_shft = 511
+
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shft)
+            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
             if not reply.reply_ok():
                 raise Exception
             for key in sources.keys():

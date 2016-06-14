@@ -79,7 +79,7 @@ class CorrelatorFixture(object):
             raise RuntimeError(errmsg)
         else:
             self.dsim_conf = self.dsim_conf_file['dsimengine']
-        self._d = self.test_config_file()
+        self._test_config_file = self.test_config_file()
 
     @property
     def rct(self):
@@ -179,7 +179,7 @@ class CorrelatorFixture(object):
 
     @property
     def katcp_rct(self):
-        multicast_ip = self._d['test_confs']['source_mcast_ips']
+        multicast_ip = self._test_config_file['test_confs']['source_mcast_ips']
         if self._katcp_rct is None:
             reply, informs = self.rct.req.array_list(self.array_name)
             # If no sub-array present create one, but this could cause problems
@@ -425,7 +425,7 @@ class CorrelatorFixture(object):
         LOGGER.info('Confirm DEngine is running before starting correlator')
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
-        multicast_ip = self._d['test_confs']['source_mcast_ips']
+        multicast_ip = self._test_config_file['test_confs']['source_mcast_ips']
         reply, informs = self.rct.req.array_list(self.array_name)
         if not reply.reply_ok():
             LOGGER.error('Failed to halt down the array in primary interface')
