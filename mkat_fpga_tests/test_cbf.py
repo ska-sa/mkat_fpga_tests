@@ -1249,11 +1249,11 @@ class test_CBF(unittest.TestCase):
             return False
 
         self.correlator.est_synch_epoch()
-        #local_src_names = ['input{}'.format(x) for x in xrange(
-            #self.correlator.n_antennas * 2)]
-        #reply, informs = self.corr_fix.katcp_rct.req.input_labels(
-            #*local_src_names)
-        #Aqf.step('Source names changed to: ' + str(reply))
+        local_src_names = ['input{}'.format(x) for x in xrange(
+            self.correlator.n_antennas * 2)]
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels(
+            *local_src_names)
+        Aqf.step('Source names changed to: ' + str(reply))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator, self.receiver)
         self.addCleanup(clear_all_delays, self.correlator, self.receiver)
@@ -1501,7 +1501,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
         #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
         dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.045,
-            cw_scale=0.675, freq=expected_fc, fft_shift=65535, gain='31+0j')
+            cw_scale=0.675, freq=expected_fc, fft_shift=8191*8, gain='31+0j')
             #cw_scale=0.675, freq=expected_fc, fft_shift=8191, gain='11+0j')
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
