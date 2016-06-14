@@ -75,6 +75,7 @@ def init_dsim_sources(dhost):
     Also clear noise diode and adc overrange flags
     """
     # Reset flags
+    LOGGER.info('Reset digitiser simulator to all Zeros')
     dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0,
                                      load_flags='pulse')
     for sin_source in dhost.sine_sources:
@@ -535,7 +536,7 @@ def set_default_eq(instrument):
     [instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
         for _input, eq_val in zip(ant_inputs, eq_levels)]
 
-def set_input_levels(corr_fix, dhost, awgn_scale=None,cw_scale=None, freq=None,
+def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
     fft_shift=None, gain=None):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
@@ -558,7 +559,8 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None,cw_scale=None, freq=None,
     Return: Bool
     """
     dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
-    dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+    if awgn_scale is not None:
+        dhost.noise_sources.noise_corr.set(scale=awgn_scale)
     try:
         reply, informs = corr_fix.katcp_rct.req.fft_shift(fft_shift)
         if not reply.reply_ok():

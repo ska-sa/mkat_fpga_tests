@@ -1,0 +1,163 @@
+# roach020957 roach02091D roach020933 roach020A0F roach020923 roach02095E roach020954 roach020A0D
+# roach02094E roach020914 roach020956 roach02095F roach020A03 roach020955 roach02094C roach02094A
+# roach02094F roach020960 roach020927 roach020925 roach020934 roach020938 roach020919 roach020949
+# roach02094B roach02091A
+
+# roach020953 roach020958 roach020927 dsim020959 roach020950 roach020961 roach020A13 roach02095C
+# roach020A0C roach020944 roach02095B roach02091E roach02091F
+
+[FxCorrelator]
+katcp_port = 7147
+sample_rate_hz = 1714304392
+#sample_rate_hz = 1712000000 
+timestamp_bits = 48
+# Version of IGMP protocol to force on the engines
+igmp_version = 2
+# How long should we wait for ARP resolution?
+arp_wait_time = 20
+# at what interval do we poll sensors?
+sensor_poll_time = 10
+# how much time difference between the received f-engine times is allowed?
+time_jitter_allowed_ms = 500
+# how close should the received f-engine times be to the actual time
+time_offset_allowed_s = 5
+
+[bengine]
+
+[beam0]
+output_products=beam_0x
+stream_index = 0
+center_freq = 1285728294 
+bandwidth = 857152196
+#bandwidth = 856000000
+meta_ip = 10.100.3.10
+#meta_ip = 127.0.0.1
+meta_port = 8889
+data_ip = 10.100.3.10
+data_port = 8889
+source_weights = ant0_x:1,ant1_x:1,ant2_x:1,ant3_x:1
+source_poly = 2
+
+[beam1]
+output_products=beam_0y
+stream_index = 1
+center_freq = 1285728294 
+bandwidth = 857152196
+#bandwidth = 856000000
+meta_ip = 10.100.3.10
+#meta_ip = 127.0.0.1
+meta_port = 8890
+data_ip = 10.100.3.10
+data_port = 8890
+source_weights = ant0_y:2,ant1_y:2,ant2_y:2,ant3_y:2
+source_poly = 3
+
+[fengine]
+hosts = roach020944,roach02091F,roach020927,roach020915
+#hosts = roach020944,roach020938,roach02091F,roach020927
+#hosts = ROACH0,ROACH1,ROACH2,ROACH3
+
+bitstream = /srv/bofs/feng/r2_c856m32k_2016_Jun_08_1852.fpg
+#bitstream = /usr/local/src/mkat_fpga/bitstreams/feng_wide/r2_c856m4k.fpg
+
+# names and IPs of the sources to the f-engines
+n_antennas = 4
+# Number of f-engines per host - the PFB does two-pols, so only one, but it is two f-engines/pols
+f_per_fpga = 2
+# names to give the source polarisations - these must map to the IPs
+source_names = ant0_x,ant0_y,ant1_x,ant1_y,ant2_x,ant2_y,ant3_x,ant3_y
+# henno's lab dengine
+source_mcast_ips = INPUT0,INPUT1,INPUT2,INPUT3,INPUT4,INPUT5,INPUT6,INPUT7
+# where should the f-data go?
+destination_mcast_ips = 239.2.1.170+16:8888
+# number of 10gbe ports per f-engine
+ports_per_fengine = 2
+# how many bits per ADC sample
+sample_bits = 10
+# how many parallel ADC samples do we get per digitiser clock?
+adc_demux_factor = 8
+# The processed analogue bandwidth
+bandwidth = 857152196
+#bandwidth = 856000000
+# the centre frequency on the sky
+true_cf = 1285728294
+# Number of channels produced by the f-engine
+n_chans = 32768
+# FFT shifting schedule in decimal. A binary '1' shifts, a zero does not.
+fft_shift = 32767
+# The fixed-point format post FFT in the F engines
+quant_format = 8.7
+# Packet length of 10Gbe exchange data in 64 bit words.
+10gbe_pkt_len = 128
+# MAC, IP and port for 10Gbe cores
+10gbe_start_mac = 02:02:00:00:02:10
+10gbe_start_ip = 10.101.0.200
+10gbe_port = 8888
+# SPEAD flavour, string in the form XX,YY. Default: 64,48. See the SPEAD documentation for details.
+spead_flavour = 64,48
+# Equalisation settings - one per input - must have the same suffix as the source names above [50dB]
+eq_poly_ant0_x = 300
+eq_poly_ant0_y = 300
+eq_poly_ant1_x = 300
+eq_poly_ant1_y = 300
+eq_poly_ant2_x = 300
+eq_poly_ant2_y = 300
+eq_poly_ant3_x = 300
+eq_poly_ant3_y = 300
+# Delay settings
+min_load_time = 23
+network_latency_adjust = 0
+
+[xengine]
+hosts = roach020938,roach020A0F,roach020A0D,roach020958
+#hosts = roach020958,roach020915,roach020A0F,roach020A0D
+#hosts = ROACH4,ROACH5,ROACH6,ROACH7
+
+bitstream = /srv/mkat_fpga/bitstreams/xeng_wide/r2_b4a4x256f.fpg
+#bitstream = /usr/local/src/mkat_fpga/bitstreams/xeng_wide/r2_b4a4x256f.fpg
+
+# x fpga clock speed
+x_fpga_clock = 225000000
+# Number of X engines per host
+x_per_fpga = 4
+# Number of spectra to integrate in QDR
+accumulation_len = 816
+# Number of accumulations performed in the X engine cores
+xeng_accumulation_len = 256
+# Number of bits the vacc uses to represent one number
+xeng_outbits = 32
+# MAC, IP and port for 10Gbe cores
+10gbe_start_mac = 02:02:00:00:20:10
+10gbe_start_ip = 10.101.0.80
+10gbe_port = 8888
+# data product names and destinations
+output_products = c856M4k
+#output_destination_ip = 10.100.1.1
+output_destination_ip = 239.100.0.1
+output_destination_port = 8888
+# what is the outgoing interface address? i.e. the eth interface that will send the meta information
+multicast_interface_address = 239.100.0.1
+#multicast_interface_address = 10.100.1.1
+# Packet length of 10Gbe exchange data in 64 bit words.
+10gbe_pkt_len = 512
+
+[dsimengine]
+sample_rate_hz = 1714304392 
+#sample_rate_hz = 1712000000 
+
+# Old pack block
+#bitstream =  /usr/local/lib/cmc/bitstreams/deng/r2_deng_tvg_rev1_12.fpg
+
+# New pack block
+bitstream =  /srv/mkat_fpga/bitstreams/deng/r2_deng_tvg_rev1_13.fpg
+#bitstream =  /usr/local/lib/cmc/bitstreams/deng/r2_deng_tvg_rev1_13.fpg
+
+# Old naming scheme
+#bitstream =  /usr/local/lib/cmc/bitstreams/deng/r2_deng_tvg.fpg
+
+host = dsim020959
+10gbe_start_mac = 02:02:00:00:50:01
+10gbe_start_ip = 10.101.0.40
+10gbe_port = 8888
+pol0_destination_start_ip = 239.0.1.68
+pol1_destination_start_ip = 239.0.1.70

@@ -39,7 +39,7 @@
 # 24      - roach020948 - 2 ports   -- Unused (gbe0 dhcp tap)
 # 23      - roach02092E - 2 ports   -- X
 # 22      - roach020951 - 2 ports   -- X
-# 21      - roach020950 - 2 ports   -- (Gbe2 dhcp tap errors)
+# 21      - roach020950 - 2 ports   --  (Gbe2 dhcp tap errors)
 
 # 20      - empty
 
@@ -62,10 +62,11 @@ igmp_version = 2
 
 [fengine]
 # Need to have 4 ports
-hosts = ROACH0,ROACH1,ROACH2,ROACH3
-#hosts = roach02095C,roach020944,roach02095B,roach020958
+# Hardcoding roaches for now as some have dhcp port errors when used as either x/f engines
+#hosts = ROACH0,ROACH1,ROACH2,ROACH3
+hosts = roach020958,roach020953,roach020927,roach020961
 
-bitstream = /usr/local/lib/cmc/bitstreams/feng_wide/r2_c8n856m4k.fpg
+bitstream = /srv/mkat_fpga/bitstreams/feng_wide/r2_c856m4k.fpg
 
 # names and IPs of the sources to the f-engines
 n_antennas = 4
@@ -119,10 +120,11 @@ min_load_time = 0.1
 network_latency_adjust = 0
 
 [xengine]
-hosts = ROACH4,ROACH5,ROACH6,ROACH7,ROACH8,ROACH9,ROACH10,ROACH11
-#hosts = roach020A0A,roach020A0C,roach020A01,roach020936,roach02091E,roach02092E,roach020951,roach020950
-#roach020937
-bitstream = /usr/local/lib/cmc/bitstreams/xeng_wide/r2_4a4x128f.fpg
+# Hardcoding roaches for now as some have dhcp port errors when used as either x/f engines
+#hosts = ROACH4,ROACH5,ROACH6,ROACH7,ROACH8,ROACH9,ROACH10,ROACH11
+
+hosts = roach020A13,roach020950,roach020A0C,roach020944
+bitstream = /usr/local/lib/cmc/bitstreams/xeng_wide/r2_4a4x256f.fpg
 
 # x fpga clock speed
 x_fpga_clock = 230000000
@@ -153,6 +155,7 @@ sample_rate_hz = 1714304392
 #sample_rate_hz = 1712000000
 bitstream = /usr/local/lib/cmc/bitstreams/deng/r2_deng_tvg.fpg
 host = dsim020959
+#host = roach02095C
 10gbe_start_mac = 02:02:00:00:50:01
 10gbe_start_ip = 10.101.0.40
 10gbe_port = 8888
