@@ -145,18 +145,23 @@ class CorrelatorFixture(object):
                 self.start_correlator()
 
     def halt_array(self):
-        if not self._correlator:
-            raise RuntimeError('Array not yet initialised')
+        """
+        Halting of primary and secondary katcp arrays and ensure that the correlator
+        object is teared-down
+        """
+        #if not self._correlator:
+            #raise RuntimeError('Array not yet initialised')
         LOGGER.info('Halting primary array.')
-        self.rct.req.array_halt(self.array_name)
+        self.katcp_rct.stop()
+        reply, informs = self.rct.req.array_halt(self.array_name)
         self.rct.stop()
-
         self._rct = None
         self._katcp_rct = None
         # TODO: MM(2015-09-11) Proper teardown of corr object(katcp connections etc.)
         # Must still be implemented.
         self._correlator_started = False
         self._correlator = None
+        LOGGER.info('Array {} halted and teared-down'.format(self.array_name))
 
     @property
     def katcp_rct(self):
@@ -445,7 +450,7 @@ class CorrelatorFixture(object):
         if instrument is None:
             return False
         self.test_conf = self.test_config_file()
-        multicast_ip_inp = self.test_conf['test_confs']['source_mcast_ips'].split(',')
+        multicast_ip_inp = self.test_conf['inst_param']['source_mcast_ips'].split(',')
         if self.instrument.startswith('bc') or self.instrument.startswith('c'):
             if self.instrument[0] == 'b':
                 multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
@@ -454,7 +459,7 @@ class CorrelatorFixture(object):
 
         return multicast_ip
 
-    def start_correlator(self, instrument=None, retries=5, loglevel='INFO'):
+    def start_correlator(self, instrument=None, retries=10, loglevel='INFO'):
         LOGGER.info('Will now try to start the correlator')
         success = False
         retries_requested = retries
@@ -507,7 +512,7 @@ class CorrelatorFixture(object):
                         LOGGER.fatal('Failed to assign array port number on {}'.format(self.array_name))
                         return False
                 """
-                instrument_param = [int(i) for i in self.test_conf['test_confs']['instrument_param']
+                instrument_param = [int(i) for i in self.test_conf['inst_param']['instrument_param']
                                     if i != ',']
                 LOGGER.info ("Starting {} with {} parameters. Try #{}".format(
                     self.instrument, instrument_param, retries))
@@ -517,20 +522,14 @@ class CorrelatorFixture(object):
                 retries -= 1
 
                 if success == True:
-                    LOGGER.info('Correlator started succesfully')
+                    LOGGER.info('Instrument {} started succesfully'.format(self.instrument))
                 else:
                     LOGGER.warn('Failed to start correlator, {} attempts left. '
                         'Restarting Correlator. Reply:{}'
                             .format(retries, reply))
-                    #self.halt_array()
-                    reply, informs = self.rct.req.array_halt(self.array_name)
-                    self.katcp_rct.stop()
-                    self.rct.stop()
-                    self._katcp_rct = None
-                    self._correlator_started = False
-                    self._correlator = None
-                    self.katcp_array_port = None
-                    LOGGER.debug('Katcp teardown.')
+                    self.halt_array()
+                    success = False
+                    LOGGER.debug('Katcp teardown and restarting correlator.')
 
             except Exception:
                 try:
