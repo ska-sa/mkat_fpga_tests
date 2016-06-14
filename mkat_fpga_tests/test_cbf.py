@@ -86,7 +86,7 @@ def teardown_module():
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     """ Unittesting class for mkat_fpga_tests"""
-    default_acc_time = 0.2
+    default_acc_time = 0.5
 
     def setUp(self):
         self.corr_fix = correlator_fixture
@@ -98,6 +98,7 @@ class test_CBF(unittest.TestCase):
         self.dhost = self.corr_fix.dhost
         self.dhost.get_system_information()
         self.receiver = None
+        self.corr_fix.instrument = None
 
     def set_instrument(self, instrument):
         if self.receiver:
@@ -190,7 +191,7 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             n_chans = self.corr_freqs.n_chans
             test_chan = randrange(start=n_chans % 100,  stop=n_chans - 1)
-            self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
+            self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=[250e3])
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -224,7 +225,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('CBF Channelisation Wideband Fine L-band: {}\n'.format(_running_inst))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
+            self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=[15e3, 30e3])
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
