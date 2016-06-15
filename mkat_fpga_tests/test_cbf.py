@@ -4875,20 +4875,20 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._set_input_levels_and_gain(profile='cw', cw_freq=800513075, cw_margin = 0.3,
-                                            trgt_bits=4.5, trgt_q_std = 0.30)
+            self._set_input_levels_and_gain(profile='cw', cw_freq=100000, cw_margin = 0.3,
+                                            trgt_bits=4.5, trgt_q_std = 0.30, fft_shift=8191)
 
-    def test_c8n856M32k_input_levels(self, instrument='c8n856M32k'):
-        """Testing Dsim input levels (c8n856M32k)
+    def test_bc8n856M32k_input_levels(self, instrument='bc8n856M32k'):
+        """Testing Dsim input levels (bc8n856M32k)
         Set input levels to requested values and check that the ADC and the
         quantiser block do not see saturated samples.
         """
         if self.set_instrument(instrument):
             Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            fft_shift = pow(2,16)-1
-            self._set_input_levels_and_gain(profile='cw', cw_freq=800513075, cw_margin = 0.3,
-                                            trgt_bits=4.5, trgt_q_std = 0.30, fft_shift=fft_shift)
+            fft_shift = pow(2,15)-1
+            self._set_input_levels_and_gain(profile='cw', cw_freq=200000000, cw_margin = 0.6,
+                                            trgt_bits=5, trgt_q_std = 0.30, fft_shift=fft_shift)
 
     def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,
                                    cw_margin = 0.05, trgt_bits=3.5,
@@ -4949,21 +4949,22 @@ class test_CBF(unittest.TestCase):
 
         # main code
         sources = {}
-        try:
-            # Build dictionary with inputs and
-            # which fhosts they are associated with.
-            reply, informs = self.corr_fix.katcp_rct.req.input_labels()
-            if not reply.reply_ok():
-                raise Exception
-            for key in reply.arguments[1:]:
-                for fpga in self.correlator.fhosts:
-                    for pol in [0,1]:
-                        if str(fpga.data_sources[pol]).find(key) != -1:
-                            sources[key] = ('p'+str(pol), fpga)
-        except:
-            Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
-                       ''.format(reply))
-            return False
+        Aqf.step('Requesting input labels.')
+        for i in range(2):
+            self.corr_fix.issue_metadata()
+            self.corr_fix.start_x_data()
+
+        # Build dictionary with inputs and
+        # which fhosts they are associated with.
+        dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+        inp_labelling = dump['input_labelling'].value
+        for inp_lables in inp_labelling:
+            inp = inp_lables[0]
+            pol = inp_lables[3]
+            fpga_name = inp_lables[2]
+            for fpga in self.correlator.fhosts:
+                if fpga_name == fpga.host:
+                    sources[inp] = ('p'+pol, fpga)
 
         # Set digitiser input level of one random input,
         # store values from other inputs for checking
@@ -4981,6 +4982,9 @@ class test_CBF(unittest.TestCase):
         count = 0
         pol = sources[inp][0]
         fpga = sources[inp][1]
+        Aqf.step('Setting input noise level to toggle {} bits at '\
+                 'standard deviation.'.format(trgt_bits))
+        Aqf.step('Capturing ADC Snapshots.')
         while not found:
             for i in range (5):
                 adc_data = get_adc_snapshot(fpga)[pol]
@@ -5000,19 +5004,29 @@ class test_CBF(unittest.TestCase):
         noise_scale = scale
         p_std = np.std(adc_data)
         p_bits = np.log2(p_std * 512)
+        Aqf.step('Dsim noise scale set to {:.3f}, toggling {:.2f} bits at '\
+                 'standard deviation.'.format(noise_scale, p_bits))
 
         if profile == 'cw':
-            bw = float(self.dhost.config['sample_rate_hz'])/2
+            Aqf.step('Setting CW scale to {} below saturation point.'\
+                     ''.format(cw_margin))
             # Find closest center frequency to requested value to ensure
             # correct quantiser gain is set. Requested frequency will be set
             # at the end.
-            reply, informs = correlator_fixture.katcp_rct. \
-                req.quantiser_snapshot(inp)
-            data = [eval(v) for v in (reply.arguments[1:][1:])]
-            nr_ch = len(data)
-            ch_bw = bw / nr_ch
+
+
+            #reply, informs = correlator_fixture.katcp_rct. \
+            #    req.quantiser_snapshot(inp)
+            #data = [eval(v) for v in (reply.arguments[2:])]
+            #nr_ch = len(data)
+            #ch_bw = bw / nr_ch
+            # ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
+
+            bw = self.corr_freqs.bandwidth
+            nr_ch = self.corr_freqs.n_chans
+            ch_bw = self.corr_freqs.chan_freqs[1]
+            ch_list = self.corr_freqs.chan_freqs
             freq_ch = int(round(cw_freq / ch_bw))
-            ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
             scale = 1.0
             step = 0.005
             count = 0
@@ -5029,9 +5043,7 @@ class test_CBF(unittest.TestCase):
                     freq = set_sine_source(scale, ch_list[freq_ch]+50, cw_src)
                     adc_data = get_adc_snapshot(fpga)[pol]
                     found = True
-
-
-        if profile == 'cw':
+            Aqf.step('Dsim CW scale set to {:.3f}.'.format(scale))
             aqf_plot_histogram(adc_data,
                                plot_filename='adc_hist_{}.png'.format(inp),
                                plot_title='ADC Histogram for input {}\n'\
@@ -5072,6 +5084,7 @@ class test_CBF(unittest.TestCase):
         # Set the fft shift to 511 for noise. This should be automated once
         # a sensor is available to determine fft shift overflow.
 
+        Aqf.step('Setting FFT Shift to {}.'.format(fft_shift))
         try:
             reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
             if not reply.reply_ok():
@@ -5083,8 +5096,8 @@ class test_CBF(unittest.TestCase):
                        ''.format(reply))
             return False
 
-
         if profile == 'cw':
+            Aqf.step('Setting quantiser gain for CW input.')
             gain = 1
             gain_str = '{}'.format(int(gain)) + '+0j'
             try:
@@ -5109,13 +5122,14 @@ class test_CBF(unittest.TestCase):
             ch_val_array.append([ch_val, gain])
             count = 0
             prev_ch_val_diff = 0
-            found = False
             max_count = 100
+            found = False
             while count < max_count:
                 count += 1
                 ch_val = next_ch_val
                 gain += 1
                 gain_str = '{}'.format(int(gain)) + '+0j'
+                Aqf.step('Capturing accumulation for gain of '+gain_str)
                 try:
                     reply, informs = self.corr_fix.katcp_rct. \
                         req.gain(inp, gain_str)
@@ -5130,17 +5144,23 @@ class test_CBF(unittest.TestCase):
                 dval = dump['xeng_raw'].value
                 auto_corr = dval[:, inp_autocorr_idx, :]
                 next_ch_val = auto_corr[freq_ch][0]
+                print '{} {} {} {} {}'.format(auto_corr[freq_ch-2][0],
+                                              auto_corr[freq_ch-1][0],
+                                              auto_corr[freq_ch][0],
+                                              auto_corr[freq_ch+1][0],
+                                              auto_corr[freq_ch+2][0])
                 ch_val_diff = next_ch_val - ch_val
                 # When the gradient start decreasing the center of the linear
                 # section has been found. Grab the same number of points from
                 # this point.
                 if (not found) and (ch_val_diff < prev_ch_val_diff):
-                    found = True
                     count = max_count - count - 1
+                    found = True
                 ch_val_array.append([next_ch_val, gain])
                 prev_ch_val_diff = ch_val_diff
-
+            #import IPython; IPython.embed()
             y = [x[0] for x in ch_val_array]
+            x = [x[1] for x in ch_val_array]
             grad = np.gradient(y)
             grad_delta = []
             for i in range(len(grad) - 1):
@@ -5148,10 +5168,10 @@ class test_CBF(unittest.TestCase):
             # The setpoint is where grad_delta is closest to 1
             grad_delta = np.asarray(grad_delta)
             set_point = np.argmax(grad_delta - 1.0 < 0) + 1
-            gain_str = '{}'.format(int(set_point)) + '+0j'
-            plt.plot(y, label='Channel Response')
-            plt.plot(set_point, y[set_point], 'ro', label='Gain Set Point = ' \
-                                                    '{}'.format(set_point))
+            gain_str = '{}'.format(int(x[set_point])) + '+0j'
+            plt.plot(x, y, label='Channel Response')
+            plt.plot(x[set_point], y[set_point], 'ro', label='Gain Set Point = ' \
+                                                    '{}'.format(x[set_point]))
             plt.title('CW Channel Response for Quantiser Gain\n' \
                       'Channel = {}, Frequency = {}Hz'.format(freq_ch, freq))
             plt.ylabel('Channel Magnitude')
@@ -5163,6 +5183,8 @@ class test_CBF(unittest.TestCase):
         else:
             # Set quantiser gain for selected input to produces required
             # standard deviation of quantiser snapshot
+            Aqf.step('Setting quantiser gain for noise input with a target '
+                     'standard deviation of {}.'.format(trgt_q_std))
             found = False
             count = 0
             margin = 0.01
@@ -5178,6 +5200,7 @@ class test_CBF(unittest.TestCase):
                            ''.format(reply))
                 return False
             while (not found):
+                Aqf.step('Capturing quantiser snapshot for gain of '+gain_str)
                 reply, informs = correlator_fixture.katcp_rct. \
                     req.quantiser_snapshot(inp)
                 data = [eval(v) for v in (reply.arguments[1:][1:])]
@@ -5244,7 +5267,8 @@ class test_CBF(unittest.TestCase):
             plot_title = 'Spectrum for Input {}\n'\
                          'Quantiser Gain: {}'.format(key, gain_str)
             caption = 'Spectrum for CW input'
-            aqf_plot_channels(10*np.log10(auto_corr[:,0]),
+            plot_data = [1 if x == 0 else x for x in auto_corr[:,0]]
+            aqf_plot_channels(10*np.log10(plot_data),
                               plot_filename=plot_filename,
                               plot_title=plot_title, caption=caption, show=True)
         else:
