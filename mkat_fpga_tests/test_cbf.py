@@ -12,14 +12,7 @@ import telnetlib
 import operator
 import Queue
 import colors as clrs
-
-import corr2
-import katcp
 import pandas
-
-from random import randrange
-from concurrent.futures import TimeoutError
-
 import warnings
 
 import numpy as np
@@ -27,15 +20,19 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cbook
 
+import corr2
+import katcp
+
+from random import randrange
+from collections import namedtuple
+from concurrent.futures import TimeoutError
+from nosekatreport import Aqf, aqf_vr
+
 from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
-from collections import namedtuple
-
-from nosekatreport import Aqf, aqf_vr
 
 from mkat_fpga_tests import correlator_fixture
-
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal, aqf_plot_histogram
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_is_not_equals
@@ -158,13 +155,11 @@ class test_CBF(unittest.TestCase):
 
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
-
                 except AssertionError:
                     errmsg = 'Correlator Receiver could not be instantiated.'
                     LOGGER.exception(errmsg)
                     Aqf.failed(errmsg)
                     return False
-
                 else:
                     start_thread_with_cleanup(self, self.receiver, start_timeout=1)
                     self.correlator = self.corr_fix.correlator
@@ -1061,6 +1056,7 @@ class test_CBF(unittest.TestCase):
                      'output products: {}\n'.format(_running_inst))
             self._systems_tests()
             self._test_beamforming(ants=8)
+
     @aqf_vr('TP.C.1.36')
     @aqf_vr('TP.C.1.35')
     def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
@@ -1251,9 +1247,9 @@ class test_CBF(unittest.TestCase):
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
             self.correlator.n_antennas * 2)]
-        reply, informs = self.corr_fix.katcp_rct.req.input_labels(
-            *local_src_names)
-        Aqf.step('Source names changed to: ' + str(reply))
+        reply_, informs = self.corr_fix.katcp_rct.req.input_labels()
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+        Aqf.step('Source names changed from: {} to: {}'.format(str(reply_), str(reply)))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator, self.receiver)
         self.addCleanup(clear_all_delays, self.correlator, self.receiver)
