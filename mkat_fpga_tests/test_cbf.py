@@ -4,9 +4,7 @@ import unittest
 import logging
 import time
 import datetime
-import itertools
 import subprocess
-import threading
 import os
 import sys
 import telnetlib
@@ -14,17 +12,11 @@ import operator
 import Queue
 import colors as clrs
 import h5py
-import sys
-import glob
 
-import corr2
-import katcp
-import pandas
-
-from random import randrange
-from concurrent.futures import TimeoutError
 from subprocess import Popen, PIPE
 
+import glob
+import pandas
 import warnings
 
 import numpy as np
@@ -32,15 +24,18 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cbook
 
-from katcp.testutils import start_thread_with_cleanup
-from corr2.dsimhost_fpga import FpgaDsimHost
-from corr2.corr_rx import CorrRx
-from collections import namedtuple
+import corr2
+import katcp
 
+from random import randrange
+from collections import namedtuple
+from concurrent.futures import TimeoutError
 from nosekatreport import Aqf, aqf_vr
 
-from mkat_fpga_tests import correlator_fixture
+from katcp.testutils import start_thread_with_cleanup
+from corr2.corr_rx import CorrRx
 
+from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_numpy_almost_equal, aqf_plot_histogram
 from mkat_fpga_tests.aqf_utils import aqf_array_abs_error_less, aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_is_not_equals
@@ -49,8 +44,10 @@ from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus, check_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, get_baselines_lookup
-from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_okay, get_adc_snapshot
+from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, get_adc_snapshot
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
+from mkat_fpga_tests.utils import get_delay_bounds
+
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
@@ -163,13 +160,11 @@ class test_CBF(unittest.TestCase):
 
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
-
                 except AssertionError:
                     errmsg = 'Correlator Receiver could not be instantiated.'
                     LOGGER.exception(errmsg)
                     Aqf.failed(errmsg)
                     return False
-
                 else:
                     start_thread_with_cleanup(self, self.receiver, start_timeout=1)
                     self.correlator = self.corr_fix.correlator
@@ -1066,6 +1061,7 @@ class test_CBF(unittest.TestCase):
                      'output products: {}\n'.format(_running_inst))
             self._systems_tests()
             self._test_beamforming(ants=8)
+
     @aqf_vr('TP.C.1.36')
     @aqf_vr('TP.C.1.35')
     def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
@@ -1254,11 +1250,11 @@ class test_CBF(unittest.TestCase):
             return False
 
         self.correlator.est_synch_epoch()
-        #local_src_names = ['input{}'.format(x) for x in xrange(
-            #self.correlator.n_antennas * 2)]
-        #reply, informs = self.corr_fix.katcp_rct.req.input_labels(
-            #*local_src_names)
-        #Aqf.step('Source names changed to: ' + str(reply))
+        local_src_names = ['input{}'.format(x) for x in xrange(
+            self.correlator.n_antennas * 2)]
+        reply_, informs = self.corr_fix.katcp_rct.req.input_labels()
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+        Aqf.step('Source names changed from: {} to: {}'.format(str(reply_), str(reply)))
         Aqf.step('Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator, self.receiver)
         self.addCleanup(clear_all_delays, self.correlator, self.receiver)
@@ -1330,7 +1326,7 @@ class test_CBF(unittest.TestCase):
                 }
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=20):
-
+        import IPython; IPython.embed()
         try:
             cmd_start_time = time.time()
             Aqf.step('Time apply set to: {}'.format(setup_data['t_apply']))
@@ -1506,7 +1502,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
         #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
         dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.045,
-            cw_scale=0.675, freq=expected_fc, fft_shift=65535, gain='31+0j')
+            cw_scale=0.675, freq=expected_fc, fft_shift=8191*8, gain='31+0j')
             #cw_scale=0.675, freq=expected_fc, fft_shift=8191, gain='11+0j')
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
