@@ -3,15 +3,16 @@ from __future__ import division
 import unittest
 import logging
 import time
-import itertools
+import datetime
 import subprocess
-import threading
 import os
 import sys
 import telnetlib
 import operator
 import Queue
 import colors as clrs
+import h5py
+import glob
 import pandas
 import warnings
 
@@ -29,7 +30,6 @@ from concurrent.futures import TimeoutError
 from nosekatreport import Aqf, aqf_vr
 
 from katcp.testutils import start_thread_with_cleanup
-from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.corr_rx import CorrRx
 
 from mkat_fpga_tests import correlator_fixture
@@ -41,8 +41,10 @@ from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus, check_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, get_baselines_lookup
-from mkat_fpga_tests.utils import get_vacc_offset, get_pfb_counts, check_host_okay, get_adc_snapshot
+from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, get_adc_snapshot
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
+from mkat_fpga_tests.utils import get_delay_bounds
+
 LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
@@ -1321,7 +1323,7 @@ class test_CBF(unittest.TestCase):
                 }
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=20):
-
+        import IPython; IPython.embed()
         try:
             cmd_start_time = time.time()
             Aqf.step('Time apply set to: {}'.format(setup_data['t_apply']))
