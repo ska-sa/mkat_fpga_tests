@@ -88,7 +88,7 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        self.test_conf = self.corr_fix.test_config_file()
+        self.test_conf = self.corr_fix._test_config_file()
         _conf = self.test_conf['inst_param']
         self.corr_fix.instrument = _conf['default_instrument']
         self.corr_fix.array_name = _conf['subarray']
@@ -2956,7 +2956,7 @@ class test_CBF(unittest.TestCase):
             # Restore the default FFT shifts as per the correlator config.
             self.correlator.fops.set_fft_shift_all()
 
-        condition = ('FFT overflow by setting an agressive FFT shift with '
+        condition = ('FFT overflow by setting an aggressive FFT shift with '
                      'a pure tone input')
         dump1, dump2, dump3, = self.get_flag_dumps(enable_fft_overflow,
                                                    disable_fft_overflow, condition)
@@ -2982,7 +2982,7 @@ class test_CBF(unittest.TestCase):
                                  consider_bits=all_bits)
         other_set_bits2 = set_bits2.intersection(other_bits)
         Aqf.is_true(flag_bit in set_bits2,
-                    'Check that {} is set in SPEAD packet 2 while toggeling {}.'
+                    'Check that {} is set in SPEAD packet 2 while toggling {}.'
                     .format(flag_descr, condition))
         Aqf.equals(other_set_bits2, set(),
                    'Check that no other flag bits (any of {}) are set.'
@@ -3042,7 +3042,7 @@ class test_CBF(unittest.TestCase):
                                    graph_units, graph_name, graph_title, caption)
 
             # Ignoring first dump because the delays might not be set for full
-            # intergration.
+            # integration.
             tolerance = 1e-5
             decimal = len(str(tolerance).split('.')[-1])
             actual_phases = np.unwrap(actual_phases)
@@ -3127,7 +3127,7 @@ class test_CBF(unittest.TestCase):
             actual_phases = np.unwrap(actual_phases)
             # TODO MM 2015-10-22
             # Ignoring first dump because the delays might not be set for full
-            # intergration.
+            # integration.
             tolerance = 0.01
             decimal = len(str(tolerance).split('.')[-1])
             expected_phases = np.unwrap([phase for label, phase in expected_phases])
@@ -3305,7 +3305,7 @@ class test_CBF(unittest.TestCase):
                                    graph_units, graph_name, graph_title)
 
             # Ignoring first dump because the delays might not be set for full
-            # intergration.
+            # integration.
             tolerance = 0.01
             actual_phases = np.unwrap(actual_phases)
             expected_phases = np.unwrap([phase for label, phase in expected_phases])
@@ -3326,7 +3326,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_config_report(self, verbose):
         """CBF Report configuration"""
-        test_config = self.corr_fix.test_config_file()
+        test_config = self.corr_fix._test_config_file()
 
         def get_roach_config():
 
@@ -4099,7 +4099,7 @@ class test_CBF(unittest.TestCase):
             #     Aqf.step('Beam {0} passband set to {1} at center frequency {2}'
             #             .format(reply.arguments[1], pb, cf))
             # else:
-            #     Aqf.failed('Beam passband not succesfully set '
+            #     Aqf.failed('Beam passband not successfully set '
             #                '(requested cf = {}, pb = {}): {}'.format(target_cfreq, target_pb, reply.arguments))
             pb = target_pb
             cf = target_cfreq
@@ -4112,7 +4112,7 @@ class test_CBF(unittest.TestCase):
                 if reply.reply_ok():
                     Aqf.step('Input {0} weight set to {1}'.format(key, reply.arguments[1]))
                 else:
-                    Aqf.failed('Beam weights not succesfully set: {}'.format(reply.arguments))
+                    Aqf.failed('Beam weights not successfully set: {}'.format(reply.arguments))
 
             ingst_nd = 'localhost'
             ingst_nd_p = '2050'
@@ -4242,7 +4242,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Beam {0} passband set to {1} at center frequency {2}'.format(
                      reply.arguments[1], pb, cf))
         else:
-            Aqf.failed('Beam passband not succesfully set '
+            Aqf.failed('Beam passband not successfully set '
                        '(requested cf = {}, pb = {}): {}'.format(target_cfreq, target_pb, reply.arguments))
 
         beam_data = []

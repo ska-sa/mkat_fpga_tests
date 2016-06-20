@@ -10,6 +10,7 @@ from itertools import cycle
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
+
     @functools.wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
@@ -27,7 +28,7 @@ def cls_end_aqf(cls):
         if attr_name.startswith('test_') or attr_name == 'runTest':
             meth = getattr(cls, attr_name)
             if callable(meth):
-               setattr(cls, attr_name,  meth_end_aqf(meth))
+                setattr(cls, attr_name, meth_end_aqf(meth))
     return cls
 
 
@@ -128,51 +129,54 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
     max_err_ind = np.argmax(err)
     max_err = err[max_err_ind]
     if max_err >= abs_error:
-        Aqf.failed('Absolute error larger than {abs_error}, max error at index {max_err_ind}, error: {max_err} - {description}'.format(**locals()))
+        Aqf.failed(
+            'Absolute error larger than {abs_error}, max error at index {max_err_ind}, '
+            'error: {max_err} - {description}'.format(
+                **locals()))
     else:
         Aqf.passed(description)
 
 
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
                            plot_filename, plot_title, caption, show=False):
-        """
+    """
         Gets actual and expected phase plots.
         return: None
-        """
-        plt.gca().set_prop_cycle(None)
-        for phases in actual_data:
-            plt.plot(freqs, phases)
+    """
+    plt.gca().set_prop_cycle(None)
+    for phases in actual_data:
+        plt.plot(freqs, phases)
 
-        plt.gca().set_prop_cycle(None)
-        if not isinstance(expected_data[0], tuple):
-            expected_data = ((expected_data, None),)
-        for label, phases in expected_data:
-            fig = plt.plot(
-                freqs, phases, '--', label='{} {}'.format(label, plot_units))[0]
+    plt.gca().set_prop_cycle(None)
+    if not isinstance(expected_data[0], tuple):
+        expected_data = ((expected_data, None),)
+    for label, phases in expected_data:
+        fig = plt.plot(
+            freqs, phases, '--', label='{} {}'.format(label, plot_units))[0]
 
-        axes = fig.get_axes()
-        ybound = axes.get_ybound()
-        yb_diff = abs(ybound[1] - ybound[0])
-        new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-        plt.vlines(len(freqs)/2, *new_ybound, colors='b',
-                   linestyles='dotted', label='Center Chan.')
-        plt.legend()
-        plt.title('{}'.format(plot_title))
-        axes.set_ybound(*new_ybound)
-        plt.grid(True)
-        plt.ylabel('Phase [radians]')
-        plt.xlabel('No. of Channels')
-        Aqf.matplotlib_fig(plot_filename, caption=caption)
-        if show:
-            plt.show()
-        plt.close('all')
+    axes = fig.get_axes()
+    ybound = axes.get_ybound()
+    yb_diff = abs(ybound[1] - ybound[0])
+    new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
+    plt.vlines(len(freqs) / 2, *new_ybound, colors='b',
+               linestyles='dotted', label='Center Chan.')
+    plt.legend()
+    plt.title('{}'.format(plot_title))
+    axes.set_ybound(*new_ybound)
+    plt.grid(True)
+    plt.ylabel('Phase [radians]')
+    plt.xlabel('No. of Channels')
+    Aqf.matplotlib_fig(plot_filename, caption=caption)
+    if show:
+        plt.show()
+    plt.close('all')
 
 
 def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None, normalise=False,
                       caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
                       xlabel=None, show=False):
-        """Simple magnitude plot of a channelised result
+    """Simple magnitude plot of a channelised result
         return: None
 
         Example
@@ -199,72 +203,71 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         data.
 
         """
-        try:
-            if not isinstance(channelisation[0], tuple):
-                channelisation = ((channelisation, None),)
-        except IndexError:
-            Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
-        cycol = cycle(['red', 'black', 'green']).next
-        intensity = cycle([1, .8]).next
-        has_legend = False
-        for plot_data, legend in channelisation:
-            kwargs = {}
-            if legend:
-                has_legend = True
-                kwargs['label'] = legend
-            if log_dynamic_range is not None:
-                plot_data = loggerise(plot_data, log_dynamic_range,
-                                      normalise_to=log_normalise_to, normalise=normalise)
-                ylabel = 'Channel response [dB]'
-            else:
-                ylabel = 'Channel response (linear)'
+    try:
+        if not isinstance(channelisation[0], tuple):
+            channelisation = ((channelisation, None),)
+    except IndexError:
+        Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
+    intensity = cycle([1, .8]).next
+    has_legend = False
+    for plot_data, legend in channelisation:
+        kwargs = {}
+        if legend:
+            has_legend = True
+            kwargs['label'] = legend
+        if log_dynamic_range is not None:
+            plot_data = loggerise(plot_data, log_dynamic_range,
+                                  normalise_to=log_normalise_to, normalise=normalise)
+            ylabel = 'Channel response [dB]'
+        else:
+            ylabel = 'Channel response (linear)'
 
-            plt.grid(True)
-            # plt.plot(plot_data, c=cycol(), alpha=intensity(), **kwargs)
-            plt.plot(plot_data, alpha=intensity(), **kwargs)
-            if plot_title:
-                plt.title(plot_title)
-            plt.ylabel(ylabel)
-            if xlabel:
-                plt.xlabel(xlabel)
-            else:
-                plt.xlabel('Channel number')
-
-        axis = plt.gcf().get_axes()[0]
-        ybound = axis.get_ybound()
-        yb_diff = abs(ybound[1] - ybound[0])
-        #new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-        new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
-        new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
-        axis.set_ybound(*new_ybound)
-        if has_legend:
-            plt.legend(fontsize=9, fancybox=True,
-                       loc='center left', bbox_to_anchor=(1, .90),
-                       borderaxespad=0.).set_alpha(0.5)
-        if hlines:
-            plt.axhline(hlines, linestyle='--', linewidth=0.5)
-        if ylimits:
-            plt.ylim(ylimits)
-        #plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
-        Aqf.matplotlib_fig(plot_filename, caption=caption)
-        if show:
-            plt.show()
-        plt.clf()
-
-
-def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None, caption="",
-                       bins=256, range=(-1, 1), ylabel='Samples per Bin', xlabel='ADC Sample Bins',
-                       show=False):
-        """Simple histogram plot of a data set
-        return: None
-        """
         plt.grid(True)
-        plt.hist(data_set, bins=bins, range=range)
+        # plt.plot(plot_data, c=cycol(), alpha=intensity(), **kwargs)
+        plt.plot(plot_data, alpha=intensity(), **kwargs)
         if plot_title:
             plt.title(plot_title)
         plt.ylabel(ylabel)
-        plt.xlabel(xlabel)
-        Aqf.matplotlib_fig(plot_filename, caption=caption)
-        if show:
-            plt.show()
-        plt.clf()
+        if xlabel:
+            plt.xlabel(xlabel)
+        else:
+            plt.xlabel('Channel number')
+
+    axis = plt.gcf().get_axes()[0]
+    ybound = axis.get_ybound()
+    yb_diff = abs(ybound[1] - ybound[0])
+    # new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+    new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
+    new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
+    axis.set_ybound(*new_ybound)
+    if has_legend:
+        plt.legend(fontsize=9, fancybox=True,
+                   loc='center left', bbox_to_anchor=(1, .90),
+                   borderaxespad=0.).set_alpha(0.5)
+    if hlines:
+        plt.axhline(hlines, linestyle='--', linewidth=0.5)
+    if ylimits:
+        plt.ylim(ylimits)
+    # plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
+    Aqf.matplotlib_fig(plot_filename, caption=caption)
+    if show:
+        plt.show()
+    plt.clf()
+
+
+def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None, caption="",
+                       bins=256, ranges=(-1, 1), ylabel='Samples per Bin', xlabel='ADC Sample Bins',
+                       show=False):
+    """Simple histogram plot of a data set
+        return: None
+        """
+    plt.grid(True)
+    plt.hist(data_set, bins=bins, range=ranges)
+    if plot_title:
+        plt.title(plot_title)
+    plt.ylabel(ylabel)
+    plt.xlabel(xlabel)
+    Aqf.matplotlib_fig(plot_filename, caption=caption)
+    if show:
+        plt.show()
+    plt.clf()
