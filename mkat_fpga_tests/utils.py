@@ -1,9 +1,8 @@
 import collections
 import h5py
-import os
 import numpy as np
-import time
 import logging
+import Queue
 
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
@@ -14,23 +13,31 @@ LOGGER = logging.getLogger(__name__)
 
 VACC_FULL_RANGE = float(2**31)      # Max range of the integers coming out of VACC
 
+
 def complexise(input_data):
-    """Convert input data shape (X,2) to complex shape (X)"""
-    return input_data[:,0] + input_data[:,1]*1j
+    """Convert input data shape (X,2) to complex shape (X)
+    :param input_data: Xeng_Raw
+    """
+    return input_data[:, 0] + input_data[:, 1] * 1j
+
 
 def magnetise(input_data):
     """Convert input data shape (X,2) to complex shape (X) and
        Calculate the absolute value element-wise.
+       :param input_data: Xeng_Raw
     """
     id_c = complexise(input_data)
     id_m = np.abs(id_c)
     return id_m
 
+
 def normalise(input_data):
     return input_data / VACC_FULL_RANGE
 
+
 def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
+
 
 def loggerise(data, dynamic_range=70, normalise_to=None, normalise=False):
     with np.errstate(divide='ignore'):
@@ -45,10 +52,12 @@ def loggerise(data, dynamic_range=70, normalise_to=None, normalise=False):
         log_data = np.asarray(log_data)-np.max(log_data)
     return log_data
 
+
 def baseline_checker(xeng_raw, check_fn):
     """Apply a test function to correlator data one baseline at a time
 
     Returns a set of all the baseline indices for which the test matches
+    :rtype: dict
     """
     baselines = set()
     for bl in range(xeng_raw.shape[1]):
@@ -56,18 +65,23 @@ def baseline_checker(xeng_raw, check_fn):
             baselines.add(bl)
     return baselines
 
+
 def zero_baselines(xeng_raw):
     """Return baseline indices that have all-zero data"""
     return baseline_checker(xeng_raw, lambda bldata: np.all(bldata == 0))
+
 
 def nonzero_baselines(xeng_raw):
     """Return baseline indices that have some non-zero data"""
     return baseline_checker(xeng_raw, lambda bldata: np.any(bldata != 0))
 
+
 def all_nonzero_baselines(xeng_raw):
     """Return baseline indices that have all non-zero data"""
-    return baseline_checker(xeng_raw, lambda bldata: np.all(np.linalg.norm(
-                    bldata.astype(np.float64), axis=1) != 0))
+    non_zerobls = (xeng_raw,
+                   lambda bldata: np.all(np.linalg.norm(bldata.astype(np.float64), axis=1) != 0))
+    return baseline_checker(non_zerobls)
+
 
 def init_dsim_sources(dhost):
     """Select dsim signal output, zero all sources, output scalings to 1
@@ -90,8 +104,9 @@ def init_dsim_sources(dhost):
         output.select_output('signal')
         output.scale_output(1)
 
+
 class CorrelatorFrequencyInfo(object):
-    """Derrive various bits of correlator frequency info using correlator config"""
+    """Derive various bits of correlator frequency info using correlator config"""
 
     def __init__(self, corr_config):
         """Initialise the class
@@ -112,7 +127,7 @@ class CorrelatorFrequencyInfo(object):
         self.delta_f = self.bandwidth / self.n_chans
         assert isinstance(self.delta_f, float)
         "Spacing between frequency channels"
-        f_start = 0. # Center freq of the first bin
+        f_start = 0.    # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
         "Channel centre frequencies"
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
@@ -158,8 +173,9 @@ class CorrelatorFrequencyInfo(object):
             (end_freq - start_freq) / sample_spacing)) + 1
         return np.linspace(start_freq, end_freq, num_samples)
 
+
 def get_dsim_source_info(dsim):
-    """Return a dict with all the current sine, noise and ouput settings of a dsim"""
+    """Return a dict with all the current sine, noise and output settings of a dsim"""
     info = dict(sin_sources={}, noise_sources={}, outputs={})
     for sin_src in dsim.sine_sources:
         info['sin_sources'][sin_src.name] = dict(scale=sin_src.scale,
@@ -171,6 +187,7 @@ def get_dsim_source_info(dsim):
         info['outputs'][output.name] = dict(output_type=output.output_type,
                                             scale=output.scale)
     return info
+
 
 def iterate_recursive_dict(d, keys=()):
     """Generator; walk through a recursive dict structure
@@ -205,6 +222,7 @@ def iterate_recursive_dict(d, keys=()):
         yield (keys, d)
 
 vstr = h5py.special_dtype(vlen=bytes)
+
 
 class TestDataH5(object):
     """Save correlator dumps, source info and freeform snapshot info to hdf5 file"""
@@ -281,9 +299,11 @@ def get_feng_snapshots(feng_fpga, timeout=5):
             man_valid=False, man_trig=False, timeout=timeout)
     return snaps
 
+
 def get_snapshots(instrument):
     f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
     return dict(feng=f_snaps)
+
 
 def get_source_object_and_index(instrument, input_name):
     """Return the DataSource object and local roach source index for a given input"""
@@ -291,9 +311,10 @@ def get_source_object_and_index(instrument, input_name):
     # Check and fix the hardcoded stuffs
     source = [s['source'].name for s in instrument.fengine_sources
               if s['source'].name == input_name][0]
-    source_index = 0 #[i for i, s in enumerate(source.host.data_sources)
-                    #if s.name == source.name][0]
+    source_index = [i for i, s in enumerate(source.host.data_sources)
+                    if s.name == source.name][0]
     return source, source_index
+
 
 def set_coarse_delay(instrument, input_name, value=0):
     """ Sets coarse delay(default = 1) for Correlator baseline input.
@@ -315,11 +336,13 @@ def set_coarse_delay(instrument, input_name, value=0):
         source.host.registers.coarse_delay1.write(coarse_delay=value)
         source.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
 
+
 def rearrange_snapblock(snap_data, reverse=False):
     segs = []
     for segment in sorted(snap_data.keys(), reverse=reverse):
         segs.append(snap_data[segment])
     return np.column_stack(segs).flatten()
+
 
 def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
@@ -331,11 +354,12 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
         man_valid=False, man_trig=False, timeout=timeout)['data']
 
     def get_part(qd, part):
-        return {k: v for k,v in qd.items() if k.startswith(part)}
+        return {k: v for k, v in qd.items() if k.startswith(part)}
     real = rearrange_snapblock(get_part(snap_data, 'real'))
     imag = rearrange_snapblock(get_part(snap_data, 'imag'))
     quantiser_spectrum = real + 1j*imag
     return quantiser_spectrum
+
 
 def get_baselines_lookup(spead):
     """Get list of all the baselines present in the correlator output.
@@ -349,6 +373,7 @@ def get_baselines_lookup(spead):
     bls_ordering = spead['bls_ordering'].value
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
+
 
 def clear_all_delays(instrument, receiver, timeout=10):
     """Clears all delays on all fhosts.
@@ -369,12 +394,13 @@ def clear_all_delays(instrument, receiver, timeout=10):
                           dump['scale_factor_timestamp'].value)
         t_apply = (dump_timestamp + dump['int_time'].value + future_time)
         try:
-            reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            reply = correlator_fixture.katcp_rct.req.delays(t_apply+5, *delay_coefficients)
             LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
             return True
         except Exception:
-            LOGGER.error('Could not clear delays: {}'.format(reply.reply.arguments[1]))
+            LOGGER.error('Could not clear delays')
             return False
+
 
 def get_fftoverflow_qdrstatus(correlator):
     """Get dict of all roaches present in the correlator
@@ -384,9 +410,7 @@ def get_fftoverflow_qdrstatus(correlator):
     """
     fhosts = {}
     xhosts = {}
-    dicts = {}
-    dicts['fhosts'] = {}
-    dicts['xhosts'] = {}
+    dicts = {'fhosts': {}, 'xhosts': {}}
     fengs = correlator.fhosts
     xengs = correlator.xhosts
     for fhost in fengs:
@@ -401,32 +425,34 @@ def get_fftoverflow_qdrstatus(correlator):
     dicts['xhosts'] = xhosts
     return dicts
 
+
 def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     """Checks if FFT overflows and QDR status on roaches
     Param: Correlator object, last known pfb counts
     Return: list:
         Roaches with QDR status errors
     """
-    QDR_error_roaches = set()
+    qdr_error_roaches = set()
     fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
     curr_pfb_counts = get_pfb_counts(
         fftoverflow_qdrstatus['fhosts'].items())
 
     for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
-        last_pfb_counts.items(), curr_pfb_counts.items()):
+            last_pfb_counts.items(), curr_pfb_counts.items()):
         if curr_pfb_host is curr_pfb_host_x:
             if curr_pfb_value != last_pfb_value:
                 if status:
                     Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
     for hosts_status in fftoverflow_qdrstatus.values():
-        for host, hosts_status in hosts_status.items():
-            if hosts_status['QDR_okay'] is False:
+        for host, _hosts_status in hosts_status.items():
+            if _hosts_status['QDR_okay'] is False:
                 if status:
                     Aqf.failed('QDR status on {} not Okay.'.format(host))
-                QDR_error_roaches.add(host)
+                qdr_error_roaches.add(host)
 
-    return list(QDR_error_roaches)
+    return list(qdr_error_roaches)
+
 
 def check_host_okay(correlator):
     """
@@ -464,8 +490,10 @@ def check_host_okay(correlator):
             Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'
                        .format(host.host))
 
+
 def get_vacc_offset(xeng_raw):
-    """Assuming a tone was only put into input 0, figure out if VACC is roated by 1"""
+    """Assuming a tone was only put into input 0,
+       figure out if VACC is rooted by 1"""
     b0 = np.abs(complexise(xeng_raw.value[:, 0]))
     b1 = np.abs(complexise(xeng_raw.value[:, 1]))
     if np.max(b0) > 0 and np.max(b1) == 0:
@@ -477,21 +505,24 @@ def get_vacc_offset(xeng_raw):
     else:
         raise ValueError('Could not determine VACC offset')
 
+
 def get_and_restore_initial_eqs(test_instance, correlator):
-    initial_equalisations = {input: eq_info['eq'] for input, eq_info
+    initial_equalisations = {_input: eq_info['eq'] for _input, eq_info
                              in correlator.fops.eq_get().items()}
 
     def restore_initial_equalisations():
-        for input, eq in initial_equalisations.items():
-            correlator.fops.eq_set(source_name=input, new_eq=eq)
+        for _input, eq in initial_equalisations.items():
+            correlator.fops.eq_set(source_name=_input, new_eq=eq)
 
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
+
 
 def get_bit_flag(packed, flag_bit):
     flag_mask = 1 << flag_bit
     flag = bool(packed & flag_mask)
     return flag
+
 
 def get_set_bits(packed, consider_bits=None):
     packed = int(packed)
@@ -502,6 +533,7 @@ def get_set_bits(packed, consider_bits=None):
     if consider_bits is not None:
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
+
 
 def get_pfb_counts(status_dict):
     """Checks if FFT overflows and QDR status on roaches
@@ -515,6 +547,7 @@ def get_pfb_counts(status_dict):
                           pfb_value['pfb_of1_cnt'])
     return pfb_list
 
+
 def get_adc_snapshot(fpga):
     data = fpga.get_adc_snapshots()
     rv = {'p0': [], 'p1': []}
@@ -524,20 +557,22 @@ def get_adc_snapshot(fpga):
             rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
     return rv
 
+
 def set_default_eq(instrument):
     """ Iterate through config sources and set eq's as per config file
     Param: Correlator: Object
     Return: None
     """
-    eq_levels = [complex(instrument.configd['fengine'][eq_label])
-                    for eq_label in [i for i in instrument.configd['fengine']
-                    if i.startswith('eq')]]
+    eq_levels = []
+    for eq_label in [i for i in instrument.configd['fengine'] if i.startswith('eq')]:
+        eq_levels.append(complex(instrument.configd['fengine'][eq_label]))
     ant_inputs = instrument.configd['fengine']['source_names'].split(',')
     [instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
         for _input, eq_val in zip(ant_inputs, eq_levels)]
 
+
 def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
-    fft_shift=None, gain=None):
+                     fft_shift=None, gain=None):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
@@ -566,8 +601,7 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
         if not reply.reply_ok():
             raise Exception
     except:
-        Aqf.failed('Failed to set FFT shift. KATCP Reply: {}' \
-                   ''.format(reply))
+        Aqf.failed('Failed to set FFT shift.')
         return False
 
     try:
@@ -578,19 +612,71 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
             raise Exception
         sources = reply.arguments[1:]
     except:
-        Aqf.failed('Failed to get input lables. KATCP Reply: {}'\
-                   ''.format(reply))
+        Aqf.failed('Failed to get input lables. KATCP Reply: {}'.format(reply))
         return False
 
     for key in sources:
         try:
-            reply, informs = corr_fix.katcp_rct. \
-                req.gain(key, gain)
+            reply, informs = corr_fix.katcp_rct.req.gain(key, gain)
             if not reply.reply_ok():
                 raise Exception
         except:
             Aqf.failed(
-                'Failed to set quantiser gain. KATCP Reply: {}' \
-                ''.format(reply))
+                'Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
             return False
     return True
+
+
+def get_delay_bounds(correlator):
+    """
+
+    Parameters
+    ----------
+    correlator - As displayed in you on board flight manual
+
+    Returns
+    -------
+    Dictionary containing minimum and maximum values for delay, delay rate,
+    phase offset and phase offset rate
+
+    """
+    fhost = correlator.fhosts[0]
+    # Get maximum delay value
+    reg_info = fhost.registers.delay0.block_info
+    reg_bw = int(reg_info['bitwidths'])
+    reg_bp = int(reg_info['bin_pts'])
+    max_delay = 2 ** (reg_bw - reg_bp) - 1 / float(2 ** reg_bp)
+    max_delay = max_delay/correlator.sample_rate_hz
+    min_delay = 0
+    # Get maximum delay rate value
+    reg_info = fhost.registers.delta_delay0.block_info
+    b = int(reg_info['bin_pts'])
+    max_positive_delta_delay = 1 - 1 / float(2**b)
+    max_negative_delta_delay = -1 + 1 / float(2**b)
+    # Get max/min phase offset
+    reg_info = fhost.registers.phase0.block_info
+    b_str = reg_info['bin_pts']
+    b = int(b_str[1:len(b_str)-1].rsplit(' ')[0])
+    max_positive_phase_offset = 1 - 1 / float(2**b)
+    max_negative_phase_offset = -1 + 1 / float(2**b)
+    max_positive_phase_offset *= float(np.pi)
+    max_negative_phase_offset *= float(np.pi)
+    # Get max/min phase rate
+    b_str = reg_info['bin_pts']
+    b = int(b_str[1:len(b_str)-1].rsplit(' ')[1])
+    max_positive_delta_phase = 1 - 1 / float(2**b)
+    max_negative_delta_phase = -1 + 1 / float(2**b)
+    max_positive_delta_phase = (max_positive_delta_phase * float(np.pi) *
+                                correlator.sample_rate_hz)
+    max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) *
+                                correlator.sample_rate_hz)
+    return {
+        'max_delay': max_delay,
+        'min_delay': min_delay,
+        'max_positive_delta_delay': max_positive_delta_delay,
+        'max_negative_delta_delay': max_negative_delta_delay,
+        'max_positive_phase_offset': max_positive_phase_offset,
+        'max_negative_phase_offset': max_negative_phase_offset,
+        'max_positive_delta_phase': max_positive_delta_phase,
+        'max_negative_delta_phase': max_negative_delta_phase
+    }
