@@ -167,7 +167,6 @@ class test_CBF(unittest.TestCase):
                     self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                     self.corr_fix.start_x_data()
                     self.corr_fix.issue_metadata()
-                    self.correlator.est_synch_epoch()
                     # This function disables matplotlib's deprecation warnings
                     disable_maplotlib_warning()
                     return True
@@ -1244,12 +1243,12 @@ class test_CBF(unittest.TestCase):
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
         Aqf.step('Configure digitiser simulator to generate gaussian noise.')
-        #self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.0645,
-            fft_shift=511, gain='113+0j')
-        if not dsim_set_success:
-            Aqf.failed('Failed to configure digitise simulator levels')
-            return False
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.0645,
+            #fft_shift=511, gain='113+0j')
+        #if not dsim_set_success:
+            #Aqf.failed('Failed to configure digitise simulator levels')
+            #return False
 
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
@@ -1274,11 +1273,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
-            # TODO: (MM) 2015-10-21 get sync time from digitiser
-            # We believe that sync time should be the digitiser sync epoch but
-            # in the dsim this is not an int, so we using correlator value for now
-            sync_time = initial_dump['sync_time'].value
-            # sync_time = self.correlator.synchronisation_epoch
+            sync_time = self.correlator.get_synch_time()
             scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
             time_stamp = initial_dump['timestamp'].value
             n_accs = initial_dump['n_accs'].value
@@ -1305,8 +1300,8 @@ class test_CBF(unittest.TestCase):
                 # Choose baseline for phase comparison
                 baseline_index = baseline_lookup[(ref_source, test_source)]
             except KeyError:
-                Aqf.failed('Initial SPEAD packet does not contain correct baseline ordering format.')
-                           #'Initial dump bls ordering: {}'.format(initial_dump['bls_ordering'].value))
+                Aqf.failed('Initial SPEAD packet does not contain correct baseline'
+                           ' ordering format.')
                 return False
             else:
                 return {
@@ -2356,9 +2351,8 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
         setup_data = self._delays_setup()
         if setup_data:
-            self.correlator.est_synch_epoch()
             sampling_period = self.corr_freqs.sample_period
-            no_chans = range(len(self.corr_freqs.chan_freqs))
+            no_chans = range(self.corr_freqs.n_chans)
 
             test_delays = [0., sampling_period, 1.5 * sampling_period,
                            2 * sampling_period]
@@ -2383,16 +2377,20 @@ class test_CBF(unittest.TestCase):
 
                     future_time = 900e-3
                     settling_time = 600e-3
-                    dump_timestamp = (this_freq_dump['sync_time'].value +
+                    roundtrip = 0.03
+                    sync_time = self.correlator.get_synch_time()
+                    if sync_time == -1:
+                        sync_time = this_freq_dump['sync_time'].value
+                    dump_timestamp = (roundtrip + sync_time +
                                       this_freq_dump['timestamp'].value /
                                       this_freq_dump['scale_factor_timestamp'].value)
-                    t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
+                    t_apply = (dump_timestamp + 10 * this_freq_dump['int_time'].value +
                                future_time)
-                    reply = self.corr_fix.katcp_rct.req.delays(
-                        t_apply, *delay_coefficients)
-                    Aqf.is_true(reply.reply.reply_ok(),
+                    reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
+                                                               *delay_coefficients)
+                    Aqf.is_true(reply.reply_ok(),
                                 'Delays Reply: {}, Intergration time:{}s'.format(
-                                    reply.reply.arguments[1], this_freq_dump['int_time'].value))
+                                reply.arguments[1], this_freq_dump['int_time'].value))
                     Aqf.wait(settling_time,
                              'Settling time in order to set delay: {} ns.'.format(delay * 1e9))
 
