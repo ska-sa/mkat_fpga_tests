@@ -1243,12 +1243,16 @@ class test_CBF(unittest.TestCase):
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
         Aqf.step('Configure digitiser simulator to generate gaussian noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.0645,
-            #fft_shift=511, gain='113+0j')
-        #if not dsim_set_success:
-            #Aqf.failed('Failed to configure digitise simulator levels')
-            #return False
+        #self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        
+        awgn_scale=0.0645
+        gain='113+0j'
+        fft_shift=511
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
+            fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
 
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
@@ -1496,10 +1500,21 @@ class test_CBF(unittest.TestCase):
         last_source_freq = None
 
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
-        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.045,
-            cw_scale=0.675, freq=expected_fc, fft_shift=8191*8, gain='31+0j')
-            #cw_scale=0.675, freq=expected_fc, fft_shift=8191, gain='11+0j')
+        if self.corr_freqs.n_chans == 4096:
+            ## 4K
+            cw_scale=0.675
+            awgn_scale=0.05
+            gain='11+0j'
+            fft_shift=8191
+        else:
+            # 32K
+            cw_scale=0.375
+            awgn_scale=0.1
+            gain='10+0j'
+            fft_shift=32767
+
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
+            cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
@@ -1537,7 +1552,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
                             .format(i + 1, len(requested_test_freqs), freq / 1e6))
 
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.675)
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
