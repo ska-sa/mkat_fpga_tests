@@ -2107,7 +2107,7 @@ class test_CBF(unittest.TestCase):
                 for comparison in xrange(1, len(dumps_data)):
                     d0 = dumps_data[0]
                     d1 = dumps_data[comparison]
-                    diff_dumps.append(np.max(d0 - d1))
+                    diff_dumps.append(np.max(d0) - np.max(d1))
 
                 dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
                 msg = ('Check that back-to-back accumulations({}) with the same frequency '
