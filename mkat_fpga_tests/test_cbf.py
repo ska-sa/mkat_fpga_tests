@@ -2425,7 +2425,7 @@ class test_CBF(unittest.TestCase):
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                    units, file_name, title, caption)
             expected_phases = [phase for rads, phase in get_expected_phases()]
-            tolerance = 1e-2
+            tolerance = 1.0
             decimal = len(str(tolerance).split('.')[-1])
 
             for i, delay in enumerate(test_delays):
@@ -2433,7 +2433,7 @@ class test_CBF(unittest.TestCase):
                 delta_expected = np.max(expected_phases[i]) - np.min(expected_phases[i])
                 msg = (
                     'Check if difference expected({0:.5f}) and actual({1:.5f}) '
-                    'phases are equal at delay {2:.5f}ns within {3} tolerance.'.format(
+                    'phases are equal at delay {2:.5f}ns within {3} degree.'.format(
                         delta_expected, delta_actual, delay * 1e9, tolerance))
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance, msg)
                 try:
@@ -2442,14 +2442,14 @@ class test_CBF(unittest.TestCase):
                     np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
                 except AssertionError:
                     Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                             'phases are not equal at delay {2:.5f}ns within {3} tolerance.'.format(
+                             'phases are not equal at delay {2:.5f}ns within {3} degree.'.format(
                              delta_expected, delta_actual, delay * 1e9, tolerance))
 
                     chan_response = [responses for test_delays_, responses in actual_response
                                      if test_delays_ == delay][0]
                     caption = (
                         'Difference expected({0:.5f}) and actual({1:.5f}) phases'
-                        ' are not equal at delay {2:.5f}ns within {3} tolerance.'.format(
+                        ' are not equal at delay {2:.5f}ns within {3} degree.'.format(
                         delta_expected, delta_actual, delay * 1e9, tolerance))
                     plt_filename = '{}_{}_chan_resp.png'.format(self._testMethodName, i)
                     plt_title = 'Log: Channel response at {}ns'.format(delay)
@@ -2461,7 +2461,7 @@ class test_CBF(unittest.TestCase):
                 msg = (
                     'Check that when a delay of {0} clock cycle({1:.5f} ns) is introduced '
                     'there is a change of phase of {2:.5f} degrees as expected to within '
-                    '{3} tolerance.'.format((count + 1) * .5, delay * 1e9,
+                    '{3} degree.'.format((count + 1) * .5, delay * 1e9,
                         np.rad2deg(np.pi) * (count + 1) * .5, tolerance))
                 aqf_array_abs_error_less(
                     actual_phases[count][1:], expected_phases[count][1:], msg, tolerance)
@@ -3043,7 +3043,7 @@ class test_CBF(unittest.TestCase):
 
             # Ignoring first dump because the delays might not be set for full
             # integration.
-            tolerance = 1e-5
+            tolerance = 1.0
             decimal = len(str(tolerance).split('.')[-1])
             actual_phases = np.unwrap(actual_phases)
             expected_phases = np.unwrap([phase for label, phase in expected_phases])
@@ -3055,7 +3055,7 @@ class test_CBF(unittest.TestCase):
 
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
                                   'Check if difference expected({}) and actual({}) '
-                                  'phases are equal withing {} tolerance when fringe offset is {}.'
+                                  'phases are equal withing {} degree when fringe offset is {}.'
                                   .format(delta_expected, delta_actual, tolerance, fringe_offset))
 
                 Aqf.less(abs_diff, 1,
@@ -3070,10 +3070,10 @@ class test_CBF(unittest.TestCase):
 
                 except AssertionError:
                     Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                             'phases are not equal within {2} tolerance when fringe offset is {3}.'
+                             'phases are not equal within {2} degree when fringe offset is {3}.'
                              .format(delta_expected, delta_actual, tolerance, fringe_offset))
                     caption = ('Difference expected({0:.5f}) and actual({1:.5f}) phases '
-                               'are not equal within {2} tolerance when fringe offset is {3}.'.format(
+                               'are not equal within {2} degree when fringe offset is {3}.'.format(
                                delta_expected, delta_actual, tolerance, fringe_offset))
                     aqf_plot_channels(
                         actual_response[-1],
@@ -3128,7 +3128,7 @@ class test_CBF(unittest.TestCase):
             # TODO MM 2015-10-22
             # Ignoring first dump because the delays might not be set for full
             # integration.
-            tolerance = 0.01
+            tolerance = 1.0
             decimal = len(str(tolerance).split('.')[-1])
             expected_phases = np.unwrap([phase for label, phase in expected_phases])
             for i in xrange(1, len(expected_phases) - 1):
@@ -3138,7 +3138,7 @@ class test_CBF(unittest.TestCase):
 
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
                                   'Check if difference expected({0:.5f}) and actual({1:.5f}) '
-                                  'phases are equal withing {2} tolerance when delay rate is {3}.'
+                                  'phases are equal withing {2} degree when delay rate is {3}.'
                                   .format(delta_expected, delta_actual, tolerance, delay_rate))
 
                 Aqf.less(abs_diff, 1,
@@ -3152,11 +3152,11 @@ class test_CBF(unittest.TestCase):
 
                 except AssertionError:
                     Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                             'phases are not equal withing {2} tolerance when delay rate is {3}.'
+                             'phases are not equal withing {2} degree when delay rate is {3}.'
                              .format(delta_expected, delta_actual, tolerance, delay_rate))
                     legends = ['Response per SPEAD packet #{}'.format(x) for x in xrange(len(actual_response))]
                     caption = ('Difference expected({0:.5f}) and actual({1:.5f}) '
-                               'phases are not equal withing {2} tolerance when delay rate is {3}.'.format(
+                               'phases are not equal withing {2} degree when delay rate is {3}.'.format(
                                delta_expected, delta_actual, tolerance, delay_rate))
                     aqf_plot_channels(
                         zip(actual_response, legends), '{}_chan_resp.png'.format(
@@ -3210,7 +3210,7 @@ class test_CBF(unittest.TestCase):
 
             # NOTE: Ignoring first dump because the delays might not be set for full
             # intergration.
-            tolerance = 0.01
+            tolerance = 1.0
             decimal = len(str(tolerance).split('.')[-1])
             actual_phases = np.unwrap(actual_phases)
             expected_phases = np.unwrap([phase for label, phase in expected_phases])
@@ -3222,7 +3222,7 @@ class test_CBF(unittest.TestCase):
 
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
                                   'Check if difference expected({0:.5f}) and actual({1:.5f}) '
-                                  'phases are equal within {2} tolerance when fringe rate is {3}.'
+                                  'phases are equal within {2} degree when fringe rate is {3}.'
                                   .format(delta_expected, delta_actual, tolerance, fringe_rate))
 
                 Aqf.less(abs_diff, 1,
@@ -3236,13 +3236,13 @@ class test_CBF(unittest.TestCase):
                     np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
                 except AssertionError:
                     Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
-                             'phases are not equal within {2} tolerance when fringe rate is {3}.'
+                             'phases are not equal within {2} degree when fringe rate is {3}.'
                              .format(delta_expected, delta_actual, tolerance, fringe_rate))
 
                     legends = ['Response per SPEAD packet #{}'.format(x) for x in xrange(len(
                                 actual_response))]
                     caption = ('Difference expected({0:.5f}) and actual({1:.5f}) phases '
-                               'are not equal within {2} tolerance when fringe rate is {3}.'.format(
+                               'are not equal within {2} degree when fringe rate is {3}.'.format(
                                delta_expected, delta_actual, tolerance, fringe_rate))
                     aqf_plot_channels(
                         zip(actual_response, legends),
@@ -3306,7 +3306,7 @@ class test_CBF(unittest.TestCase):
 
             # Ignoring first dump because the delays might not be set for full
             # integration.
-            tolerance = 0.01
+            tolerance = 1.0
             actual_phases = np.unwrap(actual_phases)
             expected_phases = np.unwrap([phase for label, phase in expected_phases])
             for i in xrange(1, len(expected_phases) - 1):
@@ -3316,7 +3316,7 @@ class test_CBF(unittest.TestCase):
 
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
                                   'Check if difference expected({0:.5f}) and actual({1:.5f}) '
-                                  'phases are equal withing {2} tolerance when delay rate is {}.'
+                                  'phases are equal withing {2} degree when delay rate is {}.'
                                   .format(delta_expected, delta_actual, tolerance, delay_rate))
                 # TODO Plot spectrums if test fails as per above tests
                 Aqf.less(abs_diff, 1,
