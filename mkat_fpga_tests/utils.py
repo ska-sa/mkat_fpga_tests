@@ -309,12 +309,9 @@ def get_source_object_and_index(instrument, input_name):
     """Return the DataSource object and local roach source index for a given input"""
     # Todo MM 2015-10-22
     # Check and fix the hardcoded stuffs
-    source = [s['source'].name for s in instrument.fengine_sources
-              if s['source'].name == input_name][0]
-    source_index = [i for i, s in enumerate(source.host.data_sources)
-                    if s.name == source.name][0]
-    return source, source_index
-
+    return [(s['source'].name ,s['source_num'])
+            for s in instrument.fengine_sources
+            if s['source'].name == input_name][0]
 
 def set_coarse_delay(instrument, input_name, value=0):
     """ Sets coarse delay(default = 1) for Correlator baseline input.
@@ -666,10 +663,13 @@ def get_delay_bounds(correlator):
     b = int(b_str[1:len(b_str)-1].rsplit(' ')[1])
     max_positive_delta_phase = 1 - 1 / float(2**b)
     max_negative_delta_phase = -1 + 1 / float(2**b)
+    # As per fhost_fpga
+    bitshift_schedule = 23
+    bitshift = (2**bitshift_schedule)
     max_positive_delta_phase = (max_positive_delta_phase * float(np.pi) *
-                                correlator.sample_rate_hz)
+                                correlator.sample_rate_hz) / bitshift
     max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) *
-                                correlator.sample_rate_hz)
+                                correlator.sample_rate_hz) / bitshift
     return {
         'max_delay': max_delay,
         'min_delay': min_delay,

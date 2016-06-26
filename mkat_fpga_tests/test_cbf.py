@@ -1244,6 +1244,12 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         Aqf.step('Configure digitiser simulator to generate gaussian noise.')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.0645,
+            #fft_shift=511, gain='113+0j')
+        #if not dsim_set_success:
+            #Aqf.failed('Failed to configure digitise simulator levels')
+            #return False
+
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
             self.correlator.n_antennas * 2)]
@@ -2366,6 +2372,7 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
         setup_data = self._delays_setup()
         if setup_data:
+            #self.correlator.est_synch_epoch()
             sampling_period = self.corr_freqs.sample_period
             no_chans = range(self.corr_freqs.n_chans)
 
@@ -2766,7 +2773,8 @@ class test_CBF(unittest.TestCase):
                                                 test_freq))
             filename = (
                 '{}_chan_resp_{}_acc.png'.format(self._testMethodName, vacc_accumulations))
-            if not aqf_numpy_almost_equal(expected_response, actual_response[:chan_index], msg):
+            if not aqf_numpy_almost_equal(expected_response.real, actual_response[:chan_index].real, msg):
+                Aqf.hop('Odd actual value at {}'.format(np.argmax(actual_response[:chan_index].real)))
                 aqf_plot_channels(actual_response,
                                   plot_filename=filename,
                                   plot_title='Vector Accumulation Length',
@@ -3014,13 +3022,13 @@ class test_CBF(unittest.TestCase):
 
     def _test_fringe_offset(self):
         """CBF per-antenna phase error -- Fringe offset"""
-        # TODO Randomise test values
         setup_data = self._delays_setup()
         if setup_data:
             get_fringe_ranges = get_delay_bounds(self.correlator)
             min_fringe_offset = get_fringe_ranges['max_negative_phase_offset']
             max_fringe_offset = get_fringe_ranges['max_positive_phase_offset']
-            fringe_offset = randrange(min_fringe_offset, max_fringe_offset, int=float)
+            fringe_offset = randrange(min_fringe_offset, max_fringe_offset,
+                                      default=max_fringe_offset/2., int=float)
             dump_counts = 5
             delay_value = 0
             delay_rate = 0
@@ -3065,7 +3073,6 @@ class test_CBF(unittest.TestCase):
                 delta_expected = np.max(expected_phases[i])
                 delta_actual = np.max(actual_phases[i])
                 abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
                                   'Check if difference expected({}) and actual({}) '
                                   'phases are equal withing {} degree when fringe offset is {}.'
@@ -3106,7 +3113,7 @@ class test_CBF(unittest.TestCase):
             delay_rate = randrange(delay_min, delay_max, int=float)
             dump_counts = 5
             delay_value = 0
-            #delay_rate = setup_data['sample_period'] / setup_data['int_time']
+            delay_rate = setup_data['sample_period'] / setup_data['int_time']
             fringe_offset = 0
             fringe_rate = 0
             load_time = setup_data['t_apply']
@@ -3186,11 +3193,11 @@ class test_CBF(unittest.TestCase):
             min_fringe_rate = get_fringe_ranges['max_negative_delta_phase']
             max_fringe_rate = get_fringe_ranges['max_positive_delta_phase']
             fringe_rate = randrange(min_fringe_rate, max_fringe_rate, int=float)
+            #fringe_rate = (np.pi / 8.) / setup_data['int_time']
             dump_counts = 5
             delay_value = 0
             delay_rate = 0
             fringe_offset = 0
-            #fringe_rate = (np.pi / 8.) / setup_data['int_time']
             load_time = setup_data['t_apply']
             fringe_rates = [0] * setup_data['num_inputs']
             fringe_rates[setup_data['test_source_ind']] = fringe_rate
