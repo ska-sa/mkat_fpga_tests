@@ -1194,6 +1194,18 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_roach_sensors_status()
 
+    @aqf_vr('TP.C.4.1')
+    def test_generic_power_consumption(self, instrument='bc8n856M4k'):
+        """CBF Power Consumption (AR1)"""
+        if not self.corr_fix.get_running_intrument():
+            _running_inst = self.corr_fix.get_running_intrument()
+        else:
+            _running_inst = instrument
+        Aqf.step('CBF Power Consumption: {}\n'.format(_running_inst))
+        if self.set_instrument(_running_inst):
+            self._systems_tests()
+            self._test_power_consumption()
+
     def _systems_tests(self):
         """Run tests fft overflow and qdr status before or after."""
         self.last_pfb_counts = get_pfb_counts(
@@ -2445,6 +2457,7 @@ class test_CBF(unittest.TestCase):
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                    units, file_name, title, caption)
             expected_phases = [phase for rads, phase in get_expected_phases()]
+
             tolerance = 1.0
             decimal = len(str(tolerance).split('.')[-1])
 
@@ -3230,6 +3243,7 @@ class test_CBF(unittest.TestCase):
 
             # NOTE: Ignoring first dump because the delays might not be set for full
             # intergration.
+
             tolerance = 1.0
             decimal = len(str(tolerance).split('.')[-1])
             actual_phases = np.unwrap(actual_phases)
@@ -4757,3 +4771,7 @@ class test_CBF(unittest.TestCase):
                            'samples.'.format(key))
                 Aqf.failed('{} saturated samples found'.format(ret_dict[key]['num_sat']))
         return ret_dict
+
+
+    def test_power_consumption(self):
+        pass
