@@ -78,9 +78,9 @@ def nonzero_baselines(xeng_raw):
 
 def all_nonzero_baselines(xeng_raw):
     """Return baseline indices that have all non-zero data"""
-    non_zerobls = (xeng_raw,
-                   lambda bldata: np.all(np.linalg.norm(bldata.astype(np.float64), axis=1) != 0))
-    return baseline_checker(non_zerobls)
+    non_zerobls = lambda bldata: np.all(
+                                 np.linalg.norm(bldata.astype(np.float64), axis=1) != 0)
+    return baseline_checker(xeng_raw, non_zerobls)
 
 
 def init_dsim_sources(dhost):
