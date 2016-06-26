@@ -1243,17 +1243,7 @@ class test_CBF(unittest.TestCase):
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
         Aqf.step('Configure digitiser simulator to generate gaussian noise.')
-        #self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        
-        awgn_scale=0.0645
-        gain='113+0j'
-        fft_shift=511
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
-            fft_shift=fft_shift, gain=gain)
-        if not dsim_set_success:
-            Aqf.failed('Failed to configure digitise simulator levels')
-            return False
-
+        self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
             self.correlator.n_antennas * 2)]
@@ -1801,12 +1791,22 @@ class test_CBF(unittest.TestCase):
         else:
             print_counts = 4
 
-        # Abitrary frequency
-        cw_scale = 0.675
         Aqf.step('Configure digitiser simulator to generate a continuos wave.')
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,cw_scale=cw_scale,
-                                            freq=self.corr_freqs.bandwidth / 2.0,
-                                            fft_shift=8191, gain='11+0j')
+        if self.corr_freqs.n_chans == 4096:
+            ## 4K
+            cw_scale=0.675
+            awgn_scale=0.05
+            gain='11+0j'
+            fft_shift=8191
+        else:
+            # 32K
+            cw_scale=0.375
+            awgn_scale=0.1
+            gain='10+0j'
+            fft_shift=32767
+
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
+            cw_scale=cw_scale, freq=self.corr_freqs.bandwidth / 2.0, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
