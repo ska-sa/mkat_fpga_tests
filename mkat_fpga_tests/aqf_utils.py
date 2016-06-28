@@ -110,7 +110,8 @@ def aqf_numpy_allclose(result, expected, description, **kwargs):
 
 
 def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
-    """Compares absolute error in numeric result and logs to Aqf.
+    """
+    Compares absolute error in numeric result and logs to Aqf.
 
     Parameters
     ----------
@@ -176,7 +177,8 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
                       log_dynamic_range=None, log_normalise_to=None, normalise=False,
                       caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
                       xlabel=None, show=False):
-    """Simple magnitude plot of a channelised result
+    """
+        Simple magnitude plot of a channelised result
         return: None
 
         Example
@@ -201,8 +203,7 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
 
         If Normalise = True the maximum log value will be subtracted from the loggerised
         data.
-
-        """
+    """
     try:
         if not isinstance(channelisation[0], tuple):
             channelisation = ((channelisation, None),)
@@ -242,10 +243,10 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
     axis.set_ybound(*new_ybound)
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
-                   loc='center left', bbox_to_anchor=(1, .90),
+                   loc='center left', bbox_to_anchor=(1, .88),
                    borderaxespad=0.).set_alpha(0.5)
     if hlines:
-        plt.axhline(hlines, linestyle='--', linewidth=0.5)
+        plt.axhline(hlines, label='{}dB: Cutoff'.format(hlines), linestyle='--', linewidth=0.5)
     if ylimits:
         plt.ylim(ylimits)
     # plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
@@ -260,7 +261,7 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None, 
                        show=False):
     """Simple histogram plot of a data set
         return: None
-        """
+    """
     plt.grid(True)
     plt.hist(data_set, bins=bins, range=ranges)
     if plot_title:

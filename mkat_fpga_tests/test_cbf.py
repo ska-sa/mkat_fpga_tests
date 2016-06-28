@@ -119,7 +119,8 @@ class test_CBF(unittest.TestCase):
         except TimeoutError:
             reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
             errmsg = ('Timed-Out: Failed to set accumulation time withing {}s, '
-                     'SubArray will be halted and restarted with next test'.format(acc_timeout))
+                     '[CBF-REQ-0064] SubArray will be halted and restarted with next test'.format(
+                     acc_timeout))
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return False
@@ -127,7 +128,8 @@ class test_CBF(unittest.TestCase):
         except AttributeError:
             reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
             errmsg = ('Failed to set accumulation time withing {}s, due to katcp request errors. '
-                      'SubArray will be halted and restarted with next test'.format(acc_timeout))
+                      '[CBF-REQ-0064] SubArray will be halted and restarted with next test'.format(
+                      acc_timeout))
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return False
@@ -140,7 +142,8 @@ class test_CBF(unittest.TestCase):
                 reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
                 return False
             else:
-                Aqf.step('Accumulation time set: {}s'.format(reply.reply.arguments[-1]))
+                Aqf.step('[CBF-REQ-0071, 0204] Accumulation time set: {}s'.format(
+                    reply.reply.arguments[-1]))
                 self.addCleanup(self.corr_fix.stop_x_data)
                 try:
                     corrRx_port = int(self.test_conf['inst_param']['corr_rx_port'])
@@ -304,7 +307,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_intrument()
             Aqf.step('Test spurious free dynamic range for wideband fine: {}\n'.format(_running_inst))
             self._systems_tests()
-            self._test_sfdr_peaks(required_chan_spacing=[15e3, 30e3], no_channels=32768, stepsize=8)  #Hz
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  #Hz
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -1255,20 +1258,30 @@ class test_CBF(unittest.TestCase):
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
         Aqf.step('Configure digitiser simulator to generate gaussian noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.0645,
-            #fft_shift=511, gain='113+0j')
-        #if not dsim_set_success:
-            #Aqf.failed('Failed to configure digitise simulator levels')
-            #return False
+        if self.corr_freqs.n_chans == 4096:
+            ## 4K
+            awgn_scale=0.25
+            gain='511+0j'
+            fft_shift=8191
+        else:
+            # 32K
+            awgn_scale=0.063
+            gain='344+0j'
+            fft_shift=4095
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
+            fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
 
         self.correlator.est_synch_epoch()
         local_src_names = ['input{}'.format(x) for x in xrange(
             self.correlator.n_antennas * 2)]
         reply_, informs = self.corr_fix.katcp_rct.req.input_labels()
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-        Aqf.step('Source names changed from: {} to: {}'.format(str(reply_), str(reply)))
-        Aqf.step('Clearing all coarse and fine delays for all inputs.')
+        Aqf.step('[CBF-REQ-0091, 0204] Source names changed from: {} to: {}'.format(
+            str(reply_), str(reply)))
+        Aqf.step('[CBF-REQ-0110] Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator, self.receiver)
         self.addCleanup(clear_all_delays, self.correlator, self.receiver)
         Aqf.step('Issuing metadata')
@@ -1336,15 +1349,18 @@ class test_CBF(unittest.TestCase):
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=20):
         try:
-            cmd_start_time = time.time()
             Aqf.step('Time apply set to: {}'.format(setup_data['t_apply']))
+            cmd_start_time = time.time()
+            # [CBF-REQ-0066]
             reply = self.corr_fix.katcp_rct.req.delays(
                 setup_data['t_apply'], *delay_coefficients)
-            Aqf.is_true(reply.reply.reply_ok(),
-                        'Delays reply: {}'.format(reply.reply.arguments[1]))
             final_cmd_time = time.time() - cmd_start_time
-            Aqf.passed('Time it takes to load delays {} ms with intergration time {} ms'
-                       .format(final_cmd_time / 100e-3, setup_data['int_time'] / 100e-3))
+            Aqf.is_true(reply.reply.reply_ok(),
+                        '[CBF-REQ-0066, 0072]: Delays set via CAM int; reply : {}'.format(
+                        reply.reply.arguments[1]))
+            Aqf.passed('[CBF-REQ-0077] Time it takes to load delays {} ms with'
+                       ' intergration time {} ms'.format(final_cmd_time / 100e-3,
+                       setup_data['int_time'] / 100e-3))
 
         except:
             errmsg = 'Failed to set delays'
@@ -1359,7 +1375,7 @@ class test_CBF(unittest.TestCase):
             dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
                               setup_data['scale_factor_timestamp'])
             if (np.abs(dump_timestamp - last_discard) < 0.05 * setup_data['int_time']):
-                Aqf.step('Received final accumulation before fringe '
+                Aqf.step('[CBF-REQ-0077] Received final accumulation before fringe '
                          'application with timestamp {}.'.format(dump_timestamp))
                 break
 
@@ -1498,9 +1514,11 @@ class test_CBF(unittest.TestCase):
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
+        # [CBF-REQ-0053]
+        min_bandwithd_req = 770e6
         # [CBF-REQ-0126] CBF channel isolation
         cutoff = -53 #dB
-
+        Aqf.hop('[CBF-REQ-0126] CBF channel isolation: {}dB'.format(cutoff))
         # Placeholder of actual frequencies that the signal generator produces
         actual_test_freqs = []
         # Channel magnitude responses for each frequency
@@ -1517,8 +1535,8 @@ class test_CBF(unittest.TestCase):
         else:
             # 32K
             cw_scale=0.375
-            awgn_scale=0.1
-            gain='10+0j'
+            awgn_scale=0.085
+            gain='11+0j'
             fft_shift=32767
 
         dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
@@ -1535,12 +1553,18 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             Aqf.equals(initial_dump['xeng_raw'].value.shape[0], no_channels,
-                       'Capture an initial correlator SPEAD packet, determine the number of channels '
-                       'and processing bandwidth: {}Hz.'.format(initial_dump['bandwidth'].value))
+                       'Capture an initial correlator SPEAD packet, '
+                       'determine the number of channels: {}'.format(
+                       initial_dump['xeng_raw'].value.shape[0]))
+            Aqf.is_true(initial_dump['bandwidth'].value >= min_bandwithd_req,
+                       '[CBF-REQ-0053] Channelise total bandwidth {}Hz shall be >= {}Hz.'.format(
+                        initial_dump['bandwidth'].value, min_bandwithd_req))
             chan_spacing = initial_dump['bandwidth'].value / initial_dump['xeng_raw'].value.shape[0]
             # [CBF-REQ-0043]
+            # [CBF-REQ-0046]
             Aqf.is_true((req_chan_spacing / 2) <= chan_spacing <= req_chan_spacing,
-                'Verify that the calculated channel frequency step size is between {} and {} Hz'.format(
+                '[CBF-REQ-0043, 0046, 0053, 0198]: Verify that the calculated channel '
+                'frequency step size is between {} and {} Hz'.format(
                 req_chan_spacing / 2, req_chan_spacing))
 
 
@@ -1604,6 +1628,7 @@ class test_CBF(unittest.TestCase):
                     log_dynamic_range=90, caption=plt_caption, hlines=cutoff)
 
         # Test fft overflow and qdr status after
+        Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors.')
         check_fftoverflow_qdrstatus(self.correlator, self.last_pfb_counts)
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
@@ -1823,8 +1848,11 @@ class test_CBF(unittest.TestCase):
             gain='10+0j'
             fft_shift=32767
 
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
-            cw_scale=cw_scale, freq=self.corr_freqs.bandwidth / 2.0, fft_shift=fft_shift, gain=gain)
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
+                                            awgn_scale=awgn_scale,
+                                            cw_scale=cw_scale,
+                                            freq=self.corr_freqs.bandwidth / 2.0,
+                                            fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
@@ -1837,13 +1865,15 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             Aqf.equals(initial_dump['xeng_raw'].value.shape[0], no_channels,
-                       'Capture an initial correlator SPEAD packet, determine the number of channels '
-                       'and processing bandwidth: {}Hz.'.format(initial_dump['bandwidth'].value))
-            chan_spacing = initial_dump['bandwidth'].value/initial_dump['xeng_raw'].value.shape[0]
+                       'Capture an initial correlator SPEAD packet, determine '
+                       'the number of channels and processing bandwidth: {}Hz.'.format(
+                       initial_dump['bandwidth'].value))
+            chan_spacing = (initial_dump['bandwidth'].value /
+                            initial_dump['xeng_raw'].value.shape[0])
             # [CBF-REQ-0043]
-            Aqf.less(chan_spacing, required_chan_spacing,
-                    'Verify that the calculated channel frequency step size is <= {} Hz'.format(
-                    required_chan_spacing))
+            Aqf.is_true((required_chan_spacing / 2) <= chan_spacing <= required_chan_spacing,
+                'Verify that the calculated channel frequency step size is between '
+                '{} and {} Hz'.format(required_chan_spacing / 2, required_chan_spacing))
 
         Aqf.step('Sweeping the digitiser simulator over the all channels that fall '
                  'within the complete L-band.')
@@ -1854,25 +1884,26 @@ class test_CBF(unittest.TestCase):
             if stepsize:
                 channel *= stepsize
             if channel < print_counts:
-                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
-                         .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'.format(
+                    channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             elif channel > (n_chans - print_counts):
-                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
-                         .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'.format(
+                    channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             else:
-                LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
-                            .format(channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+                LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+                    channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
             try:
-                this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
+                this_freq_data = self.receiver.get_clean_dump(
+                    DUMP_TIMEOUT)['xeng_raw'].value
             except Queue.Empty:
                 spead_failure_counter += 1
-                errmsg = 'Could not retrieve clean SPEAD packet, as #{} Queue is Empty.'.format(
-                spead_failure_counter)
+                errmsg = ('Could not retrieve clean SPEAD packet, as #{} Queue is'
+                         ' Empty.'.format(spead_failure_counter))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if spead_failure_counter > 5:
@@ -1889,8 +1920,8 @@ class test_CBF(unittest.TestCase):
 
                 if channel in (n_chans // 10, n_chans // 2, 9 * n_chans // 10):
                     aqf_plot_channels(
-                        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
-                        hlines=-cutoff)
+                        this_freq_response, plt_filename, plt_title,
+                        log_dynamic_range=90, hlines=-cutoff)
 
                 max_chan = np.argmax(this_freq_response)
                 max_channels.append(max_chan)
@@ -1904,6 +1935,15 @@ class test_CBF(unittest.TestCase):
         if max_channels == channel_range:
             Aqf.passed('Check that the correct channels have the peak '
                        'response to each frequency')
+        elif stepsize is not None:
+            diff = list(set(range(start_chan,self.corr_freqs.n_chans, stepsize)) - set(
+                        max_channels))
+            if diff == []:
+                Aqf.passed('Check that the correct channels have the peak '
+                           'response to each frequency')
+            else:
+                Aqf.failed('Channel(s) {} does not have the correct peak response to '
+                           'each frequency'.format(diff))
         else:
             LOGGER.info('Expected: {}\n\nGot: {}'.format(max_channels, channel_range))
             Aqf.failed('Check that the correct channels have the peak '
@@ -1920,10 +1960,20 @@ class test_CBF(unittest.TestCase):
 
     def _test_product_baselines(self):
         set_default_eq(self.correlator)
-        noise_scale = 0.05
-        Aqf.step('Dsim configured to generate correlated noise: scale @ {}.'.format(noise_scale))
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=noise_scale,
-            fft_shift=511, gain='113+0j')
+
+        Aqf.step('Configure digitiser simulator to generate gaussian noise.')
+        if self.corr_freqs.n_chans == 4096:
+            ## 4K
+            awgn_scale=0.05
+            gain='113+0j'
+            fft_shift=511
+        else:
+            # 32K
+            awgn_scale=0.063
+            gain='344+0j'
+            fft_shift=4095
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
+            fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
@@ -1948,11 +1998,12 @@ class test_CBF(unittest.TestCase):
             bls_ordering = test_dump['bls_ordering'].value
             Aqf.hop('Get list of all the correlator input labels that where set from config file')
             input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
-            Aqf.step('Get list of all the baselines present in the correlator output from spead packet')
+            Aqf.step('[CBF-REQ-0087] Get list of all the baselines present in the '
+                     'correlator output from spead packet')
             baselines_lookup = get_baselines_lookup(test_dump)
             present_baselines = sorted(baselines_lookup.keys())
 
-            Aqf.step('List of all possible baselines (including redundant baselines) '
+            Aqf.step('[CBF-REQ-0087] List of all possible baselines (including redundant baselines) '
                      'for the given list of inputs')
             possible_baselines = set()
             for li in input_labels:
@@ -1960,8 +2011,8 @@ class test_CBF(unittest.TestCase):
                     possible_baselines.add((li, lj))
 
             test_bl = sorted(list(possible_baselines))
-            Aqf.step('Check that each baseline (or its reverse-order counterpart) is present '
-                     'in the correlator output')
+            Aqf.step('[CBF-REQ-0087] Check that each baseline (or its reverse-order '
+                     'counterpart) is present in the correlator output')
             baseline_is_present = {}
             for test_bl in possible_baselines:
                 baseline_is_present[test_bl] = (test_bl in present_baselines or
@@ -1974,7 +2025,7 @@ class test_CBF(unittest.TestCase):
                               (input_labels[-1], input_labels[-1]),
                               (input_labels[-1], input_labels[-2]))
             plot_baseline_inds = tuple((baselines_lookup[bl] if bl in baselines_lookup
-                                        else baselines_lookup[bl[::-1]])
+                                       else baselines_lookup[bl[::-1]])
                                        for bl in plot_baselines)
 
             plot_baseline_legends = tuple(
@@ -1982,13 +2033,14 @@ class test_CBF(unittest.TestCase):
                 for bl, ind in zip(plot_baselines, plot_baseline_inds))
 
             Aqf.is_true(all(baseline_is_present.values()),
-                        'Check that all baselines are present in correlator output.')
+                        '[CBF-REQ-0087] Check that all baselines are present in correlator output.')
             test_data = test_dump['xeng_raw'].value
-            Aqf.step('Expect all baselines and all channels to be non-zero with correlator noise')
+            Aqf.step('[CBF-REQ-0213] Expect all baselines and all channels to be non-zero with '
+                     'correlator noise')
             Aqf.is_false(zero_baselines(test_data),
-                         'Check that no baselines have all-zero visibilities')
+                         '[CBF-REQ-0213] Check that no baselines have all-zero visibilities')
             Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data),
-                       'Check that all baseline visibilities are non-zero across '
+                       '[CBF-REQ-0213] Check that all baseline visibilities are non-zero across '
                        'all channels')
             Aqf.step('Save initial f-engine equalisations, and ensure they are restored '
                      'at the end of the test')
@@ -2033,7 +2085,8 @@ class test_CBF(unittest.TestCase):
             for inp in input_labels:
                 old_eq = complex(initial_equalisations[inp][0])
                 reply, informs = self.corr_fix.katcp_rct.req.gain(inp, old_eq)
-                msg = 'Gain correction on input {} set to {}.'.format(inp, old_eq)
+                msg = '[CBF-REQ-0071] Gain correction on input {} set to {}.'.format(
+                    inp, old_eq)
                 if reply.reply_ok():
                     Aqf.passed(msg)
                     zero_inputs.remove(inp)
@@ -2173,7 +2226,6 @@ class test_CBF(unittest.TestCase):
         else:
             cw_scale = 0.675
             Aqf.step('Digitiser simulator configured to generate continuous wave')
-
             Aqf.step('Selected test channel {} and Frequency {}MHz'.format(
                 test_chan, expected_fc / 1e6))
             for scan_i in xrange(3):
@@ -2409,7 +2461,6 @@ class test_CBF(unittest.TestCase):
                     delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
                     this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
 
-                    future_time = 900e-3
                     settling_time = 600e-3
                     roundtrip = 0.03
                     sync_time = self.correlator.get_synch_time()
@@ -2418,8 +2469,7 @@ class test_CBF(unittest.TestCase):
                     dump_timestamp = (roundtrip + sync_time +
                                       this_freq_dump['timestamp'].value /
                                       this_freq_dump['scale_factor_timestamp'].value)
-                    t_apply = (dump_timestamp + 10 * this_freq_dump['int_time'].value +
-                               future_time)
+                    t_apply = (dump_timestamp + 10 * this_freq_dump['int_time'].value)
                     reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
                                                                *delay_coefficients)
                     Aqf.is_true(reply.reply_ok(),
@@ -2465,7 +2515,7 @@ class test_CBF(unittest.TestCase):
                 delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
                 delta_expected = np.max(expected_phases[i]) - np.min(expected_phases[i])
                 msg = (
-                    'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                    '[CBF-REQ-0128] Check if difference expected({0:.5f}) and actual({1:.5f}) '
                     'phases are equal at delay {2:.5f}ns within {3} degree.'.format(
                         delta_expected, delta_actual, delay * 1e9, tolerance))
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance, msg)
@@ -2474,14 +2524,14 @@ class test_CBF(unittest.TestCase):
                     delta_expected_s = delta_expected - (delta_expected % tolerance)
                     np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
                 except AssertionError:
-                    Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                    Aqf.step('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) '
                              'phases are not equal at delay {2:.5f}ns within {3} degree.'.format(
                              delta_expected, delta_actual, delay * 1e9, tolerance))
 
                     chan_response = [responses for test_delays_, responses in actual_response
                                      if test_delays_ == delay][0]
                     caption = (
-                        'Difference expected({0:.5f}) and actual({1:.5f}) phases'
+                        '[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) phases'
                         ' are not equal at delay {2:.5f}ns within {3} degree.'.format(
                         delta_expected, delta_actual, delay * 1e9, tolerance))
                     plt_filename = '{}_{}_chan_resp.png'.format(self._testMethodName, i)
@@ -2492,7 +2542,7 @@ class test_CBF(unittest.TestCase):
 
             for delay, count in zip(test_delays, xrange(1, len(expected_phases))):
                 msg = (
-                    'Check that when a delay of {0} clock cycle({1:.5f} ns) is introduced '
+                    '[CBF-REQ-0128] Check that when a delay of {0} clock cycle({1:.5f} ns) is introduced '
                     'there is a change of phase of {2:.5f} degrees as expected to within '
                     '{3} degree.'.format((count + 1) * .5, delay * 1e9,
                         np.rad2deg(np.pi) * (count + 1) * .5, tolerance))
@@ -2524,12 +2574,12 @@ class test_CBF(unittest.TestCase):
             # where numSensors is the number of sensor-list informs sent.
             numSensors = int(numSensors)
             Aqf.equals(numSensors, len(list_informs),
-                       "Check that the instrument's number of sensors are equal to the "
+                       "[CBF-REQ-0068] Check that the instrument's number of sensors are equal to the "
                        "number of sensors in the list.")
 
             array_numSensors = int(array_numSensors)
             Aqf.equals(array_numSensors, len(array_list_informs),
-                       'Check that the number of array sensors are equal to the '
+                       '[CBF-REQ-0068] Check that the number of array sensors are equal to the '
                        'number of sensors in the list.')
 
             # Check that ?sensor-value and ?sensor-list agree about the number
@@ -2547,7 +2597,7 @@ class test_CBF(unittest.TestCase):
             # Request the time synchronisation status using KATCP command
             # "?sensor-value time.synchronised
             Aqf.is_true(sensors_req.sensor_value('time.synchronised').reply.reply_ok(),
-                        'Reading time synchronisation sensor failed!')
+                        '[CBF-REQ-0069] Reading time synchronisation sensor failed!')
 
             # Confirm the CBF replies with " #sensor-value <time>
             # time.synchronised [status value], followed by a "!sensor-value ok 1"
@@ -2561,7 +2611,7 @@ class test_CBF(unittest.TestCase):
             for sensor in self.corr_fix.rct.sensor.values():
                 LOGGER.info(sensor.name + ' :' + str(sensor.get_value()))
                 Aqf.equals(sensor.get_status(), 'nominal',
-                           'Sensor status: {}, {} '.format(sensor.name,
+                           '[CBF-REQ-0178] Sensor status: {}, {} '.format(sensor.name,
                            sensor.get_status()))
 
     def _test_roach_qdr_sensors(self):
@@ -2662,13 +2712,13 @@ class test_CBF(unittest.TestCase):
     def _test_roach_pfb_sensors(self):
         """Sensor PFB error"""
         array_sensors = self.corr_fix.katcp_rct.sensor
-        Aqf.skipped('PFB sensor test not yet implemented.')
+        Aqf.skipped('[CBF-REQ-0157] PFB sensor test not yet implemented.')
 
     def _test_feng_link_error(self):
         # Select an F-engine that is being used to produce the test data product on
         # which to trigger the link error.
         fhost = self.correlator.fhosts[0]
-
+        # [CBF-REQ-0157]
         # Record the current multicast desitination of one of the F-engine data
         # ethernet ports,
         mul_ip = (fhost.katcprequest('wordread',
@@ -2687,11 +2737,10 @@ class test_CBF(unittest.TestCase):
         restore_ip = fhost.katcprequest('wordwrite',
                                         requested_args=(['iptx_base', '0', mul_ip]))
 
-
     def _test_deng_link_error(self):
         # To set: Disable data output on one of the digitiser simulator's outputs
         # To clear: Enabkle data output on all the digitiser simulator outputs
-        Aqf.tbd('Link Error: D-engine to F-engine test not yet implemented.')
+        Aqf.tbd('[CBF-REQ-0157] Link Error: D-engine to F-engine test not yet implemented.')
 
     def _test_roach_sensors_status(self):
         """ Test all roach sensors status are not failing and count verification."""
@@ -2701,21 +2750,21 @@ class test_CBF(unittest.TestCase):
             # Verify the number of sensors received with
             # number of sensors in the list.
             Aqf.is_true((values_reply.reply_ok() == list_reply.reply_ok()),
-                        '{}: Verify that ?sensor-list and ?sensor-value agree '
-                        'about the number of sensors.'.format(roach.host))
+                        '[CBF-REQ-0068, 0178] {}: Verify that ?sensor-list and ?sensor-value'
+                        ' agree about the number of sensors.'.format(roach.host))
 
             # Check the number of sensors in the list is equal to the list
             # of values received.
             Aqf.equals(len(sensors_list), int(values_reply.arguments[1]),
-                       'Check the number of sensors in the list is equal to the '
-                       'list of values received for {}\n'.format(roach.host))
+                       '[CBF-REQ-0068, 0178] Check the number of sensors in the list is '
+                       'equal to the list of values received for {}\n'.format(roach.host))
 
             for sensor in sensors_values[1:]:
                 sensor_name, sensor_status, sensor_value = (
                     sensor.arguments[2:])
                 # Check if roach sensors are failing
                 Aqf.is_false((sensor_status == 'fail'),
-                             'Roach {}, Sensor name: {}, status: {}'
+                             '[CBF-REQ-0068, 0178] Roach {}, Sensor name: {}, status: {}'
                              .format(roach.host, sensor_name, sensor_status))
 
     def _test_vacc(self, test_chan, chan_index=None):
@@ -2761,16 +2810,19 @@ class test_CBF(unittest.TestCase):
                     'Check that the spectrum is not zero in the test channel')
         # Check that the spectrum is zero except in the test channel
         Aqf.is_true(np.all(quantiser_spectrum[0:test_freq_channel] == 0),
-                    'Check that the spectrum is zero except in the test channel: [0:test_freq_channel]')
+                    'Check that the spectrum is zero except in the test channel:'
+                    ' [0:test_freq_channel]')
         Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel + 1:] == 0),
-                    'Check that the spectrum is zero except in the test channel: [test_freq_channel+1:]')
+                    'Check that the spectrum is zero except in the test channel:'
+                    ' [test_freq_channel+1:]')
 
         chan_response = []
         for vacc_accumulations in test_acc_lens:
             self.correlator.xops.set_acc_len(vacc_accumulations)
-            Aqf.almost_equals(vacc_accumulations, self.correlator.xops.get_acc_len(),
-                              1e-2, 'Confirm that vacc length was set successfully with {}.'.format(
-                    vacc_accumulations))
+            Aqf.almost_equals(vacc_accumulations,
+                              self.correlator.xops.get_acc_len(), 1e-2,
+                              'Confirm that vacc length was set successfully with'
+                              ' {}.'.format(vacc_accumulations))
             no_accs = internal_accumulations * vacc_accumulations
             expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
             d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -2802,7 +2854,8 @@ class test_CBF(unittest.TestCase):
             self.corr_fix.stop_x_data()
         except:
             pass
-        Aqf.step('Deprogramming xhosts first then fhosts avoid reorder timeout errors')
+        Aqf.step('[CBF-REQ-0064] Deprogramming xhosts first then fhosts avoid '
+                 'reorder timeout errors')
         xhosts = self.correlator.xhosts
         fhosts = self.correlator.fhosts
         if self.corr_fix.deprogram_fpgas(instrument):
@@ -2815,7 +2868,7 @@ class test_CBF(unittest.TestCase):
             Aqf.passed('Check that SPEAD packets are nolonger being produced.')
 
         self.corr_fix.halt_array()
-        Aqf.step('Initialising {instrument} instrument'.format(**locals()))
+        Aqf.step('[CBF-REQ-0064] Initialising {instrument} instrument'.format(**locals()))
         corr_init = False
         retries = 5
         start_time = time.time()
@@ -2826,8 +2879,8 @@ class test_CBF(unittest.TestCase):
                 corr_init = True
                 retries -= 1
                 if corr_init:
-                    LOGGER.info('Correlator started successfully after {} retries'
-                                .format(retries))
+                    LOGGER.info(
+                        'Correlator started successfully after {} retries'.format(retries))
             except:
                 retries -= 1
                 if retries == 0:
@@ -2838,8 +2891,7 @@ class test_CBF(unittest.TestCase):
         if corr_init:
             [Aqf.is_true(host.is_running(),
                          'Confirm that the instrument is initialised by checking if '
-                         '{} is programmed.'
-                         .format(host.host)) for host in xhosts + fhosts]
+                         '{} is programmed.'.format(host.host)) for host in xhosts + fhosts]
 
             Aqf.hop('Waiting to receive SPEAD data')
             re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -2857,8 +2909,8 @@ class test_CBF(unittest.TestCase):
             final_time = end_time - start_time
             minute = 60.0
             Aqf.less(final_time, minute,
-                     'Confirm that instrument switching to {instrument} time is '
-                     'less than one minute'.format(**locals()))
+                     '[CBF-REQ-0013] Confirm that instrument switching to {instrument} '
+                     'time is less than one minute'.format(**locals()))
 
     def _test_adc_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
@@ -3037,6 +3089,7 @@ class test_CBF(unittest.TestCase):
         """CBF per-antenna phase error -- Fringe offset"""
         setup_data = self._delays_setup()
         if setup_data:
+            # [CBF-REQ-0112]
             get_fringe_ranges = get_delay_bounds(self.correlator)
             min_fringe_offset = get_fringe_ranges['max_negative_phase_offset']
             max_fringe_offset = get_fringe_ranges['max_positive_phase_offset']
@@ -3087,12 +3140,12 @@ class test_CBF(unittest.TestCase):
                 delta_actual = np.max(actual_phases[i])
                 abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
-                                  'Check if difference expected({}) and actual({}) '
+                                  '[CBF-REQ-0128] Check if difference expected({}) and actual({}) '
                                   'phases are equal withing {} degree when fringe offset is {}.'
                                   .format(delta_expected, delta_actual, tolerance, fringe_offset))
 
                 Aqf.less(abs_diff, 1,
-                         'Check that the maximum degree between '
+                         '[CBF-REQ-0128] Check that the maximum degree between '
                          'expected and actual phase difference between integrations '
                          'is below 1 degree: {} degree\n'.format(abs_diff))
 
@@ -3102,10 +3155,10 @@ class test_CBF(unittest.TestCase):
                     np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
 
                 except AssertionError:
-                    Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                    Aqf.step('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) '
                              'phases are not equal within {2} degree when fringe offset is {3}.'
                              .format(delta_expected, delta_actual, tolerance, fringe_offset))
-                    caption = ('Difference expected({0:.5f}) and actual({1:.5f}) phases '
+                    caption = ('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) phases '
                                'are not equal within {2} degree when fringe offset is {3}.'.format(
                                delta_expected, delta_actual, tolerance, fringe_offset))
                     aqf_plot_channels(
@@ -3124,9 +3177,9 @@ class test_CBF(unittest.TestCase):
             delay_min = get_delay_ranges['max_negative_delta_delay']
             delay_max = get_delay_ranges['max_positive_delta_delay']
             delay_rate = randrange(delay_min, delay_max, int=float)
+            #delay_rate = setup_data['sample_period'] / setup_data['int_time']
             dump_counts = 5
             delay_value = 0
-            delay_rate = setup_data['sample_period'] / setup_data['int_time']
             fringe_offset = 0
             fringe_rate = 0
             load_time = setup_data['t_apply']
@@ -3167,15 +3220,15 @@ class test_CBF(unittest.TestCase):
             for i in xrange(1, len(expected_phases) - 1):
                 delta_expected = np.max(expected_phases[i + 1] - expected_phases[i])
                 delta_actual = np.max(actual_phases[i + 1] - actual_phases[i])
-                abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-
+                #abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
+                abs_diff = np.abs(delta_expected - delta_actual)
+                # [CBF-REQ-0066]
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
-                                  'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                                  '[CBF-REQ-0128] Check if difference expected({0:.5f}) and actual({1:.5f}) '
                                   'phases are equal withing {2} degree when delay rate is {3}.'
                                   .format(delta_expected, delta_actual, tolerance, delay_rate))
-
                 Aqf.less(abs_diff, 1,
-                         'Check that the maximum degree between expected and actual phase '
+                         '[CBF-REQ-0128] Check that the maximum degree between expected and actual phase '
                          'difference between integrations is below 1 degree: {0:.3f} degree\n'
                          .format(abs_diff))
                 try:
@@ -3184,11 +3237,11 @@ class test_CBF(unittest.TestCase):
                     np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
 
                 except AssertionError:
-                    Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                    Aqf.step('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) '
                              'phases are not equal withing {2} degree when delay rate is {3}.'
                              .format(delta_expected, delta_actual, tolerance, delay_rate))
                     legends = ['Response per SPEAD packet #{}'.format(x) for x in xrange(len(actual_response))]
-                    caption = ('Difference expected({0:.5f}) and actual({1:.5f}) '
+                    caption = ('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) '
                                'phases are not equal withing {2} degree when delay rate is {3}.'.format(
                                delta_expected, delta_actual, tolerance, delay_rate))
                     aqf_plot_channels(
@@ -3255,12 +3308,12 @@ class test_CBF(unittest.TestCase):
                 abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
 
                 Aqf.almost_equals(delta_expected, delta_actual, tolerance,
-                                  'Check if difference expected({0:.5f}) and actual({1:.5f}) '
+                                  '[CBF-REQ-0128] Check if difference expected({0:.5f}) and actual({1:.5f}) '
                                   'phases are equal within {2} degree when fringe rate is {3}.'
                                   .format(delta_expected, delta_actual, tolerance, fringe_rate))
 
                 Aqf.less(abs_diff, 1,
-                         'Check that the maximum degree between '
+                         '[CBF-REQ-0128] Check that the maximum degree between '
                          'expected and actual phase difference between integrations '
                          'is below 1 degree: {0:.3f} degree\n'.format(abs_diff))
 
@@ -3269,13 +3322,13 @@ class test_CBF(unittest.TestCase):
                     delta_expected_s = delta_expected - (delta_expected % tolerance)
                     np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
                 except AssertionError:
-                    Aqf.step('Difference expected({0:.5f}) and actual({1:.5f}) '
+                    Aqf.step('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) '
                              'phases are not equal within {2} degree when fringe rate is {3}.'
                              .format(delta_expected, delta_actual, tolerance, fringe_rate))
 
                     legends = ['Response per SPEAD packet #{}'.format(x) for x in xrange(len(
                                 actual_response))]
-                    caption = ('Difference expected({0:.5f}) and actual({1:.5f}) phases '
+                    caption = ('[CBF-REQ-0128] Difference expected({0:.5f}) and actual({1:.5f}) phases '
                                'are not equal within {2} degree when fringe rate is {3}.'.format(
                                delta_expected, delta_actual, tolerance, fringe_rate))
                     aqf_plot_channels(
@@ -4017,7 +4070,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             Aqf.equals(test_dump['xeng_raw'].value.shape[0], no_channels,
-                       'Check that data product has the number of frequency '
+                       '[CBF-REQ-0104, 0213] Check that data product has the number of frequency '
                        'channels {no_channels} corresponding to the {instrument} '
                        'instrument product'.format(**locals()))
             response = normalised_magnitude(test_dump['xeng_raw'].value[:, test_baseline, :])
@@ -4037,12 +4090,12 @@ class test_CBF(unittest.TestCase):
         Aqf.passed('List of available commands\n{}'.format(self.corr_fix.katcp_rct.req.help()))
         Aqf.progress('Polarisation correction has not been implemented yet.')
         Aqf.is_true(self.corr_fix.katcp_rct.req.gain.is_active(),
-                    'Re-quantiser settings (Gain) and Complex gain correction has '
+                    '[CBF-REQ-0071] Re-quantiser settings (Gain) and Complex gain correction has '
                     'been implemented')
         Aqf.is_true(self.corr_fix.katcp_rct.req.accumulation_length.is_active(),
-                    'Accumulation interval has been implemented')
+                    '[CBF-REQ-0071] Accumulation interval has been implemented')
         Aqf.is_true(self.corr_fix.katcp_rct.req.frequency_select.is_active(),
-                    'Channelisation configuration has been implemented')
+                    '[CBF-REQ-0071] Channelisation configuration has been implemented')
 
     def _test_time_sync(self):
         Aqf.step('CBF Absolute Timing Accuracy.')
@@ -4053,7 +4106,7 @@ class test_CBF(unittest.TestCase):
             ntp_offset = ntplib.NTPClient().request('192.168.1.21', version=3).offset * 1e3
 
         Aqf.less(ntp_offset, 5e-3,
-                 'Confirm that CBF synchronise time to within 5ms of '
+                 '[CBF-REQ-0203] Confirm that CBF synchronise time to within 5ms of '
                  'UTC time as provided via PTP on the CBF-TRF interface.')
 
     def _test_gain_correction(self):
@@ -4072,7 +4125,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Randomly selected input {}'.format(test_input))
 
             gains = [0, 1, 2j, 6j, 6]
-            legends = ['Gain set to {}'.format(x) for x in gains]
+            legends = ['[CBF-REQ-0119] Gain set to {}'.format(x) for x in gains]
 
             chan_resp = []
             for gain in gains:

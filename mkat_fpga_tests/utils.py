@@ -3,6 +3,7 @@ import h5py
 import numpy as np
 import logging
 import Queue
+import time
 
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
@@ -412,7 +413,10 @@ def get_fftoverflow_qdrstatus(correlator):
     xengs = correlator.xhosts
     for fhost in fengs:
         fhosts[fhost.host] = {}
-        fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+        try:
+            fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+        except AttributeError:
+            return False
         for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
             fhosts[fhost.host][pfb] = value
         for xhost in xengs:
@@ -564,8 +568,9 @@ def set_default_eq(instrument):
     for eq_label in [i for i in instrument.configd['fengine'] if i.startswith('eq')]:
         eq_levels.append(complex(instrument.configd['fengine'][eq_label]))
     ant_inputs = instrument.configd['fengine']['source_names'].split(',')
-    [instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
-        for _input, eq_val in zip(ant_inputs, eq_levels)]
+    for _input, eq_val in zip(ant_inputs, eq_levels):
+        instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
+        time.sleep(0.1)
 
 
 def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,

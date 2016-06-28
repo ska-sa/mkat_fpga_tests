@@ -138,10 +138,10 @@ class CorrelatorFixture(object):
                     self.correlator.initialise(program=False)
                     return self._correlator
                 except:
-                    self.start_correlator(self.instrument, **kwargs)
+                    self.start_correlator(instrument=self.instrument)
             else:
                 LOGGER.info('Starting correlator with default instrument')
-                self.start_correlator()
+                self.start_correlator(instrument=self.instrument)
 
     def halt_array(self):
         """
