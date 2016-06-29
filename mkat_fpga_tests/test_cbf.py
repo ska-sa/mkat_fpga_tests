@@ -2565,7 +2565,6 @@ class test_CBF(unittest.TestCase):
 
             list_reply, list_informs = sensors_req.sensor_list()
             # Confirm the CBF replies with a number of sensor-list inform messages
-            LOGGER.info(list_reply, list_informs)
             sens_lst_stat, numSensors = list_reply.arguments
 
             array_list_reply, array_list_informs = array_sensors_req.sensor_list()
@@ -4000,14 +3999,13 @@ class test_CBF(unittest.TestCase):
                 delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
                                                               discard=0)
-
-                future_time = 1000e-3
                 settling_time = 600e-3
-                dump_timestamp = (this_freq_dump['sync_time'].value +
+                sync_time = self.correlator.get_synch_time()
+
+                dump_timestamp = (roundtrip + sync_time +
                                   this_freq_dump['timestamp'].value /
                                   this_freq_dump['scale_factor_timestamp'].value)
-                t_apply = (dump_timestamp + this_freq_dump['int_time'].value +
-                           future_time)
+                t_apply = (dump_timestamp + 10 * this_freq_dump['int_time'].value)
 
                 reply = self.corr_fix.katcp_rct.req.delays(
                     t_apply, *delay_coefficients)
@@ -4584,7 +4582,7 @@ class test_CBF(unittest.TestCase):
                                           'to {:.1f} bits toggling.' \
                                           ''.format(inp, p_std, p_bits),
                                caption='ADC Input Histogram',
-                               bins=256, range=(-1, 1))
+                               bins=256, ranges=(-1, 1))
 
         else:
             aqf_plot_histogram(adc_data,
@@ -4594,7 +4592,7 @@ class test_CBF(unittest.TestCase):
                               'to {:.1f} bits toggling'\
                               ''.format(inp, p_std, p_bits),
                    caption='ADC Input Histogram',
-                   bins=256, range=(-1, 1))
+                   bins=256, ranges=(-1, 1))
 
         for key in sources.keys():
             pol = sources[key][0]
@@ -4831,5 +4829,5 @@ class test_CBF(unittest.TestCase):
         return ret_dict
 
 
-    def test_power_consumption(self):
+    def _test_power_consumption(self):
         pass
