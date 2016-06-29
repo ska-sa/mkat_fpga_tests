@@ -380,20 +380,21 @@ def clear_all_delays(instrument, receiver, timeout=10):
          : timeout (int)
     Return: bool
     """
-    delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
     try:
         dump = receiver.get_clean_dump(timeout, discard=0)
     except Queue.Empty:
         LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
         return False
     else:
-        future_time = 200e-3
-        dump_timestamp = (dump['sync_time'].value + dump['timestamp'].value /
-                          dump['scale_factor_timestamp'].value)
-        t_apply = (dump_timestamp + dump['int_time'].value + future_time)
+        roundtrip = 0.003
+        sync_time = self.correlator.get_synch_time()
+        dump_1_timestamp = (sync_time + roundtrip +
+                            dump['timestamp'].value / dump['scale_factor_timestamp'].value)
+        t_apply = dump_1_timestamp + 10 * dump['int_time'].value
+        delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
         try:
-            reply = correlator_fixture.katcp_rct.req.delays(t_apply+5, *delay_coefficients)
-            LOGGER.info("Cleared delays: {}".format(reply.reply.arguments[1]))
+            reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            LOGGER.info("[CBF-REQ-0110] Cleared delays: {}".format(reply.reply.arguments[1]))
             return True
         except Exception:
             LOGGER.error('Could not clear delays')
@@ -455,41 +456,39 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     return list(qdr_error_roaches)
 
 
-def check_host_okay(correlator):
+def check_host_okay(correlator, timeout=10):
     """
     Checks if corner turner, vacc and rx are okay?
     Param: correlator object
     Return: None
     """
-    for host in correlator.fhosts:
-        if host.ct_okay() is False:
-            Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host.host))
-        if host.check_tx_raw() is False:
-            Aqf.failed('Fhost: {}: Check to see whether this host is transmitting '
-                       'packets without error on all its GBE interfaces.'
-                       .format(host.host))
-        if host.check_rx_raw() is False:
-            Aqf.failed('Fhost: {}: Check that the host is receiving 10gbe data '
-                       'correctly?'.format(host.host))
-        if host.check_rx_spead() is False:
-            Aqf.failed('Fhost: {}: Check that this host is receiving SPEAD data.'
-                       .format(host.host))
-        if host.check_rx_reorder() is False:
-            Aqf.failed('Check that host reordering received data correctly?'
-                       .format(host.host))
+    hosts_status = fpgautils.threaded_fpga_function(correlator.fhosts, timeout, 'ct_okay')
+    for host, ct_status in hosts_status.iteritems():
+        if ct_status is False:
+            Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host))
 
-    for host in correlator.xhosts:
-        if host.vacc_okay() is False:
-            Aqf.failed('{}: VACC NOT okay!'.format(host.host))
-        if host.check_rx_raw() is False:
+    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
+    for host, vacc_status in hosts_status.iteritems():
+        if vacc_status is False:
+            Aqf.failed('Xhost: {}: VACC NOT okay!'.format(host))
+
+    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
+    for host, rxro_status in hosts_status.iteritems():
+        if rxro_status is False:
             Aqf.failed('Xhost: {}: Check that the host is receiving 10gbe data '
-                       'correctly?'.format(host.host))
-        if host.check_rx_spead() is False:
-            Aqf.failed('Xhost: {}: Check that this host is receiving SPEAD data.'
-                       .format(host.host))
-        if host.check_rx_reorder() is False:
-            Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'
-                       .format(host.host))
+                       'correctly?'.format(host))
+
+    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
+    for host, rxsp_status in hosts_status.iteritems():
+        if rxsp_status is False:
+            Aqf.failed('Xhost: {}: Check that this host is receiving SPEAD data.'.format(
+                        host))
+
+    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
+    for host, rxre_status in hosts_status.iteritems():
+        if rxre_status is False:
+            Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'.format(
+                        host.host))
 
 
 def get_vacc_offset(xeng_raw):
@@ -569,8 +568,10 @@ def set_default_eq(instrument):
         eq_levels.append(complex(instrument.configd['fengine'][eq_label]))
     ant_inputs = instrument.configd['fengine']['source_names'].split(',')
     for _input, eq_val in zip(ant_inputs, eq_levels):
-        instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
-        time.sleep(0.1)
+        try:
+            instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
+        except Exception:
+            return False
 
 
 def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,

@@ -999,7 +999,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.42')
     def test_bc8n856M32k_time_sync(self, instrument='bc8n856M32k', acc_time=0.5):
-        """CBF Time synchronisation (bc8n856M32kk)"""
+        """CBF Time synchronisation (bc8n856M32k)"""
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
             Aqf.step('CBF Time synchronisation: {}\n'.format(_running_inst))
@@ -1221,7 +1221,7 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
                         self.last_pfb_counts)
         self.addCleanup(check_host_okay, self.correlator)
-        # Reset Equalisations/ Gains to values from config file
+        Aqf.step('Resetting Equalisations/Gains to default values from config file')
         set_default_eq(self.correlator)
         self.addCleanup(set_default_eq, self.correlator)
         sensors_req = self.corr_fix.rct.req.sensor_value()
@@ -1284,7 +1284,7 @@ class test_CBF(unittest.TestCase):
             self.correlator.n_antennas * 2)]
         reply_, informs = self.corr_fix.katcp_rct.req.input_labels()
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-        Aqf.step('[CBF-REQ-0091, 0204] Source names changed from: {} to: {}'.format(
+        Aqf.step('[CBF-REQ-0091, 0204]: Source names changed from: {} \nto: {}'.format(
             str(reply_), str(reply)))
         Aqf.step('[CBF-REQ-0110] Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self.correlator, self.receiver)
@@ -1633,7 +1633,7 @@ class test_CBF(unittest.TestCase):
                     log_dynamic_range=90, caption=plt_caption, hlines=cutoff)
 
         # Test fft overflow and qdr status after
-        Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors.')
+        Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after channelisation.')
         check_fftoverflow_qdrstatus(self.correlator, self.last_pfb_counts)
         self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
@@ -1992,6 +1992,7 @@ class test_CBF(unittest.TestCase):
         if not self.corr_fix.issue_metadata():
             Aqf.failed('Could not issue new metadata')
         try:
+            Aqf.step('Capture an initial correlator SPEAD packet.')
             test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD packet, as Queue is Empty.'
@@ -2001,7 +2002,7 @@ class test_CBF(unittest.TestCase):
         else:
             # Get bls ordering from get dump
             bls_ordering = test_dump['bls_ordering'].value
-            Aqf.hop('Get list of all the correlator input labels that where set from config file')
+            Aqf.hop('Get list of all the correlator input labels from SPEAD packet.')
             input_labels = sorted(tuple(test_dump['input_labelling'].value[:, 0]))
             Aqf.step('[CBF-REQ-0087] Get list of all the baselines present in the '
                      'correlator output from spead packet')
@@ -2897,7 +2898,7 @@ class test_CBF(unittest.TestCase):
                          'Confirm that the instrument is initialised by checking if '
                          '{} is programmed.'.format(host.host)) for host in xhosts + fhosts]
 
-            Aqf.hop('Waiting to receive SPEAD data')
+            Aqf.hop('Capturing SPEAD packet after re-initialisation.')
             re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             end_time = time.time()
 
@@ -4134,7 +4135,7 @@ class test_CBF(unittest.TestCase):
             for gain in gains:
                 reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, complex(gain))
                 if reply.reply_ok():
-                    Aqf.passed('Gain correction on input {} set to {}.'.format(test_input, gain))
+                    Aqf.passed('[CBF-REQ-0119] Gain correction on input {} set to {}.'.format(test_input, gain))
                     dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                     response = normalised_magnitude(dump['xeng_raw'].value[:, source, :])
                     chan_resp.append(response)
