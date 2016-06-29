@@ -4001,8 +4001,8 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
                                                               discard=0)
                 settling_time = 600e-3
+                roundtrip = 0.003
                 sync_time = self.correlator.get_synch_time()
-
                 dump_timestamp = (roundtrip + sync_time +
                                   this_freq_dump['timestamp'].value /
                                   this_freq_dump['scale_factor_timestamp'].value)
