@@ -94,7 +94,12 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.array_name = _conf['subarray']
         self.corr_fix.resource_clt = _conf['katcp_client']
         self.dhost = self.corr_fix.dhost
-        self.dhost.get_system_information()
+        try:
+            self.dhost.get_system_information()
+        except RuntimeError:
+            errmsg = 'Failed to connect to retrieve information from DSim.'
+            LOGGER.exception(errmsg)
+            sys.exit(errmsg)
         self.receiver = None
 
     def set_instrument(self, instrument, acc_time=0.2):
