@@ -208,6 +208,7 @@ class CorrelatorFixture(object):
         else:
             self._katcp_rct.start()
             self._katcp_rct.until_synced(timeout=60)
+            add_cleanup(self._katcp_rct.stop)
         return self._katcp_rct
 
     def start_x_data(self):
@@ -325,7 +326,8 @@ class CorrelatorFixture(object):
             except Exception:
                 errmsg = 'Failed to connect to roaches, reboot devices to fix.'
                 LOGGER.exception(errmsg)
-                sys.exit(errmsg)
+                #sys.exit(errmsg)
+                return False
         else:
             LOGGER.error('Failed to deprogram FPGAs no hosts available')
             return False
@@ -439,7 +441,8 @@ class CorrelatorFixture(object):
             except IOError:
                 errmsg = 'Failed to read test config file, Test will exit'
                 LOGGER.error(errmsg)
-                sys.exit(errmsg)
+                #sys.exit(errmsg)
+                return False
 
     def get_multicast_ips(self, instrument):
         """

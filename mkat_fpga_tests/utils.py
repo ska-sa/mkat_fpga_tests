@@ -7,6 +7,8 @@ import time
 
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
+from casperfpga.utils import threaded_fpga_function
+
 from mkat_fpga_tests import correlator_fixture
 
 
@@ -134,7 +136,7 @@ class CorrelatorFrequencyInfo(object):
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
         assert isinstance(self.sample_freq, float)
         self.sample_period = 1 / self.sample_freq
-        self.fft_period = self.sample_period*2*self.n_chans
+        self.fft_period = self.sample_period * 2 * self.n_chans
         """Time length of a single FFT"""
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
@@ -387,7 +389,7 @@ def clear_all_delays(instrument, receiver, timeout=10):
         return False
     else:
         roundtrip = 0.003
-        sync_time = self.correlator.get_synch_time()
+        sync_time = instrument.get_synch_time()
         dump_1_timestamp = (sync_time + roundtrip +
                             dump['timestamp'].value / dump['scale_factor_timestamp'].value)
         t_apply = dump_1_timestamp + 10 * dump['int_time'].value
@@ -416,7 +418,7 @@ def get_fftoverflow_qdrstatus(correlator):
         fhosts[fhost.host] = {}
         try:
             fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
-        except AttributeError:
+        except Exception:
             return False
         for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
             fhosts[fhost.host][pfb] = value
@@ -436,8 +438,9 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     """
     qdr_error_roaches = set()
     fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
-    curr_pfb_counts = get_pfb_counts(
-        fftoverflow_qdrstatus['fhosts'].items())
+    if fftoverflow_qdrstatus is not False:
+        curr_pfb_counts = get_pfb_counts(
+            fftoverflow_qdrstatus['fhosts'].items())
 
     for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
             last_pfb_counts.items(), curr_pfb_counts.items()):
@@ -456,39 +459,55 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     return list(qdr_error_roaches)
 
 
-def check_host_okay(correlator, timeout=10):
+def check_host_okay(correlator, timeout=30):
     """
     Checks if corner turner, vacc and rx are okay?
     Param: correlator object
     Return: None
     """
-    hosts_status = fpgautils.threaded_fpga_function(correlator.fhosts, timeout, 'ct_okay')
-    for host, ct_status in hosts_status.iteritems():
-        if ct_status is False:
-            Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host))
-
-    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
-    for host, vacc_status in hosts_status.iteritems():
-        if vacc_status is False:
-            Aqf.failed('Xhost: {}: VACC NOT okay!'.format(host))
-
-    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
-    for host, rxro_status in hosts_status.iteritems():
-        if rxro_status is False:
-            Aqf.failed('Xhost: {}: Check that the host is receiving 10gbe data '
-                       'correctly?'.format(host))
-
-    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
-    for host, rxsp_status in hosts_status.iteritems():
-        if rxsp_status is False:
-            Aqf.failed('Xhost: {}: Check that this host is receiving SPEAD data.'.format(
-                        host))
-
-    hosts_status = fpgautils.threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
-    for host, rxre_status in hosts_status.iteritems():
-        if rxre_status is False:
-            Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'.format(
-                        host.host))
+    try:
+        hosts_status = threaded_fpga_function(correlator.fhosts, timeout, 'ct_okay')
+    except:
+        return False
+    else:
+        for host, ct_status in hosts_status.iteritems():
+            if ct_status is False:
+                Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host))
+    try:
+        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
+    except:
+        return False
+    else:
+        for host, vacc_status in hosts_status.iteritems():
+            if vacc_status is False:
+                Aqf.failed('Xhost: {}: VACC NOT okay!'.format(host))
+    try:
+        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
+    except:
+        return False
+    else:
+        for host, rxro_status in hosts_status.iteritems():
+            if rxro_status is False:
+                Aqf.failed('Xhost: {}: Check that the host is receiving 10gbe data '
+                   'correctly?'.format(host))
+    try:
+        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
+    except:
+        return False
+    else:
+        for host, rxsp_status in hosts_status.iteritems():
+            if rxsp_status is False:
+                Aqf.failed('Xhost: {}: Check that this host is receiving SPEAD data.'.format(
+                    host))
+    try:
+        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
+    except:
+        return False
+    else:
+        for host, rxre_status in hosts_status.iteritems():
+            if rxre_status is False:
+                Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'.format(
+                    host.host))
 
 
 def get_vacc_offset(xeng_raw):
