@@ -243,8 +243,13 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
     axis.set_ybound(*new_ybound)
 
     if hlines:
-        plt.axhline(hlines, linestyle='--', label='[CBF-REQ-0126] cutoff {}dB'.format(
-            hlines))
+        plt.axhline(hlines, linestyle='--', color='red', linewidth=.5)
+        plt.annotate('[CBF-REQ-0126] Channel isolation: {}dB'.format(hlines),
+            xy=(len(plot_data)/2, hlines), xytext=(-20,20),
+            textcoords='offset points', ha='center', va='bottom',
+            bbox=dict(boxstyle='round,pad=0.2', alpha=0.3),
+            arrowprops=dict(arrowstyle='->',fc='yellow',
+            connectionstyle='arc3,rad=0.5', color='red'))
 
     if ylimits:
         plt.ylim(ylimits)
