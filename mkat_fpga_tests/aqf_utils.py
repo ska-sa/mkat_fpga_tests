@@ -241,14 +241,19 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
     new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
     new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
     axis.set_ybound(*new_ybound)
-    if has_legend:
-        plt.legend(fontsize=9, fancybox=True,
-                   loc='center left', bbox_to_anchor=(1, .88),
-                   borderaxespad=0.).set_alpha(0.5)
+
     if hlines:
-        plt.axhline(hlines, label='{}dB: Cutoff'.format(hlines), linestyle='--', linewidth=0.5)
+        plt.axhline(hlines, linestyle='--', label='[CBF-REQ-0126] cutoff {}dB'.format(
+            hlines))
+
     if ylimits:
         plt.ylim(ylimits)
+
+    if has_legend:
+        plt.legend(fontsize=9, fancybox=True,
+                   loc='center left', bbox_to_anchor=(1, .89),
+                   borderaxespad=0.).set_alpha(0.5)
+
     # plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
