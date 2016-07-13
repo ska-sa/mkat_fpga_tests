@@ -304,14 +304,16 @@ def get_feng_snapshots(feng_fpga, timeout=5):
 
 
 def get_snapshots(instrument):
-    f_snaps = threaded_fpga_operation(instrument.fhosts, 25, (get_feng_snapshots, ))
-    return dict(feng=f_snaps)
+    try:
+        f_snaps = threaded_fpga_operation(instrument.fhosts, 60, (get_feng_snapshots, ))
+    except Exception:
+        return False
+    else:
+        return dict(feng=f_snaps)
 
 
 def get_source_object_and_index(instrument, input_name):
     """Return the DataSource object and local roach source index for a given input"""
-    # Todo MM 2015-10-22
-    # Check and fix the hardcoded stuffs
     return [(s['source'].name ,s['source_num'])
             for s in instrument.fengine_sources
             if s['source'].name == input_name][0]
@@ -379,8 +381,8 @@ def clear_all_delays(instrument, receiver, timeout=10):
     """Clears all delays on all fhosts.
     Param: Correlator object
          : Rx object
-         : timeout (int)
-    Return: bool
+         : dump timeout (int)
+    Return: Boolean
     """
     try:
         dump = receiver.get_clean_dump(timeout, discard=0)
@@ -396,11 +398,13 @@ def clear_all_delays(instrument, receiver, timeout=10):
         delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
         try:
             reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
-            LOGGER.info("[CBF-REQ-0110] Cleared delays: {}".format(reply.reply.arguments[1]))
-            return True
         except Exception:
             LOGGER.error('Could not clear delays')
             return False
+        else:
+            LOGGER.info('[CBF-REQ-0110] Cleared delays: {}'.format(
+                reply.reply.arguments[1]))
+            return True
 
 
 def get_fftoverflow_qdrstatus(correlator):
@@ -424,7 +428,10 @@ def get_fftoverflow_qdrstatus(correlator):
             fhosts[fhost.host][pfb] = value
         for xhost in xengs:
             xhosts[xhost.host] = {}
-            xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+            try:
+                xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+            except Exception:
+                return False
     dicts['fhosts'] = fhosts
     dicts['xhosts'] = xhosts
     return dicts
@@ -437,7 +444,10 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
         Roaches with QDR status errors
     """
     qdr_error_roaches = set()
-    fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
+    try:
+        fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
+    except Exception:
+        return False
     if fftoverflow_qdrstatus is not False:
         curr_pfb_counts = get_pfb_counts(
             fftoverflow_qdrstatus['fhosts'].items())
@@ -459,7 +469,7 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     return list(qdr_error_roaches)
 
 
-def check_host_okay(correlator, timeout=30):
+def check_host_okay(correlator, timeout=60):
     """
     Checks if corner turner, vacc and rx are okay?
     Param: correlator object
@@ -467,7 +477,7 @@ def check_host_okay(correlator, timeout=30):
     """
     try:
         hosts_status = threaded_fpga_function(correlator.fhosts, timeout, 'ct_okay')
-    except:
+    except Exception:
         return False
     else:
         for host, ct_status in hosts_status.iteritems():
@@ -475,7 +485,7 @@ def check_host_okay(correlator, timeout=30):
                 Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
-    except:
+    except Exception:
         return False
     else:
         for host, vacc_status in hosts_status.iteritems():
@@ -483,7 +493,7 @@ def check_host_okay(correlator, timeout=30):
                 Aqf.failed('Xhost: {}: VACC NOT okay!'.format(host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
-    except:
+    except Exception:
         return False
     else:
         for host, rxro_status in hosts_status.iteritems():
@@ -492,7 +502,7 @@ def check_host_okay(correlator, timeout=30):
                    'correctly?'.format(host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
-    except:
+    except Exception:
         return False
     else:
         for host, rxsp_status in hosts_status.iteritems():
@@ -501,7 +511,7 @@ def check_host_okay(correlator, timeout=30):
                     host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
-    except:
+    except Exception:
         return False
     else:
         for host, rxre_status in hosts_status.iteritems():
