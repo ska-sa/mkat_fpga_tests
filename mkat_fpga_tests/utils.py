@@ -678,7 +678,7 @@ def get_delay_bounds(correlator):
     reg_bw = int(reg_info['bitwidths'])
     reg_bp = int(reg_info['bin_pts'])
     max_delay = 2 ** (reg_bw - reg_bp) - 1 / float(2 ** reg_bp)
-    max_delay = max_delay/correlator.sample_rate_hz
+    max_delay = max_delay / correlator.sample_rate_hz
     min_delay = 0
     # Get maximum delay rate value
     reg_info = fhost.registers.delta_delay0.block_info
@@ -688,19 +688,19 @@ def get_delay_bounds(correlator):
     # Get max/min phase offset
     reg_info = fhost.registers.phase0.block_info
     b_str = reg_info['bin_pts']
-    b = int(b_str[1:len(b_str)-1].rsplit(' ')[0])
+    b = int(b_str[1: len(b_str) - 1].rsplit(' ')[0])
     max_positive_phase_offset = 1 - 1 / float(2**b)
     max_negative_phase_offset = -1 + 1 / float(2**b)
     max_positive_phase_offset *= float(np.pi)
     max_negative_phase_offset *= float(np.pi)
     # Get max/min phase rate
     b_str = reg_info['bin_pts']
-    b = int(b_str[1:len(b_str)-1].rsplit(' ')[1])
+    b = int(b_str[1: len(b_str) - 1].rsplit(' ')[1])
     max_positive_delta_phase = 1 - 1 / float(2**b)
     max_negative_delta_phase = -1 + 1 / float(2**b)
     # As per fhost_fpga
     bitshift_schedule = 23
-    bitshift = (2**bitshift_schedule)
+    bitshift = (2 ** bitshift_schedule)
     max_positive_delta_phase = (max_positive_delta_phase * float(np.pi) *
                                 correlator.sample_rate_hz) / bitshift
     max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) *
