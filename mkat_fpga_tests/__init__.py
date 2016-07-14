@@ -3,6 +3,8 @@ import sys
 import logging
 import corr2
 
+from concurrent.futures import TimeoutError
+
 # Config using nose-testconfig plugin, set variables with --tc on nose command line
 from testconfig import config as nose_test_config
 
@@ -90,7 +92,10 @@ class CorrelatorFixture(object):
             LOGGER.info('Cleanup function: File: {} line: {}'. format(
                 getframeinfo(currentframe()).filename.split('/')[-1], getframeinfo(currentframe()).lineno))
             add_cleanup(self._rct.stop)
-            self._rct.until_synced(timeout=timeout)
+            try:
+                self._rct.until_synced(timeout=timeout)
+            except TimeoutError:
+                self._rct.stop()
         return self._rct
 
     @property
@@ -211,7 +216,7 @@ class CorrelatorFixture(object):
                             # self.rct.req.array_halt(self.array_name)
                             # self.rct.stop()
                             # self.rct.start()
-                            # self.rct.until_synced(timeout=60)
+                            # self.rct.until_synced(timeout=timeout)
                             # reply, informs = self.rct.req.array_assign(self.array_name,
                             # *multicast_ip)
 
@@ -225,13 +230,19 @@ class CorrelatorFixture(object):
                 resource_client.ThreadSafeKATCPClientResourceWrapper(
                     katcp_rc, self.io_wrapper))
             self._katcp_rct.start()
-            self._katcp_rct.until_synced(timeout=timeout)
+            try:
+                self._katcp_rct.until_synced(timeout=timeout)
+            except TimeoutError:
+                self._katcp_rct.stop()
             LOGGER.info('Cleanup function: File: {} line: {}'. format(
                 getframeinfo(currentframe()).filename.split('/')[-1], getframeinfo(currentframe()).lineno))
             #add_cleanup(self._katcp_rct.stop)
         else:
             self._katcp_rct.start()
-            self._katcp_rct.until_synced(timeout=60)
+            try:
+                self._katcp_rct.until_synced(timeout=timeout)
+            except TimeoutError:
+                self._katcp_rct.stop()
             LOGGER.info('Cleanup function: File: {} line: {}'. format(
                 getframeinfo(currentframe()).filename.split('/')[-1], getframeinfo(currentframe()).lineno))
             add_cleanup(self._katcp_rct.stop)
@@ -541,7 +552,11 @@ class CorrelatorFixture(object):
             raise RuntimeError('DEngine: {} not running.'.format(self.dhost.host))
         multicast_ip = self.get_multicast_ips(self.instrument)
         self.rct.start()
-        self.rct.until_synced(timeout=timeout)
+        try:
+            self.rct.until_synced(timeout=timeout)
+        except TimeoutError:
+            self.rct.stop()
+            return False
         reply, informs = self.rct.req.array_list(self.array_name)
 
         if not reply.reply_ok():
@@ -570,8 +585,8 @@ class CorrelatorFixture(object):
             try:
                 if self.katcp_array_port is None:
                     LOGGER.info('Assigning array port number')
-                    self.rct.start()
-                    self.rct.until_synced(timeout=timeout)
+                    #self.rct.start()
+                    #self.rct.until_synced(timeout=timeout)
                     reply, informs = self.rct.req.array_assign(self.array_name,
                                                                *multicast_ip)
                     if reply.reply_ok():
