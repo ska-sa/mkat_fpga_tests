@@ -1,5 +1,6 @@
 import functools
 
+import textwrap
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -138,39 +139,47 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
         Aqf.passed(description)
 
 
-def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_units,
-                           plot_filename, plot_title, caption, show=False):
+def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
+                plot_title='', plot_units=None, caption='', dump_counts=5 , show=False,):
     """
         Gets actual and expected phase plots.
         return: None
     """
     plt.gca().set_prop_cycle(None)
-    for phases in actual_data:
-        plt.plot(freqs, phases)
+    if len(actual_data) == dump_counts or len(expected_data) ==  dump_counts - 1:
+        for phases in actual_data:
+            plt.plot(freqs, phases)
+    else:
+        plt.plot(freqs, actual_data[-1], label='{} {}'.format(actual_data[0], plot_units))
 
     plt.gca().set_prop_cycle(None)
-    if not isinstance(expected_data[0], tuple):
-        expected_data = ((expected_data, None),)
-    for label, phases in expected_data:
-        fig = plt.plot(
-            freqs, phases, '--', label='{} {}'.format(label, plot_units))[0]
+    if len(expected_data) ==  dump_counts or len(expected_data) ==  dump_counts - 1:
+        if not isinstance(expected_data[0], tuple):
+            expected_data = ((expected_data, None),)
+        for label_, phases in expected_data:
+            fig = plt.plot(
+                freqs, phases, '--', label='{} {}'.format(label_, plot_units))[0]
+    else:
+        fig = plt.plot(freqs, expected_data[-1], '--',
+            label='{} {}'.format(expected_data[0], plot_units))[0]
 
     axes = fig.get_axes()
     ybound = axes.get_ybound()
     yb_diff = abs(ybound[1] - ybound[0])
     new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
-    plt.vlines(len(freqs) / 2, *new_ybound, colors='b',
-               linestyles='dotted', label='Center Chan.')
-    plt.legend()
+    #plt.vlines(len(freqs) / 2, *new_ybound, colors='b',
+               #linestyles='dotted', label='Center Chan.')
     plt.title('{}'.format(plot_title))
     axes.set_ybound(*new_ybound)
     plt.grid(True)
     plt.ylabel('Phase [radians]')
-    plt.xlabel('No. of Channels')
+    plt.xlabel('Channel number')
+    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.legend()
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
-        plt.show()
-    plt.close('all')
+        plt.show(block=False)
+    plt.clf()
 
 
 def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=None,
@@ -254,21 +263,22 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
     if ylimits:
         plt.ylim(ylimits)
 
+    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
-                   loc='center left', bbox_to_anchor=(1, .89),
+                   loc='center left', bbox_to_anchor=(1, .8),
                    borderaxespad=0.).set_alpha(0.5)
 
     # plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
-        plt.show()
+        plt.show(block=False)
     plt.clf()
 
 
-def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None, caption="",
-                       bins=256, ranges=(-1, 1), ylabel='Samples per Bin', xlabel='ADC Sample Bins',
-                       show=False):
+def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
+                       caption="", bins=256, ranges=(-1, 1), ylabel='Samples per Bin',
+                       xlabel='ADC Sample Bins', show=False):
     """Simple histogram plot of a data set
         return: None
     """
@@ -278,7 +288,44 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None, 
         plt.title(plot_title)
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
+    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
-        plt.show()
+        plt.show(block=False)
+    plt.clf()
+
+def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
+                      caption="", cutoff=None, show=False):
+
+    fig = plt.plot(freqs, data)[0]
+    axes = fig.get_axes()
+    ybound = axes.get_ybound()
+    yb_diff = abs(ybound[1] - ybound[0])
+    #new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
+    new_ybound = [ybound[0]*1.1, ybound[1]*1.1]
+    new_ybound = [y if y != 0 else yb_diff*0.05 for y in new_ybound]
+    plt.vlines(expected_fc, *new_ybound, colors='r', label='Channel Fc')
+    plt.vlines(expected_fc - df / 2, *new_ybound, label='Channel min/max')
+    plt.vlines(expected_fc - 0.8 * df / 2, *new_ybound, label='Channel at +-40%',
+               linestyles='dashed')
+    plt.vlines(expected_fc + df / 2, *new_ybound, label='_Channel max')
+    plt.vlines(expected_fc + 0.8 * df / 2, *new_ybound, label='_Channel at +40%',
+               linestyles='dashed')
+    plt.title(plt_title)
+    axes.set_ybound(*new_ybound)
+    plt.grid(True)
+    plt.ylabel('dB relative to VACC max')
+    # TODO Normalise plot to frequency bins
+    plt.xlabel('Frequency (Hz)')
+    if cutoff:
+        plt.axhline(cutoff, color='red', ls='--', linewidth=.5,
+            label='[CBF-REQ-0126] Channel isolation: {}dB'.format(cutoff),)
+
+    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
+                borderaxespad=0.)
+
+    if show:
+        plt.show(block=False)
+    Aqf.matplotlib_fig(plot_filename, caption=caption)
     plt.clf()
