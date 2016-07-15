@@ -93,8 +93,13 @@ def init_dsim_sources(dhost):
     """
     # Reset flags
     LOGGER.info('Reset digitiser simulator to all Zeros')
-    dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0,
+    try:
+        dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0,
                                      load_flags='pulse')
+    except Exception:
+        LOGGER.exception('Failed to set dhost registers.')
+        return False
+
     for sin_source in dhost.sine_sources:
         sin_source.set(frequency=0, scale=0)
         try:
