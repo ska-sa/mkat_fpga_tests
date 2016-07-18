@@ -150,7 +150,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
         for phases in actual_data:
             plt.plot(freqs, phases)
     else:
-        plt.plot(freqs, actual_data[-1], label='{} {}'.format(actual_data[0], plot_units))
+        plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(actual_data[0], plot_units))
 
     plt.gca().set_prop_cycle(None)
     if len(expected_data) ==  dump_counts or len(expected_data) ==  dump_counts - 1:
@@ -158,10 +158,10 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
             expected_data = ((expected_data, None),)
         for label_, phases in expected_data:
             fig = plt.plot(
-                freqs, phases, '--', label='{} {}'.format(label_, plot_units))[0]
+                freqs, phases, '--', label='{0:.3f} {1}'.format(label_, plot_units))[0]
     else:
         fig = plt.plot(freqs, expected_data[-1], '--',
-            label='{} {}'.format(expected_data[0], plot_units))[0]
+            label='{0:.3f} {1}'.format(expected_data[0], plot_units))[0]
 
     axes = fig.get_axes()
     ybound = axes.get_ybound()
