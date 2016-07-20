@@ -135,9 +135,10 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
             'Absolute error larger than {abs_error}, max error at index {max_err_ind}, '
             'error: {max_err} - {description}'.format(
                 **locals()))
+        return False
     else:
         Aqf.passed(description)
-
+        return True
 
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
                 plot_title='', plot_units=None, caption='', dump_counts=5 , show=False,):
@@ -218,7 +219,7 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
             channelisation = ((channelisation, None),)
     except IndexError:
         Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
-    intensity = cycle([1, .8]).next
+    #intensity = cycle([1, .8]).next
     has_legend = False
     for plot_data, legend in channelisation:
         kwargs = {}
@@ -234,7 +235,8 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
 
         plt.grid(True)
         # plt.plot(plot_data, c=cycol(), alpha=intensity(), **kwargs)
-        plt.plot(plot_data, alpha=intensity(), **kwargs)
+        #plt.plot(plot_data, alpha=intensity(), **kwargs)
+        plt.plot(plot_data, **kwargs)
         if plot_title:
             plt.title(plot_title)
         plt.ylabel(ylabel)
@@ -243,18 +245,18 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
         else:
             plt.xlabel('Channel number')
 
-    axis = plt.gcf().get_axes()[0]
-    ybound = axis.get_ybound()
-    yb_diff = abs(ybound[1] - ybound[0])
-    # new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-    new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
-    new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
-    axis.set_ybound(*new_ybound)
+    #axis = plt.gcf().get_axes()[0]
+    #ybound = axis.get_ybound()
+    #yb_diff = abs(ybound[1] - ybound[0])
+    ## new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
+    #new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
+    #new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
+    #axis.set_ybound(*new_ybound)
 
     if hlines:
         plt.axhline(hlines, linestyle='--', color='red', linewidth=.5)
         plt.annotate('[CBF-REQ-0126] Channel isolation: {}dB'.format(hlines),
-            xy=(len(plot_data)/2, hlines), xytext=(-20,20),
+            xy=(len(plot_data)/2, hlines), xytext=(-20,15),
             textcoords='offset points', ha='center', va='bottom',
             bbox=dict(boxstyle='round,pad=0.2', alpha=0.3),
             arrowprops=dict(arrowstyle='->',fc='yellow',
