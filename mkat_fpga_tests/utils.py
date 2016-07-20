@@ -719,4 +719,4 @@ def get_delay_bounds(correlator):
         'max_negative_phase_offset': max_negative_phase_offset,
         'max_positive_delta_phase': max_positive_delta_phase,
         'max_negative_delta_phase': max_negative_delta_phase
-    }
+        }
