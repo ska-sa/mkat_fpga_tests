@@ -666,3 +666,5 @@ def run_report_gen():
 
 
 run_report_gen()
+print 'Generating html colors'
+subprocess.call(['/bin/bash','generate_color.sh'])
