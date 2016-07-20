@@ -393,13 +393,14 @@ class CorrelatorFixture(object):
                          getframeinfo(currentframe()).lineno))
             return False
 
-        if not reply.istatus:
+        if reply.istatus:
+            return {reply.value: True}
+        else:
             LOGGER.error('Sensor request failed: {} \n\t File:{} Line:{}'.format(
                         reply, getframeinfo(currentframe()).filename.split('/')[-1],
                         getframeinfo(currentframe()).lineno))
-            return False
-        running_intrument = reply.value
-        return running_intrument
+            return {reply.value: False}
+
 
     def ensure_instrument(self, instrument, **kwargs):
         """Ensure that named instrument is active on the correlator array
