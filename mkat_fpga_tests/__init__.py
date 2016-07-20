@@ -458,9 +458,9 @@ class CorrelatorFixture(object):
                         getframeinfo(currentframe()).lineno))
                     return False
             else:
-                LOGGER.error('Could not resynchronise katcp connection. \n\t File:{} Line:{}'.format(
-                            getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
+                #LOGGER.error('Could not resynchronise katcp connection. \n\t File:{} Line:{}'.format(
+                            #getframeinfo(currentframe()).filename.split('/')[-1],
+                            #getframeinfo(currentframe()).lineno))
                 return False
 
             instruments_available = [instrument_avail.arguments[0]
@@ -557,7 +557,8 @@ class CorrelatorFixture(object):
         except TimeoutError:
             self.rct.stop()
             return False
-        reply, informs = self.rct.req.array_list(self.array_name)
+        else:
+            reply, informs = self.rct.req.array_list(self.array_name)
 
         if not reply.reply_ok():
             LOGGER.error('Failed to halt down the array in primary interface: reply: {}'
