@@ -157,9 +157,10 @@ class CorrelatorFixture(object):
                     self.correlator.initialise(program=False)
                     return self._correlator
                 except:
-                    LOGGER.error('Failed to create new correlator instance, '
-                                'Will now try to start correlator with {}-{}'.format(
-                                self.array_name, self.instrument))
+                    LOGGER.error(
+                        'Failed to create new correlator instance, Will now try to '
+                        'start correlator with config: {}-{}'.format(
+                            self.array_name, self.instrument))
                     self.start_correlator(instrument=self.instrument)
             else:
                 LOGGER.error('No Config file (/etc/corr/array*-instrument), '

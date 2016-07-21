@@ -175,7 +175,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     plt.grid(True)
     plt.ylabel('Phase [radians]')
     plt.xlabel('Channel number')
-    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1,-.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend()
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
@@ -265,7 +265,7 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
     if ylimits:
         plt.ylim(ylimits)
 
-    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1,-.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
                    loc='center left', bbox_to_anchor=(1, .8),
@@ -290,7 +290,7 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
         plt.title(plot_title)
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
-    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1,-.2, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
         plt.show(block=False)
@@ -323,7 +323,7 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
         plt.axhline(cutoff, color='red', ls='--', linewidth=.5,
             label='[CBF-REQ-0126] Channel isolation: {}dB'.format(cutoff),)
 
-    plt.figtext(.1,-.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1,-.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
                 borderaxespad=0.)
 
