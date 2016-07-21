@@ -254,7 +254,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
-    def test_bc8n856M32k_channelisation(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_channelisation(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Wideband Fine L-band (bc8n856M32k)
         Test Verifies these requirements:
@@ -324,8 +324,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
-    def test_bc8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc8n856M32k',
-                                                        acc_time=0.5):
+    def test_bc8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc8n856M32k'):
         """
         Slow Test spurious free dynamic range for wideband fine (bc8n856M32k)
 
@@ -348,8 +347,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.20')
     @aqf_vr('TP.C.1.46')
-    def test_bc8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc8n856M32k',
-                                                        acc_time=0.5):
+    def test_bc8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc8n856M32k'):
         """
         Fast Test spurious free dynamic range for wideband fine (bc8n856M32k)
 
@@ -409,8 +407,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
-    def test_bc8n856M32k_freq_scan_consistency(self, instrument='bc8n856M32k',
-                                                acc_time=0.5):
+    def test_bc8n856M32k_freq_scan_consistency(self, instrument='bc8n856M32k'):
         """Frequency Scan Consistency Test (bc8n856M32k)"""
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
@@ -482,9 +479,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
-    def test_bc8n856M32k_baseline_correlation_product(self,
-                                                      instrument='bc8n856M32k',
-                                                      acc_time=0.5):
+    def test_bc8n856M32k_baseline_correlation_product(self, instrument='bc8n856M32k'):
         """
         CBF Baseline Correlation Products - AR1 (bc8n856M32k)
         Test Verifies these requirements:
@@ -568,9 +563,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
-    def test_bc8n856M32k_baseline_correlation_product_consistency(self,
-                                                                  instrument='bc8n856M32k',
-                                                                  acc_time=0.5):
+    def test_bc8n856M32k_baseline_correlation_product_consistency(self, instrument='bc8n856M32k'):
         """
         CBF Baseline Correlation Products
         Check that back-to-back SPEAD packets with same input are equal. (bc8n856M32k)
@@ -633,8 +626,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_vr('TP.C.1.44')
     def test_bc8n856M32k_correlator_restart_consistency(self,
-                                                        instrument='bc8n856M32k',
-                                                        acc_time=0.5):
+                                                        instrument='bc8n856M32k'):
         """
         Correlator restart consistency (bc8n856M32k)
         Check that results are consistent on correlator restart"""
@@ -703,7 +695,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.27')
-    def test_bc8n856M32k_delay_tracking(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_delay_tracking(self, instrument='bc8n856M32k'):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking (bc8n856M32k)
         Test Verifies these requirements:
@@ -779,7 +771,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.31')
-    def test_bc8n856M32k_vacc(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_vacc(self, instrument='bc8n856M32k'):
         """Vector Accumulator Test (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0096
@@ -840,7 +832,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.40')
-    def test_bc8n856M32k_product_switch(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_product_switch(self, instrument='bc8n856M32k'):
         """
         CBF Data Product Switching Time (bc8n856M32k)
         Test Verifies these requirements:
@@ -1000,7 +992,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.27')
-    def test_bc8n856M32k_delay_rate(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_delay_rate(self, instrument='bc8n856M32k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            -- Delay Rate (bc8n856M32k)"""
         if self.set_instrument(instrument):
@@ -1063,7 +1055,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.24')
-    def test_bc8n856M32k_fringe_offset(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_fringe_offset(self, instrument='bc8n856M32k'):
         """
         CBF per-antenna phase error -- Fringe Offset (bc8n856M32k)
         Test Verifies these requirements:
@@ -1127,7 +1119,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.24')
-    def test_bc8n856M32k_fringe_rate(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_fringe_rate(self, instrument='bc8n856M32k'):
         """
         CBF per-antenna phase error -- Fringe Rate (bc8n856M32k)
         Test Verifies these requirements:
@@ -1201,7 +1193,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.24')
     @aqf_vr('TP.C.1.27')
-    def test_bc8n856M32k_fringes_delays(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_fringes_delays(self, instrument='bc8n856M32k'):
         """
         CBF per-antenna phase error  (bc8n856M32k)
         -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
@@ -1270,7 +1262,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.27')
-    def test_bc8n856M32k_delay_inputs(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_delay_inputs(self, instrument='bc8n856M32k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial (bc8n856M32k)
            Delay applied to the correct input
         Test Verifies these requirements:
@@ -1333,7 +1325,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.47')
-    def test_bc8n856M32k_data_product(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_data_product(self, instrument='bc8n856M32k'):
         """
         CBF Imaging Data Product Set (bc8n856M32k)
         Test Verifies these requirements:
@@ -1404,7 +1396,7 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.42')
-    def test_bc8n856M32k_time_sync(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_time_sync(self, instrument='bc8n856M32k'):
         """
         CBF Time synchronisation (bc8n856M32k)
         Test Verifies these requirements:
@@ -1459,7 +1451,7 @@ class test_CBF(unittest.TestCase):
             self._test_gain_correction()
 
     @aqf_vr('TP.C.1.29')
-    def test_bc8n856M32k_gain_correction(self, instrument='bc8n856M32k', acc_time=0.5):
+    def test_bc8n856M32k_gain_correction(self, instrument='bc8n856M32k'):
         """
         CBF Gain Correction (bc8n856M32k)
         Test Verifies these requirements:
