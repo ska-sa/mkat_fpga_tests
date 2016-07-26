@@ -44,9 +44,13 @@ from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_le
 
 LOGGER = logging.getLogger(__name__)
 
-# set the SPEAD logger to Error only
-spead_logger = logging.getLogger('spead')
+# set the SPEAD2 logger to Error only
+spead_logger = logging.getLogger('spead2')
 spead_logger.setLevel(logging.ERROR)
+# set the corr_rx logger to Error only
+corr_rx_logger = logging.getLogger("corr2.corr_rx")
+corr_rx_logger.setLevel(logging.ERROR)
+
 
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 
