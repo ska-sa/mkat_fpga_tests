@@ -44,6 +44,10 @@ from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_le
 
 LOGGER = logging.getLogger(__name__)
 
+# set the SPEAD logger to Error only
+spead_logger = logging.getLogger('spead')
+spead_logger.setLevel(logging.ERROR)
+
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 
 # From
@@ -108,9 +112,9 @@ class test_CBF(unittest.TestCase):
         acc_timeout = 60
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if not instrument_state:
-            self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
             errmsg = ('Could not initialise instrument or ensure running instrument: {}, '
-                      'SubArray will be halted and restarted with next test'.format(instrument))
+                      'SubArray will be halted and restarted with next test: {}'.format(instrument, str(reply)))
             LOGGER.error(errmsg)
             Aqf.end(passed=False, message=errmsg)
             return False
@@ -1817,7 +1821,7 @@ class test_CBF(unittest.TestCase):
             Aqf.less(final_cmd_time, cam_max_load_time,
                 '[CBF-REQ-0077, 0187]: Time it takes to load delays {0:.3f}s '
                 '(-network roundtrip (3ms) - code execution (2ms)) should be less than '
-                '{1}s with intergration time of {2:.3f}s'.format(final_cmd_time,
+                '{1}s with integration time of {2:.3f}s'.format(final_cmd_time,
                     cam_max_load_time, setup_data['int_time']))
 
             Aqf.is_true(reply.reply_ok(),
@@ -2962,7 +2966,7 @@ class test_CBF(unittest.TestCase):
                         msg = (
                             '[CBF-REQ-0077, 0187]: Time it takes to load delays {0:.3f}s '
                             '(-network roundtrip (3ms) - code execution (2ms)) should '
-                            'be less than {1}s with intergration time of {2:.3f}s'.format(
+                            'be less than {1}s with integration time of {2:.3f}s'.format(
                                 final_cmd_time, cam_max_load_time,
                                 this_freq_dump['int_time'].value))
 
@@ -3788,7 +3792,7 @@ class test_CBF(unittest.TestCase):
                 plot_filename, plot_title, plot_units, caption)
 
             # NOTE: Ignoring first dump because the delays might not be set for full
-            # intergration.
+            # integration.
             degree = 1.0
             decimal = len(str(degree).split('.')[-1])
             actual_phases_ = np.unwrap(actual_phases)
