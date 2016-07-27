@@ -14,6 +14,7 @@ from casperfpga import katcp_fpga
 
 from katcp import resource_client
 from katcp import ioloop_manager
+from katcp.core import ProtocolFlags
 
 from katcp import KatcpClientError
 from katcp import KatcpDeviceError
@@ -189,6 +190,7 @@ class CorrelatorFixture(object):
 
     @property
     def katcp_rct(self):
+        pf = ProtocolFlags(5,0, 'M')
         multicast_ip = self.get_multicast_ips(self.instrument)
         if self._katcp_rct is None:
             reply, informs = self.rct.req.array_list(self.array_name)
@@ -225,7 +227,7 @@ class CorrelatorFixture(object):
                 dict(name='{}'.format(self.resource_clt),
                      address=('{}'.format(self.resource_clt),
                               '{}'.format(self.katcp_array_port)),
-                     controlled=True))
+                     preset_protocol_flags=pf, controlled=True))
             katcp_rc.set_ioloop(self.io_manager.get_ioloop())
             self._katcp_rct = (
                 resource_client.ThreadSafeKATCPClientResourceWrapper(
