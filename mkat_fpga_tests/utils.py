@@ -720,3 +720,13 @@ def get_delay_bounds(correlator):
         'max_positive_delta_phase': max_positive_delta_phase,
         'max_negative_delta_phase': max_negative_delta_phase
         }
+
+def get_figure_numbering(self, instrument):
+    """
+    Param:
+        self: Object
+        instrument: str
+    Return: Dict
+    """
+    return {y: x for x, y in enumerate(
+        [i for i in dir(self) if i.startswith('test_{}'.format(instrument))], start=1)}

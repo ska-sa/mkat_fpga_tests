@@ -41,16 +41,9 @@ from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus,
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, get_baselines_lookup
 from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, get_adc_snapshot
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
+from mkat_fpga_tests.utils import get_figure_numbering
 
 LOGGER = logging.getLogger(__name__)
-
-# set the SPEAD2 logger to Error only
-spead_logger = logging.getLogger('spead2')
-spead_logger.setLevel(logging.ERROR)
-# set the corr_rx logger to Error only
-corr_rx_logger = logging.getLogger("corr2.corr_rx")
-corr_rx_logger.setLevel(logging.ERROR)
-
 
 DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 
@@ -81,6 +74,14 @@ def disable_maplotlib_warning():
     """This function disable matplotlibs deprecation warnings"""
     warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
+def disable_spead2_warnings():
+    """This function sets SPEAD2 logger to only report error messages"""
+    # set the SPEAD2 logger to Error only
+    spead_logger = logging.getLogger('spead2')
+    spead_logger.setLevel(logging.ERROR)
+    # set the corr_rx logger to Error only
+    corr_rx_logger = logging.getLogger("corr2.corr_rx")
+    corr_rx_logger.setLevel(logging.ERROR)
 
 def teardown_module():
     """This method is run once after test class is executed"""
@@ -93,15 +94,15 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        self.test_conf = self.corr_fix._test_config_file()
-        _conf = self.test_conf['inst_param']
+        self.conf_file = self.corr_fix._test_config_file()
+        _conf = self.conf_file['inst_param']
         self.corr_fix.instrument = _conf['default_instrument']
         self.corr_fix.array_name = _conf['subarray']
         self.corr_fix.resource_clt = _conf['katcp_client']
         self.dhost = self.corr_fix.dhost
         try:
             self.dhost.get_system_information()
-        except RuntimeError:
+        except Exception:
             errmsg = 'Failed to connect to retrieve information from DSim.'
             LOGGER.exception(errmsg)
             sys.exit(errmsg)
@@ -118,7 +119,8 @@ class test_CBF(unittest.TestCase):
         if not instrument_state:
             reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
             errmsg = ('Could not initialise instrument or ensure running instrument: {}, '
-                      'SubArray will be halted and restarted with next test: {}'.format(instrument, str(reply)))
+                      'SubArray will be halted and restarted with next test: {}'.format(
+                        instrument, str(reply)))
             LOGGER.error(errmsg)
             Aqf.end(passed=False, message=errmsg)
             return False
@@ -137,6 +139,7 @@ class test_CBF(unittest.TestCase):
 
         except AttributeError:
             reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            import IPythonDebug; IPythonDebug.IPythonShell()
             errmsg = (
                 'Failed to set accumulation time within {}s, due to katcp request errors. '
                 '[CBF-REQ-0064] SubArray will be halted and restarted with next test'.format(
@@ -158,7 +161,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.step('[CBF-REQ-0071, 0096] Accumulation time set: {}s'.format(
                     reply.reply.arguments[-1]))
                 try:
-                    corrRx_port = int(self.test_conf['inst_param']['corr_rx_port'])
+                    corrRx_port = int(self.conf_file['inst_param']['corr_rx_port'])
                 except ValueError:
                     corrRx_port = 8888
                     LOGGER.info(
@@ -1664,7 +1667,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(_running_inst):
             self._systems_tests()
             self._test_sensor_values()
-            self._test_roach_sensors_status()
+            #self._test_roach_sensors_status()
 
 
     def _systems_tests(self):
@@ -1676,7 +1679,10 @@ class test_CBF(unittest.TestCase):
         self.addCleanup(check_host_okay, self.correlator)
         Aqf.hop('Reset gains to default values from config file')
         set_default_eq(self.correlator)
-        sensors_req = self.corr_fix.rct.req.sensor_value()
+        reply, informs = self.corr_fix.rct.req.sensor_value()
+        failed_sensors = [i.arguments[2] for i in informs if i is False]
+        if failed_sensors:
+            Aqf.failed(failed_sensors)
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
@@ -2405,7 +2411,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _test_product_baselines(self):
-
+        #get_figure_numbering(self, instrument)
         if self.corr_freqs.n_chans == 4096:
             # 4K
             awgn_scale=0.0645
@@ -3103,6 +3109,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0060] Confirm the CBF replies with a number of '
                  'sensor-list inform messages')
             sens_lst_stat, numSensors = list_reply.arguments
+        Aqf.failed('[CBF-REQ-0056] Small voltage buffer ready is not implemented')
 
         try:
             array_list_reply, array_list_informs = self.corr_fix.katcp_rct.req.sensor_list()
@@ -3125,12 +3132,13 @@ class test_CBF(unittest.TestCase):
                '[CBF-REQ-0068] Check that the number of array sensors are '
                'equal to the number of sensors in the list.')
 
-            ## Check that ?sensor-value and ?sensor-list agree about the number
+            ### Check that ?sensor-value and ?sensor-list agree about the number
             ## of sensors.
             sensor_value = self.corr_fix.rct.req.sensor_value()
             sens_val_stat, sens_val_cnt = sensor_value.reply.arguments
             Aqf.equals(int(sens_val_cnt), numSensors,
                'Check that the instrument sensor-value and sensor-list counts are the same')
+            import IPythonDebug;IPythonDebug.IPythonShell()
 
             reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
             array_sens_val_stat, array_sens_val_cnt = reply.arguments
@@ -3159,7 +3167,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.equals(sensor.get_status(), 'nominal',
                            '[CBF-REQ-0178, 0204] Sensor status: {}, {} '.format(sensor.name,
                            sensor.get_status()))
-            Aqf.failed('[CBF-REQ-0056] Small voltage buffer ready is not implemented')
 
 
     def _test_roach_qdr_sensors(self):
@@ -4331,7 +4338,7 @@ class test_CBF(unittest.TestCase):
             errmsg('Could not retrieve katcp hashes.\n')
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
-
+        import IPythonDebug;IPythonDebug.IPythonShell()
         get_package_versions()
         Aqf.step('CBF ROACH information.\n')
         get_roach_config()
