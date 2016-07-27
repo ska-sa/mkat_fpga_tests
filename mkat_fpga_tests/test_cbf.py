@@ -41,7 +41,7 @@ from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus,
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, get_baselines_lookup
 from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, get_adc_snapshot
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
-from mkat_fpga_tests.utils import get_figure_numbering
+from mkat_fpga_tests.utils import get_figure_numbering, disable_spead2_warnings
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +62,6 @@ DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
     34, 33, 32)
 
-
 # NOTE TP.C.1.20 for AR1 maps to TP.C.1.46 for RTS
 
 # TODO NM (2015-12-10) Use steal_docstring decorator form KATCP for sub-tests to re-use
@@ -74,19 +73,13 @@ def disable_maplotlib_warning():
     """This function disable matplotlibs deprecation warnings"""
     warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
-def disable_spead2_warnings():
-    """This function sets SPEAD2 logger to only report error messages"""
-    # set the SPEAD2 logger to Error only
-    spead_logger = logging.getLogger('spead2')
-    spead_logger.setLevel(logging.ERROR)
-    # set the corr_rx logger to Error only
-    corr_rx_logger = logging.getLogger("corr2.corr_rx")
-    corr_rx_logger.setLevel(logging.ERROR)
-
 def teardown_module():
     """This method is run once after test class is executed"""
     correlator_fixture.katcp_rct.stop()
     correlator_fixture.rct.stop()
+
+# set the SPEAD2 logger to Error only
+disable_spead2_warnings()
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -1667,7 +1660,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(_running_inst):
             self._systems_tests()
             self._test_sensor_values()
-            #self._test_roach_sensors_status()
+            self._test_roach_sensors_status()
 
 
     def _systems_tests(self):
@@ -3138,7 +3131,6 @@ class test_CBF(unittest.TestCase):
             sens_val_stat, sens_val_cnt = sensor_value.reply.arguments
             Aqf.equals(int(sens_val_cnt), numSensors,
                'Check that the instrument sensor-value and sensor-list counts are the same')
-            import IPythonDebug;IPythonDebug.IPythonShell()
 
             reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
             array_sens_val_stat, array_sens_val_cnt = reply.arguments

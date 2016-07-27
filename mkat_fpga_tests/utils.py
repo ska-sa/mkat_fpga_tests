@@ -730,3 +730,12 @@ def get_figure_numbering(self, instrument):
     """
     return {y: x for x, y in enumerate(
         [i for i in dir(self) if i.startswith('test_{}'.format(instrument))], start=1)}
+
+def disable_spead2_warnings():
+    """This function sets SPEAD2 logger to only report error messages"""
+    # set the SPEAD2 logger to Error only
+    spead_logger = logging.getLogger('spead2')
+    spead_logger.setLevel(logging.ERROR)
+    # set the corr_rx logger to Error only
+    corr_rx_logger = logging.getLogger("corr2.corr_rx")
+    corr_rx_logger.setLevel(logging.ERROR)
