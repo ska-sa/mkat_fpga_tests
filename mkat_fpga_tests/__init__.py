@@ -200,7 +200,7 @@ class CorrelatorFixture(object):
             if reply.reply_ok():
                 self.katcp_array_port = int(informs[0].arguments[1])
             else:
-                LOGGER.error('Array has not been assigned yet, will try to assign.'
+                LOGGER.info('Array has not been assigned yet, will try to assign.'
                              ' File:{} Line:{}'.format(
                              getframeinfo(currentframe()).filename.split('/')[-1],
                              getframeinfo(currentframe()).lineno))

@@ -136,7 +136,6 @@ class test_CBF(unittest.TestCase):
 
         except AttributeError:
             reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
-            import IPythonDebug; IPythonDebug.IPythonShell()
             errmsg = (
                 'Failed to set accumulation time within {}s, due to katcp request errors. '
                 '[CBF-REQ-0064] SubArray will be halted and restarted with next test'.format(
@@ -183,7 +182,10 @@ class test_CBF(unittest.TestCase):
                     self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                     self.corr_fix.start_x_data()
                     self.corr_fix.issue_metadata()
-                    self.correlator.est_synch_epoch()
+                    try:
+                        self.correlator.est_synch_epoch()
+                    except AssertionError:
+                        Aqf.failed('Could not estimate synch epoch')
                     self.addCleanup(self.corr_fix.stop_x_data)
                     # This function disables matplotlib's deprecation warnings
                     disable_maplotlib_warning()
@@ -2683,6 +2685,7 @@ class test_CBF(unittest.TestCase):
                     'Check that back-to-back accumulations({0:.3f}/{1:.3f}dB) with the '
                     'same frequency input differ by no more than {2} dB threshold.'.format(
                         dumps_comp, 10 * np.log10(dumps_comp), 10 * np.log10(threshold)))
+
                 if not Aqf.less(dumps_comp, threshold, msg):
                     legends = ['dump #{}'.format(x) for x in xrange(len(chan_responses))]
                     plot_filename = ('{}_chan_resp_{}.png'.format(self._testMethodName,
@@ -2695,7 +2698,7 @@ class test_CBF(unittest.TestCase):
                             'Figure {}.{}: Comparison of back-to-back channelisation '
                             'results with digitiser simulator configured to generate '
                             'periodic wave ({0:.3f}Hz with FFT-length {1}) in order '
-                            'for each FFT to be identical'.format(fig_prefix, i,
+                            'for each FFT to be identical'.format(fig_prefix, i-1,
                                 this_source_freq, source_period_in_samples)))
 
 
@@ -2788,7 +2791,7 @@ class test_CBF(unittest.TestCase):
             self.corr_fix.instrument)[self._testMethodName]
 
         start_time = time.time()
-        threshold = 1e-7
+        threshold = 1.0e1 #
         test_chan = randrange(self.corr_freqs.n_chans)
         test_baseline = 0
         Aqf.step('Digitiser simulator configured to generate continuous wave')
@@ -3774,9 +3777,9 @@ class test_CBF(unittest.TestCase):
                             delta_actual, degree, delay_rate))
 
                     caption = (
-                        'Figure {}: [CBF-REQ-0128] Difference expected({0:.3f}) and '
-                        'actual({1:.3f}) phases are not equal within {2} degree when '
-                        'delay rate of {3} is applied.'.format(fig_prefix, delta_expected,
+                        'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) and '
+                        'actual({2:.3f}) phases are not equal within {3} degree when '
+                        'delay rate of {4} is applied.'.format(fig_prefix, delta_expected,
                             delta_actual, degree, delay_rate))
 
                     actual_phases_i = (delta_actual, actual_phases[i])
@@ -3881,9 +3884,9 @@ class test_CBF(unittest.TestCase):
                             delta_actual, degree, fringe_rate))
 
                     caption = (
-                        'Figure {}: [CBF-REQ-0128] Difference expected({0:.3f}) and '
-                        'actual({1:.3f}) phases are not equal within {2} degree when '
-                        'fringe rate of {3} is applied.'.format(fig_prefix, delta_expected,
+                        'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) and '
+                        'actual({2:.3f}) phases are not equal within {3} degree when '
+                        'fringe rate of {4} is applied.'.format(fig_prefix, delta_expected,
                             delta_actual, degree, fringe_rate))
 
                     actual_phases_i = (delta_actual, actual_phases[i])
@@ -3989,9 +3992,9 @@ class test_CBF(unittest.TestCase):
                             delta_actual, degree, fringe_offset))
 
                     caption = (
-                        'Figure {}: [CBF-REQ-0128] Difference expected({0:.3f}) and '
-                        'actual({1:.3f}) phases are not equal within {2:.3f} degree when '
-                        'fringe offset of {3:.3f} {4} is applied.'.format(fig_prefix,
+                        'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) and '
+                        'actual({2:.3f}) phases are not equal within {3:.3f} degree when '
+                        'fringe offset of {4:.3f} {5} is applied.'.format(fig_prefix,
                             delta_expected, delta_actual, degree, fringe_offset,
                             plot_units))
 
@@ -4369,6 +4372,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CMC CBF Package Software version information.\n')
         try:
             reply, informs = self.corr_fix.katcp_rct.req.version_list()
+        except:
+            errmsg = ('Could not retrieve katcp hashes.\n')
+            Aqf.failed(errmsg)
+        else:
             if reply.reply_ok():
                 katcp_dev_lst, katcp_lib_lst = [
                     i.arguments[-1].split('-')
@@ -4383,11 +4390,7 @@ class test_CBF(unittest.TestCase):
 
                 Aqf.hop('Repo: katcp-device, Last Hash:{}'.format(katcp_dev))
                 Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
-        except:
-            errmsg('Could not retrieve katcp hashes.\n')
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-        import IPythonDebug;IPythonDebug.IPythonShell()
+
         get_package_versions()
         Aqf.step('CBF ROACH information.\n')
         get_roach_config()
