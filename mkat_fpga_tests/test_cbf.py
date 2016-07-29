@@ -2044,7 +2044,7 @@ class test_CBF(unittest.TestCase):
                  'least all the channels that fall within the complete L-band')
         print_counts = 3
         spead_failure_counter = 0
-
+        fig_suffix = 1
         for i, freq in enumerate(requested_test_freqs):
             if i < print_counts:
                 Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
@@ -2093,10 +2093,10 @@ class test_CBF(unittest.TestCase):
             plt_title = 'Overrall frequency response at {}\{}MHz.'.format(
                 test_chan, this_source_freq / 1e6)
             plt_caption = (
-                'Figure {}: This is merely a sanity check to plot an overrall frequency response '
+                'Figure {}.{}: This is merely a sanity check to plot an overrall frequency response '
                 'at the center frequency, When digitiser simulator is configured to '
                 'generate a continuos wave, with cw scale: {}. awgn scale: {}, '
-                'eq gain: {}, fft shift: {}'.format(fig_prefix, cw_scale, awgn_scale,
+                'eq gain: {}, fft shift: {}'.format(fig_prefix, fig_suffix, cw_scale, awgn_scale,
                     gain, fft_shift))
             if np.abs(freq - expected_fc) < 0.1:
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title,
@@ -2114,8 +2114,10 @@ class test_CBF(unittest.TestCase):
         plt_filename = '{}_Channel_Response.png'.format(self._testMethodName)
         plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90,
             normalise=True)
-        plt_caption = 'Figure {}.2: Frequncy channel {}/{}Mhz response vs source frequency'.format(
-            fig_prefix, test_chan, expected_fc / 1e6)
+        fig_suffix += 1
+        plt_caption = (
+            'Figure {}.{}: Frequncy channel {}/{}Mhz response vs source frequency'.format(
+                fig_prefix, fig_suffix, test_chan, expected_fc / 1e6))
         plt_title = 'Channel {}/{}MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
         aqf_plot_and_save(actual_test_freqs, plot_data, df, expected_fc, plt_filename,
@@ -2130,8 +2132,9 @@ class test_CBF(unittest.TestCase):
             no_of_responses)]
         plot_title = 'PFB Channel Response'
         plot_filename = '{}_adjacent_channels.png'.format(self._testMethodName)
-        caption = 'Figure {}.2: Sample PFB channel response between {}'.format(fig_prefix,
-            test_chan)
+        fig_suffix += 1
+        caption = 'Figure {}.{}: Sample PFB channel response between {}'.format(
+            fig_prefix, fig_suffix, test_chan)
         aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
                           plot_title, log_dynamic_range=90, log_normalise_to=1,
                           normalise=True, caption=caption,
@@ -2142,8 +2145,9 @@ class test_CBF(unittest.TestCase):
         plot_filename = '{}_central_adjacent_channels.png'.format(
             self._testMethodName)
         plot_title = 'PFB Central Channel Response'
-        caption = 'Figure {}.3: Sample PFB central channel response between {}'.format(
-            fig_prefix, test_chan)
+        fig_suffix += 1
+        caption = 'Figure {}.{}: Sample PFB central channel response between {}'.format(
+            fig_prefix, fig_suffix, test_chan)
         aqf_plot_channels(zip(channel_response_list, legends), plot_filename,
                           plot_title,
                           log_dynamic_range=90, log_normalise_to=1,
@@ -2163,10 +2167,13 @@ class test_CBF(unittest.TestCase):
         graph_name_central = '{}_central.png'.format(self._testMethodName)
         plot_data_central = loggerise(central_chan_responses[:, test_chan],
             dynamic_range=90, normalise=True)
+        fig_suffix += 1
         caption = (
-            'Figure {}.4: Channel {} central response vs source frequency on '
-            'max channels {}'.format(fig_prefix, test_chan, self.corr_freqs.n_chans))
-        plt_title = 'Channel {} ({} MHz) response @ 80%'.format(test_chan, expected_fc / 1e6)
+            'Figure {}.{}: Channel {} central response vs source frequency on '
+            'max channels {}'.format(fig_prefix, fig_suffix, test_chan,
+                self.corr_freqs.n_chans))
+        plt_title = 'Channel {} ({} MHz) response @ 80%'.format(test_chan,
+            expected_fc / 1e6)
 
         aqf_plot_and_save(central_chan_test_freqs, plot_data_central, df, expected_fc,
             graph_name_central, plt_title, caption=caption)
@@ -2388,11 +2395,11 @@ class test_CBF(unittest.TestCase):
             plt_title = 'Log: Channel response at {} @ {} MHz'.format(channel,
                             self.corr_freqs.chan_freqs[channel])
             caption = (
-                'Figure {}.{}: An overrall frequency response at channel {}/{}Hz, '
+                'Figure {}.{}: An overrall frequency response at channel {}/{}MHz, '
                 'When digitiser simulator is configured to '
                 'generate a continuos wave, with cw scale: {}. awgn scale: {}, '
                 'eq gain: {}, fft shift: {}'.format(fig_prefix, i, channel,
-                    self.corr_freqs.chan_freqs[channel], cw_scale, awgn_scale,
+                    self.corr_freqs.chan_freqs[channel] / 1e6, cw_scale, awgn_scale,
                     gain, fft_shift))
 
             aqf_plot_channels(channel_resp, plt_filename, plt_title,
@@ -2695,10 +2702,10 @@ class test_CBF(unittest.TestCase):
                     aqf_plot_channels(zip(chan_responses, legends), plot_filename,
                         plot_title, log_dynamic_range=90, log_normalise_to=1,
                         caption=(
-                            'Figure {}.{}: Comparison of back-to-back channelisation '
+                            'Figure {0}.{1}: Comparison of back-to-back channelisation '
                             'results with digitiser simulator configured to generate '
-                            'periodic wave ({0:.3f}Hz with FFT-length {1}) in order '
-                            'for each FFT to be identical'.format(fig_prefix, i-1,
+                            'periodic wave ({2:.3f}Hz with FFT-length {3}) in order '
+                            'for each FFT to be identical'.format(fig_prefix, i - 1,
                                 this_source_freq, source_period_in_samples)))
 
 
@@ -2706,7 +2713,7 @@ class test_CBF(unittest.TestCase):
         """Check that identical frequency scans produce equal results"""
         fig_prefix = get_figure_numbering(self,
             self.corr_fix.instrument)[self._testMethodName]
-
+        fig_suffix = 1
         test_chan = randrange(self.corr_freqs.n_chans)
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=3, chans_around=1)
@@ -2774,8 +2781,9 @@ class test_CBF(unittest.TestCase):
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
                         legends = ['Freq scan #{}'.format(x) for x in xrange(len(chan_responses))]
+                        fig_suffix += 1
                         caption=(
-                        'Figure {0}: Comparison of frequency sweeping from {1:.3f}Mhz '
+                        'Figure {0}.{1}: Comparison of frequency sweeping from {1:.3f}Mhz '
                         'to {2:.3f}Mhz scan channelisation.'.format(fig_prefix,
                             requested_test_freqs[0]/1e6, requested_test_freqs[-1] / 1e6,
                             expected_fc))
@@ -2955,7 +2963,7 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
         fig_prefix = get_figure_numbering(self,
             self.corr_fix.instrument)[self._testMethodName]
-
+        fig_suffix = 1
         setup_data = self._delays_setup()
         if setup_data:
             sampling_period = self.corr_freqs.sample_period
@@ -3044,10 +3052,10 @@ class test_CBF(unittest.TestCase):
             # actual_phases = [phases for phases, response in actual_data]
             # actual_response = [response for phases, response in actual_data]
             plot_title = 'CBF Delay Compensation'
-            caption = ('Figure {}: Actual and expected Unwrapped Correlation Phase.\n'
+            caption = ('Figure {}.{}: Actual and expected Unwrapped Correlation Phase.\n'
                        'Note: Dashed line indicates expected value and solid line '
                        'indicates actual values received from SPEAD packet.'.format(
-                        fig_prefix))
+                        fig_prefix, fig_suffix))
 
             plot_filename = '{}_phase_response.png'.format(self._testMethodName)
             plot_units = 'secs'
@@ -3088,13 +3096,13 @@ class test_CBF(unittest.TestCase):
                         ' and actual({1:.5f}) phases are \'Not almost equal\' within {2} degree '
                         'when delay of {3}ns is applied.'.format(delta_expected, delta_actual,
                             degree, delay * 1e9,))
-
+                    fig_suffix += 1
                     caption = (
-                        'Figure {}: [CBF-REQ-0128, 0187] Difference between '
-                        'expected({0:.5f}) phases and actual({1:.5f}) phases are '
-                        '\'Not almost equal\' within {2} degree '
-                        'when a delay of {3:.5f}s is applied'.format(fig_prefix,
-                            delta_expected, delta_actual, degree, delay))
+                        'Figure {0}.{1}: [CBF-REQ-0128, 0187] Difference between '
+                        'expected({2:.5f}) phases and actual({3:.5f}) phases are '
+                        '\'Not almost equal\' within {4} degree '
+                        'when a delay of {5:.5f}s is applied'.format(fig_prefix,
+                            fig_suffix, delta_expected, delta_actual, degree, delay))
 
                     actual_phases_i = (delta_actual, actual_phases[i])
                     if len(expected_phases[i]) == 2:
@@ -3698,7 +3706,7 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
         fig_prefix = get_figure_numbering(self,
             self.corr_fix.instrument)[self._testMethodName]
-
+        fig_suffix = 1
         setup_data = self._delays_setup()
         if setup_data:
             #get_delay_ranges = get_delay_bounds(self.correlator)
@@ -3735,9 +3743,10 @@ class test_CBF(unittest.TestCase):
             plot_title = 'Randomly generated delay rate {} {}'.format(delay_rate * 1e9,
                 plot_units)
             plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-            caption = ('Figure : Actual vs Expected Unwrapped Correlation Delay Rate.\n'
+            caption = ('Figure {}.{}: Actual vs Expected Unwrapped Correlation Delay Rate.\n'
                        'Note: Dashed line indicates expected value and solid line '
-                       'indicates actual values received from SPEAD packet.')
+                       'indicates actual values received from SPEAD packet.'.format(
+                            fig_prefix, fig_suffix))
 
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                 plot_filename, plot_title, plot_units, caption)
@@ -3775,12 +3784,12 @@ class test_CBF(unittest.TestCase):
                         'and actual({1:.3f}) phases are \'Not almost equal\' within {2} degree '
                         'when delay rate of {3} is applied.'.format(delta_expected,
                             delta_actual, degree, delay_rate))
-
+                    fig_suffix += 1
                     caption = (
-                        'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) and '
-                        'actual({2:.3f}) phases are not equal within {3} degree when '
-                        'delay rate of {4} is applied.'.format(fig_prefix, delta_expected,
-                            delta_actual, degree, delay_rate))
+                        'Figure {0}.{1}: [CBF-REQ-0128] Difference expected({2:.3f}) and '
+                        'actual({3:.3f}) phases are not equal within {4} degree when '
+                        'delay rate of {5} is applied.'.format(fig_prefix, fig_suffix,
+                            delta_expected, delta_actual, degree, delay_rate))
 
                     actual_phases_i = (delta_actual, actual_phases[i])
                     if len(expected_phases[i]) == 2:
@@ -4376,20 +4385,24 @@ class test_CBF(unittest.TestCase):
             errmsg = ('Could not retrieve katcp hashes.\n')
             Aqf.failed(errmsg)
         else:
-            if reply.reply_ok():
-                katcp_dev_lst, katcp_lib_lst = [
-                    i.arguments[-1].split('-')
-                    for i in informs
-                    if ('katcp-device' in i.arguments or
-                        'katcp-library' in i.arguments)]
+            if not reply.reply_ok():
+                Aqf.failed('Failed to retrieve version list via cam interface')
+            else:
+                version_lists = [str(i).split() for i in informs if str(i).startswith('#version-list')]
+                katcp_lib_lst = []
+                katcp_dev_lst = []
+                for version_list in version_lists:
+                    for version in version_list:
+                        if version == 'katcp-device':
+                            katcp_dev_lst.append(version_list)
+                        if version == 'katcp-library':
+                            katcp_lib_lst.append(version_list)
 
-                katcp_dev = [x.replace('g', '') for x in katcp_dev_lst
-                             if x.startswith('g')][0]
-                katcp_lib = [x.replace('g', '') for x in katcp_lib_lst
-                             if x.startswith('g')][0]
+                katcp_dev = [i[-1] for i in katcp_dev_lst][-1]
+                katcp_lib = [i[-1] for i in katcp_lib_lst][-1]
 
-                Aqf.hop('Repo: katcp-device, Last Hash:{}'.format(katcp_dev))
-                Aqf.hop('Repo: katcp-library, Last Hash:{}\n'.format(katcp_lib))
+                Aqf.hop('Repo: katcp-device, Last Hash: {}'.format(katcp_dev))
+                Aqf.hop('Repo: katcp-library, Last Hash: {}\n'.format(katcp_lib))
 
         get_package_versions()
         Aqf.step('CBF ROACH information.\n')

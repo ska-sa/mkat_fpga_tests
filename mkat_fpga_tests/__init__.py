@@ -34,6 +34,10 @@ Stored as a tuples of (callable, args, kwargs)
 """
 timeout=60
 
+# Set katcp.inspect_lient logger to only report error messages
+katcp_logger = logging.getLogger('katcp.inspect_client')
+katcp_logger.setLevel(logging.ERROR)
+
 def add_cleanup(fn, *args, **kwargs):
     LOGGER.info('Function Tear Down {}'.format(fn))
     cleanups.append((fn, args, kwargs))
@@ -190,7 +194,9 @@ class CorrelatorFixture(object):
 
     @property
     def katcp_rct(self):
-        pf = ProtocolFlags(5,0, 'M')
+        katcp_prot = self.test_conf['inst_param']['katcp_protocol']
+        _major, _minor, _flags = katcp_prot.split(',')
+        pf = ProtocolFlags(int(_major), int(_minor), _flags)
         multicast_ip = self.get_multicast_ips(self.instrument)
         if self._katcp_rct is None:
             reply, informs = self.rct.req.array_list(self.array_name)
