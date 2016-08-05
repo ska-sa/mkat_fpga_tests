@@ -151,7 +151,7 @@ class test_CBF(unittest.TestCase):
                     reply))
                 LOGGER.error(errmsg)
                 Aqf.failed(errmsg)
-                reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+                #reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
                 return False
             else:
                 Aqf.step('[CBF-REQ-0071, 0096] Accumulation time set: {}s'.format(
@@ -1821,25 +1821,31 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Time apply to set delays: {}'.format(setup_data['t_apply']))
         cam_max_load_time = 1
         try:
-            katcp_host = self.corr_fix.katcp_rct.host
-            katcp_port = self.corr_fix.katcp_rct.port
-            cmd_start_time = time.time()
-            os.system("/usr/local/bin/kcpcmd -s {}:{} delays {} {}".format(
-                katcp_host, katcp_port, setup_data['t_apply'],
-                ' '.join(delay_coefficients)))
-            final_cmd_time = time.time() - cmd_start_time
+            #start_time = time.time()
+            #katcp_host = self.corr_fix.katcp_rct.host
+            #katcp_port = self.corr_fix.katcp_rct.port
+            #end_time = time.time() -  start_time
+            #cmd_start_time = time.time()
+            #os.system("/usr/local/bin/kcpcmd -s {}:{} delays {} {}".format(
+                #katcp_host, katcp_port, setup_data['t_apply']+5,
+                #' '.join(delay_coefficients)))
+            #final_cmd_time = time.time() - cmd_start_time
 
             # TODO MM 2016-07-05
             # Disabled katcp resource client setting delays, instead setting them
             # via Marc's kcs interface.
-            #katcp_conn_time = self.corr_fix.katcp_rct.last_connect_time
-            #reply, informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
-                                                                #*delay_coefficients)
-            #cmd_end_time = time.time()
-            #network_roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
-            #cmd_exec_time = 0.2
-            #cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
-            #final_cmd_time = cmd_end_time - cmd_tot_time
+            katcp_conn_time = self.corr_fix.katcp_rct.last_connect_time
+            reply, informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
+                                                                *delay_coefficients)
+            cmd_end_time = time.time()
+            # Max time it takes to resync katcp (client connection)
+            katcp_rsync_time = 0.5
+            # Time it takes to execute the python command
+            cmd_exec_time = 0.2
+            # Max network latency
+            network_roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY + katcp_rsync_time
+            cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
+            final_cmd_time = cmd_end_time - cmd_tot_time
 
         except:
             errmsg = ('Failed to set delays via CAM interface with loadtime:{0:.3f}, '
