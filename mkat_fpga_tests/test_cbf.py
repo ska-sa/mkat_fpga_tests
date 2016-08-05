@@ -1474,6 +1474,7 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_gain_correction()
 
+    @aqf_vr('TP.C.1.37')
     @aqf_vr('TP.C.1.36')
     @aqf_vr('TP.C.1.35')
     def test_bc8n856M4k_beamforming(self, instrument='bc8n856M4k'):
@@ -1489,6 +1490,7 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_beamforming(ants=4)
 
+    @aqf_vr('TP.C.1.37')
     @aqf_vr('TP.C.1.36')
     @aqf_vr('TP.C.1.35')
     def test_bc32n856M4k_beamforming(self, instrument='bc32n856M4k'):
@@ -1504,6 +1506,7 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_beamforming(ants=8)
 
+    @aqf_vr('TP.C.1.37')
     @aqf_vr('TP.C.1.36')
     @aqf_vr('TP.C.1.35')
     def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
@@ -1520,6 +1523,7 @@ class test_CBF(unittest.TestCase):
             self._test_beamforming(ants=8)
 
     @aqf_vr('TP.C.1.41')
+    @aqf_vr('TP.C.1.43')
     def test_generic_control_init(self, instrument='bc8n856M4k'):
         """
         CBF Control - initial release
@@ -1770,7 +1774,7 @@ class test_CBF(unittest.TestCase):
             time_stamp = initial_dump['timestamp'].value
             n_accs = initial_dump['n_accs'].value
             int_time = initial_dump['int_time'].value
-            roundtrip = 30e-3
+            roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
             Aqf.hop('Added {}s for the network round trip to dump timestamp'.format(roundtrip))
             future_time = 0
             dump_1_timestamp = (sync_time + roundtrip +
@@ -1817,10 +1821,26 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Time apply to set delays: {}'.format(setup_data['t_apply']))
         cam_max_load_time = 1
         try:
+            katcp_host = self.corr_fix.katcp_rct.host
+            katcp_port = self.corr_fix.katcp_rct.port
             cmd_start_time = time.time()
-            reply, informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
-                                                                *delay_coefficients)
+            os.system("/usr/local/bin/kcpcmd -s {}:{} delays {} {}".format(
+                katcp_host, katcp_port, setup_data['t_apply'],
+                ' '.join(delay_coefficients)))
             final_cmd_time = time.time() - cmd_start_time
+
+            # TODO MM 2016-07-05
+            # Disabled katcp resource client setting delays, instead setting them
+            # via Marc's kcs interface.
+            #katcp_conn_time = self.corr_fix.katcp_rct.last_connect_time
+            #reply, informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
+                                                                #*delay_coefficients)
+            #cmd_end_time = time.time()
+            #network_roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
+            #cmd_exec_time = 0.2
+            #cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
+            #final_cmd_time = cmd_end_time - cmd_tot_time
+
         except:
             errmsg = ('Failed to set delays via CAM interface with loadtime:{0:.3f}, '
                       'Delay coefficiencts: {1}'.format(setup_data['t_apply'], delay_coefficients))
@@ -1829,13 +1849,12 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.less(final_cmd_time, cam_max_load_time,
                 '[CBF-REQ-0077, 0187]: Time it takes to load delays {0:.3f}s '
-                '(-network roundtrip (3ms) - code execution (2ms)) should be less than '
-                '{1}s with integration time of {2:.3f}s'.format(final_cmd_time,
-                    cam_max_load_time, setup_data['int_time']))
+                'should be less than {1}s with integration time of {2:.3f}s'.format(
+                    final_cmd_time, cam_max_load_time, setup_data['int_time']))
 
-            Aqf.is_true(reply.reply_ok(),
-                '[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}'.format(
-                    reply.arguments[1]))
+            #Aqf.is_true(reply.reply_ok(),
+                #'[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}'.format(
+                    #reply.arguments[1]))
 
         last_discard = setup_data['t_apply'] - setup_data['int_time']
         num_discards = 0
@@ -1900,9 +1919,7 @@ class test_CBF(unittest.TestCase):
             expected_phases = []
             for dump in xrange(1, dump_counts + 1):
                 tot_delay = (delay + dump * delay_rate * setup_data['int_time'] -
-                             #.5 * delay_rate * setup_data['int_time'])
-                             # TODO (MM) 13-07-16 Removed .5 value not sure what value entails
-                             delay_rate * setup_data['int_time'])
+                             1.2 * delay_rate * setup_data['int_time'])
                 # The delay does not get applied on dump boundaries. This function
                 # calculates the offset between the expected delay and the actual delay
                 # and then adds this offset to all subsequent calculations.
@@ -3005,7 +3022,7 @@ class test_CBF(unittest.TestCase):
                         cmd_start_time = time.time()
                         reply, informs = self.corr_fix.katcp_rct.req.delays(
                             t_apply, *delay_coefficients)
-                        final_cmd_time = (time.time() - cmd_start_time-roundtrip)
+                        final_cmd_time = (time.time() - cmd_start_time - roundtrip)
                     except:
                         errmsg = ('Failed to set delays via CAM interface with '
                                   'loadtime:{0:.3f}, Delay coefficiencts: {1}'.format(
@@ -3716,7 +3733,7 @@ class test_CBF(unittest.TestCase):
             dump_counts = 5
             delay_rate = ((setup_data['sample_period'] / setup_data['int_time'])
                           * np.random.rand() * (dump_counts-3))
-            #delay_rate =  3.98195128768e-09
+            #delay_rate = 3.98195128768e-09
             delay_value = 0
             fringe_offset = 0
             fringe_rate = 0
@@ -3761,8 +3778,8 @@ class test_CBF(unittest.TestCase):
             for i in xrange(1, len(expected_phases_) - 1):
                 delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
                 delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
-                abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-                #abs_diff = np.abs(delta_expected - delta_actual)
+                #abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
+                abs_diff = np.abs(delta_expected - delta_actual)
                 Aqf.almost_equals(delta_expected, delta_actual, degree,
                     '[CBF-REQ-0187] Check if difference between expected({0:.3f}) phases and '
                     'actual({1:.3f}) phases are \'Almost Equal\' within {2} degree when '
@@ -3817,7 +3834,7 @@ class test_CBF(unittest.TestCase):
             #fringe_rate = randrange(min_fringe_rate, max_fringe_rate, int=float)
             dump_counts = 5
             fringe_rate = (((np.pi / 8. ) / setup_data['int_time'])
-                           * np.random.rand() * dump_counts)
+                            * np.random.rand() * dump_counts)
             delay_value = 0
             delay_rate = 0
             fringe_offset = 0
