@@ -5082,8 +5082,12 @@ class test_CBF(unittest.TestCase):
             beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0, 'm003_y': 1.0,
                           'm004_y': 1.0, 'm005_y': 1.0, 'm006_y': 1.0, 'm007_y': 1.0}
 
-        self.dhost.sine_sources.sin_0.set(frequency=target_cfreq-bw, scale=0.1)
-        self.dhost.sine_sources.sin_1.set(frequency=target_cfreq-bw, scale=0.1)
+
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
+            cw_scale=0.675, freq=target_cfreq-bw, fft_shift=8191, gain='11+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
         this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
         this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
         Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0+bw, this_source_freq1+bw))
@@ -5738,8 +5742,8 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
-            self._set_input_levels_and_gain(profile='cw', cw_freq=100000, cw_margin = 0.3,
-                                            trgt_bits=4.5, trgt_q_std = 0.30, fft_shift=8191)
+            self._set_input_levels_and_gain(profile='noise', cw_freq=100000, cw_margin = 0.3,
+                                            trgt_bits=4, trgt_q_std = 0.30, fft_shift=511)
 
     def test_bc8n856M32k_input_levels(self, instrument='bc8n856M32k'):
         """Testing Dsim input levels (bc8n856M32k)
@@ -6014,11 +6018,6 @@ class test_CBF(unittest.TestCase):
                 dval = dump['xeng_raw'].value
                 auto_corr = dval[:, inp_autocorr_idx, :]
                 next_ch_val = auto_corr[freq_ch][0]
-                print '{} {} {} {} {}'.format(auto_corr[freq_ch-2][0],
-                                              auto_corr[freq_ch-1][0],
-                                              auto_corr[freq_ch][0],
-                                              auto_corr[freq_ch+1][0],
-                                              auto_corr[freq_ch+2][0])
                 ch_val_diff = next_ch_val - ch_val
                 # When the gradient start decreasing the center of the linear
                 # section has been found. Grab the same number of points from
@@ -6159,3 +6158,93 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Quantiser snapshot for {} contains saturated samples.'.format(key))
                 Aqf.failed('{} saturated samples found'.format(ret_dict[key]['num_sat']))
         return ret_dict
+
+
+    def test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
+        """Determining correlator efficiency (bc8n856M4k)
+        Calculate correlator efficiency
+        """
+        if self.set_instrument(instrument):
+            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._corr_efficiency(n_accs = 1000)
+
+
+    def _corr_efficiency(self, n_accs):
+        """
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        """
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
+                                            awgn_scale=0.032,
+                                            cw_scale=0.0, freq=1000000,
+                                            fft_shift=511, gain='226+0j')
+        Aqf.step('Grabbing accumulation 0')
+        found = False
+        # Get first dump, ensure there are no VACC channel errors. Loop until
+        # clean dump is found.
+        while not found:
+            dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            baseline_lookup = get_baselines_lookup(dump)
+            inp = dump['input_labelling'].value[0][0]
+            inp_autocorr_idx = baseline_lookup[(inp, inp)]
+            acc_time = dump['int_time'].value
+            ch_bw = self.corr_freqs.chan_freqs[1]
+            dval = dump['xeng_raw'].value
+            auto_corr = dval[:, inp_autocorr_idx, :][:, 0]
+            mean = auto_corr.mean()
+            vacc_ch_err_factor = 1.11
+            err_margin = mean*vacc_ch_err_factor
+            diff_array = np.abs(auto_corr-mean) + mean
+            if len(np.where(diff_array > err_margin)[0]) == 0:
+                ch_time_series = auto_corr
+                found = True
+            else:
+                Aqf.step('VACC errors found in dump, retrying.')
+                import IPython; IPython.embed()
+        dropped = 0
+        for i in range(n_accs-1):
+            Aqf.step('grabbing accumulation {}'.format(i+1))
+            dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+            dval = dump['xeng_raw'].value
+            auto_corr = dval[:, inp_autocorr_idx, :][:,0]
+            # Check that no VACC channel errors are present.
+            mean = auto_corr.mean()
+            diff_array = np.abs(auto_corr-mean) + mean
+            if len(np.where(diff_array > err_margin)[0]) == 0:
+                ch_time_series = np.vstack((ch_time_series, auto_corr))
+            else:
+                dropped += 1
+        Aqf.step('Dropped {} accumulations due to VACC errors'.format(dropped))
+
+        Aqf.step('Calculating time series mean.')
+        ch_mean = ch_time_series.mean(axis=0)
+        # Find channels showing VACC errors
+        mean = ch_mean.mean()
+        vacc_ch_err_factor = 1.002
+        err_margin = mean*vacc_ch_err_factor
+        diff_array = np.abs(ch_mean-mean) + mean
+        err_loc = np.where(diff_array > err_margin)
+        Aqf.step('Calculating time series standard deviation')
+        ch_std = ch_time_series.std(axis=0)
+        std_mean = ch_std.mean()
+        # Replace error locations with mean values
+        print err_loc
+        import IPython; IPython.embed()
+
+        for idx in err_loc:
+            ch_mean[idx] = mean
+            ch_std[idx] = std_mean
+
+        sqrt_bw_at = np.sqrt(ch_bw*acc_time)
+
+        Aqf.step('Calculating channel efficiency.')
+        eff = 1/((ch_std/ch_mean)*sqrt_bw_at)
+        Aqf.step('Mean channel efficiency = {:.2f}%'.format(100*eff.mean()))
+        plt.plot(eff)
+        plt.show()
