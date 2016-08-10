@@ -783,6 +783,31 @@ class Aqf(object):
             return False
 
     @classmethod
+    def is_not_equals(cls, result, expected, description):
+        """Evaluate: expected result is not equals the obtained result.
+
+        Shortcut for: ::
+
+            if expected != result:
+                Aqf.pass()
+            else:
+                Aqf.failed(message)
+
+        :param result: The obtained value.
+        :param expected: The expected value.
+        :param description: A description of this test.
+
+        """
+
+        # Do not log EVALUATE step
+        # _state.store.add_step_evaluation(description)
+        if expected != result:
+            cls.passed(description)
+        else:
+            cls.failed("Expected '%s' got '%s' - %s" %
+                       (str(expected), str(result), description))
+
+    @classmethod
     def less(cls, result, expected, description):
         """Evaluate: obtained result less than the expected value.
 
