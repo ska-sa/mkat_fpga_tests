@@ -511,8 +511,8 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.44')
     def test_bc8n856M4k_baseline_correlation_product_consistency(self, instrument='bc8n856M4k'):
         """
-        CBF Baseline Correlation Products
-        Check that back-to-back SPEAD packets with same input are equal. (bc8n856M4k)
+        CBF Baseline Correlation Products Consistency
+        Check that back-to-back SPEAD accumulations with same input are equal. (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
             CBF-REQ-0025
@@ -522,7 +522,7 @@ class test_CBF(unittest.TestCase):
         """
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step("Back-to-Back SPEAD packets consistency: {}\n".format(
+            Aqf.step("Back-to-Back SPEAD accumulations consistency: {}\n".format(
                 _running_inst.keys()[0]))
             self._systems_tests()
             self._test_back2back_consistency()
@@ -532,8 +532,8 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.44')
     def test_bc32n856M4k_baseline_correlation_product_consistency(self, instrument='bc32n856M4k'):
         """
-        CBF Baseline Correlation Products
-        Check that back-to-back SPEAD packets with same input are equal. (bc32n856M4k)
+        CBF Baseline Correlation Products consistency
+        Check that back-to-back SPEAD accumulations with same input are equal. (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
             CBF-REQ-0025
@@ -544,7 +544,7 @@ class test_CBF(unittest.TestCase):
         """
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step("Back-to-Back SPEAD packets consistency: {}\n".format(
+            Aqf.step("Back-to-Back SPEAD accumulations consistency: {}\n".format(
                 _running_inst.keys()[0]))
             self._systems_tests()
             self._test_back2back_consistency()
@@ -554,8 +554,8 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.44')
     def test_bc16n856M4k_baseline_correlation_product_consistency(self, instrument='bc16n856M4k'):
         """
-        CBF Baseline Correlation Products
-        Check that back-to-back SPEAD packets with same input are equal. (bc16n856M4k)
+        CBF Baseline Correlation Products Consistency
+        Check that back-to-back SPEAD accumulation with same input are equal. (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
             CBF-REQ-0025
@@ -565,7 +565,7 @@ class test_CBF(unittest.TestCase):
         """
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step("Back-to-Back SPEAD packets consistency: {}\n".format(
+            Aqf.step("Back-to-Back SPEAD accumulations consistency: {}\n".format(
                 _running_inst.keys()[0]))
             self._systems_tests()
             self._test_back2back_consistency()
@@ -575,8 +575,8 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.44')
     def test_bc8n856M32k_baseline_correlation_product_consistency(self, instrument='bc8n856M32k'):
         """
-        CBF Baseline Correlation Products
-        Check that back-to-back SPEAD packets with same input are equal. (bc8n856M32k)
+        CBF Baseline Correlation Products Consistency
+        Check that back-to-back SPEAD accumulations with same input are equal. (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0087
             CBF-REQ-0025
@@ -586,7 +586,7 @@ class test_CBF(unittest.TestCase):
         """
         if self.set_instrument(instrument):
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step("Back-to-Back SPEAD packets consistency: {}\n".format(
+            Aqf.step("Back-to-Back SPEAD accumulations consistency: {}\n".format(
                 _running_inst.keys()[0]))
             self._systems_tests()
             self._test_back2back_consistency()
@@ -2070,20 +2070,20 @@ class test_CBF(unittest.TestCase):
         fig_suffix = 1
         for i, freq in enumerate(requested_test_freqs):
             if i < print_counts:
-                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.hop('Getting channel response for freq {} @ {}: {} MHz.'
                          .format(i + 1, len(requested_test_freqs), freq / 1e6))
             elif i >= (len(requested_test_freqs) - print_counts):
-                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
+                Aqf.hop('Getting channel response for freq {} @ {}: {} MHz.'
                          .format(i + 1, len(requested_test_freqs), freq / 1e6))
             else:
-                LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'
+                LOGGER.info('Getting channel response for freq {} @ {}: {} MHz.'
                             .format(i + 1, len(requested_test_freqs), freq / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
-                LOGGER.info('Skipping channel response for freq {}/{}: {} MHz.\n'
+                LOGGER.info('Skipping channel response for freq {} @ {}: {} MHz.\n'
                             'Digitiser frequency is same as previous.'
                             .format(i + 1, len(requested_test_freqs), freq / 1e6))
                 continue  # Already calculated this one
@@ -2100,7 +2100,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 if spead_failure_counter > 5:
                     spead_failure_counter = 0
-                    Aqf.failed('Bailed: Kept receiving empty Spead packets')
+                    Aqf.failed('Bailed: Kept receiving empty SPEAD accumulations')
                     return False
             else:
                 this_freq_data = this_freq_dump['xeng_raw'].value
@@ -2112,15 +2112,14 @@ class test_CBF(unittest.TestCase):
             # Plot an overall frequency response at the centre frequency just as
             # a sanity check
 
-            plt_filename = '{}_channel_resp_sanity_check.png'.format(self._testMethodName)
-            plt_title = 'Overrall frequency response at {}\{}MHz.'.format(
+            plt_filename = '{}_overral_channel_resp.png'.format(self._testMethodName)
+            plt_title = 'Overrall frequency response at {} at {}MHz.'.format(
                 test_chan, this_source_freq / 1e6)
             plt_caption = (
-                'Figure {}.{}: This is merely a sanity check to plot an overrall frequency response '
-                'at the center frequency, When digitiser simulator is configured to '
-                'generate a continuos wave, with cw scale: {}. awgn scale: {}, '
-                'eq gain: {}, fft shift: {}'.format(fig_prefix, fig_suffix, cw_scale, awgn_scale,
-                    gain, fft_shift))
+                'Figure {}.{}: An overrall frequency response at the center frequency,'
+                ' when digitiser simulator is configured to generate a continuos wave, '
+                'with cw scale: {}. awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(
+                    fig_prefix, fig_suffix, cw_scale, awgn_scale, gain, fft_shift))
             if np.abs(freq - expected_fc) < 0.1:
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title,
                     log_dynamic_range=90, caption=plt_caption, hlines=cutoff)
@@ -2139,16 +2138,16 @@ class test_CBF(unittest.TestCase):
             normalise=True)
         fig_suffix += 1
         plt_caption = (
-            'Figure {}.{}: Frequncy channel {}/{}Mhz response vs source frequency'.format(
+            'Figure {}.{}: Frequncy channel {} @ {}Mhz response vs source frequency'.format(
                 fig_prefix, fig_suffix, test_chan, expected_fc / 1e6))
-        plt_title = 'Channel {}/{}MHz response.'.format(test_chan, expected_fc / 1e6)
+        plt_title = 'Channel {} @ {}MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
         aqf_plot_and_save(actual_test_freqs, plot_data, df, expected_fc, plt_filename,
             plt_title, plt_caption, cutoff)
 
         # Plot PFB channel response with -6dB cuttoff horizontal line
         no_of_responses = 3
-        legends = ['Channel {}/{} MHz response'.format(
+        legends = ['Channel {} @ {} MHz response'.format(
             ((test_chan + i) - 1), self.corr_freqs.chan_freqs[test_chan + i] / 1e6) for i in range(
             no_of_responses)]
         channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(
@@ -2371,13 +2370,13 @@ class test_CBF(unittest.TestCase):
             if stepsize:
                 channel *= stepsize
             if channel < print_counts:
-                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'.format(
+                Aqf.hop('Getting channel response for freq {} @ {}: {} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             elif channel > (n_chans - print_counts):
-                Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'.format(
+                Aqf.hop('Getting channel response for freq {} @ {}: {} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             else:
-                LOGGER.info('Getting channel response for freq {}/{}: {} MHz.'.format(
+                LOGGER.info('Getting channel response for freq {} @ {}: {} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
@@ -2395,7 +2394,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 if spead_failure_counter > 5:
                     spead_failure_counter = 0
-                    Aqf.failed('Bailed: Kept receiving empty Spead packets')
+                    Aqf.failed('Bailed: Kept receiving empty SPEAD accumulations')
                     return False
             else:
                 this_freq_response = (
@@ -2415,11 +2414,11 @@ class test_CBF(unittest.TestCase):
         for channel, channel_resp in zip(chans_to_plot, channel_response_lst):
             i += 1
             plt_filename =  '{}_channel_{}_resp.png'.format(self._testMethodName, channel)
-            plt_title = 'Log: Channel response at {} @ {} MHz'.format(channel,
+            plt_title = 'Frequency response at {} @ {} MHz'.format(channel,
                             self.corr_freqs.chan_freqs[channel])
             caption = (
-                'Figure {}.{}: An overrall frequency response at channel {}/{}MHz, '
-                'When digitiser simulator is configured to '
+                'Figure {}.{}: An overrall frequency response at channel {} @ {}MHz, '
+                'when digitiser simulator is configured to '
                 'generate a continuos wave, with cw scale: {}. awgn scale: {}, '
                 'eq gain: {}, fft shift: {}'.format(fig_prefix, i, channel,
                     self.corr_freqs.chan_freqs[channel] / 1e6, cw_scale, awgn_scale,
@@ -2604,14 +2603,14 @@ class test_CBF(unittest.TestCase):
                     plot_filename = '{}_channel_resp_{}.png'.format(
                                     self._testMethodName, inp)
                     plot_title = (
-                        'Baseline Correlation Products\n'
+                        'Baseline Correlation Products on input: {}\n'
                         'Bls channel response \'Non-Zero\' inputs:\n {}\n'
-                        '\'Zero\' inputs:\n {}'.format(
-                                 sorted(nonzero_inputs), sorted(zero_inputs)))
+                        '\'Zero\' inputs:\n {}'.format(inp, sorted(nonzero_inputs),
+                            sorted(zero_inputs)))
                     caption = (
-                        'Figure {}.{}: {}\n Baseline channel response with the following '
-                        'non-zero inputs:\n {} \n and\n'
-                        'zero inputs:\n {}'.format(fig_prefix, count, bls_msg,
+                        'Figure {}.{}: {}\n Baseline channel response on input: {} '
+                        'with the following non-zero inputs:\n {} \n and\n'
+                        'zero inputs:\n {}'.format(fig_prefix, count, inp, bls_msg,
                             sorted(nonzero_inputs), sorted(zero_inputs)))
                     aqf_plot_channels(zip(plot_data, plot_baseline_legends),
                                      plot_filename, plot_title, log_dynamic_range=90,
@@ -2647,22 +2646,21 @@ class test_CBF(unittest.TestCase):
         fig_prefix = get_figure_numbering(self,
             self.corr_fix.instrument)[self._testMethodName]
 
-        threshold = 1.0e1  # Threshold: -1dB
+        threshold = 1.0e-7  # Threshold: -20dB
         test_chan = randrange(self.corr_freqs.n_chans)
         test_baseline = 0 # auto-corr
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
-        Aqf.step('Check that back-to-back SPEAD packets with same input are equal on '
-                 'channel({0}) @ {1:.3f}MHz.'.format(test_chan, expected_fc / 1e6))
+        Aqf.step('This test confirms that back-to-back SPEAD accumulations '
+            'with same frequency input are identical/bit-perfect.\n')
         source_period_in_samples = self.corr_freqs.n_chans * 2
         cw_scale = 0.675
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=cw_scale,
                                           repeatN=source_period_in_samples)
-        Aqf.step(
-            'Digitiser simulator configured to generate periodic wave ({0:.3f}Hz with '
-            'FFT-length {1}) in order for each FFT to be identical'.format(expected_fc / 1e6,
-                source_period_in_samples))
+        Aqf.step('Digitiser simulator configured to generate periodic wave '
+            '({0:.3f}Hz with FFT-length {1}) in order for each FFT to be identical.'.format(
+                expected_fc / 1e6, source_period_in_samples))
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
@@ -2673,7 +2671,7 @@ class test_CBF(unittest.TestCase):
             spead_failure_counter = 0
 
             for i, freq in enumerate(requested_test_freqs):
-                Aqf.hop('Testing SPEAD packet consistency {0}/{1} @ {2:.3f} MHz.'.format(
+                Aqf.hop('Getting channel response for freq {0}/{1} @ {2:.3f} MHz.'.format(
                     i + 1, len(requested_test_freqs), freq / 1e6))
                 self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale,
                                                   repeatN=source_period_in_samples)
@@ -2695,7 +2693,7 @@ class test_CBF(unittest.TestCase):
                             LOGGER.exception(errmsg)
                             if spead_failure_counter > 5:
                                 spead_failure_counter = 0
-                                Aqf.failed('Bailed: Kept receiving empty Spead packets')
+                                Aqf.failed('Bailed: Kept receiving empty SPEAD accumulations')
                                 return False
 
                     this_freq_data = this_freq_dump['xeng_raw'].value
@@ -2704,29 +2702,39 @@ class test_CBF(unittest.TestCase):
                         this_freq_data[:, test_baseline, :])
                     chan_responses.append(this_freq_response)
 
-                diff_dumps = []
-                for comparison in xrange(1, len(dumps_data)):
-                    d0 = dumps_data[0]
-                    d1 = dumps_data[comparison]
-                    diff_dumps.append(np.max(d0 - d1))
+                #diff_dumps = []
+                #for comparison in xrange(1, len(dumps_data)):
+                    #d2 = dumps_data[0]
+                    #d1 = dumps_data[comparison]
+                    ## Maximum difference between dump2 and dump1
+                    #diff_dumps.append(np.max(d2 - d1))
 
-                dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
-                msg = (
-                    'Check that back-to-back accumulations({0:.3f}/{1:.3f}dB) with the '
-                    'same frequency input differ by no more than {2} dB threshold.'.format(
-                        dumps_comp, 10 * np.log10(dumps_comp), 10 * np.log10(threshold)))
+                #dumps_comp = np.max(np.array(diff_dumps) / initial_max_freq)
 
-                if not Aqf.less(dumps_comp, threshold, msg):
+                # Maximum difference between the initial max frequency and the last max freq
+                dumps_comp = np.max(dumps_data[-1]) - initial_max_freq
+                #msg = (
+                    #'Check that back-to-back accumulations({0:.3f}/{1:.3f}dB) with the '
+                    #'same frequency input differ by no more than {2} dB threshold.'.format(
+                        #dumps_comp, 10 * np.log10(dumps_comp), 10 * np.log10(threshold)))
+
+                msg = ('Check that the maximum difference between the initial SPEAD '
+                       'accumulations and final SPEAD accumulations '
+                       'with the same frequency input ({}Hz) is \'Zero\'.\n'.format(
+                            this_source_freq))
+
+                #if not Aqf.equal(dumps_comp, 1, msg):
+                if not Aqf.equals(dumps_comp, 0, msg):
                     legends = ['dump #{}'.format(x) for x in xrange(len(chan_responses))]
                     plot_filename = ('{}_chan_resp_{}.png'.format(self._testMethodName,
                         i + 1))
-                    plot_title = 'Log: Channel Response {} @ {}MHz'.format(
+                    plot_title = 'Frequency Response {} @ {}MHz'.format(
                         test_chan, this_source_freq)
                     aqf_plot_channels(zip(chan_responses, legends), plot_filename,
                         plot_title, log_dynamic_range=90, log_normalise_to=1,
                         caption=(
-                            'Figure {0}.{1}: Comparison of back-to-back channelisation '
-                            'results with digitiser simulator configured to generate '
+                            'Figure {0}.{1}: Comparison of back-to-back SPEAD accumulations '
+                            'with digitiser simulator configured to generate '
                             'periodic wave ({2:.3f}Hz with FFT-length {3}) in order '
                             'for each FFT to be identical'.format(fig_prefix, i - 1,
                                 this_source_freq, source_period_in_samples)))
@@ -2757,7 +2765,7 @@ class test_CBF(unittest.TestCase):
         else:
             cw_scale = 0.675
             Aqf.step('Digitiser simulator configured to generate continuous wave')
-            Aqf.step('Randomly selected Frequency channel {}/{}MHz for testing.'.format(
+            Aqf.step('Randomly selected Frequency channel {} @ {}MHz for testing.'.format(
                 test_chan, expected_fc / 1e6))
             Aqf.step('Sweeping the digitiser simulator over the center frequencies of at '
                  'least all channels that fall within the complete L-band: {} Hz'.format(
@@ -2767,7 +2775,7 @@ class test_CBF(unittest.TestCase):
                 scans.append(scan_dumps)
                 for i, freq in enumerate(requested_test_freqs):
                     if scan_i == 0:
-                        Aqf.hop('Getting channel response for freq {}/{}: {} MHz.'
+                        Aqf.hop('Getting channel response for freq {} @ {}: {} MHz.'
                          .format(i + 1, len(requested_test_freqs), freq / 1e6))
                         #self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
                         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale,
@@ -2848,11 +2856,12 @@ class test_CBF(unittest.TestCase):
             # a sanity check
             init_source_freq = normalised_magnitude(
                 this_freq_dump['xeng_raw'].value[:, test_baseline, :])
-            filename = '{}_channel_resp.png'.format(self._testMethodName)
-            title = 'Log: Channel Response {} @ {} MHz.\n'.format(test_chan, expected_fc / 1e6)
+            filename = '{}_channel_response.png'.format(self._testMethodName)
+            title = ('Frequency response at {} @ {} MHz.\n'.format(test_chan,
+                expected_fc / 1e6))
             caption = (
-                'Figure {}.{}: This is merely a sanity check to plot an overrall frequency  response '
-                'at the center frequency.'.format(fig_prefix, count))
+                'Figure {}.{}: An overrall frequency response at the center frequency.'.format(
+                    fig_prefix, count))
             aqf_plot_channels(init_source_freq, filename, title, log_dynamic_range=90,
                 caption=caption)
 
@@ -2864,7 +2873,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed('Could not deprogram FPGAs')
                 try:
                     self.receiver.get_clean_dump(DUMP_TIMEOUT)
-                    Aqf.failed('SPEAD packets are still being produced.')
+                    Aqf.failed('SPEAD accumulations are still being produced.')
                 except Queue.Empty:
                     pass
 
@@ -2967,7 +2976,7 @@ class test_CBF(unittest.TestCase):
             Aqf.hop('Test took {} seconds to complete'.format(final_time))
 
             if not Aqf.less(diff_scans_comp, threshold,
-                            'Check that roach restart SPEAD packets comparison results '
+                            'Check that roach restart SPEAD accumulations comparison results '
                             'with the same frequency input differ by no more than {}dB '
                             'threshold.'.format(diff_scans_comp, threshold)):
                 legends = ['Channel Responce #{}'.format(x) for x in xrange(len(
@@ -3482,7 +3491,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_product_switch(self, instrument, no_channels):
 
-        Aqf.step('Confirm that SPEAD packets are being produced when Dsim is '
+        Aqf.step('Confirm that SPEAD accumulations are being produced when Dsim is '
                  'configured to output correlated noise')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         try:
@@ -3499,9 +3508,9 @@ class test_CBF(unittest.TestCase):
              for host in xhosts + fhosts]
         try:
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            Aqf.failed('SPEAD packets are still being produced.')
+            Aqf.failed('SPEAD accumulations are still being produced.')
         except Queue.Empty:
-            Aqf.passed('Check that SPEAD packets are nolonger being produced.')
+            Aqf.passed('Check that SPEAD accumulations are nolonger being produced.')
 
         self.corr_fix.halt_array()
         Aqf.step('[CBF-REQ-0064] Initialising {instrument} instrument'.format(**locals()))
@@ -3534,7 +3543,7 @@ class test_CBF(unittest.TestCase):
             end_time = time.time()
 
             Aqf.is_true(re_dump,
-                        'Confirm that SPEAD packets are being produced after instrument '
+                        'Confirm that SPEAD accumulations are being produced after instrument '
                         're-initialisation.')
 
             Aqf.equals(re_dump['xeng_raw'].value.shape[0], no_channels,
@@ -4150,11 +4159,8 @@ class test_CBF(unittest.TestCase):
                     tn.write("exit\n")
                     stdout = tn.read_all()
                     tn.close()
-                    # ToDo (MM) 12-07-2016
-                    # Test fails due to missing gateware information
-                    Aqf.failed('Gateware :  ,Build Date: ')
-                    ## Aqf.hop('Gateware :{}'.format(', Build Date: '.join(
-                        #host.system_info.values()[1::2])))
+                    Aqf.hop('Gateware :{}'.format(', Build Date: '.join(
+                        host.system_info.values()[1::2])))
 
                     uboot_ver = stdout.splitlines()[-6]
                     Aqf.hop('Current UBoot Version: {}'.format(uboot_ver))
@@ -4782,7 +4788,7 @@ class test_CBF(unittest.TestCase):
 
             if chan_response:
                 Aqf.step('Delay applied to the correct input')
-                legends = ['SPEAD packets per Baseline #{}'.format(x) for x in xrange(
+                legends = ['SPEAD accumulations per Baseline #{}'.format(x) for x in xrange(
                            len(chan_response))]
                 aqf_plot_channels(zip(chan_response, legends),
                                   plot_filename='{}_chan_resp.png'.format(self._testMethodName),
@@ -4797,19 +4803,38 @@ class test_CBF(unittest.TestCase):
         """CBF Imaging Data Product Set"""
         fig_prefix = get_figure_numbering(self,
             self.corr_fix.instrument)[self._testMethodName]
+        # Put some correlated noise on both outputs
+        if self.corr_freqs.n_chans == 4096:
+            ## 4K
+            awgn_scale=0.25
+            gain='511+0j'
+            fft_shift=8191
+        else:
+            # 32K
+            awgn_scale=0.063
+            gain='344+0j'
+            fft_shift=4095
 
-        Aqf.step('Digitiser simulator configured to generate correlated noise')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
-        # Get baseline 0 data, i.e. auto-corr of m000h
-        test_baseline = 0
-        Aqf.step('Getting initial SPEAD data')
+        Aqf.step('Digitiser simulator configured to generate gaussian noise with scale: {}, '
+                 'gain: {} and fft shift: {}.'.format(awgn_scale, gain, fft_shift))
+        dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=awgn_scale,
+            fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
+        Aqf.step('Retrieving initial SPEAD accumulation')
         try:
             test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
-            errmsg = 'Could not retrieve clean SPEAD packet, as Queue is Empty.'
+            errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
+            # Get baseline 0 data, i.e. auto-corr of m000h
+            test_baseline = 0
+            test_bls = tuple(test_dump['bls_ordering'].value[test_baseline])
+
             Aqf.equals(test_dump['xeng_raw'].value.shape[0], no_channels,
                        '[CBF-REQ-0104, 0213] Check that data product has the number of frequency '
                        'channels {no_channels} corresponding to the {instrument} '
@@ -4817,14 +4842,17 @@ class test_CBF(unittest.TestCase):
             response = normalised_magnitude(test_dump['xeng_raw'].value[:, test_baseline, :])
 
             if response.shape[0] == no_channels:
-                Aqf.passed('Confirm that imaging data product set has been implemented.')
+                Aqf.passed('Confirm that imaging data product set has been implemented for'
+                    'instrument: {}.'.format(instrument))
                 plot_filename = '{}.png'.format(self._testMethodName)
-                caption=(
-                    'Figure {}: This serves merely as a record whether functionality'
-                    'has been included in this initial release, and what level of '
-                    'confidence there is in that functionality.'.format(fig_prefix))
+                caption = (
+                'Figure {}: An overrall frequency response at {} baseline, '
+                'when digitiser simulator is configured to generate gaussian noise, '
+                'with awgn scale: {}, eq gain: {} and fft shift: {}'.format(
+                    fig_prefix, test_bls, awgn_scale, gain, fft_shift))
+
                 aqf_plot_channels(response, plot_filename, log_dynamic_range=90,
-                    log_normalise_to=1, caption=caption)
+                    caption=caption)
             else:
                 Aqf.failed('Imaging data product set has not been implemented.')
 
@@ -4874,7 +4902,7 @@ class test_CBF(unittest.TestCase):
         try:
             initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
-            errmsg = 'Could not retrieve clean SPEAD packet, as Queue is Empty.'
+            errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
