@@ -175,7 +175,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     plt.grid(True)
     plt.ylabel('Phase [radians]')
     plt.xlabel('Channel number')
-    plt.figtext(.1,-.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1, -.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend()
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
@@ -244,14 +244,6 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
             plt.xlabel(xlabel)
         else:
             plt.xlabel('Channel number')
-
-    #axis = plt.gcf().get_axes()[0]
-    #ybound = axis.get_ybound()
-    #yb_diff = abs(ybound[1] - ybound[0])
-    ## new_ybound = [ybound[0] - yb_diff*1.1, ybound[1] + yb_diff*1.1]
-    #new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
-    #new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
-    #axis.set_ybound(*new_ybound)
 
     if hlines:
         plt.axhline(hlines, linestyle='--', color='red', linewidth=.5)

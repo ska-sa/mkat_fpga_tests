@@ -215,11 +215,9 @@ class StoreTestRun(object):
             Alternative description for when an image cannot be displayed
 
         """
-        matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=100, format='png')
+        matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=200, format='png')
         self.add_image(filename, caption, alt)
         matplotlib.pyplot.clf()
-        for i in range(100):
-            gc.collect()
 
     def as_json(self):
         """Output report in json format.
