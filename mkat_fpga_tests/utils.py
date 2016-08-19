@@ -44,7 +44,7 @@ def normalised_magnitude(input_data):
 
 def loggerise(data, dynamic_range=70, normalise_to=None, normalise=False):
     with np.errstate(divide='ignore'):
-        log_data = 10*np.log10(data)
+        log_data = 10 * np.log10(data)
     if normalise_to:
         max_log = normalise_to
     else:
@@ -52,7 +52,7 @@ def loggerise(data, dynamic_range=70, normalise_to=None, normalise=False):
     min_log_clip = max_log - dynamic_range
     log_data[log_data < min_log_clip] = min_log_clip
     if normalise:
-        log_data = np.asarray(log_data)-np.max(log_data)
+        log_data = np.asarray(log_data) - np.max(log_data)
     return log_data
 
 
@@ -317,33 +317,6 @@ def get_snapshots(instrument):
         return dict(feng=f_snaps)
 
 
-def get_source_object_and_index(instrument, input_name):
-    """Return the DataSource object and local roach source index for a given input"""
-    return [(s['source'].name ,s['source_num'])
-            for s in instrument.fengine_sources
-            if s['source'].name == input_name][0]
-
-def set_coarse_delay(instrument, input_name, value=0):
-    """ Sets coarse delay(default = 1) for Correlator baseline input.
-
-        Parameters
-            =========
-            instrument
-                Correlator object.
-            input_name
-                Baseline (eg.'m000_x').
-            value
-                Number of samples to delay
-    """
-    source, source_index = get_source_object_and_index(instrument, input_name)
-    if source_index == 0:
-        source.host.registers.coarse_delay0.write(coarse_delay=value)
-        source.host.registers.tl_cd0_control0.write(arm='pulse', load_immediate=1)
-    else:
-        source.host.registers.coarse_delay1.write(coarse_delay=value)
-        source.host.registers.tl_cd1_control0.write(arm='pulse', load_immediate=1)
-
-
 def rearrange_snapblock(snap_data, reverse=False):
     segs = []
     for segment in sorted(snap_data.keys(), reverse=reverse):
@@ -353,10 +326,12 @@ def rearrange_snapblock(snap_data, reverse=False):
 
 def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
-    host = [i['host'] for i in instrument.fengine_sources][0]
-    source, source_index = get_source_object_and_index(instrument, input_name)
-    snap_name = 'snap_quant{}_ss'.format(source_index)
-    snap = host.snapshots[snap_name]
+    data_sources = [_source
+                    for _input, _source in instrument.fengine_sources.iteritems()
+                        if input_name == _input][0]
+
+    snap_name = 'snap_quant{}_ss'.format(data_sources.source_number)
+    snap = data_sources.host.snapshots[snap_name]
     snap_data = snap.read(
         man_valid=False, man_trig=False, timeout=timeout)['data']
 
@@ -487,7 +462,7 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, ct_status in hosts_status.iteritems():
             if ct_status is False:
-                Aqf.failed('Fhost: {}: Corner turner NOT okay!'.format(host))
+                LOGGER.error('Fhost: {}: Corner turner NOT okay!'.format(host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
     except Exception:
@@ -495,7 +470,7 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, vacc_status in hosts_status.iteritems():
             if vacc_status is False:
-                Aqf.failed('Xhost: {}: VACC NOT okay!'.format(host))
+                LOGGER.error('Xhost: {}: VACC NOT okay!'.format(host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
     except Exception:
@@ -503,7 +478,7 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, rxro_status in hosts_status.iteritems():
             if rxro_status is False:
-                Aqf.failed('Xhost: {}: Check that the host is receiving 10gbe data '
+                LOGGER.error('Xhost: {}: Check that the host is receiving 10gbe data '
                    'correctly?'.format(host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
@@ -512,7 +487,7 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, rxsp_status in hosts_status.iteritems():
             if rxsp_status is False:
-                Aqf.failed('Xhost: {}: Check that this host is receiving SPEAD data.'.format(
+                LOGGER.error('Xhost: {}: Check that this host is receiving SPEAD data.'.format(
                     host))
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
@@ -521,8 +496,8 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, rxre_status in hosts_status.iteritems():
             if rxre_status is False:
-                Aqf.failed('Xhost: {}: Check that host reordering received data correctly?'.format(
-                    host.host))
+                LOGGER.error('Xhost: {}: Check that host reordering received data correctly?'.format(
+                    host))
 
 
 def get_vacc_offset(xeng_raw):
@@ -541,11 +516,10 @@ def get_vacc_offset(xeng_raw):
 
 
 def get_and_restore_initial_eqs(test_instance, correlator):
-    initial_equalisations = {_input: eq_info['eq'] for _input, eq_info
-                             in correlator.fops.eq_get().items()}
+    initial_equalisations = correlator.fops.eq_get()
 
     def restore_initial_equalisations():
-        for _input, eq in initial_equalisations.items():
+        for _input, eq in initial_equalisations.iteritems():
             correlator.fops.eq_set(source_name=_input, new_eq=eq)
 
     test_instance.addCleanup(restore_initial_equalisations)
@@ -577,8 +551,7 @@ def get_pfb_counts(status_dict):
     """
     pfb_list = {}
     for host, pfb_value in status_dict:
-        pfb_list[host] = (pfb_value['pfb_of0_cnt'],
-                          pfb_value['pfb_of1_cnt'])
+        pfb_list[host] = (pfb_value['pfb_of0_cnt'], pfb_value['pfb_of1_cnt'])
     return pfb_list
 
 
@@ -739,3 +712,18 @@ def disable_spead2_warnings():
     # set the corr_rx logger to Error only
     corr_rx_logger = logging.getLogger("corr2.corr_rx")
     corr_rx_logger.setLevel(logging.ERROR)
+
+class Text_Style(object):
+    """Text manipulation"""
+    def __init__(self):
+        self.BOLD = '\033[1m'
+        self.UNDERLINE = '\033[4m'
+        self.END = '\033[0m'
+
+    def Bold(self, msg=None):
+        return (self.BOLD + msg + self.END)
+
+    def Underline(self, msg=None):
+        return (self.UNDERLINE + msg + self.END)
+
+Style = Text_Style()
