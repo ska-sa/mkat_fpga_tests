@@ -252,9 +252,6 @@ class CorrelatorFixture(object):
                 self._katcp_rct.until_synced(timeout=timeout)
             except TimeoutError:
                 self._katcp_rct.stop()
-            LOGGER.info('Cleanup function: File: {} line: {}'. format(
-                getframeinfo(currentframe()).filename.split('/')[-1], getframeinfo(currentframe()).lineno))
-            add_cleanup(self._katcp_rct.stop)
         return self._katcp_rct
 
     def start_x_data(self):
@@ -530,6 +527,8 @@ class CorrelatorFixture(object):
                 LOGGER.error(errmsg)
                 #sys.exit(errmsg)
                 return False
+        else:
+            return False
 
     def get_multicast_ips(self, instrument):
         """
