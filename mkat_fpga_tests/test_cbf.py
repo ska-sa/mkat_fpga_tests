@@ -1977,13 +1977,18 @@ class test_CBF(unittest.TestCase):
 
     def _systems_tests(self):
         """Run tests fft overflow and qdr status before or after."""
-        self.last_pfb_counts = get_pfb_counts(
-            get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
-        self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
-                        self.last_pfb_counts)
-        self.addCleanup(check_host_okay, self.correlator)
-        LOGGER.info('Reset gains to default values from config file.\n')
-        set_default_eq(self.correlator)
+        try:
+            self.last_pfb_counts = get_pfb_counts(
+                get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
+        except AttributeError:
+            LOGGER.error('Failed to read correlator attribute, correlator might not'
+            ' be running.')
+        else:
+            self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
+                    self.last_pfb_counts)
+            self.addCleanup(check_host_okay, self.correlator)
+            LOGGER.info('Reset gains to default values from config file.\n')
+            set_default_eq(self.correlator)
         reply, informs = self.corr_fix.rct.req.sensor_value()
         failed_sensors = [i.arguments[2] for i in informs if i is False]
         if failed_sensors:
