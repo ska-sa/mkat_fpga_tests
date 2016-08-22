@@ -1993,12 +1993,12 @@ class test_CBF(unittest.TestCase):
                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
         self.correlator.xops.set_acc_time(accumulation_time)
-        Aqf.step('Getting correlator packet 1 before setting {}.'
+        Aqf.step('Getting SPEAD accumulation #1 before setting {}.'
                  .format(flag_description))
         try:
             dump1 = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
-            errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
+            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
@@ -2016,10 +2016,10 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(wait_time, 'Waiting until 80% of accumulation length has elapsed')
             Aqf.step('Clearing {}'.format(flag_description))
             flag_disable_fn()
-            Aqf.step('Getting correlator packet 2 after setting and clearing {}.'
+            Aqf.step('Getting SPEAD accumulation #2 after setting and clearing {}.'
                      .format(flag_description))
             dump2 = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            Aqf.step('Getting correlator packet 3.')
+            Aqf.step('Getting SPEAD accumulation #3.')
             dump3 = self.receiver.data_queue.get(DUMP_TIMEOUT)
             return (dump1, dump2, dump3)
 
@@ -3237,6 +3237,8 @@ class test_CBF(unittest.TestCase):
 
                 while retries and not corr_init:
                     try:
+                        Aqf.step('Will try to initialise the CBF in {} tries.'.format(
+                            retries))
                         corr_init = self.set_instrument(instrument)
                         retries -= 1
                     except:
@@ -4000,7 +4002,8 @@ class test_CBF(unittest.TestCase):
             Aqf.passed('Check that SPEAD accumulations are nolonger being produced.')
 
         self.corr_fix.halt_array()
-        Aqf.step('[CBF-REQ-0064] Initialising {instrument} instrument'.format(**locals()))
+        Aqf.step('[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(
+            **locals()))
         corr_init = False
         retries = 5
         start_time = time.time()
@@ -4011,7 +4014,7 @@ class test_CBF(unittest.TestCase):
                 corr_init = True
                 retries -= 1
                 if corr_init:
-                    LOGGER.info('Correlator started successfully after {} retries'.format(
+                    Aqf.step('Correlator started successfully after {} retries'.format(
                         retries))
             except:
                 retries -= 1
@@ -4022,13 +4025,14 @@ class test_CBF(unittest.TestCase):
                     LOGGER.exception(errmsg)
 
         if corr_init:
+            end_time = time.time()
             [Aqf.is_true(host.is_running(),
                          'Confirm that the instrument is initialised by checking if '
                          '{} is programmed.'.format(host.host)) for host in xhosts + fhosts]
 
-            Aqf.hop('Capturing SPEAD packet after re-initialisation.')
+            Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
+                    'that the instrument activated is valid.')
             re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            end_time = time.time()
 
             Aqf.is_true(re_dump,
                         'Confirm that SPEAD accumulations are being produced after instrument '
