@@ -215,6 +215,8 @@ class StoreTestRun(object):
             Alternative description for when an image cannot be displayed
 
         """
+        matplotlib.pyplot.autoscale(tight=True)
+        matplotlib.pyplot.tight_layout()
         matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=200, format='png')
         self.add_image(filename, caption, alt)
         matplotlib.pyplot.clf()
