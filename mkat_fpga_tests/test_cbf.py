@@ -98,7 +98,7 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        self.conf_file = self.corr_fix._test_config_file()
+        self.conf_file = self.corr_fix._test_config_file
         try:
             _conf = self.conf_file['inst_param']
         except (ValueError, TypeError):
@@ -127,11 +127,16 @@ class test_CBF(unittest.TestCase):
         acc_timeout = 60
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if not instrument_state:
-            reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
-            errmsg = ('Could not initialise instrument or ensure running instrument: {}, '
-                      'SubArray will be halted and restarted with next test: {}'.format(
+            try:
+                reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            except AttributeError:
+                return {False, 'KATCP object does not have an attribute.'}
+            else:
+                errmsg = (
+                    'Could not initialise instrument or ensure running instrument: {}, '
+                    'SubArray will be halted and restarted with next test: {}'.format(
                         instrument, str(reply)))
-            return {False: errmsg}
+                return {False: errmsg}
         try:
             reply = self.corr_fix.katcp_rct.req.accumulation_length(
                 acc_time, timeout=acc_timeout)
@@ -2403,8 +2408,8 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Queue.Empty:
                 spead_failure_counter += 1
-                errmsg = 'Could not retrieve clean SPEAD packet, as #{} Queue is Empty.'.format(
-                spead_failure_counter)
+                errmsg = ('Could not retrieve clean SPEAD accumulation, as #{} '
+                          'Queue is Empty.'.format(spead_failure_counter))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if spead_failure_counter > 5:
@@ -3736,8 +3741,12 @@ class test_CBF(unittest.TestCase):
         def clear_host_status(self):
             """Clear the status registers and counters on this host"""
             msg = 'Clear the status registers and counters on this host.\n'
-            threaded_fpga_function(
-                (self.correlator.fhosts + self.correlator.xhosts), 60, 'clear_status')
+            hosts = (self.correlator.fhosts + self.correlator.xhosts)
+            try:
+                threaded_fpga_function(hosts, 60, 'clear_status')
+            except Exception:
+                Aqf.failed('Failed to clear hosts statuses')
+
             Aqf.wait(self.correlator.sensor_poll_time, msg)
 
         def get_spead_data(self):
@@ -4653,7 +4662,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_config_report(self, verbose):
         """CBF Report configuration"""
-        test_config = self.corr_fix._test_config_file()
+        test_config = self.corr_fix._test_config_file
 
         def get_roach_config():
 

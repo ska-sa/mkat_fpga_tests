@@ -16,9 +16,11 @@ from katcp import resource_client
 from katcp import ioloop_manager
 from katcp.core import ProtocolFlags
 
+# Exception handlers
 from katcp import KatcpClientError
 from katcp import KatcpDeviceError
 from katcp import KatcpSyntaxError
+from katcp.resource_client import KATCPSensorError
 
 from corr2 import fxcorrelator
 
@@ -70,7 +72,6 @@ class CorrelatorFixture(object):
         # Assume the correlator is already started if start_correlator is False
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
-        self.test_conf = self._test_config_file()
 
     @property
     def rct(self):
@@ -104,14 +105,15 @@ class CorrelatorFixture(object):
         return self._rct
 
     @property
-    def dhost(self):
+    def dhost(self, program=False):
         if self._dhost is not None:
             return self._dhost
         else:
             self.config_filename = '/etc/corr/{}-{}'.format(
                 self.array_name, self.instrument)
             if os.path.exists(self.config_filename):
-                self.dsim_conf = corr2.utils.parse_ini_file(self.config_filename)['dsimengine']
+                self.dsim_conf = corr2.utils.parse_ini_file(
+                    self.config_filename)['dsimengine']
                 dig_host = self.dsim_conf['host']
             else:
                 LOGGER.error('Could not retrieve information from config file, '
@@ -119,7 +121,7 @@ class CorrelatorFixture(object):
                              getframeinfo(currentframe()).filename.split('/')[-1],
                              getframeinfo(currentframe()).lineno))
 
-                self.dsim_conf = self.test_conf['dsimengine']
+                self.dsim_conf = self._test_config_file['dsimengine']
                 dig_host = self.dsim_conf['host']
             self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
@@ -128,11 +130,11 @@ class CorrelatorFixture(object):
             else:
                 # TODO (MM) 13-07-2016
                 # Disabled DSim programming as it would alter the systems sync epoch
-
-                # Programming and starting D-Eng
-                #self._dhost.initialise()
-                #self._dhost.enable_data_output(enabled=True)
-                #self._dhost.registers.control.write(gbe_txen=True)
+                if program:
+                    LOGGER.info('Programming and starting the Digitiser Simulator.')
+                    self._dhost.initialise()
+                    self._dhost.enable_data_output(enabled=True)
+                    self._dhost.registers.control.write(gbe_txen=True)
                 if self._dhost.is_running():
                     LOGGER.info('D-Eng started succesfully')
             return self._dhost
@@ -194,9 +196,13 @@ class CorrelatorFixture(object):
 
     @property
     def katcp_rct(self):
-        katcp_prot = self.test_conf['inst_param']['katcp_protocol']
-        _major, _minor, _flags = katcp_prot.split(',')
-        pf = ProtocolFlags(int(_major), int(_minor), _flags)
+        try:
+            katcp_prot = self._test_config_file['inst_param']['katcp_protocol']
+        except TypeError:
+            LOGGER.error('Failed to read katcp protocol from test config file')
+        else:
+            _major, _minor, _flags = katcp_prot.split(',')
+            pf = ProtocolFlags(int(_major), int(_minor), _flags)
         multicast_ip = self.get_multicast_ips(self.instrument)
         if self._katcp_rct is None:
             reply, informs = self.rct.req.array_list(self.array_name)
@@ -213,8 +219,9 @@ class CorrelatorFixture(object):
                 try:
                     reply, informs = self.rct.req.array_assign(self.array_name,
                                                                *multicast_ip)
-                except ValueError:
-                    LOGGER.exception('')
+                except (ValueError, TypeError):
+                    LOGGER.exception('Failed to assign multicast ip on array: {}'.format(
+                        self.array_name))
                 else:
                     if len(reply.arguments) == 2:
                         try:
@@ -399,6 +406,12 @@ class CorrelatorFixture(object):
                          getframeinfo(currentframe()).lineno))
             return False
 
+        except KATCPSensorError:
+            LOGGER.error('KATCP Error polling sensor\n\t File:{} Line:{}'.format(
+                         getframeinfo(currentframe()).filename.split('/')[-1],
+                         getframeinfo(currentframe()).lineno))
+            return False
+
         if reply.istatus:
             return {reply.value: True}
         else:
@@ -506,6 +519,7 @@ class CorrelatorFixture(object):
                                 'correlator {}.'.format(self.instrument, self.array_name))
                 return instrument_present
 
+    @property
     def _test_config_file(self):
         """
         Configuration file containing information such as dsim, pdu and dataswitch ip's
@@ -519,7 +533,7 @@ class CorrelatorFixture(object):
             try:
                 test_conf = corr2.utils.parse_ini_file(config_file)
                 return test_conf
-            except IOError:
+            except (IOError, ValueError, TypeError):
                 errmsg = ('Failed to read test config file, Test will exit'
                           '\n\t File:{} Line:{}'.format(
                           getframeinfo(currentframe()).filename.split('/')[-1],
@@ -539,15 +553,20 @@ class CorrelatorFixture(object):
         global multicast_ip
         if instrument is None:
             return False
-        self.test_conf = self._test_config_file()
-        multicast_ip_inp = self.test_conf['inst_param']['source_mcast_ips'].split(',')
-        if self.instrument.startswith('bc') or self.instrument.startswith('c'):
-            if self.instrument[0] == 'b':
-                multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
-            else:
-                multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
+        try:
+            multicast_ip_inp = self._test_config_file['inst_param']['source_mcast_ips'].split(',')
+        except TypeError:
+            msg = ('Could not read and split the multicast ip\'s in the test config file')
+            LOGGER.error(msg)
+            return False
+        else:
+            if self.instrument.startswith('bc') or self.instrument.startswith('c'):
+                if self.instrument[0] == 'b':
+                    multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
+                else:
+                    multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
 
-        return multicast_ip
+            return multicast_ip
 
     def start_correlator(self, instrument=None, retries=10, loglevel='INFO'):
         LOGGER.info('Will now try to start the correlator')
@@ -614,7 +633,7 @@ class CorrelatorFixture(object):
                         LOGGER.fatal('Failed to assign array port number on {}'.format(self.array_name))
                         return False
                 """
-                instrument_param = [int(i) for i in self.test_conf['inst_param']['instrument_param']
+                instrument_param = [int(i) for i in self._test_config_file['inst_param']['instrument_param']
                                     if i != ',']
                 LOGGER.info("Starting {} with {} parameters. Try #{}".format(
                     self.instrument, instrument_param, retries))
