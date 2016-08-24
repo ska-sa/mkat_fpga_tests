@@ -200,7 +200,7 @@ class StoreTestRun(object):
                           dict(type='image', filename=final_filename,
                                caption=caption, alt=alt))
 
-    def add_matplotlib_fig(self, filename, caption="", alt="", autoscale):
+    def add_matplotlib_fig(self, filename, caption="", alt="", autoscale=False):
 
         """Save current matplotlib figure to the report
 
@@ -215,8 +215,7 @@ class StoreTestRun(object):
             Alternative description for when an image cannot be displayed
 
         """
-
-       if autoscale:
+        if autoscale:
             matplotlib.pyplot.autoscale(tight=True)
             try:
                 matplotlib.pyplot.tight_layout()
