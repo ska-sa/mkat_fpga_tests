@@ -98,7 +98,7 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        self.conf_file = self.corr_fix._test_config_file()
+        self.conf_file = self.corr_fix._test_config_file
         try:
             _conf = self.conf_file['inst_param']
         except (ValueError, TypeError):
@@ -127,11 +127,16 @@ class test_CBF(unittest.TestCase):
         acc_timeout = 60
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if not instrument_state:
-            reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
-            errmsg = ('Could not initialise instrument or ensure running instrument: {}, '
-                      'SubArray will be halted and restarted with next test: {}'.format(
+            try:
+                reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
+            except AttributeError:
+                return {False, 'KATCP object does not have an attribute.'}
+            else:
+                errmsg = (
+                    'Could not initialise instrument or ensure running instrument: {}, '
+                    'SubArray will be halted and restarted with next test: {}'.format(
                         instrument, str(reply)))
-            return {False: errmsg}
+                return {False: errmsg}
         try:
             reply = self.corr_fix.katcp_rct.req.accumulation_length(
                 acc_time, timeout=acc_timeout)
@@ -1977,13 +1982,18 @@ class test_CBF(unittest.TestCase):
 
     def _systems_tests(self):
         """Run tests fft overflow and qdr status before or after."""
-        self.last_pfb_counts = get_pfb_counts(
-            get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
-        self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
-                        self.last_pfb_counts)
-        self.addCleanup(check_host_okay, self.correlator)
-        LOGGER.info('Reset gains to default values from config file.\n')
-        set_default_eq(self.correlator)
+        try:
+            self.last_pfb_counts = get_pfb_counts(
+                get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
+        except AttributeError:
+            LOGGER.error('Failed to read correlator attribute, correlator might not'
+            ' be running.')
+        else:
+            self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
+                    self.last_pfb_counts)
+            self.addCleanup(check_host_okay, self.correlator)
+            LOGGER.info('Reset gains to default values from config file.\n')
+            set_default_eq(self.correlator)
         reply, informs = self.corr_fix.rct.req.sensor_value()
         failed_sensors = [i.arguments[2] for i in informs if i is False]
         if failed_sensors:
@@ -1993,12 +2003,12 @@ class test_CBF(unittest.TestCase):
                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
         self.correlator.xops.set_acc_time(accumulation_time)
-        Aqf.step('Getting correlator packet 1 before setting {}.'
+        Aqf.step('Getting SPEAD accumulation #1 before setting {}.'
                  .format(flag_description))
         try:
             dump1 = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Queue.Empty:
-            errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
+            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
@@ -2016,10 +2026,10 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(wait_time, 'Waiting until 80% of accumulation length has elapsed')
             Aqf.step('Clearing {}'.format(flag_description))
             flag_disable_fn()
-            Aqf.step('Getting correlator packet 2 after setting and clearing {}.'
+            Aqf.step('Getting SPEAD accumulation #2 after setting and clearing {}.'
                      .format(flag_description))
             dump2 = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            Aqf.step('Getting correlator packet 3.')
+            Aqf.step('Getting SPEAD accumulation #3.')
             dump3 = self.receiver.data_queue.get(DUMP_TIMEOUT)
             return (dump1, dump2, dump3)
 
@@ -2398,8 +2408,8 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Queue.Empty:
                 spead_failure_counter += 1
-                errmsg = 'Could not retrieve clean SPEAD packet, as #{} Queue is Empty.'.format(
-                spead_failure_counter)
+                errmsg = ('Could not retrieve clean SPEAD accumulation, as #{} '
+                          'Queue is Empty.'.format(spead_failure_counter))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if spead_failure_counter > 5:
@@ -3237,6 +3247,8 @@ class test_CBF(unittest.TestCase):
 
                 while retries and not corr_init:
                     try:
+                        Aqf.step('Will try to initialise the CBF in {} tries.'.format(
+                            retries))
                         corr_init = self.set_instrument(instrument)
                         retries -= 1
                     except:
@@ -3729,8 +3741,12 @@ class test_CBF(unittest.TestCase):
         def clear_host_status(self):
             """Clear the status registers and counters on this host"""
             msg = 'Clear the status registers and counters on this host.\n'
-            threaded_fpga_function(
-                (self.correlator.fhosts + self.correlator.xhosts), 60, 'clear_status')
+            hosts = (self.correlator.fhosts + self.correlator.xhosts)
+            try:
+                threaded_fpga_function(hosts, 60, 'clear_status')
+            except Exception:
+                Aqf.failed('Failed to clear hosts statuses')
+
             Aqf.wait(self.correlator.sensor_poll_time, msg)
 
         def get_spead_data(self):
@@ -4000,7 +4016,8 @@ class test_CBF(unittest.TestCase):
             Aqf.passed('Check that SPEAD accumulations are nolonger being produced.')
 
         self.corr_fix.halt_array()
-        Aqf.step('[CBF-REQ-0064] Initialising {instrument} instrument'.format(**locals()))
+        Aqf.step('[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(
+            **locals()))
         corr_init = False
         retries = 5
         start_time = time.time()
@@ -4011,7 +4028,7 @@ class test_CBF(unittest.TestCase):
                 corr_init = True
                 retries -= 1
                 if corr_init:
-                    LOGGER.info('Correlator started successfully after {} retries'.format(
+                    Aqf.step('Correlator started successfully after {} retries'.format(
                         retries))
             except:
                 retries -= 1
@@ -4022,13 +4039,14 @@ class test_CBF(unittest.TestCase):
                     LOGGER.exception(errmsg)
 
         if corr_init:
+            end_time = time.time()
             [Aqf.is_true(host.is_running(),
                          'Confirm that the instrument is initialised by checking if '
                          '{} is programmed.'.format(host.host)) for host in xhosts + fhosts]
 
-            Aqf.hop('Capturing SPEAD packet after re-initialisation.')
+            Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
+                    'that the instrument activated is valid.')
             re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            end_time = time.time()
 
             Aqf.is_true(re_dump,
                         'Confirm that SPEAD accumulations are being produced after instrument '
@@ -4644,7 +4662,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_config_report(self, verbose):
         """CBF Report configuration"""
-        test_config = self.corr_fix._test_config_file()
+        test_config = self.corr_fix._test_config_file
 
         def get_roach_config():
 

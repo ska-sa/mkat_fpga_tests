@@ -215,6 +215,7 @@ class StoreTestRun(object):
             Alternative description for when an image cannot be displayed
 
         """
+
        if autoscale:
             matplotlib.pyplot.autoscale(tight=True)
             try:
