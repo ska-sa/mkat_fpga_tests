@@ -1981,9 +1981,12 @@ class test_CBF(unittest.TestCase):
             LOGGER.error('Failed to read correlator attribute, correlator might not'
             ' be running.')
         else:
-            self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
-                    self.last_pfb_counts)
-            self.addCleanup(check_host_okay, self.correlator)
+            # TODO MM 25-08-2016
+            # Use CAM sensors to probe system status instead of reading from correlator
+            # object
+            #self.addCleanup(check_fftoverflow_qdrstatus, self.correlator,
+            #        self.last_pfb_counts)
+            #self.addCleanup(check_host_okay, self.correlator)
             LOGGER.info('Reset gains to default values from config file.\n')
             set_default_eq(self.correlator)
         reply, informs = self.corr_fix.rct.req.sensor_value()
