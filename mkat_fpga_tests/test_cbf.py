@@ -4182,7 +4182,10 @@ class test_CBF(unittest.TestCase):
             self.dhost.sine_sources.sin_1.set(frequency=freq, scale=1.)
             # Set FFT to never shift, ensuring an FFT overflow with the large tone we are
             # putting in.
-            self.correlator.fops.set_fft_shift_all(shift_value=0)
+            try:
+                self.correlator.fops.set_fft_shift_all(shift_value=0)
+            except Exception:
+                Aqf.failed('Failed to set FFT shift to all hosts')
 
         def disable_fft_overflow():
             # TODO 2015-09-22 (NM) There seems to be some issue with the dsim sin_corr
@@ -4192,7 +4195,10 @@ class test_CBF(unittest.TestCase):
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.)
             self.dhost.sine_sources.sin_1.set(frequency=freq, scale=0.)
             # Restore the default FFT shifts as per the correlator config.
-            self.correlator.fops.set_fft_shift_all()
+            try:
+                self.correlator.fops.set_fft_shift_all()
+            except Exception:
+                Aqf.failed('Failed to set FFT shift to all hosts')
 
         condition = ('FFT overflow by setting an aggressive FFT shift with '
                      'a pure tone input')

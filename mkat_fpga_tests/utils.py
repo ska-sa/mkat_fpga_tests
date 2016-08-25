@@ -435,12 +435,13 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
         curr_pfb_counts = get_pfb_counts(
             fftoverflow_qdrstatus['fhosts'].items())
 
-    for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
-            last_pfb_counts.items(), curr_pfb_counts.items()):
-        if curr_pfb_host is curr_pfb_host_x:
-            if curr_pfb_value != last_pfb_value:
-                if status:
-                    Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
+    if curr_pfb_counts is not False:
+        for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
+                last_pfb_counts.items(), curr_pfb_counts.items()):
+            if curr_pfb_host is curr_pfb_host_x:
+                if curr_pfb_value != last_pfb_value:
+                    if status:
+                        Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
     for hosts_status in fftoverflow_qdrstatus.values():
         for host, _hosts_status in hosts_status.items():
