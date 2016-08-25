@@ -125,16 +125,10 @@ class test_CBF(unittest.TestCase):
         acc_timeout = 60
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if not instrument_state:
-            try:
-                reply = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
-            except AttributeError:
-                return {False, 'KATCP object does not have an attribute.'}
-            else:
-                errmsg = (
-                    'Could not initialise instrument or ensure running instrument: {}, '
-                    'SubArray will be halted and restarted with next test: {}'.format(
-                        instrument, str(reply)))
-                return {False: errmsg}
+            errmsg = (
+                'Could not initialise instrument or ensure running instrument: {}'.format(
+                    instrument))
+            return {False: errmsg}
         try:
             reply = self.corr_fix.katcp_rct.req.accumulation_length(
                 acc_time, timeout=acc_timeout)
