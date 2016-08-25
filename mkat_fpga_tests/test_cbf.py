@@ -14,7 +14,6 @@ import telnetlib
 import operator
 import Queue
 import pandas
-import warnings
 
 import numpy as np
 import matplotlib
@@ -28,10 +27,13 @@ from random import randrange
 from collections import namedtuple
 from concurrent.futures import TimeoutError
 from nosekatreport import Aqf, aqf_vr
+from nose.tools import timed
 
 from katcp.testutils import start_thread_with_cleanup
 from corr2.corr_rx import CorrRx
 from casperfpga.utils import threaded_fpga_function
+
+from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
@@ -42,13 +44,13 @@ from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
 from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
-from mkat_fpga_tests.utils import get_baselines_lookup
+from mkat_fpga_tests.utils import get_baselines_lookup, get_figure_numbering
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits
 from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, get_adc_snapshot
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
-from mkat_fpga_tests.utils import get_figure_numbering, disable_spead2_warnings
-
+from mkat_fpga_tests.utils import disable_spead2_warnings, disable_maplotlib_warning
+from mkat_fpga_tests.utils import disable_numpycomplex_warning
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,11 +79,6 @@ xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 # everything automagically?
 
 
-def disable_maplotlib_warning():
-    """This function disable matplotlibs deprecation warnings"""
-    warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
-
-
 def teardown_module():
     """This method is run once after test class is executed"""
     correlator_fixture.katcp_rct.stop()
@@ -91,6 +88,7 @@ def teardown_module():
 disable_spead2_warnings()
 # This function disables matplotlib's deprecation warnings
 disable_maplotlib_warning()
+disable_numpycomplex_warning()
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -141,7 +139,7 @@ class test_CBF(unittest.TestCase):
             reply = self.corr_fix.katcp_rct.req.accumulation_length(
                 acc_time, timeout=acc_timeout)
 
-        except TimeoutError:
+        except (TimeoutError, VaccSynchAttemptsMaxedOut):
             reply, inform = self.corr_fix.rct.req.array_halt(self.corr_fix.array_name)
             errmsg = ('Timed-Out: Failed to set accumulation time within {}s, '
                      '[CBF-REQ-0064] SubArray will be halted and restarted with next '
@@ -3902,9 +3900,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_vacc(self, test_chan, chan_index=None):
         """Test vector accumulator"""
-        # Ignoring all warnings raised when casting a complex dtype to a real dtype.
-        warnings.simplefilter("ignore", np.ComplexWarning)
-
+        MAX_VACC_SYNCH_ATTEMPTS = corr2.fxcorrelator_xengops.MAX_VACC_SYNCH_ATTEMPTS
         fig_prefix = get_figure_numbering(self,
             self.corr_fix.instrument)[self._testMethodName]
 
@@ -3962,35 +3958,43 @@ class test_CBF(unittest.TestCase):
 
         chan_response = []
         for vacc_accumulations in test_acc_lens:
-            self.correlator.xops.set_acc_len(vacc_accumulations)
-            Aqf.almost_equals(vacc_accumulations,
-                              self.correlator.xops.get_acc_len(), 1e-2,
-                              'Confirm that vacc length was set successfully with'
-                              ' {}.'.format(vacc_accumulations))
-            no_accs = internal_accumulations * vacc_accumulations
-            expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
-            d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
-            actual_response = complexise(d['xeng_raw'].value[:, 0, :])
-            actual_response_ = loggerise(d['xeng_raw'].value[:, 0, :])
-            chan_response.append(normalised_magnitude(d['xeng_raw'].value[:, 0, :]))
-            # Check that the accumulator response is equal to the expected response
-            msg = ('Check that the accumulator actual response is equal to the expected'
-                   ' response for {} accumulation length'.format(vacc_accumulations))
-            caption = (
-                'Figure {0}: Accumulator actual response is equal to the expected '
-                'response for {1} accumulation length with a periodic cw tone '
-                'every {2} samples at frequency of {3:.3f} MHz with scale {4}. '.format(
-                    fig_prefix, test_acc_lens, self.corr_freqs.n_chans * 2,
-                    test_freq / 1e6, cw_scale))
+            try:
+                self.correlator.xops.set_acc_len(vacc_accumulations)
+            except VaccSynchAttemptsMaxedOut:
+                Aqf.failed('Failed to set accumulation length of {} after {} maximum vacc '
+                    'sync attempts.'.format(vacc_accumulations, MAX_VACC_SYNCH_ATTEMPTS))
+            else:
+                Aqf.almost_equals(vacc_accumulations,
+                                  self.correlator.xops.get_acc_len(), 1e-2,
+                                  'Confirm that vacc length was set successfully with'
+                                  ' {}.'.format(vacc_accumulations))
+                no_accs = internal_accumulations * vacc_accumulations
+                expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
+                d = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                actual_response = complexise(d['xeng_raw'].value[:, 0, :])
+                actual_response_ = loggerise(d['xeng_raw'].value[:, 0, :])
+                chan_response.append(normalised_magnitude(d['xeng_raw'].value[:, 0, :]))
+                # Check that the accumulator response is equal to the expected response
+                msg = ('Check that the accumulator actual response is equal to the '
+                       'expected response for {} accumulation length'.format(
+                            vacc_accumulations))
+                caption = (
+                    'Figure {0}: Accumulator actual response is equal to the expected '
+                    'response for {1} accumulation length with a periodic cw tone '
+                    'every {2} samples at frequency of {3:.3f} MHz with scale {4}.'.format(
+                        fig_prefix, test_acc_lens, self.corr_freqs.n_chans * 2,
+                        test_freq / 1e6, cw_scale))
 
-            plot_filename = ('{}_chan_resp_{}_acc.png'.format(self._testMethodName,
-                vacc_accumulations))
-            plot_title='Vector Accumulation Length @ channel {}'.format(test_freq_channel)
+                plot_filename = ('{}_chan_resp_{}_acc.png'.format(self._testMethodName,
+                    vacc_accumulations))
+                plot_title='Vector Accumulation Length @ channel {}'.format(
+                    test_freq_channel)
 
-            if not aqf_array_abs_error_less(
-                expected_response.real, actual_response[:chan_index].real, msg):
-                aqf_plot_channels(actual_response_, plot_filename, plot_title,
-                    log_dynamic_range=90, log_normalise_to=0, normalise=0, caption=caption)
+                if not aqf_array_abs_error_less(
+                    expected_response.real, actual_response[:chan_index].real, msg):
+                    aqf_plot_channels(actual_response_, plot_filename, plot_title,
+                        log_dynamic_range=90, log_normalise_to=0, normalise=0,
+                        caption=caption)
 
     def _test_product_switch(self, instrument, no_channels):
 

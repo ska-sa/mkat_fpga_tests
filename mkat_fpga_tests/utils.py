@@ -4,6 +4,9 @@ import numpy as np
 import logging
 import Queue
 import time
+import warnings
+import matplotlib
+
 
 from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
@@ -712,6 +715,13 @@ def disable_spead2_warnings():
     # set the corr_rx logger to Error only
     corr_rx_logger = logging.getLogger("corr2.corr_rx")
     corr_rx_logger.setLevel(logging.ERROR)
+
+def disable_maplotlib_warning():
+    """This function disable matplotlibs deprecation warnings"""
+    warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+def disable_numpycomplex_warning():
+    """Ignoring all warnings raised when casting a complex dtype to a real dtype."""
+    warnings.simplefilter("ignore", np.ComplexWarning)
 
 class Text_Style(object):
     """Text manipulation"""
