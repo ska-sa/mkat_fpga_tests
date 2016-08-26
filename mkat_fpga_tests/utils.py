@@ -698,15 +698,34 @@ def get_delay_bounds(correlator):
         'max_negative_delta_phase': max_negative_delta_phase
         }
 
-def get_figure_numbering(self, instrument):
+def get_figure_numbering(self):
     """
+    Gets figure numbering from tests that are ran in alphabetical order.
     Param:
         self: Object
-        instrument: str
     Return: Dict
     """
-    return {y: x for x, y in enumerate(
-        [i for i in dir(self) if i.startswith('test_{}'.format(instrument))], start=1)}
+    fig_numbering = {y: str(x) for x, y in enumerate(
+        [i for i in dir(self) if i.startswith('test_{}'.format(
+                                              self.corr_fix.instrument))], start=1)}
+
+    def get_fig_prefix(version=None, _dict=fig_numbering):
+        """
+        Update the current figure numbering with a suffix depending on running instrument
+        Param:
+            version: int/float
+            _dict: dict
+        Return: dict
+        """
+        for key, value in _dict.items():
+            _dict[key] = '{}.{}'.format(value, version)
+        return _dict
+
+    if self.corr_freqs.n_chans == 4096:
+        return get_fig_prefix(1)
+    else:
+        return get_fig_prefix(2)
+
 
 def disable_spead2_warnings():
     """This function sets SPEAD2 logger to only report error messages"""
@@ -720,6 +739,7 @@ def disable_spead2_warnings():
 def disable_maplotlib_warning():
     """This function disable matplotlibs deprecation warnings"""
     warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
 def disable_numpycomplex_warning():
     """Ignoring all warnings raised when casting a complex dtype to a real dtype."""
     warnings.simplefilter("ignore", np.ComplexWarning)
