@@ -1548,7 +1548,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0208
             CBF-REQ-0002
         """
-        if self.set_instrument(instrument):
+        instrument_success = self.set_instrument(instrument)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
             _running_inst = self.corr_fix.get_running_intrument()
             msg = Style.Bold('Imaging Data Product Set: {}\n'.format(
                 _running_inst.keys()[0]))
@@ -3170,22 +3173,27 @@ class test_CBF(unittest.TestCase):
                 fhosts = self.correlator.fhosts
 
                 while retries and not corr_init:
+                    Aqf.step('Will try to initialise the CBF in {} tries.'.format(
+                        retries))
                     try:
-                        Aqf.step('Will try to initialise the CBF in {} tries.'.format(
-                            retries))
                         corr_init = self.set_instrument(instrument)
-                        retries -= 1
                     except:
                         pass
 
+                    retries -= 1
                     if retries == 0:
-                        errmsg = 'Could not restart the correlator after {} tries.'.format(
-                            retries)
+                        errmsg = (
+                            'Could not restart the correlator after {} tries.'.format(
+                                retries))
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
-                        return False
 
-                if corr_init:
+                if corr_init.keys()[0] is not True and retries == 0:
+                    Aqf.end(passed=False, message=instrument_success.values()[0])
+                    Aqf.failed('Could not restart {} after {} tries.'.format(
+                        instrument, retries))
+                else:
+                    self.corr_fix.start_x_data()
                     host = (xhosts + fhosts)[randrange(len(xhosts + fhosts))]
                     Aqf.is_true(host,
                                 'Confirm that the instrument is initialised by '
@@ -3206,10 +3214,6 @@ class test_CBF(unittest.TestCase):
                         DUMP_TIMEOUT)['xeng_raw'].value.shape[0]
                     Aqf.equals(spead_chans, no_channels, msg)
                     return True
-                else:
-                    Aqf.failed('Could not restart {} after {} tries.'.format(
-                        instrument, retries))
-                    return False
 
             initial_max_freq_list = []
             scans = []
@@ -3953,7 +3957,7 @@ class test_CBF(unittest.TestCase):
 
         self.corr_fix.halt_array()
         Aqf.step('[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(
-            **locals()))
+                 **locals()))
         corr_init = False
         retries = 5
         start_time = time.time()
@@ -4442,7 +4446,8 @@ class test_CBF(unittest.TestCase):
                 caption = ('Figure {}: Actual vs Expected Unwrapped Correlation Phase.\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD packet. '
-                           'Values are rounded off to 3 decimals places'.format(fig_prefix))
+                           'Values are rounded off to 3 decimals places'.format(
+                                fig_prefix))
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                        plot_filename, plot_title, plot_units, caption)
@@ -4459,37 +4464,43 @@ class test_CBF(unittest.TestCase):
                     delta_actual = np.abs(np.max(actual_phases_[i]))
                     # abs_diff = np.abs(delta_expected - delta_actual)
                     abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
+                    msg = (
+                        '[CBF-REQ-0128] Check if difference between expected({0:.3f})'
+                        ' phases and actual({1:.3f}) phases are \'Almost Equal\' '
+                        'within {2:.3f} degree when fringe offset of {3:.3f} is '
+                        'applied.'.format(delta_expected, delta_actual, degree,
+                                          fringe_offset))
 
-                    Aqf.almost_equals(delta_expected, delta_actual, degree,
-                                      '[CBF-REQ-0128] Check if difference between expected({0:.3f}) phases and '
-                                      'actual({1:.3f}) phases are \'Almost Equal\' within {2:.3f} degree when '
-                                      'fringe offset of {3:.3f} is applied.'.format(delta_expected, delta_actual,
-                                                                                    degree, fringe_offset))
+                    Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
 
                     Aqf.less(abs_diff, degree,
-                             '[CBF-REQ-0128] Check that the maximum difference({0:.3f} degrees '
-                             '/ {1:.3f} rads) between expected phase and actual phase between integrations '
-                             'is less than {2:.3f} degree\n'.format(abs_diff, np.deg2rad(abs_diff), degree))
-
+                        '[CBF-REQ-0128] Check that the maximum difference({0:.3f} '
+                        'degrees/{1:.3f}rads) between expected phase and actual phase '
+                        'between integrations is less than {2:.3f} degree\n'.format(
+                                                               abs_diff,
+                                                               np.deg2rad(abs_diff),
+                                                               degree))
                     try:
                         delta_actual_s = delta_actual - (delta_actual % degree)
                         delta_expected_s = delta_expected - (delta_expected % degree)
-                        np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+                        np.testing.assert_almost_equal(delta_actual_s,
+                                                      delta_expected_s,
+                                                      decimal=decimal)
 
                     except AssertionError:
                         Aqf.step(
                             '[CBF-REQ-0128] Difference between expected({0:.5f}) phases '
-                            'and actual({1:.5f}) phases are \'Not almost equal\' within {2} degree '
-                            'when fringe offset of {3} is applied.'.format(delta_expected,
-                                                                           delta_actual, degree, fringe_offset))
+                            'and actual({1:.5f}) phases are \'Not almost equal\' '
+                            'within {2} degree when fringe offset of {3} is applied.'
+                            .format(delta_expected, delta_actual, degree,
+                                    fringe_offset))
 
                         caption = (
-                            'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) and '
-                            'actual({2:.3f}) phases are not equal within {3:.3f} degree when '
-                            'fringe offset of {4:.3f} {5} is applied.'.format(fig_prefix,
-                                                                              delta_expected, delta_actual, degree,
-                                                                              fringe_offset,
-                                                                              plot_units))
+                            'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) '
+                            'and actual({2:.3f}) phases are not equal within {3:.3f} '
+                            'degree when fringe offset of {4:.3f} {5} is applied.'
+                            .format(fig_prefix, delta_expected, delta_actual, degree,
+                                    fringe_offset, plot_units))
 
                         actual_phases_i = (delta_actual, actual_phases[i])
                         if len(expected_phases[i]) == 2:
@@ -4500,12 +4511,14 @@ class test_CBF(unittest.TestCase):
                             no_chans, actual_phases_i, expected_phases_i,
                             plot_filename='{}_{}_phase_resp.png'.format(
                                 self._testMethodName, i),
-                            plot_title='Fringe Offset:\nActual vs Expected Phase Response',
-                            plot_units=plot_units, caption=caption, )
+                            plot_title=(
+                                'Fringe Offset:\nActual vs Expected Phase Response'),
+                            plot_units = plot_units, caption=caption,)
 
     def _test_all_delays(self):
         """
-        CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
+        CBF per-antenna phase error --
+        Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
         fig_prefix = get_figure_numbering(self)[self._testMethodName]
         setup_data = self._delays_setup()
@@ -4534,7 +4547,8 @@ class test_CBF(unittest.TestCase):
             delay_coefficients = []
             for idx in xrange(len(delay_values)):
                 delay_coefficients.append('{},{}:{},{}'.format(delay_values[idx],
-                                                               delay_rates[idx], fringe_offsets[idx],
+                                                               delay_rates[idx],
+                                                               fringe_offsets[idx],
                                                                fringe_rates[idx]))
 
             Aqf.step('Setting Parameters')
@@ -4550,7 +4564,8 @@ class test_CBF(unittest.TestCase):
             actual_response = [response for phases, response in actual_data]
 
             expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                      delay_coefficients, actual_phases)
+                                                      delay_coefficients,
+                                                      actual_phases)
 
             if set([float(0)]) in [set(i) for i in actual_phases]:
                 Aqf.failed('Delays could not be applied at time_apply: {} '

@@ -57,7 +57,6 @@ def teardown_package():
 class CorrelatorFixture(object):
     def __init__(self, array=None, instrument=None, resource_clt=None):
 
-        # TODO: hard-coded Array number
         # We assume either start_correlator() above has been called, or the instrument
         # was started with the name contained in self.array_name before running the
         # test.
@@ -109,8 +108,8 @@ class CorrelatorFixture(object):
         if self._dhost is not None:
             return self._dhost
         else:
-            self.config_filename = '/etc/corr/{}-{}'.format(
-                self.array_name, self.instrument)
+            self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+
             if os.path.exists(self.config_filename):
                 self.dsim_conf = corr2.utils.parse_ini_file(
                     self.config_filename)['dsimengine']
@@ -120,23 +119,21 @@ class CorrelatorFixture(object):
                              'resorting to test_conf.ini: File:{} Line:{}'.format(
                              getframeinfo(currentframe()).filename.split('/')[-1],
                              getframeinfo(currentframe()).lineno))
-
                 self.dsim_conf = self._test_config_file['dsimengine']
                 dig_host = self.dsim_conf['host']
+
             self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             # Check if D-eng is running else start it.
             if self._dhost.is_running():
                 LOGGER.info('D-Eng is already running.')
+            # Disabled DSim programming as it would alter the systems sync epoch
+            elif program and not self._dhost.is_running():
+                LOGGER.info('Programming and starting the Digitiser Simulator.')
+                self._dhost.initialise()
+                self._dhost.enable_data_output(enabled=True)
+                self._dhost.registers.control.write(gbe_txen=True)
             else:
-                # TODO (MM) 13-07-2016
-                # Disabled DSim programming as it would alter the systems sync epoch
-                if program:
-                    LOGGER.info('Programming and starting the Digitiser Simulator.')
-                    self._dhost.initialise()
-                    self._dhost.enable_data_output(enabled=True)
-                    self._dhost.registers.control.write(gbe_txen=True)
-                if self._dhost.is_running():
-                    LOGGER.info('D-Eng started succesfully')
+                LOGGER.info('D-Eng started succesfully')
             return self._dhost
 
     @property
@@ -593,8 +590,7 @@ class CorrelatorFixture(object):
                          '\n\t File:{} Line:{}'.format(reply,
                         getframeinfo(currentframe()).filename.split('/')[-1],
                         getframeinfo(currentframe()).lineno))
-
-            return False
+            #return False
         else:
             try:
                 informs = informs[0]
@@ -633,21 +629,26 @@ class CorrelatorFixture(object):
                         LOGGER.fatal('Failed to assign array port number on {}'.format(self.array_name))
                         return False
                 """
-                instrument_param = [int(i) for i in self._test_config_file['inst_param']['instrument_param']
-                                    if i != ',']
-                LOGGER.info("Starting {} with {} parameters. Try #{}".format(
-                    self.instrument, instrument_param, retries))
-                reply = self.katcp_rct.req.instrument_activate(
-                    self.instrument, *instrument_param, timeout=500)
+                instrument_param = (
+                    [int(i) for i in self._test_config_file['inst_param']['instrument_param']
+                     if i != ','])
+                LOGGER.info(
+                    "Starting {} with {} parameters. Try #{}".format(self.instrument,
+                                                                    instrument_param,
+                                                                    retries))
+                reply = self.katcp_rct.req.instrument_activate(self.instrument,
+                                                               *instrument_param,
+                                                               timeout=500)
                 success = reply.succeeded
                 retries -= 1
 
                 if success == True:
-                    LOGGER.info('Instrument {} started succesfully'.format(self.instrument))
+                    LOGGER.info('Instrument {} started succesfully'.format(
+                                                                    self.instrument))
                 else:
                     LOGGER.warn('Failed to start correlator, {} attempts left. '
-                                'Restarting Correlator. Reply:{}'
-                                .format(retries, reply))
+                                'Restarting Correlator. Reply:{}'.format(retries,
+                                                                         reply))
                     self.halt_array()
                     success = False
                     LOGGER.info('Katcp teardown and restarting correlator.')
