@@ -1993,8 +1993,8 @@ class test_CBF(unittest.TestCase):
         Aqf.step('[CBF-REQ-0001, 0087, 0091, 0104]: Source names changed to: {}'.format(
             str(reply)))
         Aqf.step('[CBF-REQ-0110, 0066] Clearing all coarse and fine delays for all inputs.')
-        clear_all_delays(self.correlator, self.receiver)
-        self.addCleanup(clear_all_delays, self.correlator, self.receiver)
+        clear_all_delays(self)
+        self.addCleanup(clear_all_delays)
         if not self.corr_fix.issue_metadata():
             Aqf.failed('Could not issues new metadata')
         Aqf.step('Retrieving initial SPEAD packet.')

@@ -3,16 +3,11 @@ import h5py
 import numpy as np
 import logging
 import Queue
-import time
 import warnings
 import matplotlib
 
-
-from nosekatreport import Aqf, aqf_vr
 from casperfpga.utils import threaded_fpga_operation
 from casperfpga.utils import threaded_fpga_function
-
-from mkat_fpga_tests import correlator_fixture
 
 
 LOGGER = logging.getLogger(__name__)
@@ -361,27 +356,25 @@ def get_baselines_lookup(spead):
     return baseline_lookup
 
 
-def clear_all_delays(instrument, receiver, timeout=10):
+def clear_all_delays(self, timeout=10):
     """Clears all delays on all fhosts.
-    Param: Correlator object
-         : Rx object
-         : dump timeout (int)
+    Param: object
     Return: Boolean
     """
     try:
-        dump = receiver.get_clean_dump(timeout, discard=0)
+        dump = self.receiver.get_clean_dump(timeout, discard=0)
     except Queue.Empty:
         LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
         return False
     else:
         roundtrip = 0.003
-        sync_time = instrument.get_synch_time()
+        sync_time = self.correlator.get_synch_time()
         dump_1_timestamp = (sync_time + roundtrip +
                             dump['timestamp'].value / dump['scale_factor_timestamp'].value)
         t_apply = dump_1_timestamp + 10 * dump['int_time'].value
-        delay_coefficients = ['0,0:0,0'] * len(instrument.fengine_sources)
+        delay_coefficients = ['0,0:0,0'] * len(self.correlator.fengine_sources)
         try:
-            reply = correlator_fixture.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            reply = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
         except Exception:
             LOGGER.error('Could not clear delays')
             return False
