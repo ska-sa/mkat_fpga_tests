@@ -311,9 +311,10 @@ def get_feng_snapshots(feng_fpga, timeout=5):
     return snaps
 
 
-def get_snapshots(instrument):
+def get_snapshots(instrument, timeout=60):
     try:
-        f_snaps = threaded_fpga_operation(instrument.fhosts, 60, (get_feng_snapshots, ))
+        f_snaps = threaded_fpga_operation(instrument.fhosts, timeout,
+                                          (get_feng_snapshots, ))
     except Exception:
         return False
     else:

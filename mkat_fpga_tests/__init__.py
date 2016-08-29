@@ -593,8 +593,7 @@ class CorrelatorFixture(object):
                          '\n\t File:{} Line:{}'.format(reply,
                         getframeinfo(currentframe()).filename.split('/')[-1],
                         getframeinfo(currentframe()).lineno))
-
-            return False
+            #return False
         else:
             try:
                 informs = informs[0]
@@ -633,21 +632,26 @@ class CorrelatorFixture(object):
                         LOGGER.fatal('Failed to assign array port number on {}'.format(self.array_name))
                         return False
                 """
-                instrument_param = [int(i) for i in self._test_config_file['inst_param']['instrument_param']
-                                    if i != ',']
-                LOGGER.info("Starting {} with {} parameters. Try #{}".format(
-                    self.instrument, instrument_param, retries))
-                reply = self.katcp_rct.req.instrument_activate(
-                    self.instrument, *instrument_param, timeout=500)
+                instrument_param = (
+                    [int(i) for i in self._test_config_file['inst_param']['instrument_param']
+                     if i != ','])
+                LOGGER.info(
+                    "Starting {} with {} parameters. Try #{}".format(self.instrument,
+                                                                    instrument_param,
+                                                                    retries))
+                reply = self.katcp_rct.req.instrument_activate(self.instrument,
+                                                               *instrument_param,
+                                                               timeout=500)
                 success = reply.succeeded
                 retries -= 1
 
                 if success == True:
-                    LOGGER.info('Instrument {} started succesfully'.format(self.instrument))
+                    LOGGER.info('Instrument {} started succesfully'.format(
+                                                                    self.instrument))
                 else:
                     LOGGER.warn('Failed to start correlator, {} attempts left. '
-                                'Restarting Correlator. Reply:{}'
-                                .format(retries, reply))
+                                'Restarting Correlator. Reply:{}'.format(retries,
+                                                                         reply))
                     self.halt_array()
                     success = False
                     LOGGER.info('Katcp teardown and restarting correlator.')
