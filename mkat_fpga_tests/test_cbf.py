@@ -1611,7 +1611,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0208
             CBF-REQ-0002
         """
-        if self.set_instrument(instrument):
+        instrument_success = self.set_instrument(instrument)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
             _running_inst = self.corr_fix.get_running_intrument()
             msg = Style.Bold('Imaging Data Product Set: {}\n'.format(
                 _running_inst.keys()[0]))
@@ -3242,22 +3245,27 @@ class test_CBF(unittest.TestCase):
                 fhosts = self.correlator.fhosts
 
                 while retries and not corr_init:
+                    Aqf.step('Will try to initialise the CBF in {} tries.'.format(
+                        retries))
                     try:
-                        Aqf.step('Will try to initialise the CBF in {} tries.'.format(
-                            retries))
                         corr_init = self.set_instrument(instrument)
-                        retries -= 1
                     except:
                         pass
 
+                    retries -= 1
                     if retries == 0:
-                        errmsg = 'Could not restart the correlator after {} tries.'.format(
-                            retries)
+                        errmsg = (
+                            'Could not restart the correlator after {} tries.'.format(
+                                retries))
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
-                        return False
 
-                if corr_init:
+                if corr_init.keys()[0] is not True and retries == 0:
+                    Aqf.end(passed=False, message=instrument_success.values()[0])
+                    Aqf.failed('Could not restart {} after {} tries.'.format(
+                        instrument, retries))
+                else:
+                    self.corr_fix.start_x_data()
                     host = (xhosts + fhosts)[randrange(len(xhosts + fhosts))]
                     Aqf.is_true(host,
                                 'Confirm that the instrument is initialised by '
@@ -3278,10 +3286,6 @@ class test_CBF(unittest.TestCase):
                         DUMP_TIMEOUT)['xeng_raw'].value.shape[0]
                     Aqf.equals(spead_chans, no_channels, msg)
                     return True
-                else:
-                    Aqf.failed('Could not restart {} after {} tries.'.format(
-                        instrument, retries))
-                    return False
 
             initial_max_freq_list = []
             scans = []
@@ -4025,7 +4029,7 @@ class test_CBF(unittest.TestCase):
 
         self.corr_fix.halt_array()
         Aqf.step('[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(
-            **locals()))
+                 **locals()))
         corr_init = False
         retries = 5
         start_time = time.time()
@@ -4514,7 +4518,8 @@ class test_CBF(unittest.TestCase):
                 caption = ('Figure {}: Actual vs Expected Unwrapped Correlation Phase.\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD packet. '
-                           'Values are rounded off to 3 decimals places'.format(fig_prefix))
+                           'Values are rounded off to 3 decimals places'.format(
+                                fig_prefix))
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                     plot_filename, plot_title, plot_units, caption)
@@ -4539,14 +4544,19 @@ class test_CBF(unittest.TestCase):
                             degree, fringe_offset))
 
                     Aqf.less(abs_diff, degree,
-                        '[CBF-REQ-0128] Check that the maximum difference({0:.3f} degrees '
-                        '/ {1:.3f} rads) between expected phase and actual phase between integrations '
-                        'is less than {2:.3f} degree\n'.format(abs_diff, np.deg2rad(abs_diff), degree))
+                        '[CBF-REQ-0128] Check that the maximum difference({0:.3f} '
+                        'degrees/{1:.3f}rads) between expected phase and actual phase '
+                        'between integrations is less than {2:.3f} degree\n'.format(
+                                                               abs_diff,
+                                                               np.deg2rad(abs_diff),
+                                                               degree))
 
                     try:
                         delta_actual_s = delta_actual - (delta_actual % degree)
                         delta_expected_s = delta_expected - (delta_expected % degree)
-                        np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+                        np.testing.assert_almost_equal(delta_actual_s,
+                                                      delta_expected_s,
+                                                      decimal=decimal)
 
                     except AssertionError:
                         Aqf.step(
@@ -4571,12 +4581,14 @@ class test_CBF(unittest.TestCase):
                             no_chans, actual_phases_i, expected_phases_i,
                             plot_filename = '{}_{}_phase_resp.png'.format(
                                 self._testMethodName, i),
-                            plot_title='Fringe Offset:\nActual vs Expected Phase Response',
+                            plot_title=(
+                                'Fringe Offset:\nActual vs Expected Phase Response'),
                             plot_units = plot_units, caption=caption,)
 
     def _test_all_delays(self):
         """
-        CBF per-antenna phase error -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
+        CBF per-antenna phase error --
+        Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
         fig_prefix = get_figure_numbering(self)[self._testMethodName]
         setup_data = self._delays_setup()
