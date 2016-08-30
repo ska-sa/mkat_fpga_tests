@@ -1,5 +1,4 @@
 import collections
-import h5py
 import numpy as np
 import logging
 import Queue
@@ -12,7 +11,8 @@ from casperfpga.utils import threaded_fpga_function
 
 LOGGER = logging.getLogger(__name__)
 
-VACC_FULL_RANGE = float(2**31)      # Max range of the integers coming out of VACC
+# Max range of the integers coming out of VACC
+VACC_FULL_RANGE = float(2**31)
 
 
 def complexise(input_data):
@@ -40,7 +40,7 @@ def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
 
-def loggerise(data, dynamic_range=70, normalise_to=None, normalise=False):
+def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None):
     with np.errstate(divide='ignore'):
         log_data = 10 * np.log10(data)
     if normalise_to:
@@ -61,9 +61,9 @@ def baseline_checker(xeng_raw, check_fn):
     :rtype: dict
     """
     baselines = set()
-    for bl in range(xeng_raw.shape[1]):
-        if check_fn(xeng_raw[:, bl, :]):
-            baselines.add(bl)
+    for _baseline in range(xeng_raw.shape[1]):
+        if check_fn(xeng_raw[:, _baseline, :]):
+            baselines.add(_baseline)
     return baselines
 
 
@@ -80,7 +80,8 @@ def nonzero_baselines(xeng_raw):
 def all_nonzero_baselines(xeng_raw):
     """Return baseline indices that have all non-zero data"""
     non_zerobls = lambda bldata: np.all(
-                                 np.linalg.norm(bldata.astype(np.float64), axis=1) != 0)
+                                 np.linalg.norm(
+                                    bldata.astype(np.float64), axis=1) != 0)
     return baseline_checker(xeng_raw, non_zerobls)
 
 
@@ -92,8 +93,7 @@ def init_dsim_sources(dhost):
     # Reset flags
     LOGGER.info('Reset digitiser simulator to all Zeros')
     try:
-        dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0,
-                                     load_flags='pulse')
+        dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0, load_flags='pulse')
     except Exception:
         LOGGER.exception('Failed to set dhost registers.')
         return False
@@ -126,16 +126,16 @@ class CorrelatorFrequencyInfo(object):
         self.corr_config = corr_config
         self.n_chans = int(corr_config['fengine']['n_chans'])
         assert isinstance(self.n_chans, int)
-        "Number of frequency channels"
+        # Number of frequency channels
         self.bandwidth = float(corr_config['fengine']['bandwidth'])
         assert isinstance(self.bandwidth, float)
-        "Correlator bandwidth"
+        # Correlator bandwidth
         self.delta_f = self.bandwidth / self.n_chans
         assert isinstance(self.delta_f, float)
-        "Spacing between frequency channels"
+        # Spacing between frequency channels
         f_start = 0.    # Center freq of the first bin
         self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
-        "Channel centre frequencies"
+        # Channel centre frequencies
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
         assert isinstance(self.sample_freq, float)
         self.sample_period = 1 / self.sample_freq
@@ -166,7 +166,6 @@ class CorrelatorFrequencyInfo(object):
         assert 0 <= chan + chans_around < self.n_chans
         assert 0 <= chan - chans_around < self.n_chans
 
-        fc = self.chan_freqs[chan]
         start_chan = chan - chans_around
         end_chan = chan + chans_around
         if samples_per_chan == 1:
@@ -195,7 +194,7 @@ def get_dsim_source_info(dsim):
     return info
 
 
-def iterate_recursive_dict(d, keys=()):
+def iterate_recursive_dict(dictionary, keys=()):
     """Generator; walk through a recursive dict structure
 
     yields the compound key and value of each leaf.
@@ -220,82 +219,12 @@ def iterate_recursive_dict(d, keys=()):
       ('key_2', 'key_22', 'key_222'): 222
 
     """
-    if isinstance(d, collections.Mapping):
-        for k in d:
-            for rv in iterate_recursive_dict(d[k], keys + (k, )):
+    if isinstance(dictionary, collections.Mapping):
+        for k in dictionary:
+            for rv in iterate_recursive_dict(dictionary[k], keys + (k, )):
                 yield rv
     else:
-        yield (keys, d)
-
-vstr = h5py.special_dtype(vlen=bytes)
-
-
-class TestDataH5(object):
-    """Save correlator dumps, source info and freeform snapshot info to hdf5 file"""
-    def __init__(self, filename):
-        self.h5 = h5py.File(filename, 'w')
-        self.results_idx = 0
-
-    def close(self):
-        self.h5.close()
-
-    def create_dataset_from_spead_item(self, ig, item_name, h5_name):
-        item = ig.get_item(item_name)
-        shape = ig[item_name].shape if item.shape == -1 else item.shape
-        h5_shape = [1] + ([] if list(shape) == [1] else list(shape))
-        h5_maxshape = [None] + h5_shape[1:]
-        dtype = np.dtype(type(ig[item_name])) if shape == [] else item.dtype
-        if dtype is None:
-            dtype = ig[item_name].dtype
-        self.h5.create_dataset(h5_name, h5_shape, maxshape=h5_maxshape, dtype=dtype)
-
-    def create_dataset_from_value(self, value, h5_name):
-        if value is None:
-            # Can't store None's
-            return
-        if isinstance(value, list):
-            value = np.array(value)
-        if hasattr(value, 'dtype'):
-            dtype = value.dtype
-        elif isinstance(value, basestring):
-            dtype = vstr
-        else:
-            dtype = np.dtype(type(value))
-        shape = list(getattr(value, 'shape', []))
-        if not self.results_idx:
-            self.h5.create_dataset(
-                h5_name, shape=[1] + shape, maxshape=[None] + shape, dtype=dtype)
-
-    def add_value_to_h5(self, value, h5_name):
-        if value is None:
-            # Can't store None's
-            return
-        self.h5[h5_name].resize(self.results_idx + 1, axis=0)
-        self.h5[h5_name][self.results_idx] = value
-
-    def add_result(self, ig, source_info, snapblocks):
-        # Assume each dump has the same data keys as the first
-        for item_name in ig.keys():
-            data = ig[item_name]
-            h5_name = 'dumps/' + item_name
-            if not self.results_idx:
-                self.create_dataset_from_spead_item(ig, item_name, h5_name)
-            self.add_value_to_h5(data, h5_name)
-
-        # Add snapblocks, assuming they always have the same data structure
-        for compound_key, value in iterate_recursive_dict(snapblocks):
-            h5_path = 'snapblocks/' + '/'.join(compound_key)
-            if not self.results_idx:
-                self.create_dataset_from_value(value, h5_path)
-            self.add_value_to_h5(value, h5_path)
-        # Also that the source_info data structure remains unchanged
-        for compound_key, value in iterate_recursive_dict(source_info):
-            h5_path = 'source_info/' + '/'.join(compound_key)
-            if not self.results_idx:
-                self.create_dataset_from_value(value, h5_path)
-            self.add_value_to_h5(value, h5_path)
-
-        self.results_idx += 1
+        yield (keys, dictionary)
 
 
 def get_feng_snapshots(feng_fpga, timeout=5):
@@ -309,7 +238,7 @@ def get_feng_snapshots(feng_fpga, timeout=5):
 def get_snapshots(instrument, timeout=60):
     try:
         f_snaps = threaded_fpga_operation(instrument.fhosts, timeout,
-                                          (get_feng_snapshots, ))
+                                          (get_feng_snapshots,))
     except Exception:
         return False
     else:
@@ -327,7 +256,7 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
     data_sources = [_source
                     for _input, _source in instrument.fengine_sources.iteritems()
-                        if input_name == _input][0]
+                    if input_name == _input][0]
 
     snap_name = 'snap_quant{}_ss'.format(data_sources.source_number)
     snap = data_sources.host.snapshots[snap_name]
@@ -379,8 +308,7 @@ def clear_all_delays(self, timeout=10):
             LOGGER.error('Could not clear delays')
             return False
         else:
-            LOGGER.info('[CBF-REQ-0110] Cleared delays: {}'.format(
-                reply.reply.arguments[1]))
+            LOGGER.info('[CBF-REQ-0110] Cleared delays: %s', str(reply.reply.arguments[1]))
             return True
 
 
@@ -460,7 +388,7 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, ct_status in hosts_status.iteritems():
             if ct_status is False:
-                LOGGER.error('Fhost: {}: Corner turner NOT okay!'.format(host))
+                LOGGER.error('Fhost: %s: Corner turner NOT okay!', host)
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
     except Exception:
@@ -468,7 +396,7 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, vacc_status in hosts_status.iteritems():
             if vacc_status is False:
-                LOGGER.error('Xhost: {}: VACC NOT okay!'.format(host))
+                LOGGER.error('Xhost: %s: VACC NOT okay!', host)
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
     except Exception:
@@ -476,8 +404,8 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, rxro_status in hosts_status.iteritems():
             if rxro_status is False:
-                LOGGER.error('Xhost: {}: Check that the host is receiving 10gbe data '
-                   'correctly?'.format(host))
+                LOGGER.error('Xhost: %s: Check that the host is receiving 10gbe data '
+                   'correctly?', host)
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
     except Exception:
@@ -485,8 +413,8 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, rxsp_status in hosts_status.iteritems():
             if rxsp_status is False:
-                LOGGER.error('Xhost: {}: Check that this host is receiving SPEAD data.'.format(
-                    host))
+                LOGGER.error(
+                    'Xhost: %s: Check that this host is receiving SPEAD data.', host)
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
     except Exception:
@@ -494,20 +422,20 @@ def check_host_okay(correlator, timeout=60):
     else:
         for host, rxre_status in hosts_status.iteritems():
             if rxre_status is False:
-                LOGGER.error('Xhost: {}: Check that host reordering received data correctly?'.format(
-                    host))
+                LOGGER.error(
+                    'Xhost: %s: Check that host reordering received data correctly?', host)
 
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0,
        figure out if VACC is rooted by 1"""
-    b0 = np.abs(complexise(xeng_raw.value[:, 0]))
-    b1 = np.abs(complexise(xeng_raw.value[:, 1]))
-    if np.max(b0) > 0 and np.max(b1) == 0:
+    input0 = np.abs(complexise(xeng_raw.value[:, 0]))
+    input1 = np.abs(complexise(xeng_raw.value[:, 1]))
+    if np.max(input0) > 0 and np.max(input1) == 0:
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
         return 0
-    elif np.max(b1) > 0 and np.max(b0) == 0:
+    elif np.max(input1) > 0 and np.max(input0) == 0:
         return 1
     else:
         raise ValueError('Could not determine VACC offset')
@@ -517,8 +445,8 @@ def get_and_restore_initial_eqs(test_instance, correlator):
     initial_equalisations = correlator.fops.eq_get()
 
     def restore_initial_equalisations():
-        for _input, eq in initial_equalisations.iteritems():
-            correlator.fops.eq_set(source_name=_input, new_eq=eq)
+        for _input, _eq in initial_equalisations.iteritems():
+            correlator.fops.eq_set(source_name=_input, new_eq=_eq)
 
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
@@ -579,16 +507,14 @@ def set_default_eq(instrument):
             return False
 
 
-def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
+def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
                      fft_shift=None, gain=None):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
     Param:
-        corr_fix: Object
+        self: Object
             correlator_fixture object
-        dhost: Object
-            digitiser simulator object
         awgn_scale : Float
             gaussian noise digitiser output scale.
         cw_scale: Float
@@ -601,11 +527,11 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
             quantiser gain value
     Return: Bool
     """
-    dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
     if awgn_scale is not None:
-        dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+        self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
     try:
-        reply, informs = corr_fix.katcp_rct.req.fft_shift(fft_shift)
+        reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
         if not reply.reply_ok():
             raise Exception
     except:
@@ -615,7 +541,7 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
     try:
         # Build dictionary with inputs and
         # which fhosts they are associated with.
-        reply, informs = corr_fix.katcp_rct.req.input_labels()
+        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
         if not reply.reply_ok():
             raise Exception
         sources = reply.arguments[1:]
@@ -625,7 +551,7 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
 
     for key in sources:
         try:
-            reply, informs = corr_fix.katcp_rct.req.gain(key, gain)
+            reply, _informs = self.corr_fix.katcp_rct.req.gain(key, gain)
             if not reply.reply_ok():
                 raise Exception
         except:
@@ -637,7 +563,6 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
 
 def get_delay_bounds(correlator):
     """
-
     Parameters
     ----------
     correlator - As displayed in you on board flight manual
@@ -658,22 +583,22 @@ def get_delay_bounds(correlator):
     min_delay = 0
     # Get maximum delay rate value
     reg_info = fhost.registers.delta_delay0.block_info
-    b = int(reg_info['bin_pts'])
-    max_positive_delta_delay = 1 - 1 / float(2**b)
-    max_negative_delta_delay = -1 + 1 / float(2**b)
+    _b = int(reg_info['bin_pts'])
+    max_positive_delta_delay = 1 - 1 / float(2**_b)
+    max_negative_delta_delay = -1 + 1 / float(2**_b)
     # Get max/min phase offset
     reg_info = fhost.registers.phase0.block_info
     b_str = reg_info['bin_pts']
-    b = int(b_str[1: len(b_str) - 1].rsplit(' ')[0])
-    max_positive_phase_offset = 1 - 1 / float(2**b)
-    max_negative_phase_offset = -1 + 1 / float(2**b)
+    _b = int(b_str[1: len(b_str) - 1].rsplit(' ')[0])
+    max_positive_phase_offset = 1 - 1 / float(2**_b)
+    max_negative_phase_offset = -1 + 1 / float(2**_b)
     max_positive_phase_offset *= float(np.pi)
     max_negative_phase_offset *= float(np.pi)
     # Get max/min phase rate
     b_str = reg_info['bin_pts']
-    b = int(b_str[1: len(b_str) - 1].rsplit(' ')[1])
-    max_positive_delta_phase = 1 - 1 / float(2**b)
-    max_negative_delta_phase = -1 + 1 / float(2**b)
+    _b = int(b_str[1: len(b_str) - 1].rsplit(' ')[1])
+    max_positive_delta_phase = 1 - 1 / float(2**_b)
+    max_negative_delta_phase = -1 + 1 / float(2**_b)
     # As per fhost_fpga
     bitshift_schedule = 23
     bitshift = (2 ** bitshift_schedule)
@@ -699,13 +624,13 @@ def get_figure_numbering(self):
         self: Object
     Return: Dict
     """
-    fig_numbering = {y: str(x) for x, y in enumerate(
-        [i for i in dir(self) if i.startswith('test_{}'.format(
-                                              self.corr_fix.instrument))], start=1)}
+    fig_numbering = {y: str(x) for x, y in enumerate([i for i in dir(self)
+                     if i.startswith('test_{}'.format(self.corr_fix.instrument))], start=1)}
 
     def get_fig_prefix(version=None, _dict=fig_numbering):
         """
-        Update the current figure numbering with a suffix depending on running instrument
+        Update the current figure numbering with a suffix depending on running
+        instrument
         Param:
             version: int/float
             _dict: dict

@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 from nosekatreport import Aqf
 from mkat_fpga_tests.utils import loggerise
-from itertools import cycle
 
 
 def meth_end_aqf(meth):
@@ -53,8 +52,8 @@ def aqf_numpy_almost_equal(result, expected, description, **kwargs):
     """
     try:
         np.testing.assert_almost_equal(result, expected, **kwargs)
-    except AssertionError, e:
-        Aqf.failed('{} - {}'.format(str(e), description))
+    except AssertionError:
+        Aqf.failed('{}'.format(description))
         return False
     else:
         Aqf.passed(description)
@@ -105,7 +104,7 @@ def aqf_numpy_allclose(result, expected, description, **kwargs):
     try:
         np.testing.assert_almost_equal(result, expected, **kwargs)
     except AssertionError, e:
-        Aqf.failed('{} - {}'.format(str(e), description))
+        Aqf.failed('{}'.format(description))
     else:
         Aqf.passed(description)
 
@@ -140,8 +139,10 @@ def aqf_array_abs_error_less(result, expected, description, abs_error=0.1):
         Aqf.passed(description)
         return True
 
+
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
-                plot_title='', plot_units=None, caption='', dump_counts=5 , show=False,):
+                           plot_title='', plot_units=None, caption='', dump_counts=5,
+                           show=False,):
     """
         Gets actual and expected phase plots.
         return: None
@@ -151,18 +152,21 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
         for phases in actual_data:
             plt.plot(freqs, phases)
     else:
-        plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(actual_data[0], plot_units))
+        plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(actual_data[0],
+                                                                    plot_units))
 
     plt.gca().set_prop_cycle(None)
-    if len(expected_data) ==  dump_counts or len(expected_data) ==  dump_counts - 1:
+    if len(expected_data) == dump_counts or len(expected_data) == dump_counts - 1:
         if not isinstance(expected_data[0], tuple):
             expected_data = ((expected_data, None),)
         for label_, phases in expected_data:
             fig = plt.plot(
-                freqs, phases, '--', label='{0:.3f} {1}'.format(label_, plot_units))[0]
+                freqs, phases, '--', label='{0:.3f} {1}'.format(label_,
+                                                                plot_units))[0]
     else:
-        fig = plt.plot(freqs, expected_data[-1], '--',
-            label='{0:.3f} {1}'.format(expected_data[0], plot_units))[0]
+        fig = plt.plot(freqs, expected_data[-1], '--', label='{0:.3f} {1}'.format(
+                                                                expected_data[0],
+                                                                plot_units))[0]
 
     axes = fig.get_axes()
     ybound = axes.get_ybound()
@@ -185,8 +189,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 
 def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=None,
                       log_dynamic_range=None, log_normalise_to=None, normalise=False,
-                      caption="", hlines=None, vlines=None, ylimits=None, xlimits=None,
-                      xlabel=None, show=False):
+                      caption="", hlines=None, ylimits=None,xlabel=None, show=False):
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -219,7 +222,6 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
             channelisation = ((channelisation, None),)
     except IndexError:
         Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
-    #intensity = cycle([1, .8]).next
     has_legend = False
     for plot_data, legend in channelisation:
         kwargs = {}
@@ -234,8 +236,6 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
             ylabel = 'Channel response (linear)'
 
         plt.grid(True)
-        # plt.plot(plot_data, c=cycol(), alpha=intensity(), **kwargs)
-        #plt.plot(plot_data, alpha=intensity(), **kwargs)
         plt.plot(plot_data, **kwargs)
         if plot_title:
             plt.title(plot_title)
@@ -247,28 +247,29 @@ def aqf_plot_channels(channelisation, plot_filename='test_plt.png', plot_title=N
 
     if hlines:
         plt.axhline(hlines, linestyle='--', color='red', linewidth=.5)
-        plt.annotate('[CBF-REQ-0126] Channel isolation: {}dB'.format(hlines),
-            xy=(len(plot_data)/2, hlines), xytext=(-20,15),
-            textcoords='offset points', ha='center', va='bottom',
-            bbox=dict(boxstyle='round,pad=0.2', alpha=0.3),
-            arrowprops=dict(arrowstyle='->',fc='yellow',
-            connectionstyle='arc3,rad=0.5', color='red'))
+        msg = ('[CBF-REQ-0126] Channel isolation: {}dB'.format(hlines))
+        plt.annotate(msg, xy=(len(plot_data)/2, hlines), xytext=(-20, 15),
+                    textcoords='offset points', ha='center', va='bottom',
+                    bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                    arrowprops=dict(arrowstyle='->', fc='yellow',
+                    connectionstyle='arc3, rad=0.5', color='red'))
 
     if ylimits:
         plt.ylim(ylimits)
 
-    plt.figtext(.1, -.15, '\n'.join(textwrap.wrap(caption)),
-        horizontalalignment='left')
+    plt.figtext(.1, -.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
                    loc='center left', bbox_to_anchor=(1, .8),
                    borderaxespad=0.).set_alpha(0.5)
 
-    # plt.savefig(plot_filename,bbox_inches='tight',dpi=100)
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
+        fig1 = plt.gcf()    # Get Current Figure
         plt.show(block=False)
-    plt.clf()
+        plt.draw()
+        fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
+        plt.clf()
 
 
 def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
@@ -289,6 +290,7 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
         plt.show(block=False)
     plt.clf()
 
+
 def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
                       caption="", cutoff=None, show=False):
 
@@ -296,7 +298,7 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
     axes = fig.get_axes()
     ybound = axes.get_ybound()
     yb_diff = abs(ybound[1] - ybound[0])
-    #new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
+    # new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
     new_ybound = [ybound[0]*1.1, ybound[1]*1.1]
     new_ybound = [y if y != 0 else yb_diff*0.05 for y in new_ybound]
     plt.vlines(expected_fc, *new_ybound, colors='r', label='Channel Fc')
@@ -313,14 +315,14 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
     # TODO Normalise plot to frequency bins
     plt.xlabel('Frequency (Hz)')
     if cutoff:
-        plt.axhline(cutoff, color='red', ls='--', linewidth=.5,
-            label='[CBF-REQ-0126] Channel isolation: {}dB'.format(cutoff),)
+        msg = ('[CBF-REQ-0126] Channel isolation: {}dB'.format(cutoff))
+        plt.axhline(cutoff, color='red', ls='--', linewidth=.5, label=msg,)
 
-    plt.figtext(.1,-.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1, -.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
-                borderaxespad=0.)
+               borderaxespad=0.)
 
+    Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
         plt.show(block=False)
-    Aqf.matplotlib_fig(plot_filename, caption=caption)
-    plt.clf()
+        plt.clf()
