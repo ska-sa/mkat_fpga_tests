@@ -1,18 +1,17 @@
-import collections
-import numpy as np
-import logging
 import Queue
-import warnings
+import collections
+import logging
 import matplotlib
+import numpy as np
+import warnings
 
-from casperfpga.utils import threaded_fpga_operation
 from casperfpga.utils import threaded_fpga_function
-
+from casperfpga.utils import threaded_fpga_operation
 
 LOGGER = logging.getLogger(__name__)
 
 # Max range of the integers coming out of VACC
-VACC_FULL_RANGE = float(2**31)
+VACC_FULL_RANGE = float(2 ** 31)
 
 
 def complexise(input_data):
@@ -80,8 +79,8 @@ def nonzero_baselines(xeng_raw):
 def all_nonzero_baselines(xeng_raw):
     """Return baseline indices that have all non-zero data"""
     non_zerobls = lambda bldata: np.all(
-                                 np.linalg.norm(
-                                    bldata.astype(np.float64), axis=1) != 0)
+        np.linalg.norm(
+            bldata.astype(np.float64), axis=1) != 0)
     return baseline_checker(xeng_raw, non_zerobls)
 
 
@@ -133,8 +132,8 @@ class CorrelatorFrequencyInfo(object):
         self.delta_f = self.bandwidth / self.n_chans
         assert isinstance(self.delta_f, float)
         # Spacing between frequency channels
-        f_start = 0.    # Center freq of the first bin
-        self.chan_freqs = f_start + np.arange(self.n_chans)*self.delta_f
+        f_start = 0.  # Center freq of the first bin
+        self.chan_freqs = f_start + np.arange(self.n_chans) * self.delta_f
         # Channel centre frequencies
         self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
         assert isinstance(self.sample_freq, float)
@@ -169,10 +168,10 @@ class CorrelatorFrequencyInfo(object):
         start_chan = chan - chans_around
         end_chan = chan + chans_around
         if samples_per_chan == 1:
-            return self.chan_freqs[start_chan:end_chan+1]
+            return self.chan_freqs[start_chan:end_chan + 1]
 
-        start_freq = self.chan_freqs[start_chan] - self.delta_f/2
-        end_freq = self.chan_freqs[end_chan] + self.delta_f/2
+        start_freq = self.chan_freqs[start_chan] - self.delta_f / 2
+        end_freq = self.chan_freqs[end_chan] + self.delta_f / 2
         sample_spacing = self.delta_f / (samples_per_chan - 1)
         num_samples = int(np.round(
             (end_freq - start_freq) / sample_spacing)) + 1
@@ -221,7 +220,7 @@ def iterate_recursive_dict(dictionary, keys=()):
     """
     if isinstance(dictionary, collections.Mapping):
         for k in dictionary:
-            for rv in iterate_recursive_dict(dictionary[k], keys + (k, )):
+            for rv in iterate_recursive_dict(dictionary[k], keys + (k,)):
                 yield rv
     else:
         yield (keys, dictionary)
@@ -265,9 +264,10 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
 
     def get_part(qd, part):
         return {k: v for k, v in qd.items() if k.startswith(part)}
+
     real = rearrange_snapblock(get_part(snap_data, 'real'))
     imag = rearrange_snapblock(get_part(snap_data, 'imag'))
-    quantiser_spectrum = real + 1j*imag
+    quantiser_spectrum = real + 1j * imag
     return quantiser_spectrum
 
 
@@ -405,7 +405,7 @@ def check_host_okay(correlator, timeout=60):
         for host, rxro_status in hosts_status.iteritems():
             if rxro_status is False:
                 LOGGER.error('Xhost: %s: Check that the host is receiving 10gbe data '
-                   'correctly?', host)
+                             'correctly?', host)
     try:
         hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
     except Exception:
@@ -584,21 +584,21 @@ def get_delay_bounds(correlator):
     # Get maximum delay rate value
     reg_info = fhost.registers.delta_delay0.block_info
     _b = int(reg_info['bin_pts'])
-    max_positive_delta_delay = 1 - 1 / float(2**_b)
-    max_negative_delta_delay = -1 + 1 / float(2**_b)
+    max_positive_delta_delay = 1 - 1 / float(2 ** _b)
+    max_negative_delta_delay = -1 + 1 / float(2 ** _b)
     # Get max/min phase offset
     reg_info = fhost.registers.phase0.block_info
     b_str = reg_info['bin_pts']
     _b = int(b_str[1: len(b_str) - 1].rsplit(' ')[0])
-    max_positive_phase_offset = 1 - 1 / float(2**_b)
-    max_negative_phase_offset = -1 + 1 / float(2**_b)
+    max_positive_phase_offset = 1 - 1 / float(2 ** _b)
+    max_negative_phase_offset = -1 + 1 / float(2 ** _b)
     max_positive_phase_offset *= float(np.pi)
     max_negative_phase_offset *= float(np.pi)
     # Get max/min phase rate
     b_str = reg_info['bin_pts']
     _b = int(b_str[1: len(b_str) - 1].rsplit(' ')[1])
-    max_positive_delta_phase = 1 - 1 / float(2**_b)
-    max_negative_delta_phase = -1 + 1 / float(2**_b)
+    max_positive_delta_phase = 1 - 1 / float(2 ** _b)
+    max_negative_delta_phase = -1 + 1 / float(2 ** _b)
     # As per fhost_fpga
     bitshift_schedule = 23
     bitshift = (2 ** bitshift_schedule)
@@ -615,7 +615,8 @@ def get_delay_bounds(correlator):
         'max_negative_phase_offset': max_negative_phase_offset,
         'max_positive_delta_phase': max_positive_delta_phase,
         'max_negative_delta_phase': max_negative_delta_phase
-        }
+    }
+
 
 def get_figure_numbering(self):
     """
@@ -624,8 +625,8 @@ def get_figure_numbering(self):
         self: Object
     Return: Dict
     """
-    fig_numbering = {y: str(x) for x, y in enumerate([i for i in dir(self)
-                     if i.startswith('test_{}'.format(self.corr_fix.instrument))], start=1)}
+    _test_name = 'test_{}'.format(self.corr_fix.instrument)
+    fig_numbering = {y: str(x) for x, y in enumerate([i for i in dir(self) if i.startswith(_test_name)], start=1)}
 
     def get_fig_prefix(version=None, _dict=fig_numbering):
         """
@@ -655,16 +656,20 @@ def disable_spead2_warnings():
     corr_rx_logger = logging.getLogger("corr2.corr_rx")
     corr_rx_logger.setLevel(logging.ERROR)
 
+
 def disable_maplotlib_warning():
     """This function disable matplotlibs deprecation warnings"""
     warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
 
 def disable_numpycomplex_warning():
     """Ignoring all warnings raised when casting a complex dtype to a real dtype."""
     warnings.simplefilter("ignore", np.ComplexWarning)
 
+
 class Text_Style(object):
     """Text manipulation"""
+
     def __init__(self):
         self.BOLD = '\033[1m'
         self.UNDERLINE = '\033[4m'
@@ -675,5 +680,6 @@ class Text_Style(object):
 
     def Underline(self, msg=None):
         return (self.UNDERLINE + msg + self.END)
+
 
 Style = Text_Style()
