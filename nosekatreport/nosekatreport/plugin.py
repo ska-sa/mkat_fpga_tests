@@ -47,6 +47,11 @@ TBD = 'tbd'
 SKIP = 'skipped'
 
 
+class TestFailed(AssertionError):
+    """Raise AssertionError when a test fails"""
+    pass
+
+
 class StoreTestRun(object):
     """Class to store the state of the running test.
 
@@ -980,6 +985,7 @@ class Aqf(object):
         :param message: Optional string. Message to add to passed of failed.
 
         """
+        # sys.tracebacklimit = 0      # Disabled Traceback report
 
         if passed is True:
             cls.passed(message)
@@ -996,8 +1002,8 @@ class Aqf(object):
             raise nose.plugins.skip.SkipTest
         elif _state.store.test_failed:
             _state.store.test_failed = False
-            assert _state.store.test_failed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                                              (_state.store.test_name, _state.store.error_msg))
+            raise TestFailed("Not all test steps passed\n\t\t{0:s}\n\t\t{1:s}"
+                             .format(_state.store.test_name, _state.store.error_msg))
         else:
             assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
                                               (_state.store.test_name, _state.store.error_msg))
