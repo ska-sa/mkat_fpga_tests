@@ -631,6 +631,7 @@ def set_input_levels(corr_fix, dhost, awgn_scale=None, cw_scale=None, freq=None,
     Return: Bool
     """
     dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+    dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
     if awgn_scale is not None:
         dhost.noise_sources.noise_corr.set(scale=awgn_scale)
     try:
