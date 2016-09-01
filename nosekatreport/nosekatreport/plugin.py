@@ -1,43 +1,42 @@
 from __future__ import with_statement
 
-
-import os
-import sys
 import json
-import time
-import string
 import logging
-import datetime
-import traceback
-import colors
-import tempfile
+import os
 import shutil
 import stat
+import string
 import subprocess
-import gc
+import tempfile
+import traceback
 import unittest
+
+import colors
+import datetime
+import gc
 import nose
+import sys
+import time
 
 log = logging.getLogger('nose.plugins.nosekatreport')
 
-
 try:
     import matplotlib.pyplot
+
     matplotlib.use('Agg', warn=False, force=True)
 except ImportError:
     log.info('Matplotlib not found, will not be able to add matplotlib figures')
 
-#try:
+# try:
 #    ReSTProducer
-#except NameError:
+# except NameError:
 #    from .rest_producer import ReStProducer
-#from .report import Report
+# from .report import Report
 
 
 from nose.plugins import Plugin
+
 __all__ = ['KatReportPlugin', 'Aqf', 'StoreTestRun']
-
-
 
 UNKNOWN = 'unknown'
 WAIVED = 'waived'
@@ -49,7 +48,6 @@ SKIP = 'skipped'
 
 
 class StoreTestRun(object):
-
     """Class to store the state of the running test.
 
     Provide some additional helper functions for output formating.
@@ -58,9 +56,9 @@ class StoreTestRun(object):
 
     def __init__(self):
         self.test_run_data = {'Meta':
-                              {'start': str(datetime.datetime.utcnow()),
-                               'end': None,
-                               'sys_args': sys.argv}}
+                                  {'start': str(datetime.datetime.utcnow()),
+                                   'end': None,
+                                   'sys_args': sys.argv}}
         self.test_name = 'Unknown'
         self.step_counter = 0
         self.progress_counter = 0
@@ -123,7 +121,7 @@ class StoreTestRun(object):
         if kwargs.get('description'):
             kwargs['description'] = str(kwargs['description']).strip()
         self._update_test(test_name, kwargs)
-        Aqf.log_line("="*80)  # Separation line
+        Aqf.log_line("=" * 80)  # Separation line
 
     def add_step(self, message=None, hop=False):
         """Add a step to a test."""
@@ -136,7 +134,7 @@ class StoreTestRun(object):
         step_data = {'status': PASS, 'success': True,
                      'description': message,
                      'step_start': str(datetime.datetime.utcnow()),
-                     'progress': [], 'evaluation': [], }
+                     'progress': [], 'evaluation': [],}
         step_data['hop'] = hop
         step_action = {'type': 'control', 'msg': 'start'}
         self._update_step(step_data, step_action)
@@ -200,7 +198,7 @@ class StoreTestRun(object):
                           dict(type='image', filename=final_filename,
                                caption=caption, alt=alt))
 
-    def add_matplotlib_fig(self, filename, caption="", alt=""):
+    def add_matplotlib_fig(self, filename, caption="", alt="", autoscale=False):
 
         """Save current matplotlib figure to the report
 
@@ -215,12 +213,15 @@ class StoreTestRun(object):
             Alternative description for when an image cannot be displayed
 
         """
-        #matplotlib.pyplot.savefig(filename, bbox_extra_artists=[leg.legendPatch], bbox_inches='None', dpi=100, format='png')
+        if autoscale:
+            matplotlib.pyplot.autoscale(tight=True)
+            try:
+                matplotlib.pyplot.tight_layout()
+            except ValueError:
+                pass
         matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=200, format='png')
         self.add_image(filename, caption, alt)
         matplotlib.pyplot.clf()
-        for i in range(100):
-            gc.collect()
 
     def as_json(self):
         """Output report in json format.
@@ -244,7 +245,7 @@ class StoreTestRun(object):
             # stack = traceback.format_stack()
             # action['stack'] = stack
             step_success = False
-            #Aqf.log_traceback('Last 6 lines of stack:\n' +
+            # Aqf.log_traceback('Last 6 lines of stack:\n' +
             #                  ' '.join(stack[-7:-1]))
 
         self._update_step({'status': state, 'success': step_success,
@@ -264,7 +265,7 @@ class StoreTestRun(object):
             data['tb'] = str(err_obj[2])
             if hasattr(err_obj[2], 'format_tb'):
                 data['traceback'] = err_obj[2].format_tb()
-                #data['stack'] = err_obj[2].format_stack()
+                # data['stack'] = err_obj[2].format_stack()
 
         self._update_test(test_name, data)
 
@@ -316,13 +317,13 @@ class StoreTestRun(object):
         # is FAIL/ERROR, TBD, SKIPPED, PASSED, WAIVED (Thus anything for which one
         # step SKIP results in SKIP, anything of which all is PASSED but one is
         # WAIVED results in PASSED)
-        status = [UNKNOWN,   # Dont know what happened
-                  PASS,      # Test Passed
-                  WAIVED,    # The test was waived.
-                  SKIP,      # Skip this test
-                  TBD,       # Test is to-be-done
-                  FAIL,      # Test Failed
-                  ERROR]     # Something went wrong
+        status = [UNKNOWN,  # Dont know what happened
+                  PASS,  # Test Passed
+                  WAIVED,  # The test was waived.
+                  SKIP,  # Skip this test
+                  TBD,  # Test is to-be-done
+                  FAIL,  # Test Failed
+                  ERROR]  # Something went wrong
         try:
             st1 = status.index(status1)
         except ValueError:
@@ -347,11 +348,11 @@ class StoreTestRun(object):
             __[self.step_counter] = data
         else:
             data['success'] = all([__[self.step_counter].get('success', True),
-                                  data.get('success', True)])
+                                   data.get('success', True)])
             if 'status' in data:
                 new_status = self._comp_status(data['status'],
                                                __[self.step_counter
-                                                  ].get('status', PASS))
+                                               ].get('status', PASS))
 
                 if new_status != data.get('status'):
                     data['status'] = new_status
@@ -375,8 +376,8 @@ class StoreTestRun(object):
             self.test_run_data[test_name] = {}
         if 'success' in data:
             data['success'] = all([data['success'],
-                                  self.test_run_data[test_name].get('success',
-                                                                    True)])
+                                   self.test_run_data[test_name].get('success',
+                                                                     True)])
             self.test_passed = data['success']
         if 'status' in data:
             data['status'] = self._comp_status(
@@ -393,7 +394,6 @@ class StoreTestRun(object):
 
 
 class _state(object):
-
     """Class for storing state and progress."""
 
     report_name = 'katreport'  # dir name that reports are writen into
@@ -492,7 +492,7 @@ class KatReportPlugin(Plugin):
                      if n.startswith("aqf_")]:
             if attr.startswith('aqf_system_'):
                 aqf_attr['systems'][attr.replace("aqf_system_", "").upper()
-                                    ] = all([getattr(test_method, attr)])
+                ] = all([getattr(test_method, attr)])
             else:
                 aqf_attr[attr] = getattr(test_method, attr)
 
@@ -506,13 +506,12 @@ class KatReportPlugin(Plugin):
         # Set the end time in the Json file.
         _state.store.test_run_data['Meta']["end"] = str(datetime.datetime.utcnow())
 
-        #Write the test results to the JSON file.
+        # Write the test results to the JSON file.
         _state.store.write_test_results_json_file(os.path.join(_state.report_name,
-                                                  'katreport.json'))
+                                                               'katreport.json'))
 
 
 class AqfLog(type):
-
     """
     Catch all the method calls that start with log_.
 
@@ -527,6 +526,7 @@ class AqfLog(type):
                 for line in arg:
                     strip_name = name.replace("log_", "")
                     cls._log_msg(strip_name, str(line))
+
             return func
 
     def _severity_colour(self, severity):
@@ -588,7 +588,6 @@ class AqfLog(type):
 
 
 class Aqf(object):
-
     """Automatic Qualification Framework.
 
     The AQF class is used as a container to the public class methods.
@@ -621,7 +620,7 @@ class Aqf(object):
     @classmethod
     def progress(cls, message):
         """Add progress messages to the step."""
-        #_state.store.add_progress(message)
+        # _state.store.add_progress(message)
         cls.log_progress(message)
 
     @classmethod
@@ -657,7 +656,7 @@ class Aqf(object):
         _state.store.add_image(filename, caption, alt)
 
     @classmethod
-    def matplotlib_fig(self, filename, caption="", alt=""):
+    def matplotlib_fig(self, filename, caption="", alt="", autoscale=False):
         """Save current matplotlib figure to the report
 
         Parameters
@@ -671,12 +670,10 @@ class Aqf(object):
             Alternative description for when an image cannot be displayed
 
         """
-        _state.store.add_matplotlib_fig(filename, caption, alt)
+        _state.store.add_matplotlib_fig(filename, caption, alt, autoscale)
 
-
-
-    #@classmethod
-    #def substep(cls, message):
+    # @classmethod
+    # def substep(cls, message):
     #    """A sub step of a step in a test section.
 
     #    eg. Aqf.substep("Test that the antenna no 3 is stowed")
@@ -753,7 +750,7 @@ class Aqf(object):
         :param message: String. Reason for skipping the test step.
 
         """
-        #_state.store.add_step_waived(message)
+        # _state.store.add_step_waived(message)
         _state.store.set_step_state(WAIVED, message)
 
     @classmethod
@@ -825,12 +822,12 @@ class Aqf(object):
 
         """
 
-        if  result < expected:
+        if result < expected:
             cls.passed(description)
             return True
         else:
             cls.failed('Result {result} not less than {expected} - {description}'
-                       .format(**locals()) )
+                       .format(**locals()))
             return False
 
     @classmethod
@@ -917,20 +914,20 @@ class Aqf(object):
     @classmethod
     def checkbox(cls, description):
         """Mark a step that should be manually confirmed."""
-        #_state.store.mark_test_as_demo()
+        # _state.store.mark_test_as_demo()
         cls.log_checkbox(description)
         if not _state.config.get('demo'):
             cls.log_checkbox("PASSED / FAILED")
             status = PASS
         else:
             cls.log_checkbox("PASSED / FAILED      <--- Press Any Key To Continue --->")
-            key = wait_for_key(-1) # No timeout
+            key = wait_for_key(-1)  # No timeout
             sys.stderr.write("\r" + " " * 40 + "\n")
             if key is False:
                 cls.log_checkbox("Continue from timeout")
                 status = FAIL
             else:
-                #cls.log_checkbox("Continue on key %s" % key)
+                # cls.log_checkbox("Continue on key %s" % key)
                 status = PASS
         _state.store.add_step_checkbox(description, status)
 
@@ -940,20 +937,20 @@ class Aqf(object):
         Mark a step that should wait for a key before continuing.
         Don't print PASSED/FAILED
         """
-        #_state.store.mark_test_as_demo()
+        # _state.store.mark_test_as_demo()
         cls.log_keywait(description)
         if not _state.config.get('demo'):
             cls.log_keywait("Wait on keypress")
             status = PASS
         else:
             cls.log_keywait("                     <--- Press Any Key To Continue --->")
-            key = wait_for_key(-1) # No timeout
+            key = wait_for_key(-1)  # No timeout
             sys.stderr.write("\r" + " " * 40 + "\n")
             if key is False:
                 cls.log_keywait("Continue from timeout")
                 status = FAIL
             else:
-                #cls.log_keywait("Continue on key %s" % key)
+                # cls.log_keywait("Continue on key %s" % key)
                 status = PASS
         _state.store.add_step_keywait(description, status)
 
@@ -988,8 +985,8 @@ class Aqf(object):
             cls.passed(message)
         elif passed is False:
             cls.failed(message)
-            _state.store.test_failed = True#, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                    #(_state.store.test_name, _state.store.error_msg))
+            _state.store.test_failed = True  # , ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
+            # (_state.store.test_name, _state.store.error_msg))
 
         _state.store.test_ack = True
         _state.store._update_step({'_updated': True},
@@ -1000,10 +997,10 @@ class Aqf(object):
         elif _state.store.test_failed:
             _state.store.test_failed = False
             assert _state.store.test_failed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                    (_state.store.test_name, _state.store.error_msg))
+                                              (_state.store.test_name, _state.store.error_msg))
         else:
             assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                    (_state.store.test_name, _state.store.error_msg))
+                                              (_state.store.test_name, _state.store.error_msg))
 
 
 def wait_for_key(timeout=-1):
@@ -1034,7 +1031,7 @@ def wait_for_key(timeout=-1):
     try:
         while result is None:
             try:
-                #c = sys.stdin.read(1)
+                # c = sys.stdin.read(1)
                 c = sys.stdin.read()
                 result = repr(c)
             except IOError:
