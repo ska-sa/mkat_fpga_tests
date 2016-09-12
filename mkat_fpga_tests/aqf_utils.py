@@ -1,12 +1,11 @@
 import functools
 import matplotlib.pyplot as plt
-import numpy as np
 import textwrap
 
 from nosekatreport import Aqf
 
 from mkat_fpga_tests.utils import loggerise
-
+from Tkinter import tkinter
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
@@ -66,15 +65,20 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     # linestyles='dotted', label='Center Chan.')
     plt.title('{}'.format(plot_title))
     axes.set_ybound(*new_ybound)
-    plt.grid(True)
-    plt.ylabel('Phase [radians]')
-    plt.xlabel('Channel number')
-    plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-    plt.legend()
-    Aqf.matplotlib_fig(plot_filename, caption=caption)
-    if show:
-        plt.show(block=False)
-    plt.clf()
+    try:
+        plt.grid(True)
+    except tkinter.TclError:
+        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        return False
+    else:
+        plt.ylabel('Phase [radians]')
+        plt.xlabel('Channel number')
+        plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.legend()
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
+        if show:
+            plt.show(block=False)
+        plt.clf()
 
 
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynamic_range=90,
@@ -125,7 +129,11 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
         else:
             ylabel = 'Channel response (linear)'
 
-        plt.grid(True)
+        try:
+            plt.grid(True)
+        except tkinter.TclError:
+            LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+            return False
         plt.plot(plot_data, **kwargs)
         if plot_title:
             plt.title(plot_title)
@@ -168,17 +176,22 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
     """Simple histogram plot of a data set
         return: None
     """
-    plt.grid(True)
-    plt.hist(data_set, bins=bins, range=ranges)
-    if plot_title:
-        plt.title(plot_title)
-    plt.ylabel(ylabel)
-    plt.xlabel(xlabel)
-    plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-    Aqf.matplotlib_fig(plot_filename, caption=caption)
-    if show:
-        plt.show(block=False)
-    plt.clf()
+    try:
+        plt.grid(True)
+    except tkinter.TclError:
+        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        return False
+    else:
+        plt.hist(data_set, bins=bins, range=ranges)
+        if plot_title:
+            plt.title(plot_title)
+        plt.ylabel(ylabel)
+        plt.xlabel(xlabel)
+        plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
+        if show:
+            plt.show(block=False)
+        plt.clf()
 
 
 def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
@@ -199,19 +212,24 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
                linestyles='--')
     plt.title(plt_title)
     axes.set_ybound(*new_ybound)
-    plt.grid(True)
-    plt.ylabel('dB relative to VACC max')
-    # TODO Normalise plot to frequency bins
-    plt.xlabel('Frequency (Hz)')
-    if cutoff:
-        msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
-        plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
+    try:
+        plt.grid(True)
+    except tkinter.TclError:
+        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        return False
+    else:
+        plt.ylabel('dB relative to VACC max')
+        # TODO Normalise plot to frequency bins
+        plt.xlabel('Frequency (Hz)')
+        if cutoff:
+            msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
+            plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
 
-    plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-    plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
-               borderaxespad=0.)
+        plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
+                   borderaxespad=0.)
 
-    Aqf.matplotlib_fig(plot_filename, caption=caption)
-    if show:
-        plt.show(block=False)
-        plt.clf()
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
+        if show:
+            plt.show(block=False)
+            plt.clf()
