@@ -1,12 +1,15 @@
 import Queue
+import contextlib
 import collections
 import logging
 import matplotlib
 import numpy as np
+import time
 import warnings
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -285,7 +288,7 @@ def get_baselines_lookup(spead):
     return baseline_lookup
 
 
-def clear_all_delays(self, timeout=10):
+def clear_all_delays(self, roundtrip=0.003, timeout=10):
     """Clears all delays on all fhosts.
     Param: object
     Return: Boolean
@@ -296,8 +299,9 @@ def clear_all_delays(self, timeout=10):
         LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
         return False
     else:
-        roundtrip = 0.003
         sync_time = self.correlator.get_synch_time()
+        if sync_time == -1:
+            sync_time = dump['sync_time'].value
         dump_1_timestamp = (sync_time + roundtrip +
                             dump['timestamp'].value / dump['scale_factor_timestamp'].value)
         t_apply = dump_1_timestamp + 10 * dump['int_time'].value
@@ -308,7 +312,7 @@ def clear_all_delays(self, timeout=10):
             LOGGER.error('Could not clear delays')
             return False
         else:
-            LOGGER.info('[CBF-REQ-0110] Cleared delays: %s', str(reply.reply.arguments[1]))
+            LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % (str(reply.reply.arguments[1])))
             return True
 
 
@@ -374,57 +378,37 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
 
     return list(qdr_error_roaches)
 
-
-def check_host_okay(correlator, timeout=60):
+def check_host_okay(self, engine=None, sensor=None):
     """
-    Checks if corner turner, vacc and rx are okay?
-    Param: correlator object
-    Return: None
+    Function retrieves PFB, LRU, QDR, PHY and reorder status on all F/X-Engines via Cam interface.
+    :param: Object: self
+    :param: Str: F/X-engine
+    :param: Str: sensor
+    :rtype: Boolean or List
     """
-    try:
-        hosts_status = threaded_fpga_function(correlator.fhosts, timeout, 'ct_okay')
-    except Exception:
-        return False
+    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+    if engine == 'feng':
+        hosts = [_i.host.lower() for _i in self.correlator.fhosts]
+    elif engine == 'xeng':
+        hosts = [_i.host.lower() for _i in self.correlator.xhosts]
     else:
-        for host, ct_status in hosts_status.iteritems():
-            if ct_status is False:
-                LOGGER.error('Fhost: %s: Corner turner NOT okay!', host)
-    try:
-        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'vacc_okay')
-    except Exception:
+        LOGGER.error('Engine cannot be None')
         return False
-    else:
-        for host, vacc_status in hosts_status.iteritems():
-            if vacc_status is False:
-                LOGGER.error('Xhost: %s: VACC NOT okay!', host)
-    try:
-        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_raw')
-    except Exception:
-        return False
-    else:
-        for host, rxro_status in hosts_status.iteritems():
-            if rxro_status is False:
-                LOGGER.error('Xhost: %s: Check that the host is receiving 10gbe data '
-                             'correctly?', host)
-    try:
-        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_spead')
-    except Exception:
-        return False
-    else:
-        for host, rxsp_status in hosts_status.iteritems():
-            if rxsp_status is False:
-                LOGGER.error(
-                    'Xhost: %s: Check that this host is receiving SPEAD data.', host)
-    try:
-        hosts_status = threaded_fpga_function(correlator.xhosts, timeout, 'check_rx_reorder')
-    except Exception:
-        return False
-    else:
-        for host, rxre_status in hosts_status.iteritems():
-            if rxre_status is False:
-                LOGGER.error(
-                    'Xhost: %s: Check that host reordering received data correctly?', host)
 
+    pfb_status = [[' '.join(i.arguments[2:]) for i in informs
+                    if i.arguments[2] == '{}-{}-{}-ok'.format(host, engine, sensor)]
+                        for host in hosts]
+    _errors_list = []
+    for i in pfb_status:
+        try:
+            assert int(i[0].split()[-1]) == 1
+        except AssertionError:
+            errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
+            LOGGER.error(errmsg)
+            _errors_list.append(errmsg)
+        else:
+            return True
+    return _errors_list
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0,
@@ -491,21 +475,23 @@ def get_adc_snapshot(fpga):
     return rv
 
 
-def set_default_eq(instrument):
+def set_default_eq(self):
     """ Iterate through config sources and set eq's as per config file
     Param: Correlator: Object
     Return: None
     """
+    LOGGER.info('Reset gains to default values from config file.\n')
     eq_levels = []
-    for eq_label in [i for i in instrument.configd['fengine'] if i.startswith('eq')]:
-        eq_levels.append(complex(instrument.configd['fengine'][eq_label]))
-    ant_inputs = instrument.configd['fengine']['source_names'].split(',')
-    for _input, eq_val in zip(ant_inputs, eq_levels):
-        try:
-            instrument.fops.eq_set(source_name=_input, new_eq=eq_val)
-        except Exception:
-            return False
+    for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
+        eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
+    ant_inputs = self.correlator.configd['fengine']['source_names'].split(',')
 
+    try:
+        self.correlator.fops.eq_write_all(dict(zip(ant_inputs, eq_levels)))
+    except Exception:
+        return False
+    else:
+        return True
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
                      fft_shift=None, gain=None):
@@ -530,34 +516,36 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
     if awgn_scale is not None:
         self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+
     try:
+        LOGGER.info('Writting F-Engines fft shift to {}'.format(fft_shift))
         reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
         if not reply.reply_ok():
             raise Exception
     except:
-        Aqf.failed('Failed to set FFT shift.')
+        LOGGER.error('Failed to set FFT shift.')
         return False
 
     try:
-        # Build dictionary with inputs and
-        # which fhosts they are associated with.
         reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
         if not reply.reply_ok():
             raise Exception
-        sources = reply.arguments[1:]
-    except:
-        Aqf.failed('Failed to get input lables. KATCP Reply: {}'.format(reply))
+    except Exception:
+        LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
         return False
+    else:
+        sources = reply.arguments[1:]
+    try:
+        assert sorted(sources) == sorted(self.correlator.fengine_sources.keys())
+    except AssertionError:
+        LOGGER.error('Input labels retrieved via CAM interface are not the same as correlator'
+                     ' object fengine sources')
+        sources = self.correlator.fengine_sources.keys()
 
-    for key in sources:
-        try:
-            reply, _informs = self.corr_fix.katcp_rct.req.gain(key, gain)
-            if not reply.reply_ok():
-                raise Exception
-        except:
-            Aqf.failed(
-                'Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
-            return False
+    LOGGER.info('Writting input sources gains to %s' % (gain))
+    source_gain_dict = dict(collections.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
+    self.correlator.fops.eq_write_all(source_gain_dict)
+
     return True
 
 
@@ -626,7 +614,9 @@ def get_figure_numbering(self):
     Return: Dict
     """
     _test_name = 'test_{}'.format(self.corr_fix.instrument)
-    fig_numbering = {y: str(x) for x, y in enumerate([i for i in dir(self) if i.startswith(_test_name)], start=1)}
+    fig_numbering = {y: str(x)
+                    for x, y in enumerate([i
+                                            for i in dir(self) if i.startswith(_test_name)], start=1)}
 
     def get_fig_prefix(version=None, _dict=fig_numbering):
         """
@@ -683,3 +673,55 @@ class Text_Style(object):
 
 
 Style = Text_Style()
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    """
+    Context manager to ignore specifed exceptions
+    :param: Exception
+    :rtype: None
+    """
+    try:
+        yield
+    except exceptions:
+        pass
+
+def clear_host_status(self, timeout=60):
+    """Clear the status registers and counters on this host
+    :param: Object
+    :param: timeout: int
+    :rtype: Boolean
+    """
+    hosts = (self.correlator.fhosts + self.correlator.xhosts)
+    try:
+        threaded_fpga_function(hosts, timeout, 'clear_status')
+    except Exception:
+        return False
+    else:
+        LOGGER.info('Clear the status registers and counters on this host.')
+        time.sleep(self.correlator.sensor_poll_time)
+        return True
+
+def restore_src_names(self):
+    """Restore default CBF input/source names.
+    :param: Object
+    :rtype: Boolean
+    """
+    try:
+        orig_src_names = self.correlator.configd['fengine']['source_names'].split(',')
+    except:
+        orig_src_names = ['ant_{}'.format(x) for x in xrange(self.correlator.n_antennas * 2)]
+
+    LOGGER.info('Restoring source names to %s' % (', '.join(orig_src_names)))
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels(*orig_src_names)
+    except:
+        LOGGER.error('Failed to restore CBF source names back to default.')
+        return False
+    else:
+        LOGGER.info('Successfully restored source names back to default %s' % (', '.join(
+            orig_src_names)))
+        for i in xrange(2):
+            self.corr_fix.issue_metadata()
+            self.corr_fix.start_x_data()
+        return True
