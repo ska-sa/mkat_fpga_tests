@@ -1,7 +1,10 @@
 from __future__ import with_statement
 
+from nose.plugins import Plugin
+
 import json
 import logging
+import numpy as np
 import os
 import shutil
 import stat
@@ -33,9 +36,6 @@ except ImportError:
 #    from .rest_producer import ReStProducer
 # from .report import Report
 
-
-from nose.plugins import Plugin
-
 __all__ = ['KatReportPlugin', 'Aqf', 'StoreTestRun']
 
 UNKNOWN = 'unknown'
@@ -60,10 +60,9 @@ class StoreTestRun(object):
     """
 
     def __init__(self):
-        self.test_run_data = {'Meta':
-                                  {'start': str(datetime.datetime.utcnow()),
-                                   'end': None,
-                                   'sys_args': sys.argv}}
+        self.test_run_data = {'Meta': {'start': str(datetime.datetime.utcnow()),
+                                       'end': None,
+                                       'sys_args': sys.argv}}
         self.test_name = 'Unknown'
         self.step_counter = 0
         self.progress_counter = 0
@@ -139,7 +138,7 @@ class StoreTestRun(object):
         step_data = {'status': PASS, 'success': True,
                      'description': message,
                      'step_start': str(datetime.datetime.utcnow()),
-                     'progress': [], 'evaluation': [],}
+                     'progress': [], 'evaluation': [], }
         step_data['hop'] = hop
         step_action = {'type': 'control', 'msg': 'start'}
         self._update_step(step_data, step_action)
@@ -356,8 +355,7 @@ class StoreTestRun(object):
                                    data.get('success', True)])
             if 'status' in data:
                 new_status = self._comp_status(data['status'],
-                                               __[self.step_counter
-                                               ].get('status', PASS))
+                                               __[self.step_counter].get('status', PASS))
 
                 if new_status != data.get('status'):
                     data['status'] = new_status
@@ -496,8 +494,8 @@ class KatReportPlugin(Plugin):
         for attr in [n for n in dir(test_method)
                      if n.startswith("aqf_")]:
             if attr.startswith('aqf_system_'):
-                aqf_attr['systems'][attr.replace("aqf_system_", "").upper()
-                ] = all([getattr(test_method, attr)])
+                aqf_attr['systems'][attr.replace("aqf_system_", "").upper()] = all(
+                    [getattr(test_method, attr)])
             else:
                 aqf_attr[attr] = getattr(test_method, attr)
 
@@ -811,6 +809,61 @@ class Aqf(object):
                        (str(expected), str(result), description))
 
     @classmethod
+    def array_abs_error(cls, result, expected, description, abs_error=0.1):
+        """
+        Compares absolute error in numeric result and logs to Aqf.
+
+        Parameters
+        ----------
+        result: numeric type or array of type
+            Actual result to be checked.
+        expected: Same as result
+            Expected result
+        description: String
+            Message describing the purpose of the comparison.
+        abs_err: float, optional
+            Fail if absolute error is not less than this abs_err for all array
+            elements
+
+        """
+        err = np.abs(np.array(expected) - np.array(result))
+        max_err_ind = np.argmax(err)
+        max_err = err[max_err_ind]
+        if max_err >= abs_error:
+            cls.failed('Absolute error larger than {abs_error}, max error at index {max_err_ind}, '
+                       'error: {max_err} - {description}'.format(**locals()))
+            return False
+        else:
+            cls.passed(description)
+            return True
+
+    @classmethod
+    def array_almost_equal(cls, result, expected, description, **kwargs):
+        """Compares numerical result to an expected value
+
+        Using numpy.testing.assert_almost_equal for the comparison
+
+        Parameters
+        ----------
+        result: numeric type or array of type
+            Actual result to be checked.
+        expected: Same as result
+            Expected result
+        description: String
+            Message describing the purpose of the comparison.
+        **kwargs : keyword arguments
+            Passed on to numpy.testing.assert_almost_equal. You probably want to use the
+            `decimal` kwarg to specify how many digits after the decimal point is compared.
+        """
+        try:
+            np.testing.assert_almost_equal(result, expected, **kwargs)
+        except AssertionError:
+            cls.failed("Expected '%s' got '%s' - %s" %
+                       (str(expected), str(result), description))
+        else:
+            cls.passed(description)
+
+    @classmethod
     def less(cls, result, expected, description):
         """Evaluate: obtained result less than the expected value.
 
@@ -827,7 +880,7 @@ class Aqf(object):
 
         """
 
-        if result < expected:
+        if result <= expected:
             cls.passed(description)
             return True
         else:
@@ -985,7 +1038,7 @@ class Aqf(object):
         :param message: Optional string. Message to add to passed of failed.
 
         """
-        # sys.tracebacklimit = 0      # Disabled Traceback report
+        sys.tracebacklimit = 0      # Disabled Traceback report
 
         if passed is True:
             cls.passed(message)
@@ -1002,11 +1055,17 @@ class Aqf(object):
             raise nose.plugins.skip.SkipTest
         elif _state.store.test_failed:
             _state.store.test_failed = False
-            raise TestFailed("Not all test steps passed\n\t\t{0:s}\n\t\t{1:s}"
-                             .format(_state.store.test_name, _state.store.error_msg))
+            raise TestFailed("Not all test steps passed\n\n\t\t{0:s}\n\t{1:s}\n".format(
+                             _state.store.test_name, _state.store.error_msg))
         else:
-            assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                                              (_state.store.test_name, _state.store.error_msg))
+            try:
+                assert _state.store.test_passed
+            except AssertionError:
+                raise TestFailed("Not all test steps passed\n\n\t\t{0:s}\n\t{1:s}\n".format(
+                                _state.store.test_name, _state.store.error_msg))
+
+            #assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
+                                              #(_state.store.test_name, _state.store.error_msg))
 
 
 def wait_for_key(timeout=-1):
