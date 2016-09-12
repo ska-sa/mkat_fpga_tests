@@ -1027,7 +1027,7 @@ class Aqf(object):
         os._exit(1)
 
     @classmethod
-    def end(cls, passed=None, message=None):
+    def end(cls, passed=None, message=None, traceback=False):
         """Mark the end of the test.
 
         Every test needs one of these at the end. This method will do the
@@ -1038,7 +1038,8 @@ class Aqf(object):
         :param message: Optional string. Message to add to passed of failed.
 
         """
-        sys.tracebacklimit = 0      # Disabled Traceback report
+        if traceback:
+            sys.tracebacklimit = 0      # Disabled Traceback report
 
         if passed is True:
             cls.passed(message)
