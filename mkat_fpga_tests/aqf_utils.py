@@ -13,7 +13,7 @@ def meth_end_aqf(meth):
     @functools.wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
-        Aqf.end()
+        Aqf.end(traceback=True)
 
     return decorated
 

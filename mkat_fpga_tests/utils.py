@@ -517,12 +517,15 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     if awgn_scale is not None:
         self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
 
+    LOGGER.info('Writting F-Engines fft shift to {} via cam interface'.format(fft_shift))
     try:
-        LOGGER.info('Writting F-Engines fft shift to {}'.format(fft_shift))
         reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
         if not reply.reply_ok():
-            raise Exception
-    except:
+            raise AssertionError
+    except TypeError:
+        LOGGER.error('Failed to set fftshift via cam interface, resorting to native setting.')
+        self.correlator.fops.set_fft_shift_all(fft_shift)
+    except AssertionError:
         LOGGER.error('Failed to set FFT shift.')
         return False
 
@@ -545,7 +548,6 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     LOGGER.info('Writting input sources gains to %s' % (gain))
     source_gain_dict = dict(collections.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     self.correlator.fops.eq_write_all(source_gain_dict)
-
     return True
 
 

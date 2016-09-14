@@ -226,6 +226,7 @@ class StoreTestRun(object):
         matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=200, format='png')
         self.add_image(filename, caption, alt)
         matplotlib.pyplot.clf()
+        matplotlib.pyplot.close('all')
 
     def as_json(self):
         """Output report in json format.
@@ -1027,7 +1028,7 @@ class Aqf(object):
         os._exit(1)
 
     @classmethod
-    def end(cls, passed=None, message=None, traceback=False):
+    def end(cls, passed=None, message=None, traceback=None):
         """Mark the end of the test.
 
         Every test needs one of these at the end. This method will do the
@@ -1038,7 +1039,7 @@ class Aqf(object):
         :param message: Optional string. Message to add to passed of failed.
 
         """
-        if traceback:
+        if not traceback:
             sys.tracebacklimit = 0      # Disabled Traceback report
 
         if passed is True:
@@ -1056,13 +1057,13 @@ class Aqf(object):
             raise nose.plugins.skip.SkipTest
         elif _state.store.test_failed:
             _state.store.test_failed = False
-            raise TestFailed("Not all test steps passed\n\n\t\t{0:s}\n\t{1:s}\n".format(
+            raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
                              _state.store.test_name, _state.store.error_msg))
         else:
             try:
                 assert _state.store.test_passed
             except AssertionError:
-                raise TestFailed("Not all test steps passed\n\n\t\t{0:s}\n\t{1:s}\n".format(
+                raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
                                 _state.store.test_name, _state.store.error_msg))
 
             #assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
