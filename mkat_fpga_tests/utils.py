@@ -1,6 +1,7 @@
 import Queue
 import contextlib
 import collections
+import chainmap
 import logging
 import matplotlib
 import numpy as np
@@ -562,7 +563,10 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         sources = self.correlator.fengine_sources.keys()
 
     LOGGER.info('Writting input sources gains to %s' % (gain))
-    source_gain_dict = dict(collections.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
+    try:
+        source_gain_dict = dict(collections.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
+    except AttributeError:
+        source_gain_dict = dict(chainmap.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     self.correlator.fops.eq_write_all(source_gain_dict)
     return True
 
