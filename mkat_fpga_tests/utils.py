@@ -9,6 +9,7 @@ import warnings
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
+from inspect import currentframe, getframeinfo
 
 
 LOGGER = logging.getLogger(__name__)
@@ -106,12 +107,17 @@ def init_dsim_sources(dhost):
             sin_source.set(repeatN=0)
         except NotImplementedError:
             pass
+
     for noise_source in dhost.noise_sources:
         noise_source.set(scale=0)
     for output in dhost.outputs:
         output.select_output('signal')
         output.scale_output(1)
-
+    try:
+        dhost.registers.cwg0_en.write(en=1)
+        dhost.registers.cwg1_en.write(en=1)
+    except Exception:
+        pass
 
 class CorrelatorFrequencyInfo(object):
     """Derive various bits of correlator frequency info using correlator config"""
@@ -406,6 +412,12 @@ def check_host_okay(self, engine=None, sensor=None):
             errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
             LOGGER.error(errmsg)
             _errors_list.append(errmsg)
+        except IndexError:
+            LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
+                         'File: %s line: %s' % (
+                            getframeinfo(currentframe()).filename.split('/')[-1],
+                            getframeinfo(currentframe()).lineno))
+            return False
         else:
             return True
     return _errors_list
@@ -482,16 +494,20 @@ def set_default_eq(self):
     """
     LOGGER.info('Reset gains to default values from config file.\n')
     eq_levels = []
-    for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
-        eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
-    ant_inputs = self.correlator.configd['fengine']['source_names'].split(',')
-
     try:
-        self.correlator.fops.eq_write_all(dict(zip(ant_inputs, eq_levels)))
+        for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
+            eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
+        ant_inputs = self.correlator.configd['fengine']['source_names'].split(',')
     except Exception:
+        LOGGER.error('Failed to retrieve default ant_inputs and eq levels from config file')
         return False
     else:
-        return True
+        try:
+            self.correlator.fops.eq_write_all(dict(zip(ant_inputs, eq_levels)))
+        except Exception:
+            return False
+        else:
+            return True
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
                      fft_shift=None, gain=None):
