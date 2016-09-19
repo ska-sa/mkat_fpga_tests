@@ -73,11 +73,13 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     else:
         plt.ylabel('Phase [radians]')
         plt.xlabel('Channel number')
-        plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.figtext(.1, -.1, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        print ' \n'.join(textwrap.wrap(caption))
         plt.legend()
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show(block=False)
+        plt.cla()
         plt.clf()
 
 
@@ -155,7 +157,8 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
     if ylimits:
         plt.ylim(ylimits)
 
-    plt.figtext(.1, -.15, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.figtext(.1, -.1, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    print ' \n'.join(textwrap.wrap(caption))
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
                    loc='center left', bbox_to_anchor=(1, .8),
@@ -167,7 +170,8 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
         plt.show(block=False)
         plt.draw()
         fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
-        plt.clf()
+    plt.cla()
+    plt.clf()
 
 
 def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
@@ -187,10 +191,11 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
             plt.title(plot_title)
         plt.ylabel(ylabel)
         plt.xlabel(xlabel)
-        plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.figtext(.1, -.1, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show(block=False)
+        plt.cla()
         plt.clf()
 
 
@@ -225,11 +230,12 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
             msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
             plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
 
-        plt.figtext(.1, -.1, '\n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.figtext(.1, -.1, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
         plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
                    borderaxespad=0.)
 
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
             plt.show(block=False)
-            plt.clf()
+        plt.cla()
+        plt.clf()

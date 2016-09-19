@@ -4033,8 +4033,7 @@ class test_CBF(unittest.TestCase):
         xhosts = self.correlator.xhosts
         fhosts = self.correlator.fhosts
         with ignored(Exception):
-            import IPython;IPython.embed()
-            #self.corr_fix.deprogram_fpgas(instrument)
+            self.corr_fix.deprogram_fpgas(instrument)
         Aqf.step('Check that SPEAD accumulations are nolonger being produced.')
         with ignored(Queue.Empty):
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
