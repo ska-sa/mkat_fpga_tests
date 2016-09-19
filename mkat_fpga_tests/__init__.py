@@ -253,15 +253,29 @@ class CorrelatorFixture(object):
         """
         LOGGER.info('Start X data capture')
         try:
+            assert isinstance(self.katcp_rct,
+                              resource_client.ThreadSafeKATCPClientResourceWrapper)
             reply = self.katcp_rct.req.capture_list()
         except IndexError:
             LOGGER.error('Config file does not contain Xengine output products.:'
                          ': File:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
                             getframeinfo(currentframe()).lineno))
             return False
+        except (AttributeError, AssertionError):
+            LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s'
+                         % (getframeinfo(currentframe()).filename.split('/')[-1],
+                         getframeinfo(currentframe()).lineno))
+            return False
         else:
             if reply.succeeded:
-                self.output_product = reply.informs[0].arguments[0]
+                try:
+                    self.output_product = reply.informs[0].arguments[0]
+                except IndexError:
+                    LOGGER.error('KATCP reply does not contain a capture list: '
+                                 '\nFile:%s Line:%s'
+                                    % (getframeinfo(currentframe()).filename.split('/')[-1],
+                                       getframeinfo(currentframe()).lineno))
+                    return False
             else:
                 self.output_product = (
                     self.correlator.configd['xengine']['output_products'][0])
@@ -282,9 +296,19 @@ class CorrelatorFixture(object):
         """
         LOGGER.info('Stop X data capture')
         try:
+            assert isinstance(self.katcp_rct,
+                  resource_client.ThreadSafeKATCPClientResourceWrapper)
             reply = self.katcp_rct.req.capture_stop(self.output_product)
-        except:
-            LOGGER.exception('Failed to capture stop')
+        except IndexError:
+            LOGGER.error('Failed to capture stop, might be because config file does not contain '
+                         'Xengine output products.\n: File:%s Line:%s' % (
+                            getframeinfo(currentframe()).filename.split('/')[-1],
+                            getframeinfo(currentframe()).lineno))
+            return False
+        except (AttributeError, AssertionError):
+            LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s'% (
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             return False
         else:
             if not reply.succeeded:
