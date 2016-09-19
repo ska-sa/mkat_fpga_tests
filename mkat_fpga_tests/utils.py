@@ -1,12 +1,16 @@
 import Queue
 import contextlib
-import collections
-import chainmap
 import logging
 import matplotlib
 import numpy as np
 import time
 import warnings
+
+from collections import Mapping
+try:
+    from collections import ChainMap
+except ImportError:
+    from chainmap import ChainMap
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
@@ -228,7 +232,7 @@ def iterate_recursive_dict(dictionary, keys=()):
       ('key_2', 'key_22', 'key_222'): 222
 
     """
-    if isinstance(dictionary, collections.Mapping):
+    if isinstance(dictionary, Mapping):
         for k in dictionary:
             for rv in iterate_recursive_dict(dictionary[k], keys + (k,)):
                 yield rv
@@ -563,10 +567,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         sources = self.correlator.fengine_sources.keys()
 
     LOGGER.info('Writting input sources gains to %s' % (gain))
-    try:
-        source_gain_dict = dict(collections.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
-    except AttributeError:
-        source_gain_dict = dict(chainmap.ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
+    source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     self.correlator.fops.eq_write_all(source_gain_dict)
     return True
 
