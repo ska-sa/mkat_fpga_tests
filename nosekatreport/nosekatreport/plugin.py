@@ -196,11 +196,14 @@ class StoreTestRun(object):
         prepended_filename = "{:04d}_{}_{:03d}_{}".format(
             self.step_counter, self.test_name, self.test_image_counter, base_filename)
         self.test_image_counter += 1
-        shutil.copy(filename, os.path.join(self.image_tempdir, prepended_filename))
-        final_filename = os.path.join('images', prepended_filename)
-        self._update_step({'_updated': True},
-                          dict(type='image', filename=final_filename,
-                               caption=caption, alt=alt))
+        try:
+            shutil.copy(filename, os.path.join(self.image_tempdir, prepended_filename))
+        except IOError:
+            log.error('Failed to copy filename:%s to %s' %(filename, self.image_tempdir))
+        else:
+            final_filename = os.path.join('images', prepended_filename)
+            self._update_step({'_updated': True}, dict(type='image', filename=final_filename,
+                                                       caption=caption, alt=alt))
 
     def add_matplotlib_fig(self, filename, caption="", alt="", autoscale=False):
 
@@ -223,10 +226,17 @@ class StoreTestRun(object):
                 matplotlib.pyplot.tight_layout()
             except ValueError:
                 pass
-        matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=200, format='png')
-        self.add_image(filename, caption, alt)
-        matplotlib.pyplot.clf()
-        matplotlib.pyplot.close('all')
+        try:
+            matplotlib.pyplot.savefig(filename, bbox_inches='tight', dpi=200, format='png')
+        except Exception:
+            pass
+        else:
+            try:
+                matplotlib.pyplot.cla()
+            except Exception:
+                matplotlib.pyplot.clf()
+            self.add_image(filename, caption, alt)
+            #matplotlib.pyplot.close('all')
 
     def as_json(self):
         """Output report in json format.
