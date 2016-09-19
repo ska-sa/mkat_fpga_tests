@@ -748,3 +748,20 @@ def restore_src_names(self):
             self.corr_fix.issue_metadata()
             self.corr_fix.start_x_data()
         return True
+
+def deprogram_hosts(self, timeout=60):
+    """Function that deprograms F and X Engines
+    :param: Object
+    :rtype: None
+    """
+    try:
+        hosts = self.correlator.xhosts + self.correlator.fhosts
+    except Exception:
+        return False
+    try:
+        threaded_fpga_function(hosts, timeout, 'deprogram')
+    except Exception:
+        LOGGER.error('Failed to deprogram all connected hosts')
+        return False
+    else:
+        return True

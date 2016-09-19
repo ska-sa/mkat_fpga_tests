@@ -74,7 +74,6 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
         plt.ylabel('Phase [radians]')
         plt.xlabel('Channel number')
         plt.figtext(.1, -.1, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-        print ' \n'.join(textwrap.wrap(caption))
         plt.legend()
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
@@ -158,7 +157,6 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
         plt.ylim(ylimits)
 
     plt.figtext(.1, -.1, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-    print ' \n'.join(textwrap.wrap(caption))
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
                    loc='center left', bbox_to_anchor=(1, .8),

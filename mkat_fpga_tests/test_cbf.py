@@ -34,7 +34,7 @@ from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
 from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
 from mkat_fpga_tests.utils import disable_numpycomplex_warning
 from mkat_fpga_tests.utils import disable_spead2_warnings, disable_maplotlib_warning
-from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits
+from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
 from mkat_fpga_tests.utils import get_baselines_lookup, get_figure_numbering
 from mkat_fpga_tests.utils import get_pfb_counts, get_adc_snapshot, check_host_okay
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
@@ -3166,8 +3166,8 @@ class test_CBF(unittest.TestCase):
             def _restart_instrument(retries=restart_retries):
                 if not self.corr_fix.stop_x_data():
                     Aqf.failed('Could not stop x data from capturing.')
-                if not self.corr_fix.deprogram_fpgas(instrument):
-                    Aqf.failed('Could not deprogram FPGAs')
+                with ignored(Exception):
+                    deprogram_hosts(self)
 
                 corr_init = False
                 _empty = True
@@ -3243,6 +3243,8 @@ class test_CBF(unittest.TestCase):
                         msg = ('Failed to restart the correlator successfully.')
                         Aqf.failed(msg)
                         self.corr_fix.halt_array()
+                        time.sleep(10)
+                        self.set_instrument(instrument)
                         return False
 
                 scan_dumps = []
@@ -3622,7 +3624,7 @@ class test_CBF(unittest.TestCase):
                             Aqf.equals(host_sensor.get_status(), 'error', msg)
                     except:
                         Aqf.failed('Timed-out: Could not verify if the QDR memory is '
-                                   'corrupted or unreadable.')
+                                   'corrupted or unreadable after {}s.'.format(sensor_timeout))
 
                     if engine_type == 'xeng':
                         current_errors = (
@@ -4033,7 +4035,7 @@ class test_CBF(unittest.TestCase):
         xhosts = self.correlator.xhosts
         fhosts = self.correlator.fhosts
         with ignored(Exception):
-            self.corr_fix.deprogram_fpgas(instrument)
+            deprogram_hosts(self)
         Aqf.step('Check that SPEAD accumulations are nolonger being produced.')
         with ignored(Queue.Empty):
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
