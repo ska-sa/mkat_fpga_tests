@@ -2098,8 +2098,8 @@ class test_CBF(unittest.TestCase):
                                                                  *delay_coefficients)
             cmd_end_time = time.time()
 
-            cmd_tot_time = katcp_conn_time #+ network_roundtrip + cmd_exec_time
-            final_cmd_time = cmd_end_time - cmd_tot_time
+            cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
+            final_cmd_time = np.abs(cmd_end_time - cmd_tot_time)
 
         except:
             errmsg = ('Failed to set delays via CAM interface with loadtime: %s, '
