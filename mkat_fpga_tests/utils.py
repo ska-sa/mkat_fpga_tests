@@ -541,11 +541,11 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     LOGGER.info('Writting F-Engines fft shift to {} via cam interface'.format(fft_shift))
     try:
         reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
-        if not reply.reply_ok():
-            raise AssertionError
     except TypeError:
         LOGGER.error('Failed to set fftshift via cam interface, resorting to native setting.')
         self.correlator.fops.set_fft_shift_all(fft_shift)
+    try:
+        assert reply.reply_ok()
     except AssertionError:
         LOGGER.error('Failed to set FFT shift.')
         return False
@@ -765,3 +765,31 @@ def deprogram_hosts(self, timeout=60):
         return False
     else:
         return True
+
+def human_readable_ip(hex_ip):
+    hex_ip = hex_ip[2:]
+    return '.'.join([str(int(x + y, 16)) for x, y in zip(hex_ip[::2],
+                                                         hex_ip[1::2])])
+
+def confirm_out_dest_ip(self):
+    """Confirm is correlators output destination ip is the same as the one in config file
+    :param: Object
+    :rtype: Boolean
+    """
+    try:
+        xhost = self.correlator.xhosts[randrange(len(self.correlator.xhosts))]
+    except Exception:
+        return False
+    else:
+        try:
+            xhost_ip = hex(xhost.registers.gbe_iptx.read()['data']['reg'])
+            dest_ip = self.correlator.configd['xengine']['output_destination_ip']
+        except Exception:
+            return False
+        else:
+            try:
+                assert dest_ip == human_readable_ip(xhost_ip)
+            except AssertionError:
+                return False
+            else:
+                return True

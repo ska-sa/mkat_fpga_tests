@@ -32,7 +32,7 @@ from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
 from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
-from mkat_fpga_tests.utils import disable_numpycomplex_warning
+from mkat_fpga_tests.utils import disable_numpycomplex_warning, confirm_out_dest_ip
 from mkat_fpga_tests.utils import disable_spead2_warnings, disable_maplotlib_warning
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
 from mkat_fpga_tests.utils import get_baselines_lookup, get_figure_numbering
@@ -41,7 +41,7 @@ from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import ignored, clear_host_status, restore_src_names
 from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
-from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise
+from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 
 LOGGER = logging.getLogger(__name__)
@@ -1892,6 +1892,10 @@ class test_CBF(unittest.TestCase):
 
     def _systems_tests(self):
         """Checking system stability before and after use"""
+        Aqf.is_true(confirm_out_dest_ip(self),
+            'Output destination IP is not the same as the one stored in the register, ie data is '
+            'being spewed elsewhere.')
+
         if set_default_eq(self) is False:
             Aqf.failed('Failed to reset gains to default values from config file on all F-Engines')
         # ---------------------------------------------------------------
@@ -3794,11 +3798,6 @@ class test_CBF(unittest.TestCase):
                         return None
                 else:
                     return None
-
-        def human_readable_ip(hex_ip):
-            hex_ip = hex_ip[2:]
-            return '.'.join([str(int(x + y, 16)) for x, y in zip(hex_ip[::2],
-                                                                 hex_ip[1::2])])
 
         def get_lru_status(self, host):
 
