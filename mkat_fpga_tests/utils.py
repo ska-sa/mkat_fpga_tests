@@ -5,6 +5,8 @@ import matplotlib
 import numpy as np
 import time
 import warnings
+
+from nosekatreport import Aqf
 from socket import inet_ntoa
 from struct import pack
 from random import randrange
@@ -517,7 +519,7 @@ def set_default_eq(self):
             return True
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
-                     fft_shift=None, gain=None):
+                     fft_shift=None, gain=None, cw_src=0):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
@@ -534,9 +536,15 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             current FFT shift value
         gain: Complex/Str
             quantiser gain value
+        cw_src: Int
+            source 0 or 1
     Return: Bool
     """
-    self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+    if cw_src==0:
+        self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+    else:
+        self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
+
     if awgn_scale is not None:
         self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
 
