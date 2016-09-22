@@ -4,6 +4,7 @@ import logging
 import matplotlib
 import numpy as np
 import warnings
+from nosekatreport import Aqf
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation

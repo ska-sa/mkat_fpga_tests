@@ -193,10 +193,15 @@ class test_CBF(unittest.TestCase):
                     self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                     self.corr_fix.start_x_data()
                     self.corr_fix.issue_metadata()
-                    try:
-                        self.correlator.est_synch_epoch()
-                    except (AssertionError, AttributeError):
-                        Aqf.failed('Failed to estimate synch epoch')
+                    sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
+                    self.correlator.set_synch_time(sync_time)
+                    ## AR: 21/09/2016
+                    ## Reading the correct sync epoch from the katcp instance and setting the 
+                    ## sync time as apposed to estimating it.
+                    #try:
+                    #    self.correlator.est_synch_epoch()
+                    # except (AssertionError, AttributeError):
+                    #     Aqf.failed('Failed to estimate synch epoch')
                     self.addCleanup(self.corr_fix.stop_x_data)
                     return {True: None}
 
@@ -1100,7 +1105,7 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M4k_delay_rate(self, instrument='bc8n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial
             -- Delay Rate (bc8n856M4k)"""
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1115,7 +1120,7 @@ class test_CBF(unittest.TestCase):
     def test_bc32n856M4k_delay_rate(self, instrument='bc32n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            -- Delay Rate (bc32n856M4k)"""
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1131,7 +1136,7 @@ class test_CBF(unittest.TestCase):
     def test_bc16n856M4k_delay_rate(self, instrument='bc16n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            -- Delay Rate (bc16n856M4k)"""
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1147,7 +1152,7 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M32k_delay_rate(self, instrument='bc8n856M32k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            -- Delay Rate (bc8n856M32k)"""
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1251,7 +1256,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0077
             CBF-REQ-0204
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1271,7 +1276,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0077
             CBF-REQ-0204
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1291,7 +1296,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0077
             CBF-REQ-0204
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1311,7 +1316,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0077
             CBF-REQ-0204
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1998,9 +2003,9 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         if self.corr_freqs.n_chans == 4096:
             # 4K
-            awgn_scale = 0.25
-            gain = '511+0j'
-            fft_shift = 8191
+            awgn_scale = 0.0645
+            gain = '113+0j'
+            fft_shift = 511
         else:
             # 32K
             awgn_scale = 0.063
@@ -2025,7 +2030,7 @@ class test_CBF(unittest.TestCase):
             str(reply)))
         Aqf.step('[CBF-REQ-0110, 0066] Clearing all coarse and fine delays for all inputs.')
         clear_all_delays(self)
-        self.addCleanup(clear_all_delays)
+        self.addCleanup(clear_all_delays,self)
         if not self.corr_fix.issue_metadata():
             Aqf.failed('Could not issues new metadata')
         Aqf.step('Retrieving initial SPEAD packet.')
@@ -2040,19 +2045,26 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             sync_time = self.correlator.get_synch_time()
-            if sync_time == -1:
-                sync_time = initial_dump['sync_time'].value
             scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
             time_stamp = initial_dump['timestamp'].value
             n_accs = initial_dump['n_accs'].value
             int_time = initial_dump['int_time'].value
-            roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
-            Aqf.hop('Added {}s for the network round trip to dump timestamp'.format(
-                roundtrip))
+            ticks_between_spectra = initial_dump['ticks_between_spectra'].value
+            int_time_ticks = n_accs*ticks_between_spectra
+            #roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
+            roundtrip = 0 
+            #Aqf.hop('Added {}s for the network round trip to dump timestamp'.format(
+            #    roundtrip))
+            # TODO:
+            # This factor is due to an offset in the vacc sync. Must be removed 
+            # when fixed
+            #future_time = 0.001223325332135038767
             future_time = 0
             dump_1_timestamp = (sync_time + roundtrip +
                                 time_stamp / scale_factor_timestamp)
             t_apply = dump_1_timestamp + 10 * int_time + future_time
+            t_apply_ticks = (t_apply - sync_time) * scale_factor_timestamp
+            Aqf.hop('Time apply in board ticks: {:20f}'.format(t_apply_ticks))
             no_chans = range(self.corr_freqs.n_chans)
             reply, informs = self.corr_fix.katcp_rct.req.input_labels()
             if not reply.reply_ok():
@@ -2080,8 +2092,10 @@ class test_CBF(unittest.TestCase):
                     'scale_factor_timestamp': scale_factor_timestamp,
                     'time_stamp': time_stamp,
                     'int_time': int_time,
+                    'int_time_ticks': int_time_ticks,
                     'dump_1_timestamp': dump_1_timestamp,
                     't_apply': t_apply,
+                    't_apply_ticks': t_apply_ticks,
                     'no_chans': no_chans,
                     'test_source': test_source,
                     'n_accs': n_accs,
@@ -2137,14 +2151,29 @@ class test_CBF(unittest.TestCase):
 
         last_discard = setup_data['t_apply'] - setup_data['int_time']
         num_discards = 0
+        fpga = self.correlator.xhosts[0]
+        vacc_lsw = fpga.registers.vacc_time_lsw.read()
+        vacc_msw = fpga.registers.vacc_time_msw.read()
+        vacc_lsw = vacc_lsw['data']['lsw']
+        vacc_msw = vacc_msw['data']['msw']
+        vacc_sync = (vacc_msw<<32)+vacc_lsw
+        fringe_dumps = []
         while True:
             num_discards += 1
             dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            dump_timestamp = (setup_data['sync_time'] + dump['timestamp'].value /
+            dump_ts = dump['timestamp'].value 
+            vacc_frac = (dump_ts - vacc_sync)/setup_data['int_time_ticks']
+            Aqf.hop('Dump timestamp relative to vacc sync {:f}'.format(vacc_frac))
+            dump_timestamp = (setup_data['sync_time'] + dump_ts /
                               setup_data['scale_factor_timestamp'])
-            if (np.abs(dump_timestamp - last_discard) < setup_data['int_time']):
+            apply_dump_frac = ((setup_data['t_apply_ticks']-dump['timestamp'].value) /
+                               setup_data['int_time_ticks'])
+            Aqf.hop('Apply time relative to dump: {:0.8f}'.format(apply_dump_frac))
+            Aqf.hop('Dump timestamp in ticks: {:20d}'.format(dump['timestamp'].value))
+            if (np.abs(dump_timestamp - last_discard) < 0.1*setup_data['int_time']):
                 Aqf.step('[CBF-REQ-0077]: Received final accumulation before fringe '
                          'application with timestamp {}.'.format(dump_timestamp))
+                fringe_dumps.append(dump)
                 break
 
             if num_discards > max_wait_dumps:
@@ -2156,10 +2185,14 @@ class test_CBF(unittest.TestCase):
                 Aqf.step('Discarding accumulation with timestamp {}.'
                          .format(dump_timestamp))
 
-        fringe_dumps = []
-        for i in xrange(dump_counts):
+        for i in xrange(dump_counts-1):
             Aqf.step('Getting subsequent SPEAD packet {}.'.format(i + 1))
-            fringe_dumps.append(self.receiver.data_queue.get(DUMP_TIMEOUT))
+            dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
+            fringe_dumps.append(dump)
+            apply_dump_frac = ((setup_data['t_apply_ticks']-dump['timestamp'].value) /
+                               setup_data['int_time_ticks'])
+            Aqf.hop('Apply time relative to dump: {:0.8f}'.format(apply_dump_frac))
+            Aqf.hop('Dumps timestamp in ticks: {:20d}'.format(dump['timestamp'].value))
 
         chan_resp = []
         phases = []
@@ -2196,17 +2229,15 @@ class test_CBF(unittest.TestCase):
 
         def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
             expected_phases = []
-            for dump in xrange(1, dump_counts + 1):
-                tot_delay = (delay + dump * delay_rate * setup_data['int_time'] -
-                             1.15 * delay_rate * setup_data['int_time'])
-                # The delay does not get applied on dump boundaries. This function
-                # calculates the offset between the expected delay and the actual delay
-                # and then adds this offset to all subsequent calculations.
-                if dump == 1:
-                    delay_offset = calc_actual_delay(setup_data) - tot_delay
-                else:
-                    delay_offset = 0
-                tot_delay += delay_offset
+            prev_delay_rate = 0
+            for dump in xrange(0, dump_counts):
+                # For delay rate the expected delay is the average of delays 
+                # applied during the integration. This is equal to the 
+                # delay delta over the integration divided by two
+                max_delay_rate = dump*delay_rate
+                avg_delay_rate = ((max_delay_rate-prev_delay_rate)/2)+prev_delay_rate
+                prev_delay_rate = max_delay_rate
+                tot_delay = (delay + avg_delay_rate * setup_data['int_time'])
                 expected_phases.append(gen_delay_vector(tot_delay, setup_data))
             return expected_phases
 
@@ -2223,16 +2254,15 @@ class test_CBF(unittest.TestCase):
 
         def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
             expected_phases = []
-            for dump in xrange(1, dump_counts + 1):
-                offset = -(fringe_offset + dump * fringe_rate * setup_data['int_time'])
-                # The delay does not get applied on dump boundaries. This function
-                # calculates the offset between the expected delay and the actual delay
-                # and then adds this offset to all subsequent calculations.
-                if dump == 1:
-                    delta_offset = calc_actual_offset(setup_data) - offset
-                else:
-                    delta_offset = 0
-                offset = offset + delta_offset
+            prev_fringe_rate = 0
+            for dump in xrange(0, dump_counts):
+                # For fringe rate the expected delay is the average of delays 
+                # applied during the integration. This is equal to the 
+                # delay delta over the integration divided by two
+                max_fringe_rate = dump*fringe_rate
+                avg_fringe_rate = ((max_fringe_rate-prev_fringe_rate)/2)+prev_fringe_rate
+                prev_fringe_rate = max_fringe_rate
+                offset = -(fringe_offset +  avg_fringe_rate * setup_data['int_time'])
                 expected_phases.append(gen_fringe_vector(offset, setup_data))
             return expected_phases
 
@@ -4316,14 +4346,14 @@ class test_CBF(unittest.TestCase):
 
         setup_data = self._delays_setup()
         if setup_data:
-            # get_delay_ranges = get_delay_bounds(self.correlator)
-            # delay_min = get_delay_ranges['max_negative_delta_delay']
-            # delay_max = get_delay_ranges['max_positive_delta_delay']
-            # delay_rate = randrange(delay_min, delay_max, int=float) / 5
+            #get_delay_ranges = get_delay_bounds(self.correlator)
+            #delay_min = get_delay_ranges['max_negative_delta_delay']
+            #delay_max = get_delay_ranges['max_positive_delta_delay']
+            #delay_rate = randrange(delay_min, delay_max, int=float) / 5
             dump_counts = 5
             delay_rate = ((setup_data['sample_period'] / setup_data['int_time']) *
-                          np.random.rand() * (dump_counts - 3))
-            # delay_rate = 3.98195128768e-09
+                           np.random.rand() * (dump_counts - 3))
+            #delay_rate = 3.98195128768e-09
             delay_value = 0
             fringe_offset = 0
             fringe_rate = 0
@@ -4357,37 +4387,45 @@ class test_CBF(unittest.TestCase):
                                                                    fig_suffix))
 
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                                   plot_filename, plot_title, plot_units, caption)
+                                   plot_filename, plot_title, plot_units, caption,
+                                   dump_counts)
 
             if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
                 Aqf.failed('Delays could not be applied at time_apply: {} '
                            'is in the past'.format(setup_data['t_apply']))
             else:
                 actual_phases_ = np.unwrap(actual_phases)
-                # TODO MM 2015-10-22
-                # Ignoring first dump because the delays might not be set for full
-                # integration.
                 degree = 1.0
+                radians = (degree/360)*np.pi*2
                 decimal = len(str(degree).split('.')[-1])
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
-                for i in xrange(1, len(expected_phases_) - 1):
+                for i in xrange(0, len(expected_phases_)-1):
                     delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
                     delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
                     # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
                     abs_diff = np.abs(delta_expected - delta_actual)
                     msg = (
-                        '[CBF-REQ-0187] Check if difference between expected({0:.3f}) '
+                        '[CBF-REQ-0187] Check if difference (radians) between expected({0:.3f}) '
                         'phases and actual({1:.3f}) phases are \'Almost Equal\' '
                         'within {2} degree when delay rate of {3} is applied.'.format(
                             delta_expected, delta_actual, degree, delay_rate))
-                    Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
+                    Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
 
                     msg = (
                         '[CBF-REQ-0187] Check that the maximum difference ({0:.3f} '
                         'degree/{1:.3f} rad) between expected phase and actual phase '
                         'between integrations is less than {2} degree.'.format(
-                            abs_diff, np.deg2rad(abs_diff), degree))
-                    Aqf.less(abs_diff, degree, msg)
+                            np.rad2deg(abs_diff), abs_diff, degree))
+                    Aqf.less(abs_diff, radians, msg)
+
+                    abs_error = np.max(actual_phases_[i] - expected_phases_[i])
+                    msg = (
+                        '[CBF-REQ-0187] Check that the absolute maximum difference ({0:.3f} '
+                        'degree/{1:.3f} rad) between expected phase and actual phase '
+                        'is less than {2} degree.'.format(
+                            np.rad2deg(abs_error), abs_error, degree))
+                    Aqf.less(abs_error, radians, msg)
+
                     try:
                         delta_actual_s = delta_actual - (delta_actual % degree)
                         delta_expected_s = delta_expected - (delta_expected % degree)
@@ -4477,14 +4515,13 @@ class test_CBF(unittest.TestCase):
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                        plot_filename, plot_title, plot_units, caption)
 
-                # NOTE: Ignoring first dump because the delays might not be set for full
-                # integration.
                 degree = 1.0
+                radians = (degree/360)*np.pi*2
                 decimal = len(str(degree).split('.')[-1])
                 actual_phases_ = np.unwrap(actual_phases)
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
 
-                for i in xrange(1, len(expected_phases_) - 1):
+                for i in xrange(0, len(expected_phases_)-1):
                     delta_expected = np.max(expected_phases_[i + 1] - expected_phases_[i])
                     delta_actual = np.max(actual_phases_[i + 1] - actual_phases_[i])
                     abs_diff = np.abs(delta_expected - delta_actual)
@@ -4494,14 +4531,14 @@ class test_CBF(unittest.TestCase):
                         'phases and actual({1:.3f}) phases are \'Almost Equal\' within '
                         '{2} degree when fringe rate of {3} is applied.'.format(
                             delta_expected, delta_actual, degree, fringe_rate))
-                    Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
+                    Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
 
                     msg = (
                         '[CBF-REQ-0128] Check that the maximum difference ({0:.3f} '
                         'deg / {1:.3f} rad) between expected phase and actual phase '
                         'between integrations is less than {2} degree\n'.format(
-                            abs_diff, np.deg2rad(abs_diff), degree))
-                    Aqf.less(abs_diff, degree, msg)
+                            np.rad2deg(abs_diff), abs_diff, degree))
+                    Aqf.less(abs_diff, radians, msg)
 
                     try:
                         delta_actual_s = delta_actual - (delta_actual % degree)
@@ -4708,7 +4745,7 @@ class test_CBF(unittest.TestCase):
 
             if set([float(0)]) in [set(i) for i in actual_phases]:
                 Aqf.failed('Delays could not be applied at time_apply: {} '
-                           'is in the past'.format(setup_data['t_apply']))
+                           'is in the past'.format(setup_datAOBa['t_apply']))
             else:
                 no_chans = range(self.corr_freqs.n_chans)
                 plot_units = ''
@@ -5354,9 +5391,9 @@ class test_CBF(unittest.TestCase):
         # Put some correlated noise on both outputs
         if self.corr_freqs.n_chans == 4096:
             # 4K
-            awgn_scale = 0.25
-            gain = '511+0j'
-            fft_shift = 8191
+            awgn_scale = 0.0645
+            gain = '113+0j'
+            fft_shift = 511
         else:
             # 32K
             awgn_scale = 0.063
@@ -5493,411 +5530,64 @@ class test_CBF(unittest.TestCase):
                            'therefore no image can be produced.')
             set_default_eq(self.correlator)
 
-    def _test_beamforming(self, ants=4):
-        global ref_inp_level
-        
-        fig_prefix = get_figure_numbering(self,
-            self.corr_fix.instrument)[self._testMethodName]
-        fig_suffix = 2
-        # Put some correlated noise on both outputs
-        self.dhost.noise_sources.noise_corr.set(scale=0.1)
-        # Set list for all the correlator input labels
-        if ants == 4:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
-        elif ants == 8:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
-                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
-                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
+    def _capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq,
+                          capture_time = 0.3):
+        """ Capture beamformer data
 
-        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
-        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
-        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('c856M4k')
-        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
-            *local_src_names)
+        Parameters
+        ----------
+        beam (beam_0x, beam_0y):
+            Polarisation to capture beam data 
+        beam_dict:
+            Dictionary containing input:weight key pairs e.g.
+            beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
+        target_pb:
+            Target passband in Hz
+        target_cfreq:
+            Target center frequency in Hz
+        capture_time:
+            Number of seconds to capture beam data
+
+        Returns
+        -------
+            bf_raw:
+                Raw beamformer data for the selected beam
+            cap_ts:
+                Captured timestamps, dropped packet timestamps will not be 
+                present
+            bf_ts:
+                Expected timestamps
+
+        """
         dsim_clk_factor = 1.712e9/self.corr_freqs.sample_freq
-        Aqf.hop('Dsim_clock_Factor = {}'.format(dsim_clk_factor))
-        bw = self.corr_freqs.bandwidth
-        ch_list = self.corr_freqs.chan_freqs
-        nr_ch = self.corr_freqs.n_chans
-        ref_inp_level = 0
-
-        def get_beam_data(beam, beam_dict, reference=False):
-            global ref_inp_level
-            # Build new dictionary with only the reqested beam keys
-            in_wgts = {}
-            beam_pol = beam[-1]
-            for key in beam_dict:
-                if key.find(beam_pol) != -1:
-                    in_wgts[key] = beam_dict[key]
-
-            for key in in_wgts:
-                reply, informs = correlator_fixture.katcp_rct.req.beam_weights(
-                    beam, key, in_wgts[key])
-                if reply.reply_ok():
-                    Aqf.step('Input {0} weight set to {1}'.format(key, reply.arguments[1]))
-                else:
-                    Aqf.failed('Beam weights not successfully set: {}'.format(reply.arguments))
-
-            ingst_nd = 'dbelab05'
-            ingst_nd_p = '2050'
-            p = subprocess.Popen(['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-init'],
-                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            output, err = p.communicate()
-            rc = p.returncode
-            if rc != 0:
-                Aqf.failed('Failure issuing capture-init to ingest process on ' + ingst_nd)
-                Aqf.failed('Stdout: \n' + output)
-                Aqf.failed('Stderr: \n' + err)
-            else:
-                Aqf.step('Capture-init issued on {}'.format(ingst_nd))
-            reply, informs = correlator_fixture.katcp_rct.req.capture_meta(beam)
-            if reply.reply_ok():
-                Aqf.step('Meta data issued for beam {}'.format(beam))
-            else:
-                Aqf.failed('Meta data issue failed: {}'.format(reply.arguments))
-            reply, informs = correlator_fixture.katcp_rct.req.capture_start(beam)
-            if reply.reply_ok():
-                Aqf.step('Data transmission for beam {} started'.format(beam))
-            else:
-                Aqf.failed('Data transmission start failed: {}'.format(reply.arguments))
-            time.sleep(0.3)
-            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(beam)
-            if reply.reply_ok():
-                Aqf.step('Data transmission for beam {} stopped'.format(beam))
-            else:
-                Aqf.failed('Data transmission stop failed: {}'.format(reply.arguments))
-            p = subprocess.Popen(['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-done'],
-                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            output, err = p.communicate()
-            rc = p.returncode
-            if rc != 0:
-                Aqf.failed('Failure issuing capture-done to ingest process on ', + ingst_nd)
-                Aqf.failed('Stdout: \n' + output)
-                Aqf.failed('Stderr: \n' + err)
-                return False
-            else:
-                Aqf.step('Capture-done issued on {}.'.format(ingst_nd))
-
-            p = subprocess.Popen(['rsync', '-aPh', ingst_nd + ':/ramdisk/', 'mkat_fpga_tests/bf_data'],
-                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output, err = p.communicate()
-            rc = p.returncode
-            if rc != 0:
-                Aqf.failed('rsync of beam data failed from' + ingst_nd)
-                Aqf.failed('Stdout: \n' + output)
-                Aqf.failed('Stderr: \n' + err)
-            else:
-                Aqf.step('Data transferred from ' + ingst_nd)
-            newest_f = max(glob.iglob('mkat_fpga_tests/bf_data/*.h5'), key=os.path.getctime)
-            # Read data file
-            fin = h5py.File(newest_f, 'r')
-            data = fin['Data'].values()
-            # Extract data
-            bf_raw = np.array(data[0])
-            timestamps = np.array(data[1])
-            fin.close()
-            num_caps = 20000
-            cap = [0] * num_caps
-            for i in range(0, num_caps):
-                cap[i] = np.array(complexise(bf_raw[:, i, :]))
-            cap_mag = np.abs(cap)
-            cap_avg = cap_mag.sum(axis=0)/num_caps
-            cap_db = 20*np.log10(cap_avg)
-            cap_db_mean = np.mean(cap_db)
-            npcap = np.asarray(cap)
-            max_ch = np.argmax(np.sum(np.abs(npcap), axis=0))
-            #Aqf.step('CW found in relative channel {}'.format(max_ch))
-            #plt.plot(np.log10(np.abs(np.fft.fft(npcap[0:1023,max_ch]))))
-            #plt.show()
-
-            #cap_phase = numpy.angle(cap)
-            #ts = [datetime.datetime.fromtimestamp(float(timestamp)/1000).strftime("%H:%M:%S") for timestamp in timestamps]
-
-            # Average over timestamp show passband
-            # for i in range(0,len(cap)):
-            #    plt.plot(10*numpy.log(numpy.abs(cap[i])))
-            # Build title
-            lbls = self.correlator.get_labels()
-            labels = ''
-            # NOT WORKING
-            for lbl in lbls:
-                bm = beam[-1]
-                if lbl.find(bm) != -1:
-                    wght = self.correlator.bops.get_beam_weights(beam, lbl)
-                    #print lbl, wght
-                    labels += (lbl+"={} ").format(wght)
-            labels = ''
-            for key in in_wgts:
-                labels += (key+"={}\n").format(in_wgts[key])
-            labels += 'Mean={0:0.2f}dB\n'.format(cap_db_mean)
-            
-            if reference:
-                # Get the voltage level for one antenna. Gain for one input 
-                # should be set to 1, the rest should be 0
-                ref_inp_level = np.mean(cap_avg)
-            delta = 0.2
-            expected = np.sum([ref_inp_level*in_wgts[key] for key in in_wgts])
-            expected = 20*np.log10(expected)
-            msg = ('Check that the expected voltage level ({:.3f}dB) is within '
-                   '{}dB of the measured mean value ({:.3f}dB)'.format(expected, 
-                   delta, cap_db_mean))
-            Aqf.almost_equals(expected, cap_db_mean, delta, msg)
-            labels += 'Expected={:.2f}dB'.format(expected)
-
-            return cap_avg, labels
-
-        # Start of test. Setting required partitions and center frequency
-        target_cfreq = bw + bw*0.5
-        partitions = 4
-        part_size = bw / 16
-        target_pb = partitions * part_size
-        ch_bw = bw/nr_ch
-        num_caps = 20000
-        beams = ('beam_0x', 'beam_0y')
-
-        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
-        #cw_scale=0.675, freq=target_cfreq-bw, fft_shift=8191, gain='11+0j')
-        # TODO: Get dsim sample frequency from config file
-        cw_freq = ch_list[int(nr_ch/2)]+400
-
-        if self.corr_freqs.n_chans == 4096:
-            # 4K
-            awgn_scale=0.0645
-            gain='113+0j'
-            fft_shift=511
-        else:
-            # 32K
-            awgn_scale=0.063
-            gain='344+0j'
-            fft_shift=4095
-
-        Aqf.step('Digitiser simulator configured to generate gaussian noise, '
-                 'with awgn scale: {}, eq gain: {}, fft shift: {}'.format(
-                 awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
-            awgn_scale=awgn_scale, cw_scale=0.0, freq=cw_freq, 
-            fft_shift=fft_shift, gain=gain)
-        
-        if not dsim_set_success:
-            Aqf.failed('Failed to configure digitise simulator levels')
-            return False
-        
-        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.1,
-        #    cw_scale=0.1, freq=cw_freq, fft_shift=8191, gain='20+0j')
-        #this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
-        #this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
-        #Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(this_source_freq0*dsim_clk_factor, this_source_freq1*dsim_clk_factor))
-        
-        #for beam in beams:
-        beam = beams[1]
         reply, informs = correlator_fixture.katcp_rct.req.beam_passband(
             beam, target_pb, target_cfreq)
         if reply.reply_ok():
             pb = float(reply.arguments[2]) * dsim_clk_factor
             cf = float(reply.arguments[3]) * dsim_clk_factor
-            Aqf.step('Beam {0} passband set to {1} at center frequency {2}'.format(
-                reply.arguments[1], pb, cf))
+            Aqf.step('Beam {0} passband set to {1} at center frequency {2}'
+                     ''.format(reply.arguments[1], pb, cf))
         else:
             Aqf.failed('Beam passband not successfully set '
-                       '(requested cf = {}, pb = {}): {}'.format(target_cfreq,
-                                                                 target_pb, reply.arguments))
+                       '(requested cf = {}, pb = {}): {}'
+                       ''.format(target_cfreq, target_pb, reply.arguments))
+        # Build new dictionary with only the requested beam keys:value pairs
+        in_wgts = {}
+        beam_pol = beam[-1]
+        for key in beam_dict:
+            if key.find(beam_pol) != -1:
+                in_wgts[key] = beam_dict[key]
 
-        beam_data = []
-        beam_lbls = [] 
-
-        if ants == 4:
-            beam_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                         'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0}
-        elif ants == 8:
-            beamx_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
-                          'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
-                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
-        # Only one antenna gain is set to 1, this will be used as the reference
-        # input level
-        d,l = get_beam_data(beam, beam_dict, reference=True)
-        beam_data.append(d)
-        beam_lbls.append(l)
-        if ants == 4:
-            beam_dict = {'m000_x': 0.5, 'm001_x': 0.5, 'm002_x': 0.0, 'm003_x': 0.0,
-                         'm000_y': 0.5, 'm001_y': 0.5, 'm002_y': 0.0, 'm003_y': 0.0}
-        elif ants == 8:
-            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
-                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
-                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
-        d,l = get_beam_data(beam, beam_dict)
-        beam_data.append(d)
-        beam_lbls.append(l)
-        if ants == 4:
-            beam_dict = {'m000_x': 0.25, 'm001_x': 0.25, 'm002_x': 0.25, 'm003_x': 0.25,
-                         'm000_y': 0.25, 'm001_y': 0.25, 'm002_y': 0.25, 'm003_y': 0.25}
-        elif ants == 8:
-            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
-                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
-                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
-        d,l = get_beam_data(beam, beam_dict)
-        beam_data.append(d)
-        beam_lbls.append(l)
-
-        if ants == 4:
-            beam_dict = {'m000_x': 0.5, 'm001_x': 0.5, 'm002_x': 0.5, 'm003_x': 0.0,
-                         'm000_y': 0.5, 'm001_y': 0.5, 'm002_y': 0.5, 'm003_y': 0.0}
-        elif ants == 8:
-            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
-                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
-                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
-        d,l = get_beam_data(beam, beam_dict)
-        beam_data.append(d)
-        beam_lbls.append(l)
-
-        if ants == 4:
-            beam_dict = {'m000_x': 0.5, 'm001_x': 0.5, 'm002_x': 0.5, 'm003_x': 0.5,
-                         'm000_y': 0.5, 'm001_y': 0.5, 'm002_y': 0.5, 'm003_y': 0.5}
-        elif ants == 8:
-            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
-                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
-                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
-        d,l = get_beam_data(beam, beam_dict)
-        beam_data.append(d)
-        beam_lbls.append(l)
-
-        # Square the voltage data. This is a hack as aqf_plot expects squared 
-        # power data
-        fig_suffix = 1
-        aqf_plot_channels(zip(np.square(beam_data),beam_lbls),
-                          plot_filename='{}_chan_resp_{}.png'.format(self._testMethodName, beam),
-                          plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
-                            '\nIntegrated over {} captures'.format(beam, pb/1e6, cf/1e6, num_caps)),
-                          log_dynamic_range=90, log_normalise_to=1,
-                          caption='Figure {}.{}: Captured beamformer data'.format(fig_prefix,fig_suffix))
-        fig_suffix += 1
-
-    def test_cap_beam(self, instrument='bc8n856M4k'):
-        """Testing timestamp accuracy (bc8n856M4k)
-        Confirm that the CBF subsystem do not modify and correctly interprets
-        timestamps contained in each digitiser SPEAD packets (dump)
-        """
-        if self.set_instrument(instrument):
-            Aqf.step('Checking timestamp accuracy: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            main_offset = 2153064
-            minor_offset = 0
-            minor_offset = -6*4096*2
-            manual_offset = main_offset + minor_offset
-
-            ants = 4
-            if ants == 4:
-                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                                   'm002_x', 'm002_y', 'm003_x', 'm003_y']
-            elif ants == 8:
-                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                                   'm002_x', 'm002_y', 'm003_x', 'm003_y',
-                                   'm004_x', 'm004_y', 'm005_x', 'm005_y',
-                                   'm006_x', 'm006_y', 'm007_x', 'm007_y']
-
-            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
-                'beam_0x')
-            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
-                'beam_0y')
-            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
-                'c856M4k')
-            reply, informs = correlator_fixture.katcp_rct.req.input_labels(
-                *local_src_names)
-            dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
-            Aqf.hop('Dsim_clock_Factor = {}'.format(dsim_clk_factor))
-            bw = self.corr_freqs.bandwidth # * dsim_clk_factor
-
-
-
-            target_cfreq = bw + bw * 0.5
-            partitions = 1
-            part_size = bw / 16
-            target_pb = partitions * part_size
-            ch_bw = bw / 4096
-            target_pb = 100
-            num_caps = 20000
-            beam = 'beam_0y'
-            if ants == 4:
-                beamx_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
-                              'm003_x': 1.0}
-                beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
-                              'm003_y': 1.0}
-            elif ants == 8:
-                beamx_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
-                              'm003_x': 1.0,
-                              'm004_x': 1.0, 'm005_x': 1.0, 'm006_x': 1.0,
-                              'm007_x': 1.0}
-                beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
-                              'm003_y': 1.0,
-                              'm004_y': 1.0, 'm005_y': 1.0, 'm006_y': 1.0,
-                              'm007_y': 1.0}
-
-            self.dhost.sine_sources.sin_0.set(frequency=target_cfreq - bw,
-                                              scale=0.1)
-            self.dhost.sine_sources.sin_1.set(frequency=target_cfreq - bw,
-                                              scale=0.1)
-            this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
-            this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
-            Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(
-                this_source_freq0 + bw, this_source_freq1 + bw))
-
-            bf_raw, cap_ts, bf_ts, weights = self.capture_beam_data(beam,
-                beamy_dict, target_pb, target_cfreq)
-
-            #cap_ts_diff = np.diff(cap_ts)
-            #a = np.nonzero(np.diff(cap_ts)-8192)
-            #cap_ts[a[0]+1]
-
-
-
-
-
-    def capture_beam_data(self, beam, in_wgts, target_pb, target_cfreq,
-                          capture_time = 0.3):
-        """
-
-        Parameters
-        ----------
-        in_wgts
-        target_pb
-        target_cfreq
-
-        Returns
-        -------
-
-        """
-        reply, informs = correlator_fixture.katcp_rct.req.beam_passband(
-            beam, target_pb, target_cfreq)
-        if reply.reply_ok():
-            pb = float(reply.arguments[2])
-            cf = float(reply.arguments[3])
-            Aqf.step(
-                'Beam {0} passband set to {1} at center frequency {2}'.format(
-                    reply.arguments[1], pb, cf))
-        else:
-            Aqf.failed('Beam passband not succesfully set '
-                       '(requested cf = {}, pb = {}): {}'.format(target_cfreq,
-                                                                 target_pb,
-                                                                 reply.arguments))
-        # for key in in_wgts:
-        #     reply, informs = correlator_fixture.katcp_rct.req.beam_weights(
-        #         beam, key, in_wgts[key])
-        #     if reply.reply_ok():
-        #         Aqf.step('Input {0} weight set to {1}'.format(key,
-        #             reply.arguments[1]))
-        #     else:
-        #         Aqf.failed('Beam weights not succesfully set: {}'.format(
-        #             reply.arguments))
-
-
+        for key in in_wgts:
+            reply, informs = correlator_fixture.katcp_rct.req.beam_weights(
+                beam, key, in_wgts[key])
+            if reply.reply_ok():
+                Aqf.step('Input {0} weight set to {1}'
+                         ''.format(key, reply.arguments[1]))
+            else:
+                Aqf.failed('Beam weights not successfully set: {}'
+                           ''.format(reply.arguments))
+            
         ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
         ingst_nd_p = self.corr_fix._test_config_file['beamformer']\
                                                     ['ingest_node_port']
@@ -5970,13 +5660,182 @@ class test_CBF(unittest.TestCase):
         cap_ts = np.array(data[1])
         bf_ts  = np.array(data[2])
         fin.close()
-        weights = ''
-        for key in in_wgts:
-            weights += (key + "={} ").format(in_wgts[key])
-        return bf_raw, cap_ts, bf_ts, weights
+        return bf_raw, cap_ts, bf_ts, in_wgts, pb, cf
 
 
-    def test_timestamp_accuracy(self, instrument='bc8n856M4k'):
+    def _test_beamforming(self, ants=4):
+        def get_beam_data(beam, beam_dict, target_pb, target_cfreq, 
+                          inp_ref_lvl=0, num_caps=20000):
+            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(
+                    beam, beam_dict, target_pb, target_cfreq)
+            cap = [0] * num_caps
+            for i in range(0, num_caps):
+                cap[i] = np.array(complexise(bf_raw[:, i, :]))
+            cap_mag = np.abs(cap)
+            cap_avg = cap_mag.sum(axis=0)/num_caps
+            cap_db = 20*np.log10(cap_avg)
+            cap_db_mean = np.mean(cap_db)
+            lbls = self.correlator.get_labels()
+            # NOT WORKING
+            #labels = ''
+            #for lbl in lbls:
+            #    bm = beam[-1]
+            #    if lbl.find(bm) != -1:
+            #        wght = self.correlator.bops.get_beam_weights(beam, lbl)
+                    #print lbl, wght
+            #        labels += (lbl+"={} ").format(wght)
+            labels = ''
+            for key in in_wgts:
+                labels += (key+"={}\n").format(in_wgts[key])
+            labels += 'Mean={0:0.2f}dB\n'.format(cap_db_mean)
+            
+            if inp_ref_lvl == 0:
+                # Get the voltage level for one antenna. Gain for one input 
+                # should be set to 1, the rest should be 0
+                inp_ref_lvl = np.mean(cap_avg)
+            delta = 0.2
+            expected = np.sum([inp_ref_lvl*in_wgts[key] for key in in_wgts])
+            expected = 20*np.log10(expected)
+            msg = ('Check that the expected voltage level ({:.3f}dB) is within '
+                   '{}dB of the measured mean value ({:.3f}dB)'.format(expected, 
+                   delta, cap_db_mean))
+            Aqf.almost_equals(expected, cap_db_mean, delta, msg)
+            labels += 'Expected={:.2f}dB'.format(expected)
+
+            return cap_avg, labels, inp_ref_lvl, pb, cf
+
+        fig_prefix = get_figure_numbering(self)[self._testMethodName]
+        fig_suffix = 2
+        # Set list for all the correlator input labels
+        if ants == 4:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
+        elif ants == 8:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
+
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('c856M4k')
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
+        bw = self.corr_freqs.bandwidth
+        ch_list = self.corr_freqs.chan_freqs
+        nr_ch = self.corr_freqs.n_chans
+
+        # Start of test. Setting required partitions and center frequency
+        target_cf = bw + bw*0.5
+        partitions = 4
+        part_size = bw / 16
+        target_pb = partitions * part_size
+        ch_bw = bw/nr_ch
+        num_caps = 20000
+        beams = ('beam_0x', 'beam_0y')
+        beam = beams[1]
+
+        #dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
+        #cw_scale=0.675, freq=target_cfreq-bw, fft_shift=8191, gain='11+0j')
+        # TODO: Get dsim sample frequency from config file
+        cw_freq = ch_list[int(nr_ch/2)]+400
+
+        if self.corr_freqs.n_chans == 4096:
+            # 4K
+            awgn_scale=0.0645
+            gain='113+0j'
+            fft_shift=511
+        else:
+            # 32K
+            awgn_scale=0.063
+            gain='344+0j'
+            fft_shift=4095
+
+        Aqf.step('Digitiser simulator configured to generate gaussian noise, '
+                 'with awgn scale: {}, eq gain: {}, fft shift: {}'.format(
+                 awgn_scale, gain, fft_shift))
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, 
+                cw_scale=0.0, freq=cw_freq, fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
+        beam_data = []
+        beam_lbls = [] 
+
+        if ants == 4:
+            beam_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                         'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
+                          'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
+                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+        # Only one antenna gain is set to 1, this will be used as the reference
+        # input level
+        rl = 0
+        d,l, rl, pb, cf = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+        beam_data.append(d)
+        beam_lbls.append(l)
+        if ants == 4:
+            beam_dict = {'m000_x': 0.5, 'm001_x': 0.5, 'm002_x': 0.0, 'm003_x': 0.0,
+                         'm000_y': 0.5, 'm001_y': 0.5, 'm002_y': 0.0, 'm003_y': 0.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
+                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
+                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+        d,l, rl, pb, cf = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+        beam_data.append(d)
+        beam_lbls.append(l)
+        if ants == 4:
+            beam_dict = {'m000_x': 0.25, 'm001_x': 0.25, 'm002_x': 0.25, 'm003_x': 0.25,
+                         'm000_y': 0.25, 'm001_y': 0.25, 'm002_y': 0.25, 'm003_y': 0.25}
+        elif ants == 8:
+            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
+                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
+                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+        d,l, rl, pb, cf = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+        beam_data.append(d)
+        beam_lbls.append(l)
+
+        if ants == 4:
+            beam_dict = {'m000_x': 0.5, 'm001_x': 0.5, 'm002_x': 0.5, 'm003_x': 0.0,
+                         'm000_y': 0.5, 'm001_y': 0.5, 'm002_y': 0.5, 'm003_y': 0.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
+                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
+                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+        d,l, rl, pb, cf = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+        beam_data.append(d)
+        beam_lbls.append(l)
+
+        if ants == 4:
+            beam_dict = {'m000_x': 0.5, 'm001_x': 0.5, 'm002_x': 0.5, 'm003_x': 0.5,
+                         'm000_y': 0.5, 'm001_y': 0.5, 'm002_y': 0.5, 'm003_y': 0.5}
+        elif ants == 8:
+            beamx_dict = {'m000_x': 0.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
+                          'm000_y': 0.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
+                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+        d,l, rl, pb, cf = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+        beam_data.append(d)
+        beam_lbls.append(l)
+
+        # Square the voltage data. This is a hack as aqf_plot expects squared 
+        # power data
+        fig_suffix = 1
+        aqf_plot_channels(zip(np.square(beam_data),beam_lbls),
+                          plot_filename='{}_chan_resp_{}.png'.format(self._testMethodName, beam),
+                          plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
+                          '\nIntegrated over {} captures'.format(beam, pb/1e6, cf/1e6, num_caps)),
+                          log_dynamic_range=90, log_normalise_to=1,
+                          caption='Figure {}.{}: Captured beamformer data'.format(fig_prefix,fig_suffix))
+        fig_suffix += 1
+
+    def test_cap_beam(self, instrument='bc8n856M4k'):
         """Testing timestamp accuracy (bc8n856M4k)
         Confirm that the CBF subsystem do not modify and correctly interprets
         timestamps contained in each digitiser SPEAD packets (dump)
@@ -5988,7 +5847,200 @@ class test_CBF(unittest.TestCase):
             minor_offset = 0
             minor_offset = -6*4096*2
             manual_offset = main_offset + minor_offset
-            self._timestamp_accuracy(manual=True, manual_offset=manual_offset)
+
+            ants = 4
+            if ants == 4:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                                   'm002_x', 'm002_y', 'm003_x', 'm003_y']
+            elif ants == 8:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                                   'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                                   'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                                   'm006_x', 'm006_y', 'm007_x', 'm007_y']
+
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
+                'beam_0x')
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
+                'beam_0y')
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop(
+                'c856M4k')
+            reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+                *local_src_names)
+            dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
+            Aqf.hop('Dsim_clock_Factor = {}'.format(dsim_clk_factor))
+            bw = self.corr_freqs.bandwidth # * dsim_clk_factor
+
+
+
+            target_cfreq = bw + bw * 0.5
+            partitions = 1
+            part_size = bw / 16
+            target_pb = partitions * part_size
+            ch_bw = bw / 4096
+            target_pb = 100
+            num_caps = 20000
+            beam = 'beam_0y'
+            if ants == 4:
+                beam_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
+                             'm003_x': 1.0,
+                             'm000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
+                             'm003_y': 1.0,}
+            elif ants == 8:
+                beamx_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
+                              'm003_x': 1.0,
+                              'm004_x': 1.0, 'm005_x': 1.0, 'm006_x': 1.0,
+                              'm007_x': 1.0}
+                beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
+                              'm003_y': 1.0,
+                              'm004_y': 1.0, 'm005_y': 1.0, 'm006_y': 1.0,
+                              'm007_y': 1.0}
+
+            self.dhost.sine_sources.sin_0.set(frequency=target_cfreq - bw,
+                                              scale=0.1)
+            self.dhost.sine_sources.sin_1.set(frequency=target_cfreq - bw,
+                                              scale=0.1)
+            this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
+            this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
+            Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(
+                this_source_freq0 + bw, this_source_freq1 + bw))
+
+            bf_raw, cap_ts, bf_ts = self._capture_beam_data(beam,
+                beamy_dict, target_pb, target_cfreq)
+
+            #cap_ts_diff = np.diff(cap_ts)
+            #a = np.nonzero(np.diff(cap_ts)-8192)
+            #cap_ts[a[0]+1]
+            #cap_phase = numpy.angle(cap)
+            #ts = [datetime.datetime.fromtimestamp(float(timestamp)/1000).strftime("%H:%M:%S") for timestamp in timestamps]
+
+            # Average over timestamp show passband
+            # for i in range(0,len(cap)):
+            #    plt.plot(10*numpy.log(numpy.abs(cap[i])))
+
+
+    @aqf_vr('TP.C.1.37')
+    @aqf_vr('TP.C.1.36')
+    @aqf_vr('TP.C.1.35')
+    def test_bc8n856M4k_beamforming_ch(self, instrument='bc8n856M4k'):
+        """CBF Beamformer channel accuracy (bc8n856M4k)
+
+        Apply weights and capture beamformer data.
+        Verify that weights are correctly applied.
+        """
+        instrument_success = self.set_instrument(instrument)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument()
+            msg = Style.Bold('CBF Beamformer channel accuracy: {}\n'.format(
+                _running_inst.keys()[0]))
+            Aqf.step(msg)
+            self._systems_tests()
+            self._test_beamforming_ch(ants=4)
+
+    def _test_beamforming_ch(self, ants=4):
+        fig_prefix = get_figure_numbering(self)[self._testMethodName]
+        fig_suffix = 1
+        # Set list for all the correlator input labels
+        if ants == 4:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
+        elif ants == 8:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
+
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
+        reply, informs = correlator_fixture.katcp_rct.req.capture_stop('c856M4k')
+        reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+            *local_src_names)
+        bw = self.corr_freqs.bandwidth
+        ch_list = self.corr_freqs.chan_freqs
+        nr_ch = self.corr_freqs.n_chans
+
+        # Start of test. Setting required partitions and center frequency
+        partitions = 2 
+        part_size = bw / 16
+        target_cfreq = bw + part_size #+ bw*0.5
+        target_pb = partitions * part_size
+        ch_bw = bw/nr_ch
+        num_caps = 20000
+        beams = ('beam_0x', 'beam_0y')
+        offset = 74893 #ch_list[1]/2 # Offset in Hz to add to cw frequency
+        beam = beams[1]
+
+        # TODO: Get dsim sample frequency from config file
+        cw_freq = ch_list[int(nr_ch/2)]
+        cw_freq = ch_list[128]
+
+
+        if self.corr_freqs.n_chans == 4096:
+            # 4K
+            cw_scale = 0.675
+            awgn_scale = 0#0.05
+            gain = '11+0j'
+            fft_shift = 8191
+        else:
+            # 32K
+            cw_scale = 0.375
+            awgn_scale = 0.085
+            gain = '11+0j'
+            fft_shift = 32767
+
+        freq = cw_freq+offset
+        dsim_clk_factor = 1.712e9/self.corr_freqs.sample_freq
+        eff_freq = (freq+bw)*dsim_clk_factor
+
+        Aqf.step('Digitiser simulator configured to generate a continuous wave, '
+                 'at {}Hz with cw scale: {}, awgn scale: {}, eq gain: {}, fft '
+                 'shift: {}'.format(freq*dsim_clk_factor, cw_scale, awgn_scale, gain, 
+                                    fft_shift))
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+                                            cw_scale=cw_scale, freq=freq,
+                                            fft_shift=fft_shift, gain=gain, cw_src=1)
+        self.dhost.registers.scale_cwg0_const.write(scale=0.0)
+        self.dhost.registers.scale_cwg1_const.write(scale=0.0)
+        self.dhost.registers.cwg1_en.write(en=1)
+        self.dhost.registers.cwg0_en.write(en=0)
+
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
+        if ants == 4:
+            beam_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                         'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0}
+        elif ants == 8:
+            beamx_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
+                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
+                          'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
+                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+
+
+        bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam, 
+                beam_dict, target_pb, target_cfreq)
+        fft_length = 1024
+        strt_idx = 0
+        num_caps = np.shape(bf_raw)[1]
+        cap = [0]*num_caps
+        cap_half = [0]*int(num_caps/2)
+        for i in range(0, num_caps):
+            cap[i] = np.array(complexise(bf_raw[:, i, :]))
+            if i%2!=0:
+                cap_half[int(i/2)] = cap[i]
+        cap = np.asarray(cap[strt_idx:strt_idx+fft_length])
+        cap_half = np.asarray(cap_half[strt_idx:strt_idx+fft_length])
+        cap_mag = np.abs(cap)
+        max_ch = np.argmax(np.sum((cap_mag), axis=0))
+        Aqf.step('CW found in relative channel {}'.format(max_ch))
+        plt.plot(np.log10(np.abs(np.fft.fft(cap[:,max_ch]))))
+        plt.plot(np.log10(np.abs(np.fft.fft(cap_half[:,max_ch]))))
+        
+        plt.show()
+        import IPython; IPython.embed()
+
 
     def _timestamp_accuracy(self, manual=False, manual_offset=0,
                             future_dump=3):
@@ -6455,7 +6507,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capturing ADC Snapshots.')
         while not found:
             for i in range(5):
-                adc_data = get_adc_snapshot(fpga)[pol]
+                adc_data = fpga.get_adc_snapshots()[pol].data
             cur_std = np.std(adc_data)
             cur_diff = target_std - cur_std
             if (abs(cur_diff) < margin) or count > 5:
@@ -6500,7 +6552,7 @@ class test_CBF(unittest.TestCase):
             found = False
             while not found:
                 set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
-                adc_data = get_adc_snapshot(fpga)[pol]
+                adc_data = fpga.get_adc_snapshots()[pol].data
                 if (count < 4) and (np.abs(np.max(adc_data) or
                                                np.min(adc_data)) >= 0b111111111 / 512.0):
                     scale -= step
@@ -6508,7 +6560,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     scale -= (step + cw_margin)
                     freq = set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
-                    adc_data = get_adc_snapshot(fpga)[pol]
+                    adc_data = fpga.get_adc_snapshots()[pol].data
                     found = True
             Aqf.step('Dsim CW scale set to {:.3f}.'.format(scale))
             aqf_plot_histogram(adc_data,
@@ -6532,7 +6584,7 @@ class test_CBF(unittest.TestCase):
         for key in sources.keys():
             pol = sources[key][0]
             fpga = sources[key][1]
-            adc_data = get_adc_snapshot(fpga)[pol]
+            adc_data = fpga.get_adc_snapshots()[pol].data
             if profile != 'cw':  # use standard deviation of noise before CW
                 p_std = np.std(adc_data)
                 p_bits = np.log2(p_std * 512)
@@ -6820,7 +6872,6 @@ class test_CBF(unittest.TestCase):
         std_mean = ch_std.mean()
         # Replace error locations with mean values
         print err_loc
-        import IPython; IPython.embed()
 
         for idx in err_loc:
             ch_mean[idx] = mean
