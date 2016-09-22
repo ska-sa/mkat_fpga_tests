@@ -203,7 +203,7 @@ class test_CBF(unittest.TestCase):
                         finally:
                             return {True: None}
                         ## AR: 21/09/2016
-                        ## Reading the correct sync epoch from the katcp instance and setting the 
+                        ## Reading the correct sync epoch from the katcp instance and setting the
                         ## sync time as apposed to estimating it.
                         #try:
                         #    self.correlator.est_synch_epoch()
@@ -1754,21 +1754,6 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_beamforming(ants=4)
 
-    @aqf_vr('TP.C.1.37')
-    @aqf_vr('TP.C.1.36')
-    @aqf_vr('TP.C.1.35')
-    def test_bc8n856M32k_beamforming(self, instrument='bc8n856M32k'):
-        """CBF Beamformer functionality (bc8n856M32k)
-
-        Apply weights and capture beamformer data.
-        Verify that weights are correctly applied.
-        """
-        if self.set_instrument(instrument):
-            _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step('Testing beamforming weights and capturing beamformer '
-                     'output products: : {}\n'.format(_running_inst.keys()[0]))
-            self._systems_tests()
-            self._test_beamforming(ants=4)
 
     @aqf_vr('TP.C.1.37')
     @aqf_vr('TP.C.1.36')
@@ -2087,11 +2072,11 @@ class test_CBF(unittest.TestCase):
                 ticks_between_spectra = initial_dump['ticks_between_spectra'].value
                 int_time_ticks = n_accs*ticks_between_spectra
                 #roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
-                roundtrip = 0 
+                roundtrip = 0
                 #Aqf.hop('Added {}s for the network round trip to dump timestamp'.format(
                 #    roundtrip))
                 # TODO:
-                # This factor is due to an offset in the vacc sync. Must be removed 
+                # This factor is due to an offset in the vacc sync. Must be removed
                 # when fixed
                 #future_time = 0.001223325332135038767
                 future_time = 0
@@ -2186,7 +2171,7 @@ class test_CBF(unittest.TestCase):
         while True:
             num_discards += 1
             dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
-            dump_ts = dump['timestamp'].value 
+            dump_ts = dump['timestamp'].value
             vacc_frac = (dump_ts - vacc_sync)/setup_data['int_time_ticks']
             Aqf.hop('Dump timestamp relative to vacc sync {:f}'.format(vacc_frac))
             dump_timestamp = (setup_data['sync_time'] + dump_ts /
@@ -2256,8 +2241,8 @@ class test_CBF(unittest.TestCase):
             expected_phases = []
             prev_delay_rate = 0
             for dump in xrange(0, dump_counts):
-                # For delay rate the expected delay is the average of delays 
-                # applied during the integration. This is equal to the 
+                # For delay rate the expected delay is the average of delays
+                # applied during the integration. This is equal to the
                 # delay delta over the integration divided by two
                 max_delay_rate = dump*delay_rate
                 avg_delay_rate = ((max_delay_rate-prev_delay_rate)/2)+prev_delay_rate
@@ -2281,8 +2266,8 @@ class test_CBF(unittest.TestCase):
             expected_phases = []
             prev_fringe_rate = 0
             for dump in xrange(0, dump_counts):
-                # For fringe rate the expected delay is the average of delays 
-                # applied during the integration. This is equal to the 
+                # For fringe rate the expected delay is the average of delays
+                # applied during the integration. This is equal to the
                 # delay delta over the integration divided by two
                 max_fringe_rate = dump*fringe_rate
                 avg_fringe_rate = ((max_fringe_rate-prev_fringe_rate)/2)+prev_fringe_rate
@@ -4757,7 +4742,7 @@ class test_CBF(unittest.TestCase):
 
             if set([float(0)]) in [set(i) for i in actual_phases]:
                 Aqf.failed('Delays could not be applied at time_apply: {} '
-                           'is in the past'.format(setup_datAOBa['t_apply']))
+                           'is in the past'.format(setup_data['t_apply']))
             else:
                 no_chans = range(self.corr_freqs.n_chans)
                 plot_units = ''
@@ -5567,7 +5552,7 @@ class test_CBF(unittest.TestCase):
         Parameters
         ----------
         beam (beam_0x, beam_0y):
-            Polarisation to capture beam data 
+            Polarisation to capture beam data
         beam_dict:
             Dictionary containing input:weight key pairs e.g.
             beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
@@ -5583,7 +5568,7 @@ class test_CBF(unittest.TestCase):
             bf_raw:
                 Raw beamformer data for the selected beam
             cap_ts:
-                Captured timestamps, dropped packet timestamps will not be 
+                Captured timestamps, dropped packet timestamps will not be
                 present
             bf_ts:
                 Expected timestamps
@@ -5617,7 +5602,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed('Beam weights not successfully set: {}'
                            ''.format(reply.arguments))
-            
+
         ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
         ingst_nd_p = self.corr_fix._test_config_file['beamformer']\
                                                     ['ingest_node_port']
@@ -5694,7 +5679,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _test_beamforming(self, ants=4):
-        def get_beam_data(beam, beam_dict, target_pb, target_cfreq, 
+        def get_beam_data(beam, beam_dict, target_pb, target_cfreq,
                           inp_ref_lvl=0, num_caps=20000):
             bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(
                     beam, beam_dict, target_pb, target_cfreq)
@@ -5718,16 +5703,16 @@ class test_CBF(unittest.TestCase):
             for key in in_wgts:
                 labels += (key+"={}\n").format(in_wgts[key])
             labels += 'Mean={0:0.2f}dB\n'.format(cap_db_mean)
-            
+
             if inp_ref_lvl == 0:
-                # Get the voltage level for one antenna. Gain for one input 
+                # Get the voltage level for one antenna. Gain for one input
                 # should be set to 1, the rest should be 0
                 inp_ref_lvl = np.mean(cap_avg)
             delta = 0.2
             expected = np.sum([inp_ref_lvl*in_wgts[key] for key in in_wgts])
             expected = 20*np.log10(expected)
             msg = ('Check that the expected voltage level ({:.3f}dB) is within '
-                   '{}dB of the measured mean value ({:.3f}dB)'.format(expected, 
+                   '{}dB of the measured mean value ({:.3f}dB)'.format(expected,
                    delta, cap_db_mean))
             Aqf.almost_equals(expected, cap_db_mean, delta, msg)
             labels += 'Expected={:.2f}dB'.format(expected)
@@ -5784,14 +5769,14 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Digitiser simulator configured to generate gaussian noise, '
                  'with awgn scale: {}, eq gain: {}, fft shift: {}'.format(
                  awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, 
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
                 cw_scale=0.0, freq=cw_freq, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
 
         beam_data = []
-        beam_lbls = [] 
+        beam_lbls = []
 
         if ants == 4:
             beam_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
@@ -5854,7 +5839,7 @@ class test_CBF(unittest.TestCase):
         beam_data.append(d)
         beam_lbls.append(l)
 
-        # Square the voltage data. This is a hack as aqf_plot expects squared 
+        # Square the voltage data. This is a hack as aqf_plot expects squared
         # power data
         fig_suffix = 1
         aqf_plot_channels(zip(np.square(beam_data),beam_lbls),
@@ -5991,7 +5976,7 @@ class test_CBF(unittest.TestCase):
         nr_ch = self.corr_freqs.n_chans
 
         # Start of test. Setting required partitions and center frequency
-        partitions = 2 
+        partitions = 2
         part_size = bw / 16
         target_cfreq = bw + part_size #+ bw*0.5
         target_pb = partitions * part_size
@@ -6025,7 +6010,7 @@ class test_CBF(unittest.TestCase):
 
         Aqf.step('Digitiser simulator configured to generate a continuous wave, '
                  'at {}Hz with cw scale: {}, awgn scale: {}, eq gain: {}, fft '
-                 'shift: {}'.format(freq*dsim_clk_factor, cw_scale, awgn_scale, gain, 
+                 'shift: {}'.format(freq*dsim_clk_factor, cw_scale, awgn_scale, gain,
                                     fft_shift))
         dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
                                             cw_scale=cw_scale, freq=freq,
@@ -6049,7 +6034,7 @@ class test_CBF(unittest.TestCase):
                           'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
 
 
-        bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam, 
+        bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
                 beam_dict, target_pb, target_cfreq)
         fft_length = 1024
         strt_idx = 0
@@ -6067,9 +6052,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('CW found in relative channel {}'.format(max_ch))
         plt.plot(np.log10(np.abs(np.fft.fft(cap[:,max_ch]))))
         plt.plot(np.log10(np.abs(np.fft.fft(cap_half[:,max_ch]))))
-        
         plt.show()
-        import IPython; IPython.embed()
 
 
     def _timestamp_accuracy(self, manual=False, manual_offset=0,
@@ -6115,7 +6098,6 @@ class test_CBF(unittest.TestCase):
             #print 'timestamp difference: {}'.format((load_timestamp - dsim_loc_time)*8/dump['scale_factor_timestamp'].value)
             self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
             self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
-            #import IPython; IPython.embed()
 
         # try:
         #     reply, informs = self.corr_fix.katcp_rct.req.accumulation_length(1, timeout=60)
@@ -6890,7 +6872,6 @@ class test_CBF(unittest.TestCase):
                 found = True
             else:
                 Aqf.step('VACC errors found in dump, retrying.')
-                import IPython; IPython.embed()
         dropped = 0
         for i in range(n_accs-1):
             Aqf.step('grabbing accumulation {}'.format(i+1))
