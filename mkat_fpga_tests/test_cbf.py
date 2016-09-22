@@ -1684,7 +1684,6 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0178
             CBF-REQ-0204
         """
-        import IPython;IPython.embed()
         running_inst = self.corr_fix.get_running_intrument()
         if running_inst.values()[0]:
             _running_inst = running_inst.keys()[0]
@@ -2149,11 +2148,11 @@ class test_CBF(unittest.TestCase):
             fringe = (float(fringe[0]), float(fringe[1]))
             ant_delay.append((delay, fringe))
 
-        # TODO: 
+        # TODO:
         # Problem where returned delay coefficients are in wrong location
         # This hack should be removed when fixed
         ant_idx = setup_data['test_source_ind']
-        ant_idx = 0 
+        ant_idx = 0
         delay = ant_delay[ant_idx][0][0]
         delay_rate = ant_delay[ant_idx][0][1]
         fringe_offset = ant_delay[ant_idx][1][0]
