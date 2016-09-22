@@ -163,7 +163,7 @@ class test_CBF(unittest.TestCase):
                         reply))
                 return {False: errmsg}
             else:
-                Aqf.step('[CBF-REQ-0071, 0096] Accumulation time set via CAM interface: '
+                Aqf.step('[CBF-REQ-0071, 0096, 0089] Accumulation time set via CAM interface: '
                          '{0:.3f}s\n'.format((float(reply.reply.arguments[-1]))))
                 try:
                     corrRx_port = int(self.conf_file['inst_param']['corr_rx_port'])
@@ -198,21 +198,11 @@ class test_CBF(unittest.TestCase):
                             sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
                             self.correlator.set_synch_time(sync_time)
                         except:
-                            errmsg = ('Sync time could not be read or set.')
+                            errmsg = 'Sync time could not be read and/or set via CAM interface.'
                             LOGGER.error(errmsg)
-                        finally:
+                            return {False: errmsg}
+                        else:
                             return {True: None}
-                        ## AR: 21/09/2016
-                        ## Reading the correct sync epoch from the katcp instance and setting the
-                        ## sync time as apposed to estimating it.
-                        #try:
-                        #    self.correlator.est_synch_epoch()
-                        #except AssertionError:
-                        #    errmsg = ('If this fails the network is waaaaay slow as per fhost_fpga '
-                        #              'ln148 @ get_local_time')
-                        #    LOGGER.error(errmsg)
-                        #finally:
-                        #    return {True: None}
 
     @aqf_vr('TP.C.1.19')
     @aqf_vr('TP.C.1.45')
@@ -231,7 +221,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             n_chans = self.corr_freqs.n_chans
             test_chan = randrange(start=n_chans % 100, stop=n_chans - 1)
@@ -254,7 +244,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             n_chans = self.corr_freqs.n_chans
             test_chan = randrange(start=n_chans % 100, stop=n_chans - 1)
@@ -271,13 +261,14 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0046
             CBF-REQ-0198
             CBF-REQ-0043
+            CBF-REQ-0053
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
@@ -300,7 +291,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
             self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
@@ -323,7 +314,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
 
@@ -345,7 +336,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
 
@@ -367,7 +358,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
 
@@ -396,7 +387,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)  # Hz
 
@@ -430,7 +421,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  # Hz
 
@@ -443,7 +434,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_freq_scan_consistency()
 
@@ -456,7 +447,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_freq_scan_consistency()
 
@@ -469,7 +460,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_freq_scan_consistency()
 
@@ -482,7 +473,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_freq_scan_consistency()
 
@@ -503,7 +494,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_product_baselines()
 
@@ -524,7 +515,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_product_baselines()
 
@@ -545,7 +536,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_product_baselines()
 
@@ -566,7 +557,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_product_baselines()
 
@@ -587,7 +578,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_back2back_consistency()
 
@@ -608,7 +599,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_back2back_consistency()
 
@@ -629,7 +620,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_back2back_consistency()
 
@@ -650,7 +641,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_back2back_consistency()
 
@@ -665,7 +656,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
@@ -679,7 +670,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
@@ -693,7 +684,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
@@ -707,7 +698,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_restart_consistency(instrument, no_channels=32768)
 
     @aqf_vr('TP.C.1.27')
@@ -720,13 +711,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0185
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0128
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -740,13 +739,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0185
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0128
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -760,13 +767,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0185
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0128
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -780,13 +795,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0185
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0128
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_tracking()
 
@@ -800,13 +823,14 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0081
             CBF-REQ-0099
             CBF-REQ-0071
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
             self._test_vacc(test_chan)
@@ -827,7 +851,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
             self._test_vacc(test_chan)
@@ -848,7 +872,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
             self._test_vacc(test_chan)
@@ -869,7 +893,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             chan_index = 4096
             test_chan = randrange(chan_index)
@@ -887,7 +911,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_product_switch(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.40')
@@ -902,7 +926,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_product_switch(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.40')
@@ -917,7 +941,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_product_switch(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.40')
@@ -932,7 +956,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_product_switch(instrument, no_channels=32768)
 
     # Flagging of data test waived as it not part of AR-1.
@@ -944,7 +968,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_adc_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -955,7 +979,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_adc_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -966,7 +990,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_adc_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -977,7 +1001,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_noise_diode_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -988,7 +1012,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_noise_diode_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -999,7 +1023,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_noise_diode_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -1010,7 +1034,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_fft_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -1021,7 +1045,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_fft_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
@@ -1032,7 +1056,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_fft_overflow_flag()
 
     @aqf_vr('TP.C.1.27')
@@ -1044,7 +1068,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_rate()
 
@@ -1056,7 +1080,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_rate()
 
@@ -1069,7 +1093,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_rate()
 
@@ -1082,7 +1106,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_rate()
 
@@ -1095,13 +1119,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0128
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0087
+            CBF-REQ-0001
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0110
+            CBF-REQ-0066
+            CBF-REQ-0185
+            CBF-REQ-0072
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_offset()
 
@@ -1114,13 +1146,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0128
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0087
+            CBF-REQ-0001
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0110
+            CBF-REQ-0066
+            CBF-REQ-0185
+            CBF-REQ-0072
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_offset()
 
@@ -1133,13 +1173,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0128
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0087
+            CBF-REQ-0001
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0110
+            CBF-REQ-0066
+            CBF-REQ-0185
+            CBF-REQ-0072
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_offset()
 
@@ -1152,13 +1200,21 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0128
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0087
+            CBF-REQ-0001
+            CBF-REQ-0091
+            CBF-REQ-0104
+            CBF-REQ-0110
+            CBF-REQ-0066
+            CBF-REQ-0185
+            CBF-REQ-0072
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_offset()
 
@@ -1176,7 +1232,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_rate()
 
@@ -1194,7 +1250,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_rate()
 
@@ -1212,7 +1268,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_rate()
 
@@ -1230,7 +1286,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_fringe_rate()
 
@@ -1250,7 +1306,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_all_delays()
 
@@ -1270,7 +1326,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_all_delays()
 
@@ -1284,13 +1340,22 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0067
+            CBF-REQ-0187
+            CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_all_delays()
 
@@ -1304,13 +1369,22 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0067
+            CBF-REQ-0187
+            CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_all_delays()
 
@@ -1328,7 +1402,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_inputs()
 
@@ -1340,13 +1414,22 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0067
+            CBF-REQ-0187
+            CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_inputs()
 
@@ -1358,13 +1441,22 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0067
+            CBF-REQ-0187
+            CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_inputs()
 
@@ -1376,13 +1468,22 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0077
             CBF-REQ-0204
+            CBF-REQ-0066
+            CBF-REQ-0072
+            CBF-REQ-0067
+            CBF-REQ-0187
+            CBF-REQ-0110
+            CBF-REQ-0001
+            CBF-REQ-0087
+            CBF-REQ-0091
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_delay_inputs()
 
@@ -1400,7 +1501,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_data_product(instrument, no_channels=4096)
 
@@ -1418,7 +1519,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_data_product(instrument, no_channels=4096)
 
@@ -1436,7 +1537,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_data_product(instrument, no_channels=4096)
 
@@ -1454,7 +1555,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_data_product(instrument, no_channels=32768)
 
@@ -1475,7 +1576,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_time_sync()
 
@@ -1496,7 +1597,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_time_sync()
 
@@ -1517,7 +1618,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_time_sync()
 
@@ -1538,7 +1639,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_time_sync()
 
@@ -1554,7 +1655,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_gain_correction()
 
@@ -1571,7 +1672,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_gain_correction()
 
@@ -1587,7 +1688,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_gain_correction()
 
@@ -1604,7 +1705,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_gain_correction()
 
@@ -1619,7 +1720,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_beamforming(ants=4)
 
@@ -1634,7 +1735,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_beamforming(ants=16)
 
@@ -1648,7 +1749,7 @@ class test_CBF(unittest.TestCase):
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
             _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             self._test_beamforming(ants=8)
 
@@ -1667,7 +1768,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = running_inst.keys()[0]
         else:
             _running_inst = instrument
-        Aqf.step(Style.Bold(self._testMethodDoc))
+        Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
         if self.corr_fix.ensure_instrument(_running_inst):
             self.correlator = self.corr_fix.correlator
         else:
@@ -1689,7 +1790,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = running_inst.keys()[0]
         else:
             _running_inst = instrument
-        Aqf.step(Style.Bold(self._testMethodDoc))
+        Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
         if self.set_instrument(_running_inst):
             self._systems_tests()
             self._test_config_report(verbose=False)
@@ -1711,7 +1812,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = instrument
         if self.set_instrument(_running_inst):
             self._systems_tests()
-            Aqf.step(Style.Bold(self._testMethodDoc))
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_overtemp()
             msg = Style.Bold('ROACH2 Sensor (Temp, Voltage, Current, Fan) '
                              'Status: {}\n'.format(_running_inst))
@@ -1766,7 +1867,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = running_inst.keys()[0]
         else:
             _running_inst = instrument
-        Aqf.step(Style.Bold(self._testMethodDoc))
+        Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
         if self.set_instrument(_running_inst):
             self._systems_tests()
             self._test_sensor_values()
@@ -1774,9 +1875,9 @@ class test_CBF(unittest.TestCase):
 
     def _systems_tests(self):
         """Checking system stability before and after use"""
-        Aqf.is_true(confirm_out_dest_ip(self),
-            'Output destination IP is not the same as the one stored in the register, ie data is '
-            'being spewed elsewhere.')
+        if not confirm_out_dest_ip(self):
+            Aqf.failed('Output destination IP is not the same as the one stored in the register, '
+            'ie data is being spewed elsewhere.')
 
         if set_default_eq(self) is False:
             Aqf.failed('Failed to reset gains to default values from config file on all F-Engines')
@@ -2557,7 +2658,7 @@ class test_CBF(unittest.TestCase):
             if channel < print_counts:
                 Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
-            elif channel == (n_chans - print_counts):
+            elif channel == print_counts:
                 Aqf.hop('.' * 3)
             elif channel > (n_chans - print_counts):
                 Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
@@ -5390,8 +5491,7 @@ class test_CBF(unittest.TestCase):
                                       self._testMethodName),
                                   plot_title='Channel Response Gain Correction',
                                   log_dynamic_range=90, log_normalise_to=1,
-                                  caption=('Log channel response '
-                                           'Gain Correction'.format(fig_prefix)))
+                                  caption='Gain Correction channel response')
             else:
                 Aqf.failed('Could not retrieve channel response with gain/eq corrections.')
 
