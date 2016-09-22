@@ -2780,6 +2780,11 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return False
+        except ValueError:
+            errmsg = 'Could not retrieve clean SPEAD packet, Item has too few elements for shape.'
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
         else:
             # Get bls ordering from get dump
             Aqf.step('[CBF-REQ-0001, 0087, 0091, 0104] Get list of all possible '
@@ -5370,6 +5375,11 @@ class test_CBF(unittest.TestCase):
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
+        except ValueError:
+            errmsg = 'Could not retrieve clean SPEAD packet, Item has too few elements for shape.'
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+
         else:
             # Get baseline 0 data, i.e. auto-corr of m000h
             test_baseline = 0
@@ -5452,6 +5462,10 @@ class test_CBF(unittest.TestCase):
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
+        except ValueError:
+                errmsg = 'Could not retrieve clean SPEAD packet, Item has too few elements for shape.'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
         else:
 
             test_input = [input_source[0]
@@ -5477,6 +5491,11 @@ class test_CBF(unittest.TestCase):
                             dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                         except Queue.Empty:
                             errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
+                            Aqf.failed(errmsg)
+                            LOGGER.exception(errmsg)
+                        except ValueError:
+                            errmsg = ('Could not retrieve clean SPEAD packet, Item has too few '
+                                      'elements for shape.')
                             Aqf.failed(errmsg)
                             LOGGER.exception(errmsg)
                         else:
@@ -6591,6 +6610,11 @@ class test_CBF(unittest.TestCase):
                 errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
+            except ValueError:
+                errmsg = 'Could not retrieve clean SPEAD packet, Item has too few elements for shape.'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+
             else:
                 baseline_lookup = get_baselines_lookup(dump)
                 inp_autocorr_idx = baseline_lookup[(inp, inp)]
@@ -6624,6 +6648,11 @@ class test_CBF(unittest.TestCase):
                         errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
+                    except ValueError:
+                        errmsg = 'Could not retrieve clean SPEAD packet, Item has too few elements for shape.'
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+
                     else:
                         dval = dump['xeng_raw'].value
                         auto_corr = dval[:, inp_autocorr_idx, :]
@@ -6736,6 +6765,10 @@ class test_CBF(unittest.TestCase):
                 dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD packet: Queue is Empty.'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+            except ValueError:
+                errmsg = 'Could not retrieve clean SPEAD packet, Item has too few elements for shape.'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
