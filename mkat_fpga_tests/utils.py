@@ -5,7 +5,9 @@ import matplotlib
 import numpy as np
 import time
 import warnings
-
+from socket import inet_ntoa
+from struct import pack
+from random import randrange
 from collections import Mapping
 try:
     from collections import ChainMap
@@ -782,13 +784,14 @@ def confirm_out_dest_ip(self):
         return False
     else:
         try:
-            xhost_ip = hex(xhost.registers.gbe_iptx.read()['data']['reg'])
+            int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
+            xhost_ip = inet_ntoa(pack(">L", int_ip))
             dest_ip = self.correlator.configd['xengine']['output_destination_ip']
         except Exception:
             return False
         else:
             try:
-                assert dest_ip == human_readable_ip(xhost_ip)
+                assert dest_ip == xhost_ip
             except AssertionError:
                 return False
             else:
