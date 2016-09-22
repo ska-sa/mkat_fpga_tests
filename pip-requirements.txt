@@ -27,3 +27,4 @@ sphinx
 ntplib
 pandas
 pillow
+chainmap

@@ -10,16 +10,14 @@ from corr2.utils import parse_ini_file
 from nosekatreport import Aqf
 
 test_conf = parse_ini_file('./config/test_conf.ini')
-
-test_config = test_conf['pdu_hosts']
-pdu_host_ips = test_config['pdu_ips'].split(',')
-port = test_config['port']
-user = test_config['username']
-password = test_config['passwd']
+pdu_host_ips = test_conf['pdu_hosts']['pdu_ips'].split(',')
+port = test_conf['pdu_hosts']['telnet_port']
+user = test_conf['pdu_hosts']['username']
+password = test_conf['pdu_hosts']['passwd']
 pwr = 'phReading all power'
 crnt = 'phReading all current'
 
-def get_power_cons(host_IP, port, *args):
+def get_power_cons(host_IP, port=23, *args):
     def get_stdout(data, unit):
         return str([float(i.split()[1]) for i in data.splitlines()
                  if i.endswith(unit) if len(i.split()) == 3]).strip('[]')
@@ -67,7 +65,10 @@ PhI_list = [map(float, PhI_val.values()[1].split(',')) for PhI_val in Ph_list]
 Perc_Curr_drawn_Ph = [Ph1 / (Ph1 +  Ph2 + Ph3) for Ph1, Ph2, Ph3 in PhI_list]
 
 max_min_curr_drawn = [np.max(PhI)/np.min(PhI) for PhI in PhI_list]
-max_curr_drawn = np.max(max_min_curr_drawn)
+try:
+    max_curr_drawn = np.max(max_min_curr_drawn)
+except:
+    raise Exception
 max_rat = 1.33
 Aqf.less(max_curr_drawn, max_rat,
     'The maximum load balance ratio {} should be < {}'.format(
