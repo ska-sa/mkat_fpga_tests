@@ -4338,8 +4338,6 @@ class test_CBF(unittest.TestCase):
 
     def _test_delay_rate(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate"""
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
-        fig_suffix = 1
 
         setup_data = self._delays_setup()
         if setup_data:
@@ -4377,11 +4375,9 @@ class test_CBF(unittest.TestCase):
             plot_title = 'Randomly generated delay rate {} {}'.format(delay_rate * 1e9,
                                                                       plot_units)
             plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-            caption = (
-                'Figure {}.{}: Actual vs Expected Unwrapped Correlation Delay Rate.\n'
-                'Note: Dashed line indicates expected value and solid line indicates '
-                'actual values received from SPEAD packet.'.format(fig_prefix,
-                                                                   fig_suffix))
+            caption = ('Actual vs Expected Unwrapped Correlation Delay Rate.\n'
+                       'Note: Dashed line indicates expected value and solid line indicates '
+                       'actual values received from SPEAD packet.')
 
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                    plot_filename, plot_title, plot_units, caption,
@@ -4437,13 +4433,10 @@ class test_CBF(unittest.TestCase):
                             '\'Not almost equal\' within {2} degree when delay rate '
                             'of {3} is applied.'.format(delta_expected, delta_actual,
                                                         degree, delay_rate))
-                        fig_suffix += 1
-                        caption = (
-                            'Figure {0}.{1}: [CBF-REQ-0128] Difference '
-                            'expected({2:.3f}) and actual({3:.3f}) phases are not '
-                            'equal within {4} degree when delay rate of {5} is '
-                            'applied.'.format(fig_prefix, fig_suffix, delta_expected,
-                                              delta_actual, degree, delay_rate))
+                        caption = ('[CBF-REQ-0128] Difference  expected({0:.3f}) and actual({1:.3f})'
+                                   ' phases are not equal within {2} degree when delay rate of {3} '
+                                   'is applied.'.format(delta_expected, delta_actual, degree,
+                                                        delay_rate))
 
                         actual_phases_i = (delta_actual, actual_phases[i])
                         if len(expected_phases[i]) == 2:
@@ -4459,7 +4452,6 @@ class test_CBF(unittest.TestCase):
 
     def _test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
 
         setup_data = self._delays_setup()
         if setup_data:
@@ -4503,11 +4495,9 @@ class test_CBF(unittest.TestCase):
                 plot_title = 'Randomly generated fringe rate {} {}'.format(fringe_rate,
                                                                            plot_units)
                 plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-                caption = (
-                    'Figure {}: Actual vs Expected Unwrapped Correlation Phase Rate.\n'
-                    'Note: Dashed line indicates expected value and solid line '
-                    'indicates actual values received from SPEAD packet.'.format(
-                        fig_prefix))
+                caption = ('Actual vs Expected Unwrapped Correlation Phase Rate.\n'
+                           'Note: Dashed line indicates expected value and solid line '
+                           'indicates actual values received from SPEAD packet.')
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                        plot_filename, plot_title, plot_units, caption)
@@ -4550,12 +4540,11 @@ class test_CBF(unittest.TestCase):
                             'of {3} is applied.'.format(delta_expected, delta_actual,
                                                         degree, fringe_rate))
 
-                        caption = (
-                            'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) and '
-                            'actual({2:.3f}) phases are not equal within {3} degree when '
-                            'fringe rate of {4} is applied.'.format(fig_prefix, delta_expected,
-                                                                    delta_actual, degree,
-                                                                    fringe_rate))
+                        caption = ('[CBF-REQ-0128] Difference expected({0:.3f}) and '
+                                   'actual({1:.3f}) phases are not equal within {2} degree when '
+                                   'fringe rate of {3} is applied.'.format(delta_expected,
+                                                                           delta_actual, degree,
+                                                                           fringe_rate))
 
                         actual_phases_i = (delta_actual, actual_phases[i])
                         if len(expected_phases[i]) == 2:
@@ -4572,7 +4561,6 @@ class test_CBF(unittest.TestCase):
 
     def _test_fringe_offset(self):
         """CBF per-antenna phase error -- Fringe offset"""
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
         setup_data = self._delays_setup()
         if setup_data:
             # [CBF-REQ-0112]
@@ -4616,11 +4604,10 @@ class test_CBF(unittest.TestCase):
                 plot_title = 'Randomly generated fringe offset {0:.3f} {1}'.format(
                     fringe_offset, plot_units)
                 plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-                caption = ('Figure {}: Actual vs Expected Unwrapped Correlation Phase.\n'
+                caption = ('Actual vs Expected Unwrapped Correlation Phase.\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD packet. '
-                           'Values are rounded off to 3 decimals places'.format(
-                    fig_prefix))
+                           'Values are rounded off to 3 decimals places')
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                        plot_filename, plot_title, plot_units, caption)
@@ -4668,12 +4655,11 @@ class test_CBF(unittest.TestCase):
                                 .format(delta_expected, delta_actual, degree,
                                         fringe_offset))
 
-                        caption = (
-                            'Figure {0}: [CBF-REQ-0128] Difference expected({1:.3f}) '
-                            'and actual({2:.3f}) phases are not equal within {3:.3f} '
-                            'degree when fringe offset of {4:.3f} {5} is applied.'
-                                .format(fig_prefix, delta_expected, delta_actual, degree,
-                                        fringe_offset, plot_units))
+                        caption = ('[CBF-REQ-0128] Difference expected({0:.3f}) and actual({1:.3f}) '
+                                   'phases are not equal within {2:.3f} degree when fringe offset '
+                                   'of {3:.3f} {4} is applied.'.format(delta_expected, delta_actual,
+                                                                       degree,fringe_offset,
+                                                                       plot_units))
 
                         actual_phases_i = (delta_actual, actual_phases[i])
                         if len(expected_phases[i]) == 2:
@@ -4684,8 +4670,7 @@ class test_CBF(unittest.TestCase):
                             no_chans, actual_phases_i, expected_phases_i,
                             plot_filename='{}_{}_phase_resp.png'.format(
                                 self._testMethodName, i),
-                            plot_title=(
-                                'Fringe Offset:\nActual vs Expected Phase Response'),
+                            plot_title=('Fringe Offset:\nActual vs Expected Phase Response'),
                             plot_units=plot_units, caption=caption, )
 
     def _test_all_delays(self):
@@ -4693,7 +4678,6 @@ class test_CBF(unittest.TestCase):
         CBF per-antenna phase error --
         Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
         setup_data = self._delays_setup()
         if setup_data:
             # get_ranges = get_delay_bounds(self.correlator)
@@ -4750,10 +4734,9 @@ class test_CBF(unittest.TestCase):
                               '\nfringe rate: {}, fringe offset: {}rads'.format(
                     delay_value, delay_rate, fringe_offset, fringe_rate))
                 plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-                caption = ('Figure {}: Actual vs Expected Unwrapped Correlation Phase.\n'
+                caption = ('Actual vs Expected Unwrapped Correlation Phase.\n'
                            'Note: Dashed line indicates expected value and solid line '
-                           'indicates actual values received from SPEAD packet.'.format(
-                    fig_prefix))
+                           'indicates actual values received from SPEAD packet.')
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                        plot_filename, plot_title, plot_units, caption)
@@ -5268,7 +5251,6 @@ class test_CBF(unittest.TestCase):
         CBF Delay Compensation/LO Fringe stopping polynomial:
         Delay applied to the correct input
         """
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
         setup_data = self._delays_setup()
         if setup_data:
             sampling_period = self.corr_freqs.sample_period
@@ -5383,13 +5365,10 @@ class test_CBF(unittest.TestCase):
                                       self._testMethodName),
                                   plot_title='Channel Response Phase Offsets Found',
                                   log_dynamic_range=90, log_normalise_to=1,
-                                  caption=(
-                                      'Figure {}: Delay applied to the correct input'.format(
-                                          fig_prefix)))
+                                  caption='Delay applied to the correct input')
 
     def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
         # Put some correlated noise on both outputs
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -5432,11 +5411,12 @@ class test_CBF(unittest.TestCase):
                 Aqf.passed('Confirm that imaging data product set has been '
                            'implemented for instrument: {}.'.format(instrument))
                 plot_filename = '{}.png'.format(self._testMethodName)
-                caption = (
-                    'Figure {}: An overrall frequency response at {} baseline, '
-                    'when digitiser simulator is configured to generate gaussian noise, '
-                    'with awgn scale: {}, eq gain: {} and fft shift: {}'.format(
-                        fig_prefix, test_bls, awgn_scale, gain, fft_shift))
+                caption = ('An overrall frequency response at {} baseline, '
+                           'when digitiser simulator is configured to generate gaussian noise, '
+                           'with awgn scale: {}, eq gain: {} and fft shift: {}'.format(test_bls,
+                                                                                       awgn_scale,
+                                                                                       gain,
+                                                                                       fft_shift))
 
                 aqf_plot_channels(response, plot_filename, log_dynamic_range=90,
                                   caption=caption)
@@ -5470,7 +5450,6 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(reply.reply_ok(), msg)
 
     def _test_time_sync(self):
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
         Aqf.step('CBF Absolute Timing Accuracy.')
         try:
             host_ip = '192.168.194.2'
@@ -5486,7 +5465,6 @@ class test_CBF(unittest.TestCase):
 
     def _test_gain_correction(self):
         """CBF Gain Correction"""
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
         Aqf.step('Dsim configured to generate correlated noise.')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.addCleanup(set_default_eq, self)
@@ -5539,7 +5517,7 @@ class test_CBF(unittest.TestCase):
                                       self._testMethodName),
                                   plot_title='Channel Response Gain Correction',
                                   log_dynamic_range=90, log_normalise_to=1,
-                                  caption=('Figure {}: Log channel response '
+                                  caption=('Log channel response '
                                            'Gain Correction'.format(fig_prefix)))
             else:
                 Aqf.failed('Could not retrieve channel response with gain/eq corrections.')
@@ -5719,8 +5697,6 @@ class test_CBF(unittest.TestCase):
 
             return cap_avg, labels, inp_ref_lvl, pb, cf
 
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
-        fig_suffix = 2
         # Set list for all the correlator input labels
         if ants == 4:
             local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
@@ -5841,16 +5817,15 @@ class test_CBF(unittest.TestCase):
 
         # Square the voltage data. This is a hack as aqf_plot expects squared
         # power data
-        fig_suffix = 1
         aqf_plot_channels(zip(np.square(beam_data),beam_lbls),
                           plot_filename='{}_chan_resp_{}.png'.format(self._testMethodName, beam),
                           plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
                           '\nIntegrated over {} captures'.format(beam, pb/1e6, cf/1e6, num_caps)),
                           log_dynamic_range=90, log_normalise_to=1,
-                          caption='Figure {}.{}: Captured beamformer data'.format(fig_prefix,fig_suffix))
-        fig_suffix += 1
+                          caption='Captured beamformer data')
 
-    def test_cap_beam(self, instrument='bc8n856M4k'):
+
+    def _test_cap_beam(self, instrument='bc8n856M4k'):
         """Testing timestamp accuracy (bc8n856M4k)
         Confirm that the CBF subsystem do not modify and correctly interprets
         timestamps contained in each digitiser SPEAD packets (dump)
@@ -5936,7 +5911,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.37')
     @aqf_vr('TP.C.1.36')
     @aqf_vr('TP.C.1.35')
-    def test_bc8n856M4k_beamforming_ch(self, instrument='bc8n856M4k'):
+    def _test_bc8n856M4k_beamforming_ch(self, instrument='bc8n856M4k'):
         """CBF Beamformer channel accuracy (bc8n856M4k)
 
         Apply weights and capture beamformer data.
@@ -5954,8 +5929,6 @@ class test_CBF(unittest.TestCase):
             self._test_beamforming_ch(ants=4)
 
     def _test_beamforming_ch(self, ants=4):
-        fig_prefix = get_figure_numbering(self)[self._testMethodName]
-        fig_suffix = 1
         # Set list for all the correlator input labels
         if ants == 4:
             local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
@@ -6264,7 +6237,7 @@ class test_CBF(unittest.TestCase):
         #plt.show()
 
 
-    def test_timestamp_shift(self, instrument='bc8n856M4k'):
+    def _test_timestamp_shift(self, instrument='bc8n856M4k'):
         """Testing timestamp accuracy (bc8n856M4k)
         Confirm that the CBF subsystem do not modify and correctly interprets
         timestamps contained in each digitiser SPEAD packets (dump)
@@ -6581,7 +6554,7 @@ class test_CBF(unittest.TestCase):
                                    'ADC Histogram for input {}\nAdded Noise Profile: '
                                    'Std Dev: {:.3f} equates to {:.1f} bits '
                                    'toggling.'.format(inp, p_std, p_bits)),
-                               caption='Figure : ADC Input Histogram',
+                               caption='ADC Input Histogram',
                                bins=256, ranges=(-1, 1))
 
         else:
@@ -6590,7 +6563,7 @@ class test_CBF(unittest.TestCase):
                                plot_title=(
                                    'ADC Histogram for input {}\n Standard Deviation: {:.3f} equates '
                                    'to {:.1f} bits toggling'.format(inp, p_std, p_bits)),
-                               caption='Figure : ADC Input Histogram',
+                               caption='ADC Input Histogram',
                                bins=256, ranges=(-1, 1))
 
         for key in sources.keys():
@@ -6707,7 +6680,7 @@ class test_CBF(unittest.TestCase):
             plt.ylabel('Channel Magnitude')
             plt.xlabel('Quantiser Gain')
             plt.legend(loc='upper left')
-            caption = 'Figure : CW Channel Response for Quantiser Gain'
+            caption = 'CW Channel Response for Quantiser Gain'
             plot_filename = 'cw_ch_response_{}.png'.format(inp)
             Aqf.matplotlib_fig(plot_filename, caption=caption)
         else:
@@ -6795,7 +6768,7 @@ class test_CBF(unittest.TestCase):
                 plot_filename = 'spectrum_plot_{}.png'.format(key)
                 plot_title = ('Spectrum for Input {}\n'
                               'Quantiser Gain: {}'.format(key, gain_str))
-                caption = 'Figure : Spectrum for CW input'
+                caption = 'Spectrum for CW input'
                 aqf_plot_channels(10 * np.log10(auto_corr[:, 0]),
                                   plot_filename=plot_filename,
                                   plot_title=plot_title, caption=caption, show=True)
@@ -6805,7 +6778,7 @@ class test_CBF(unittest.TestCase):
                                plot_title=('Quantiser Histogram for input {}\n '
                                            'Standard Deviation: {:.3f},'
                                            'Quantiser Gain: {}'.format(key, p_std, gain_str)),
-                               caption='Figure : Quantiser Histogram',
+                               caption='Quantiser Histogram',
                                bins=64, range=(0, 1.5))
 
         key = ret_dict.keys()[0]
@@ -6826,7 +6799,7 @@ class test_CBF(unittest.TestCase):
         return ret_dict
 
 
-    def test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
+    def _test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
         """Determining correlator efficiency (bc8n856M4k)
         Calculate correlator efficiency
         """
