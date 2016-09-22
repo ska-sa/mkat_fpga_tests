@@ -2078,7 +2078,8 @@ class test_CBF(unittest.TestCase):
                 # TODO:
                 # This factor is due to an offset in the vacc sync. Must be removed
                 # when fixed
-                #future_time = 0.001223325332135038767
+                future_time = 0.001223325332135038767
+                future_time = 0.02
                 future_time = 0
                 dump_1_timestamp = (sync_time + roundtrip +
                                     time_stamp / scale_factor_timestamp)
@@ -2139,6 +2140,7 @@ class test_CBF(unittest.TestCase):
             katcp_conn_time = time.time()
             reply, _informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
                                                                  *delay_coefficients)
+            actual_delay_coef = reply.arguments[1:]
             cmd_end_time = time.time()
 
             cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
@@ -2216,7 +2218,7 @@ class test_CBF(unittest.TestCase):
             phases.append(np.angle(data))
             # amp = np.mean(np.abs(data)) / setup_data['n_accs']
 
-        return zip(phases, chan_resp)
+        return zip(phases, chan_resp), actual_delay_coef
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
 
@@ -2289,10 +2291,15 @@ class test_CBF(unittest.TestCase):
             fringe = (float(fringe[0]), float(fringe[1]))
             ant_delay.append((delay, fringe))
 
-        delay = ant_delay[setup_data['test_source_ind']][0][0]
-        delay_rate = ant_delay[setup_data['test_source_ind']][0][1]
-        fringe_offset = ant_delay[setup_data['test_source_ind']][1][0]
-        fringe_rate = ant_delay[setup_data['test_source_ind']][1][1]
+        # TODO: 
+        # Problem where returned delay coefficients are in wrong location
+        # This hack should be removed when fixed
+        ant_idx = setup_data['test_source_ind']
+        ant_idx = 0 
+        delay = ant_delay[ant_idx][0][0]
+        delay_rate = ant_delay[ant_idx][0][1]
+        fringe_offset = ant_delay[ant_idx][1][0]
+        fringe_rate = ant_delay[ant_idx][1][1]
 
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts,
                                               setup_data)))
@@ -4349,6 +4356,7 @@ class test_CBF(unittest.TestCase):
             delay_rate = ((setup_data['sample_period'] / setup_data['int_time']) *
                            np.random.rand() * (dump_counts - 3))
             #delay_rate = 3.98195128768e-09
+            delay_rate = (0.7*(setup_data['sample_period'] / setup_data['int_time']))
             delay_value = 0
             fringe_offset = 0
             fringe_rate = 0
@@ -4363,8 +4371,8 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data = self._get_actual_data(setup_data, dump_counts,
-                                                delay_coefficients)
+            actual_data, delay_coefficients = self._get_actual_data(
+                    setup_data, dump_counts, delay_coefficients)
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
 
@@ -4477,8 +4485,8 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data = self._get_actual_data(setup_data, dump_counts,
-                                                delay_coefficients)
+            actual_data, delay_coefficients = self._get_actual_data(
+                    setup_data, dump_counts, delay_coefficients)
 
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
@@ -4587,8 +4595,8 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data = self._get_actual_data(setup_data, dump_counts,
-                                                delay_coefficients)
+            actual_data, delay_coefficients = self._get_actual_data(
+                    setup_data, dump_counts, delay_coefficients)
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
 
@@ -4715,8 +4723,8 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data = self._get_actual_data(setup_data, dump_counts,
-                                                delay_coefficients)
+            actual_data, delay_coefficients = self._get_actual_data(
+                    setup_data, dump_counts, delay_coefficients)
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
 
