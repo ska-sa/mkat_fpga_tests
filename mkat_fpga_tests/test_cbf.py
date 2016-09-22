@@ -76,9 +76,7 @@ DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
 # Also see the digitser end of the story in table 4, word 7 here:
 # https://drive.google.com/a/ska.ac.za/file/d/0BzImdYPNWrAkV1hCR0hzQTYzQlE/view
 
-xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode')(
-    34, 33, 32)
-
+xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode')(34, 33, 32)
 
 # NOTE TP.C.1.20 for AR1 maps to TP.C.1.46 for RTS
 
@@ -87,12 +85,12 @@ xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 # the mode name from the function to make an all singing all dancing decorator that does
 # everything automagically?
 
-# set the SPEAD2 logger to Error only
+# Set the SPEAD2 logger to Error only
 disable_spead2_warnings()
 # This function disables matplotlib's deprecation warnings
 disable_maplotlib_warning()
+# Ignoring all warnings raised when casting a complex dtype to a real dtype.
 disable_numpycomplex_warning()
-
 # protected member included in __all__
 __all__ = ['correlator_fixture', '_test_config_file']
 
@@ -262,6 +260,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0198
             CBF-REQ-0043
             CBF-REQ-0053
+            CBF-REQ-0067
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -285,6 +284,8 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+            CBF-REQ-0053
+            CBF-REQ-0067
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -308,6 +309,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+            CBF-REQ-0067
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1877,7 +1879,7 @@ class test_CBF(unittest.TestCase):
         """Checking system stability before and after use"""
         if not confirm_out_dest_ip(self):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
-            'ie data is being spewed elsewhere.')
+                       'ie data is being spewed elsewhere.')
 
         if set_default_eq(self) is False:
             Aqf.failed('Failed to reset gains to default values from config file on all F-Engines')
