@@ -874,7 +874,7 @@ class test_CBF(unittest.TestCase):
             timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
-                    self._test_vacc(test_chan, chan_index)
+                    self._test_vacc(test_chan)
             except TestTimeout.TestTimeoutError:
                 errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
                                                                                     timeout_test))
@@ -903,7 +903,7 @@ class test_CBF(unittest.TestCase):
             timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
-                    self._test_vacc(test_chan, chan_index)
+                    self._test_vacc(test_chan)
             except TestTimeout.TestTimeoutError:
                 errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
                                                                                     timeout_test))
@@ -932,7 +932,7 @@ class test_CBF(unittest.TestCase):
             timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
-                    self._test_vacc(test_chan, chan_index)
+                    self._test_vacc(test_chan)
             except TestTimeout.TestTimeoutError:
                 errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
                                                                                     timeout_test))
