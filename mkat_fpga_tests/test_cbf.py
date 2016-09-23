@@ -491,6 +491,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -512,6 +515,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -533,6 +539,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -554,6 +563,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -575,6 +587,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -596,6 +611,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -617,6 +635,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -638,6 +659,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0213
             CBF-REQ-0214
             CBF-REQ-0215
+            CBF-REQ-0090
+            CBF-REQ-0091
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -653,6 +677,7 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M4k__correlator_restart_consistency(self, instrument='bc8n856M4k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc8n856M4k)
+        CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -681,6 +706,7 @@ class test_CBF(unittest.TestCase):
     def test_bc16n856M4k__correlator_restart_consistency(self, instrument='bc16n856M4k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc16n856M4k)
+        CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -695,6 +721,7 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M32k__correlator_restart_consistency(self, instrument='bc8n856M32k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc8n856M32k)
+        CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -836,7 +863,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            timeout_test = 5
+            timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
                     self._test_vacc(test_chan, chan_index)
@@ -865,7 +892,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            timeout_test = 5
+            timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
                     self._test_vacc(test_chan, chan_index)
@@ -894,7 +921,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            timeout_test = 5
+            timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
                     self._test_vacc(test_chan, chan_index)
@@ -924,7 +951,7 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             chan_index = 4096
             test_chan = randrange(chan_index)
-            timeout_test = 5
+            timeout_test = 1800
             try:
                 with TestTimeout(timeout_test):
                     self._test_vacc(test_chan, chan_index)
@@ -939,6 +966,7 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0013
+            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -954,6 +982,7 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0013
+            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -969,6 +998,7 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0013
+            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -984,6 +1014,7 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0013
+            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1161,6 +1192,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0066
             CBF-REQ-0185
             CBF-REQ-0072
+            CBF-REQ-0112
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1187,6 +1219,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0110
             CBF-REQ-0066
             CBF-REQ-0185
+            CBF-REQ-0112
             CBF-REQ-0072
         """
         instrument_success = self.set_instrument(instrument)
@@ -1215,6 +1248,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0066
             CBF-REQ-0185
             CBF-REQ-0072
+            CBF-REQ-0112
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1242,8 +1276,9 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0066
             CBF-REQ-0185
             CBF-REQ-0072
+            CBF-REQ-0112
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1895,6 +1930,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0069
             CBF-REQ-0178
             CBF-REQ-0204
+            CBF-REQ-0056
         """
         running_inst = self.corr_fix.get_running_intrument()
         if running_inst.values()[0]:
@@ -1913,8 +1949,12 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
                        'ie data is being spewed elsewhere.')
 
-        if set_default_eq(self) is False:
-            Aqf.failed('Failed to reset gains to default values from config file on all F-Engines')
+        try:
+            if set_default_eq(self) is False:
+                Aqf.failed('Failed to reset gains to default values from config file on all '
+                           'F-Engines')
+        except Exception:
+            pass
         # ---------------------------------------------------------------
         def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
             LOGGER.info('Retrieving PFB, LRU, QDR, PHY and reorder status on all Engines.')
@@ -2044,9 +2084,8 @@ class test_CBF(unittest.TestCase):
             if not self.corr_fix.issue_metadata():
                 Aqf.failed('Could not issues new metadata')
             Aqf.step('Retrieving initial SPEAD packet.')
-            for i in xrange(2):
-                self.corr_fix.issue_metadata()
-                self.corr_fix.start_x_data()
+            self.corr_fix.issue_metadata()
+            self.corr_fix.start_x_data()
             try:
                 initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Queue.Empty:
@@ -2055,6 +2094,9 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
             else:
                 sync_time = self.correlator.get_synch_time()
+                if sync_time == -1:
+                    Aqf.failed('Could not retrieve sync time via correlator object.')
+                    return False
                 scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
                 time_stamp = initial_dump['timestamp'].value
                 n_accs = initial_dump['n_accs'].value
@@ -2074,6 +2116,7 @@ class test_CBF(unittest.TestCase):
                 dump_1_timestamp = (sync_time + roundtrip +
                                     time_stamp / scale_factor_timestamp)
                 t_apply = dump_1_timestamp + 10 * int_time + future_time
+
                 t_apply_ticks = (t_apply - sync_time) * scale_factor_timestamp
                 Aqf.hop('Time apply in board ticks: {:20f}'.format(t_apply_ticks))
                 no_chans = range(self.corr_freqs.n_chans)
@@ -2107,7 +2150,7 @@ class test_CBF(unittest.TestCase):
                         'test_source_ind': test_source_idx
                     }
 
-    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=20):
+    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=30):
         Aqf.step('Time apply to set delays: {}'.format(setup_data['t_apply']))
         cam_max_load_time = 1
         try:
@@ -2131,12 +2174,15 @@ class test_CBF(unittest.TestCase):
             katcp_conn_time = time.time()
             reply, _informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
                                                                  *delay_coefficients)
-            actual_delay_coef = reply.arguments[1:]
             cmd_end_time = time.time()
+            actual_delay_coef = reply.arguments[1:]
+            try:
+                assert setup_data['num_inputs'] == len(actual_delay_coef)
+            except:
+                actual_delay_coef = None
 
             cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
             final_cmd_time = np.abs(cmd_end_time - cmd_tot_time)
-
         except:
             errmsg = ('Failed to set delays via CAM interface with loadtime: %s, '
                       'Delay coefficiencts: %s' % (setup_data['t_apply'], delay_coefficients))
@@ -3686,7 +3732,9 @@ class test_CBF(unittest.TestCase):
                     msg = ('[CBF-REQ-0157] Writing random data to {} the '
                            'QDR memory.'.format(host.host.upper()))
                     Aqf.is_true(blindwrite(host), msg)
-
+                    # TODO MM 2016-09-23
+                    # perhaps try to put it in a while loop to make sure everything is
+                    # failing as it should
                     try:
                         msg = ('[CBF-REQ-0157] Confirm that sensor indicates that'
                                ' the memory on {} is unreadable/corrupted.'.format(host.host))
@@ -3998,7 +4046,7 @@ class test_CBF(unittest.TestCase):
         test_freq = self.corr_freqs.bandwidth / 2.
         test_input = sorted(self.correlator.fengine_sources.keys())[0]
         eq_scaling = 30
-        acc_times = [0.2, 0.5, 1]
+        acc_times = [0.2, 0.3, 1]
         n_chans = self.corr_freqs.n_chans
 
         internal_accumulations = int(
@@ -4358,15 +4406,11 @@ class test_CBF(unittest.TestCase):
 
         setup_data = self._delays_setup()
         if setup_data:
-            #get_delay_ranges = get_delay_bounds(self.correlator)
-            #delay_min = get_delay_ranges['max_negative_delta_delay']
-            #delay_max = get_delay_ranges['max_positive_delta_delay']
-            #delay_rate = randrange(delay_min, delay_max, int=float) / 5
             dump_counts = 5
-            delay_rate = ((setup_data['sample_period'] / setup_data['int_time']) *
-                           np.random.rand() * (dump_counts - 3))
+            #delay_rate = ((setup_data['sample_period'] / setup_data['int_time']) *
+                           #np.random.rand() * (dump_counts - 3))
             #delay_rate = 3.98195128768e-09
-            delay_rate = (0.7*(setup_data['sample_period'] / setup_data['int_time']))
+            delay_rate = (0.7 * (setup_data['sample_period'] / setup_data['int_time']))
             delay_value = 0
             fringe_offset = 0
             fringe_rate = 0
@@ -4381,13 +4425,18 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data, delay_coefficients = self._get_actual_data(
+            actual_data, _delay_coefficients = self._get_actual_data(
                     setup_data, dump_counts, delay_coefficients)
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
 
-            expected_phases = self._get_expected_data(setup_data, dump_counts,
+            if _delay_coefficients is not None:
+                expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                      _delay_coefficients, actual_phases)
+            else:
+                expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                       delay_coefficients, actual_phases)
+
             no_chans = range(self.corr_freqs.n_chans)
             plot_units = 'ns/s'
             plot_title = 'Randomly generated delay rate {} {}'.format(delay_rate * 1e9,
@@ -4473,13 +4522,8 @@ class test_CBF(unittest.TestCase):
 
         setup_data = self._delays_setup()
         if setup_data:
-            # get_fringe_ranges = get_delay_bounds(self.correlator)
-            # min_fringe_rate = get_fringe_ranges['max_negative_delta_phase']
-            # max_fringe_rate = get_fringe_ranges['max_positive_delta_phase']
-            # fringe_rate = randrange(min_fringe_rate, max_fringe_rate, int=float)
             dump_counts = 5
-            fringe_rate = (((np.pi / 8.) / setup_data['int_time']) *
-                           np.random.rand() * dump_counts)
+            fringe_rate = (((np.pi / 8.) / setup_data['int_time']) * np.random.rand() * dump_counts)
             delay_value = 0
             delay_rate = 0
             fringe_offset = 0
@@ -4495,13 +4539,17 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data, delay_coefficients = self._get_actual_data(
+            actual_data, _delay_coefficients = self._get_actual_data(
                     setup_data, dump_counts, delay_coefficients)
 
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
 
-            expected_phases = self._get_expected_data(setup_data, dump_counts,
+            if _delay_coefficients is not None:
+                expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                      _delay_coefficients, actual_phases)
+            else:
+                expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                       delay_coefficients, actual_phases)
 
             if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
@@ -4581,12 +4629,6 @@ class test_CBF(unittest.TestCase):
         """CBF per-antenna phase error -- Fringe offset"""
         setup_data = self._delays_setup()
         if setup_data:
-            # [CBF-REQ-0112]
-            # get_fringe_ranges = get_delay_bounds(self.correlator)
-            # min_fringe_offset = get_fringe_ranges['max_negative_phase_offset']
-            # max_fringe_offset = get_fringe_ranges['max_positive_phase_offset']
-            # fringe_offset = randrange(min_fringe_offset, max_fringe_offset,
-            # default=max_fringe_offset/2., int=float)
             dump_counts = 5
             # fringe_offset = (np.pi / 2.) * np.random.rand() * dump_counts
             fringe_offset = 1.22796022444
@@ -4605,13 +4647,17 @@ class test_CBF(unittest.TestCase):
             Aqf.step('[CBF-REQ-0112] Fringe Offset: {}'.format(fringe_offset))
             Aqf.step('[CBF-REQ-0112] Fringe Rate: {}'.format(fringe_rate))
 
-            actual_data, delay_coefficients = self._get_actual_data(
+            actual_data, _delay_coefficients = self._get_actual_data(
                     setup_data, dump_counts, delay_coefficients)
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
-
-            expected_phases = self._get_expected_data(setup_data, dump_counts,
+            if _delay_coefficients is not None:
+                expected_phases = self._get_expected_data(setup_data, dump_counts,
+                                                      _delay_coefficients, actual_phases)
+            else:
+                expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                       delay_coefficients, actual_phases)
+
 
             if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
                 Aqf.failed('Delays could not be applied at time_apply: {} '

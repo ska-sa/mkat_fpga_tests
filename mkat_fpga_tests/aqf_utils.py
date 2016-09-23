@@ -1,7 +1,7 @@
 import functools
 import matplotlib.pyplot as plt
 import textwrap
-
+import numpy as np
 from nosekatreport import Aqf
 
 from mkat_fpga_tests.utils import loggerise
@@ -43,8 +43,8 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
         for phases in actual_data:
             plt.plot(freqs, phases)
     else:
-        plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(actual_data[0],
-                                                                    plot_units))
+        plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(np.max(np.abs(actual_data[0])),
+                                                             plot_units))
 
     plt.gca().set_prop_cycle(None)
     if len(expected_data) == dump_counts or len(expected_data) == dump_counts - 1:
