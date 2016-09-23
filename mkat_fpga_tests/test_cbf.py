@@ -2487,10 +2487,11 @@ class test_CBF(unittest.TestCase):
             if np.abs(freq - expected_fc) < 0.1:
                 max_peak = np.max(loggerise(this_freq_response))
                 new_cutoff = max_peak - cutoff
-                caption = ('An overrall frequency response at the center frequency, and {}dB channel '
-                           'isolation [max channel peak({}dB) - {}dB] when  digitiser simulator is '
-                           'configured to generate a continuous wave, with cw scale: {}, '
-                           'awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(new_cutoff,
+                caption = ('An overrall frequency response at the center frequency, and ({:.3f}dB) '
+                           'channel isolation [max channel peak ({:.3f}dB) - ({}dB) cutoff] when '
+                           'digitiser simulator is configured to generate a continuous wave, with '
+                           'cw scale: {}, awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(
+                                                                                  new_cutoff,
                                                                                   max_peak,
                                                                                   cutoff,
                                                                                   cw_scale,
