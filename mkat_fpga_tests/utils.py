@@ -5,7 +5,11 @@ import matplotlib
 import numpy as np
 import time
 import warnings
+import signal
+import errno
+import os
 
+from functools import wraps
 from nosekatreport import Aqf
 from socket import inet_ntoa
 from struct import pack
@@ -804,3 +808,28 @@ def confirm_out_dest_ip(self):
                 return False
             else:
                 return True
+
+
+class TestTimeout:
+    """
+    Test Timeout class using ALARM signal.
+    :param: seconds -> Int
+    :param: error_message -> Str
+    :rtype: Exception
+    """
+    class TestTimeoutError(Exception):
+        pass
+
+    def __init__(self, seconds=1, error_message='Test Timed-out'):
+        self.seconds = seconds
+        self.error_message = ''.join([error_message, ' after {} seconds'.format(self.seconds)])
+
+    def handle_timeout(self, signum, frame):
+        raise TestTimeout.TestTimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)

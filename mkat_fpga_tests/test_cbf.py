@@ -51,7 +51,7 @@ from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
 from mkat_fpga_tests.utils import disable_numpycomplex_warning, confirm_out_dest_ip
 from mkat_fpga_tests.utils import disable_spead2_warnings, disable_maplotlib_warning
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
-from mkat_fpga_tests.utils import get_baselines_lookup, get_figure_numbering
+from mkat_fpga_tests.utils import get_baselines_lookup, TestTimeout
 from mkat_fpga_tests.utils import get_pfb_counts, get_adc_snapshot, check_host_okay
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import ignored, clear_host_status, restore_src_names
@@ -93,6 +93,7 @@ disable_maplotlib_warning()
 disable_numpycomplex_warning()
 # protected member included in __all__
 __all__ = ['correlator_fixture', '_test_config_file']
+
 
 
 @cls_end_aqf
@@ -835,7 +836,15 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            self._test_vacc(test_chan)
+            timeout_test = 5
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_vacc(test_chan, chan_index)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                                                                                    timeout_test))
+                Aqf.failed(errmsg)
+
 
     @aqf_vr('TP.C.1.31')
     def test_bc32n856M4k_vacc(self, instrument='bc32n856M4k'):
@@ -856,7 +865,15 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            self._test_vacc(test_chan)
+            timeout_test = 5
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_vacc(test_chan, chan_index)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                                                                                    timeout_test))
+                Aqf.failed(errmsg)
+
 
     @aqf_vr('TP.C.1.31')
     def test_bc16n856M4k_vacc(self, instrument='bc16n856M4k'):
@@ -877,7 +894,15 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._systems_tests()
             test_chan = randrange(self.corr_freqs.n_chans)
-            self._test_vacc(test_chan)
+            timeout_test = 5
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_vacc(test_chan, chan_index)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                                                                                    timeout_test))
+                Aqf.failed(errmsg)
+
 
     @aqf_vr('TP.C.1.31')
     def test_bc8n856M32k_vacc(self, instrument='bc8n856M32k'):
@@ -899,7 +924,14 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             chan_index = 4096
             test_chan = randrange(chan_index)
-            self._test_vacc(test_chan, chan_index)
+            timeout_test = 5
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_vacc(test_chan, chan_index)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                                                                                    timeout_test))
+                Aqf.failed(errmsg)
 
     @aqf_vr('TP.C.1.40')
     def test_bc8n856M4k_product_switch(self, instrument='bc8n856M4k'):
@@ -2111,14 +2143,13 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
-            msg = ('[CBF-REQ-0077, 0187]: Time it takes to load delays {0:.3f}s '
-                   'should be less than {1}s with integration time of {2:.3f}s'.format(
-                final_cmd_time, cam_max_load_time, setup_data['int_time']))
+            msg = ('[CBF-REQ-0077, 0187]: Time it takes to load delays is less than {}s with '
+                   'integration time of {} seconds'.format(cam_max_load_time,
+                                                           setup_data['int_time']))
             # Aqf.less(final_cmd_time, cam_max_load_time, msg)
             Aqf.passed(msg)
-            msg = (
-                '[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}'.format(
-                    reply.arguments[1]))
+            msg = ('[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}'.format(
+                                                                                reply.arguments[1]))
             Aqf.is_true(reply.reply_ok(), msg)
 
         last_discard = setup_data['t_apply'] - setup_data['int_time']
@@ -3979,9 +4010,15 @@ class test_CBF(unittest.TestCase):
         eqs = np.zeros(n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
         get_and_restore_initial_eqs(self, self.correlator)
-        reply, _informs = self.corr_fix.katcp_rct.req.gain(test_input, *list(eqs))
-        if reply.reply_ok():
-            Aqf.hop('[CBF-REQ-0119] Gain factors set successfully via CAM interface.')
+        try:
+            reply, _informs = self.corr_fix.katcp_rct.req.gain(test_input, *list(eqs))
+        except Exception:
+            errmsg = 'Gains/Eq could not be set via CAM interface'
+            Aqf.failed(errmsg)
+            LOGGER.error(errmsg)
+        else:
+            if reply.reply_ok():
+                Aqf.hop('[CBF-REQ-0119] Gain factors set successfully via CAM interface.')
         Aqf.step(
             'Configured Dsim output(cw0 @ {0:.3f}MHz) to be periodic in FFT-length: {1} '
             'in order for each FFT to be identical'.format(test_freq / 1e6, n_chans * 2))
