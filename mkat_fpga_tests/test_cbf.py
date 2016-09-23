@@ -2485,20 +2485,20 @@ class test_CBF(unittest.TestCase):
                 this_source_freq / 1e6)
 
             if np.abs(freq - expected_fc) < 0.1:
-                new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
-                caption = ('An overrall frequency response at the center frequency, and channel '
-                           'isolation [max channel peak({}dB) - 53dB] when  digitiser simulator is '
+                max_peak = np.max(loggerise(this_freq_response))
+                new_cutoff = max_peak - cutoff
+                caption = ('An overrall frequency response at the center frequency, and {}dB channel '
+                           'isolation [max channel peak({}dB) - {}dB] when  digitiser simulator is '
                            'configured to generate a continuous wave, with cw scale: {}, '
                            'awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(new_cutoff,
-                                                                                cw_scale,
-                                                                                awgn_scale,
-                                                                                gain,
-                                                                                fft_shift))
+                                                                                  max_peak,
+                                                                                  cutoff,
+                                                                                  cw_scale,
+                                                                                  awgn_scale,
+                                                                                  gain,
+                                                                                  fft_shift))
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title, caption=caption,
                     hlines=new_cutoff)
-                #aqf_plot_channels(channelisation, plot_filename='', plot_title=None, log_dynamic_range=90,
-                #      log_normalise_to=1, normalise=False, caption="", hlines=None, ylimits=None,
-                #         xlabel=None, show=False):
 
 
         # Test fft overflow and qdr status after
@@ -2792,11 +2792,10 @@ class test_CBF(unittest.TestCase):
 
             test_freq_mega = self.corr_freqs.chan_freqs[channel] / 1e6
             plt_title = 'Frequency response at {0} @ {1:.3f} MHz'.format(channel, test_freq_mega)
-            caption = (
-                'An overrall frequency response at channel {0} @ {1:.3f}MHz, '
-                'when digitiser simulator is configured to generate a continuous wave, '
-                'with cw scale: {2}. awgn scale: {3}, eq gain: {4}, fft shift: {5}'.format(
-                    channel, test_freq_mega, cw_scale, awgn_scale, gain, fft_shift))
+            caption = ('An overrall frequency response at channel {0} @ {1:.3f}MHz, '
+                       'when digitiser simulator is configured to generate a continuous wave, '
+                       'with cw scale: {2}. awgn scale: {3}, eq gain: {4}, fft shift: {5}'.format(
+                            channel, test_freq_mega, cw_scale, awgn_scale, gain, fft_shift))
 
             new_cutoff = np.max(loggerise(channel_resp)) - cutoff
             aqf_plot_channels(channel_resp, plt_filename, plt_title, log_dynamic_range=90,
@@ -4450,7 +4449,7 @@ class test_CBF(unittest.TestCase):
             plot_title = 'Randomly generated delay rate {} {}'.format(delay_rate * 1e9,
                                                                       plot_units)
             plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-            caption = ('Actual vs Expected Unwrapped Correlation Delay Rate.\n'
+            caption = ('Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n'
                        'Note: Dashed line indicates expected value and solid line indicates '
                        'actual values received from SPEAD packet.')
 
@@ -4569,7 +4568,7 @@ class test_CBF(unittest.TestCase):
                 plot_title = 'Randomly generated fringe rate {} {}'.format(fringe_rate,
                                                                            plot_units)
                 plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-                caption = ('Actual vs Expected Unwrapped Correlation Phase Rate.\n'
+                caption = ('Actual vs Expected Unwrapped Correlation Phase [Fringe Rate].\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD packet.')
 
@@ -4676,7 +4675,7 @@ class test_CBF(unittest.TestCase):
                 plot_title = 'Randomly generated fringe offset {0:.3f} {1}'.format(
                     fringe_offset, plot_units)
                 plot_filename = '{}_phase_response.png'.format(self._testMethodName)
-                caption = ('Actual vs Expected Unwrapped Correlation Phase.\n'
+                caption = ('Actual vs Expected Unwrapped Correlation Phase [Fringe Offset].\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD packet. '
                            'Values are rounded off to 3 decimals places')
