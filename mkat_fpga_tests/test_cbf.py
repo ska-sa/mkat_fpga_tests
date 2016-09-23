@@ -494,6 +494,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -518,6 +519,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -542,6 +544,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -566,6 +569,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -590,6 +594,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -614,6 +619,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -638,6 +644,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -662,6 +669,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0090
             CBF-REQ-0091
             CBF-REQ-0223
+            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
