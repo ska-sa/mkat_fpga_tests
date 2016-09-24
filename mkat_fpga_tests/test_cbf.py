@@ -3496,7 +3496,7 @@ class test_CBF(unittest.TestCase):
                         else:
                             msg = ('[CBF-REQ-0077, 0187]: Time it takes to load delays is less '
                                    'than {}s with integration time of {:.3f}s'.format(
-                                                                this_freq_dump['int_time'].value))
+                                        cam_max_load_time, this_freq_dump['int_time'].value))
 
                             # Aqf.less(final_cmd_time, cam_max_load_time, msg)
                             Aqf.passed(msg)
