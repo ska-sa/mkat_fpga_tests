@@ -84,7 +84,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynamic_range=90,
                       log_normalise_to=1, normalise=False, caption="", hlines=None, ylimits=None,
-                      xlabel=None, show=False):
+                      xlabel=None, show=False, plot_type='channel', hline_strt_idx=0):
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -111,6 +111,15 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
 
         If Normalise = True the maximum log value will be subtracted from the loggerised
         data.
+
+        plot_type:
+            channel = Channelisation test plot
+            eff     = Efficiency plot
+            bf      = Beamformer response plot
+        hline_strt_idx:
+            Horisontal line colour will be matched to the actual line colour. If multiple
+            hlines will be plotted, use this index to indicate at which actual line to
+            start matching colours.
     """
     try:
         if not isinstance(channelisation[0], tuple):
@@ -118,6 +127,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
     except IndexError:
         Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
     has_legend = False
+    plt_line = []
     for plot_data, legend in channelisation:
         kwargs = {}
         if legend:
@@ -128,14 +138,18 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
                                   normalise_to=log_normalise_to, normalise=normalise)
             ylabel = 'Channel response [dB]'
         else:
-            ylabel = 'Channel response (linear)'
+            if plot_type == 'eff':
+                ylabel = 'Efficiency [%]'
+            else:
+                ylabel = 'Channel response (linear)'
 
         try:
             plt.grid(True)
         except tkinter.TclError:
             LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
             return False
-        plt.plot(plot_data, **kwargs)
+        plt_line_obj = plt.plot(plot_data, **kwargs)
+        plt_line.append(plt_line_obj)
         if plot_title:
             plt.title(plot_title)
         plt.ylabel(ylabel)
@@ -145,13 +159,25 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
             plt.xlabel('Channel number')
 
     if hlines:
-        plt.axhline(hlines, linestyle='dotted', color='red', linewidth=1.5)
-        msg = ('Channel isolation: {0:.3f} dB'.format(hlines))
-        plt.annotate(msg, xy=(len(plot_data) / 2, hlines), xytext=(-20, -30),
-                     textcoords='offset points', ha='center', va='bottom',
-                     bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                     arrowprops=dict(arrowstyle='->', fc='yellow',
-                                     connectionstyle='arc3, rad=0.5', color='red'))
+        if type(hlines) is not list:
+            hlines = [hlines]
+        for idx, lines in enumerate(hlines):
+            try:
+                color = plt_line[idx + hline_strt_idx][0].get_color()
+            except:
+                color = 'red'
+            plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
+            if plot_type == 'eff':        
+                msg = ('Requirement = {0}%'.format(lines))
+            elif plot_type == 'bf':        
+                msg = ('Expected = {0:.2f}dB'.format(lines))
+            else:
+                msg = ('Channel isolation: {0:.3f} dB'.format(lines))
+            plt.annotate(msg, xy=(len(plot_data) / 2, lines), xytext=(-20, -30),
+                         textcoords='offset points', ha='center', va='bottom',
+                         bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                         arrowprops=dict(arrowstyle='->', fc='yellow',
+                                         connectionstyle='arc3, rad=0.5', color='red'))
 
     if ylimits:
         plt.ylim(ylimits)
