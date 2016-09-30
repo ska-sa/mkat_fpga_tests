@@ -1573,6 +1573,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0208
             CBF-REQ-0002
+            CBF-REQ-0120
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1591,6 +1592,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0208
             CBF-REQ-0002
+            CBF-REQ-0120
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1609,6 +1611,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0208
             CBF-REQ-0002
+            CBF-REQ-0120
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1627,6 +1630,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0208
             CBF-REQ-0002
+            CBF-REQ-0120
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -5557,6 +5561,7 @@ class test_CBF(unittest.TestCase):
                                   log_dynamic_range=90, log_normalise_to=1,
                                   caption='Delay applied to the correct input')
 
+    @aqf_vr('TP.C.1.33')
     def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
         # Put some correlated noise on both outputs
@@ -5617,6 +5622,97 @@ class test_CBF(unittest.TestCase):
                                   caption=caption)
             else:
                 Aqf.failed('Imaging data product set has not been implemented.')
+        try:
+            reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+            if reply.reply_ok():
+                ants = int(len(reply.arguments[1:])/2)
+            else:
+                raise Exception
+        except Exception, e:
+            Aqf.failed(e)
+            return
+        # Set list for all the correlator input labels
+        if ants == 4:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
+        elif ants == 8:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
+        elif ants == 16:
+            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                               'm006_x', 'm006_y', 'm007_x', 'm007_y',
+                               'm008_x', 'm008_y', 'm009_x', 'm009_y',
+                               'm010_x', 'm010_y', 'm011_x', 'm011_y',
+                               'm012_x', 'm012_y', 'm013_x', 'm013_y',
+                               'm014_x', 'm014_y', 'm015_x', 'm015_y']
+        try:
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
+            reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
+            reply, informs = correlator_fixture.katcp_rct.req.input_labels(
+                *local_src_names)
+            if reply.reply_ok():
+                labels = reply.arguments[1:]
+            else:
+                raise Exception
+        except Exception, e:
+            Aqf.failed(e)
+            return
+        bw = self.corr_freqs.bandwidth
+        nr_ch = self.corr_freqs.n_chans
+        dsim_clk_factor = 1.712e9/self.corr_freqs.sample_freq
+
+        # Start of test. Setting required partitions and center frequency
+        partitions = 2
+        part_size = bw / 16
+        target_cfreq = bw + part_size #+ bw*0.5
+        target_pb = partitions * part_size
+        ch_bw = bw/nr_ch
+        beams = ('beam_0x', 'beam_0y')
+        beam = beams[1]
+
+        #Set beamformer quantiser gain for selected beam to 1
+        self._set_beam_quant_gain(beam, 1)
+
+        beam_dict = {}
+        beam_pol = beam[-1]
+        for label in labels:
+            if label.find(beam_pol) != -1:
+                beam_dict[label]=0.0
+
+        # Only one antenna gain is set to 1, this will be used as the reference
+        # input level
+        weight = 1.0
+        beam_dict = self._populate_beam_dict(1, weight, beam_dict)
+        bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
+                beam_dict, target_pb, target_cfreq)
+        nc = 10000
+        cap = [0] * nc
+        for i in range(0, nc):
+            cap[i] = np.array(complexise(bf_raw[:, i, :]))
+        cap_mag = np.abs(cap)
+        cap_avg = cap_mag.sum(axis=0)/nc
+        # Confirm that the beam channel bandwidth corresponds to the channel bandwidth 
+        # determined from the baseline capture
+        baseline_ch_bw = bw*dsim_clk_factor/response.shape[0]
+        beam_ch_bw = pb/len(cap_mag[0])
+        Aqf.equals(baseline_ch_bw, beam_ch_bw,
+                    '[CBF-REQ-0120] Confirm Baseline Correlation Product channel width {}Hz '
+                    'is the same as the Tied Array Beam channel width {}Hz'.format(
+                        baseline_ch_bw, beam_ch_bw))
+        # Square the voltage data. This is a hack as aqf_plot expects squared
+        # power data
+        aqf_plot_channels(np.square(cap_avg),
+                          plot_filename='{}_beam_resp_{}.png'.format(self._testMethodName, beam),
+                          plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
+                          '\nIntegrated over {} captures'.format(beam, pb/1e6, cf/1e6, nc)),
+                          log_dynamic_range=90, log_normalise_to=1,
+                          caption='Tied Array Beamformer data captured during Baseline Correlation '
+                          'Product test.', plot_type='bf')
+        
 
     def _test_control_init(self):
         """
@@ -6340,7 +6436,7 @@ class test_CBF(unittest.TestCase):
         beam = beams[1]
 
         #Set beamformer quantiser gain for selected beam to 1
-        self._set_beam_quant_gain(beam, 0.01)
+        self._set_beam_quant_gain(beam, 1)
 
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -7349,3 +7445,101 @@ class test_CBF(unittest.TestCase):
                    'of {:.4f} seconds per sample.'.format(n_accs, ch_bw, acc_time))
         aqf_plot_channels(eff*100, plt_filename, plt_title, caption=caption, 
                 log_dynamic_range=None, hlines=98, plot_type='eff')
+
+
+    @aqf_vr('TP.C.4.6')
+    def test_bc8n856M4k_small_voltage_buffer(self, instrument='bc8n856M4k'):
+        """
+        CBF Capture small voltage buffer data
+        Test Verifies these requirements:
+            CBF-REQ-0083
+            CBF-REQ-0084
+            CBF-REQ-0085
+            CBF-REQ-0086
+            CBF-REQ-0221
+        """
+        if self.set_instrument(instrument, acc_time=0.2):
+            Aqf.step('Capturing small voltage buffer: {}\n'.format(
+                self.corr_fix.get_running_intrument()))
+            self._small_voltage_buffer()
+
+
+    @aqf_vr('TP.C.4.6')
+    def _small_voltage_buffer(self):
+        try:
+            reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+            if reply.reply_ok():
+                labels = reply.arguments[1:]
+            else:
+                raise Exception
+        except Exception, e:
+            Aqf.failed(e)
+            return
+
+        ch_list = self.corr_freqs.chan_freqs
+        #Choose a frequency 3 quarters through the band
+        cw_chan_set = int(self.corr_freqs.n_chans*3/4) 
+        cw_freq = ch_list[cw_chan_set]
+        dsim_clk_factor = 1.712e9/self.corr_freqs.sample_freq
+        bw = self.corr_freqs.bandwidth
+        eff_freq = (cw_freq+bw)*dsim_clk_factor
+        ch_bw = self.corr_freqs.delta_f
+
+        if self.corr_freqs.n_chans == 4096:
+            # 4K
+            cw_scale = 0.675
+            awgn_scale = 0.05
+            gain = '11+0j'
+            fft_shift = 8191
+        else:
+            # 32K
+            cw_scale = 0.375
+            awgn_scale = 0.085
+            gain = '11+0j'
+            fft_shift = 32767
+
+        Aqf.step('Digitiser simulator configured to generate a continuous wave '
+                 'at {} Hz (channel={}), with cw scale: {}, awgn scale: {}, '
+                 'eq gain: {}, fft shift: {}'.format(cw_freq, cw_chan_set, cw_scale, 
+                     awgn_scale, gain, fft_shift))
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+                                            freq=cw_freq, fft_shift=fft_shift, gain=gain, cw_src=0)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+                                            freq=cw_freq, fft_shift=fft_shift, gain=gain, cw_src=1)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.transient_buffer_trigger()
+            Aqf.passed('Transient buffer trigger present.')
+        except Exception:
+            Aqf.failed('Transient buffer trigger failed.')
+
+        inp = labels[0]
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.adc_snapshot(inp)
+        except Exception:
+            Aqf.failed('Failed to grab adc snapshot.')
+        fpga = self.correlator.fhosts[0]
+        adc_data = fpga.get_adc_snapshots()['p0'].data
+        fft_len = len(adc_data)
+        Aqf.step('ADC capture lenght: {}'.format(fft_len))
+        fft_real = np.abs(np.fft.fft(adc_data))
+        fft_pos = fft_real[0:fft_len/2]
+        cw_chan = np.argmax(fft_pos)
+        cw_freq_found = cw_chan/(fft_len/2)*bw
+        msg = ('Check that the expected frequency: {}Hz and measured frequency: '
+                '{}Hz matches to within a channel bandwidth: {:.3f}Hz'.format(
+                      cw_freq_found, cw_freq, ch_bw))
+        Aqf.almost_equals(cw_freq_found, cw_freq, ch_bw, msg)
+        aqf_plot_channels(np.log10(fft_pos),
+            plot_filename='{}_fft_{}.png'.format(self._testMethodName, inp),
+            plot_title=('Input Frequency = {} Hz\nMeasured Frequency at FFT bin {} '
+                        '= {}Hz'.format(cw_freq, cw_chan, cw_freq_found)),log_dynamic_range=None,
+            caption=('FFT of captured small voltage buffer. {} voltage points captured '
+                     'on input {}. Input bandwidth = {}Hz'.format(fft_len, inp, bw)),
+            xlabel = 'FFT bins', ylabel = 'Response [dB]')

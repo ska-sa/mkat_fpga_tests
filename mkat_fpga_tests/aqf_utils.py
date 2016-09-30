@@ -84,7 +84,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynamic_range=90,
                       log_normalise_to=1, normalise=False, caption="", hlines=None, ylimits=None,
-                      xlabel=None, show=False, plot_type='channel', hline_strt_idx=0):
+                      xlabel=None, show=False, plot_type='channel', hline_strt_idx=0, ylabel=None):
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -136,12 +136,12 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
         if log_dynamic_range is not None:
             plot_data = loggerise(plot_data, log_dynamic_range,
                                   normalise_to=log_normalise_to, normalise=normalise)
-            ylabel = 'Channel response [dB]'
+            ylbl = 'Channel response [dB]'
         else:
             if plot_type == 'eff':
-                ylabel = 'Efficiency [%]'
+                ylbl = 'Efficiency [%]'
             else:
-                ylabel = 'Channel response (linear)'
+                ylbl = 'Channel response (linear)'
 
         try:
             plt.grid(True)
@@ -152,7 +152,10 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', log_dynam
         plt_line.append(plt_line_obj)
         if plot_title:
             plt.title(plot_title)
-        plt.ylabel(ylabel)
+        if ylabel:
+            plt.ylabel(ylabel)
+        else:
+            plt.ylabel(ylbl)
         if xlabel:
             plt.xlabel(xlabel)
         else:
