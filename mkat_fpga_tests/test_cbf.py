@@ -205,7 +205,6 @@ class test_CBF(unittest.TestCase):
                             return {True: None}
 
     @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
     def test_bc8n856M4k_channelisation(self, instrument='bc8n856M4k'):
         """
         CBF Channelisation Wideband Coarse L-band (bc8n856M4k)
@@ -213,7 +212,6 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0126
             CBF-REQ-0047
             CBF-REQ-0046
-            CBF-REQ-0198
             CBF-REQ-0043
         """
         instrument_success = self.set_instrument(instrument)
@@ -228,7 +226,6 @@ class test_CBF(unittest.TestCase):
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
 
     @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
     def test_bc32n856M4k_channelisation(self, instrument='bc32n856M4k'):
         """
         CBF Channelisation Wideband Coarse L-band (bc32n856M4k)
@@ -236,7 +233,6 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0126
             CBF-REQ-0047
             CBF-REQ-0046
-            CBF-REQ-0198
             CBF-REQ-0043
         """
         instrument_success = self.set_instrument(instrument)
@@ -251,7 +247,6 @@ class test_CBF(unittest.TestCase):
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
 
     @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
     def test_bc16n856M4k_channelisation(self, instrument='bc16n856M4k'):
         """
         CBF Channelisation Wideband Coarse L-band (bc16n856M4k)
@@ -259,10 +254,8 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0126
             CBF-REQ-0047
             CBF-REQ-0046
-            CBF-REQ-0198
             CBF-REQ-0043
             CBF-REQ-0053
-            CBF-REQ-0067
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -275,7 +268,6 @@ class test_CBF(unittest.TestCase):
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
 
     @aqf_vr('TP.C.1.20')
-    @aqf_vr('TP.C.1.46')
     def test_bc8n856M32k_channelisation(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Wideband Fine L-band (bc8n856M32k)
@@ -287,7 +279,6 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0050
             CBF-REQ-0049
             CBF-REQ-0053
-            CBF-REQ-0067
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -300,7 +291,6 @@ class test_CBF(unittest.TestCase):
             self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
 
     @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
     def test_bc8n856M4k_channelisation_sfdr_peaks(self, instrument='bc8n856M4k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc8n856M4k)
@@ -311,7 +301,6 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
-            CBF-REQ-0067
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -323,7 +312,6 @@ class test_CBF(unittest.TestCase):
             self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
 
     @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
     def test_bc32n856M4k_channelisation_sfdr_peaks(self, instrument='bc32n856M4k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc32n856M4k)
@@ -345,7 +333,6 @@ class test_CBF(unittest.TestCase):
             self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
 
     @aqf_vr('TP.C.1.19')
-    @aqf_vr('TP.C.1.45')
     def test_bc16n856M4k_channelisation_sfdr_peaks(self, instrument='bc16n856M4k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc16n856M4k)
@@ -367,7 +354,6 @@ class test_CBF(unittest.TestCase):
             self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
 
     @aqf_vr('TP.C.1.20')
-    @aqf_vr('TP.C.1.46')
     def test_bc8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc16n856M4k)
@@ -396,7 +382,6 @@ class test_CBF(unittest.TestCase):
             self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)  # Hz
 
     @aqf_vr('TP.C.1.20')
-    @aqf_vr('TP.C.1.46')
     def test_bc8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc8n856M32k)
@@ -430,7 +415,6 @@ class test_CBF(unittest.TestCase):
             self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  # Hz
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M4k_freq_scan_consistency(self, instrument='bc8n856M4k'):
         """Frequency Scan Consistency Test (bc8n856M4k)"""
         instrument_success = self.set_instrument(instrument)
@@ -443,7 +427,6 @@ class test_CBF(unittest.TestCase):
             self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc32n856M4k_freq_scan_consistency(self, instrument='bc32n856M4k'):
         """Frequency Scan Consistency Test (bc32n856M4k)"""
         instrument_success = self.set_instrument(instrument)
@@ -456,7 +439,6 @@ class test_CBF(unittest.TestCase):
             self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc16n856M4k_freq_scan_consistency(self, instrument='bc16n856M4k'):
         """Frequency Scan Consistency Test (bc16n856M4k)"""
         instrument_success = self.set_instrument(instrument)
@@ -469,7 +451,6 @@ class test_CBF(unittest.TestCase):
             self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M32k_freq_scan_consistency(self, instrument='bc8n856M32k'):
         """Frequency Scan Consistency Test (bc8n856M32k)"""
         instrument_success = self.set_instrument(instrument)
@@ -482,20 +463,13 @@ class test_CBF(unittest.TestCase):
             self._test_freq_scan_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M4k_baseline_correlation_product(self, instrument='bc8n856M4k'):
         """
         CBF Baseline Correlation Products - AR1 (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -507,20 +481,13 @@ class test_CBF(unittest.TestCase):
             self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc32n856M4k_baseline_correlation_product(self, instrument='bc32n856M4k'):
         """
         CBF Baseline Correlation Products - AR1 (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -532,20 +499,13 @@ class test_CBF(unittest.TestCase):
             self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc16n856M4k_baseline_correlation_product(self, instrument='bc16n856M4k'):
         """
         CBF Baseline Correlation Products - AR1 (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -557,20 +517,13 @@ class test_CBF(unittest.TestCase):
             self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M32k_baseline_correlation_product(self, instrument='bc8n856M32k'):
         """
         CBF Baseline Correlation Products - AR1 (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -582,20 +535,13 @@ class test_CBF(unittest.TestCase):
             self._test_product_baselines()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M4k_baseline_correlation_product_consistency(self, instrument='bc8n856M4k'):
         """
         CBF Baseline Correlation Products Consistency (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -607,20 +553,13 @@ class test_CBF(unittest.TestCase):
             self._test_back2back_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc32n856M4k_baseline_correlation_product_consistency(self, instrument='bc32n856M4k'):
         """
         CBF Baseline Correlation Products SPEAD Accumulation SPEAD Consistency (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -632,20 +571,13 @@ class test_CBF(unittest.TestCase):
             self._test_back2back_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc16n856M4k_baseline_correlation_product_consistency(self, instrument='bc16n856M4k'):
         """
         CBF Baseline Correlation Products SPEAD Accumulation SPEAD Consistency (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -657,20 +589,13 @@ class test_CBF(unittest.TestCase):
             self._test_back2back_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M32k_baseline_correlation_product_consistency(self, instrument='bc8n856M32k'):
         """
         CBF Baseline Correlation Products SPEAD Accumulation SPEAD Consistency (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0087
-            CBF-REQ-0025
-            CBF-REQ-0213
-            CBF-REQ-0214
-            CBF-REQ-0215
-            CBF-REQ-0090
-            CBF-REQ-0091
-            CBF-REQ-0223
-            CBF-REQ-0119
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -682,11 +607,14 @@ class test_CBF(unittest.TestCase):
             self._test_back2back_consistency()
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M4k__correlator_restart_consistency(self, instrument='bc8n856M4k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc8n856M4k)
-        CBF-REQ-0021
+        Test Verifies these requirements:
+            CBF-REQ-0021
+            CBF-REQ-0087
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -697,10 +625,15 @@ class test_CBF(unittest.TestCase):
             self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
+
     def test_bc32n856M4k__correlator_restart_consistency(self, instrument='bc32n856M4k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc32n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0021
+            CBF-REQ-0087
+            CBF-REQ-0225
+            CBF-REQ-0104
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -711,11 +644,15 @@ class test_CBF(unittest.TestCase):
             self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc16n856M4k__correlator_restart_consistency(self, instrument='bc16n856M4k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc16n856M4k)
-        CBF-REQ-0021
+        Test Verifies these requirements:
+            CBF-REQ-0021
+            CBF-REQ-0087
+            CBF-REQ-0225
+            CBF-REQ-0104
+            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -726,11 +663,14 @@ class test_CBF(unittest.TestCase):
             self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
-    @aqf_vr('TP.C.1.44')
     def test_bc8n856M32k__correlator_restart_consistency(self, instrument='bc8n856M32k'):
         """
         CBF Restart SPEAD Accumulation Consistency (bc8n856M32k)
-        CBF-REQ-0021
+            CBF-REQ-0021
+            CBF-REQ-0087
+            CBF-REQ-0225
+            CBF-REQ-0104
+            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -740,24 +680,21 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_restart_consistency(instrument, no_channels=32768)
 
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M4k_delay_tracking(self, instrument='bc8n856M4k'):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking (bc8n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0185
-            CBF-REQ-0066
-            CBF-REQ-0072
+            CBF-REQ-0112
             CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -768,24 +705,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_tracking()
 
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc32n856M4k_delay_tracking(self, instrument='bc32n856M4k'):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking (bc32n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0185
-            CBF-REQ-0066
-            CBF-REQ-0072
+            CBF-REQ-0112
             CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -796,24 +730,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_tracking()
 
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc16n856M4k_delay_tracking(self, instrument='bc16n856M4k'):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking (bc16n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0185
-            CBF-REQ-0066
-            CBF-REQ-0072
+            CBF-REQ-0112
             CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -824,24 +755,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_tracking()
 
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M32k_delay_tracking(self, instrument='bc8n856M32k'):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking (bc8n856M32k)
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
             CBF-REQ-0187
             CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0185
-            CBF-REQ-0066
-            CBF-REQ-0072
+            CBF-REQ-0112
             CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -853,16 +781,11 @@ class test_CBF(unittest.TestCase):
             self._test_delay_tracking()
 
     @aqf_vr('TP.C.1.31')
-    def test_bc8n856M4k_vacc(self, instrument='bc8n856M4k'):
+    def test_bc8n856M4k_accumulation_length(self, instrument='bc8n856M4k'):
         """
         Vector Accumulator Test (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0096
-            CBF-REQ-0089
-            CBF-REQ-0081
-            CBF-REQ-0099
-            CBF-REQ-0071
-            CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -883,15 +806,11 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.31')
-    def test_bc32n856M4k_vacc(self, instrument='bc32n856M4k'):
+    def test_bc32n856M4k_accumulation_length(self, instrument='bc32n856M4k'):
         """
         Vector Accumulator Test (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0096
-            CBF-REQ-0089
-            CBF-REQ-0081
-            CBF-REQ-0099
-            CBF-REQ-0071
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -912,15 +831,11 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.31')
-    def test_bc16n856M4k_vacc(self, instrument='bc16n856M4k'):
+    def test_bc16n856M4k_accumulation_length(self, instrument='bc16n856M4k'):
         """
         Vector Accumulator Test (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0096
-            CBF-REQ-0089
-            CBF-REQ-0081
-            CBF-REQ-0099
-            CBF-REQ-0071
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -941,15 +856,11 @@ class test_CBF(unittest.TestCase):
 
 
     @aqf_vr('TP.C.1.31')
-    def test_bc8n856M32k_vacc(self, instrument='bc8n856M32k'):
+    def test_bc8n856M32k_accumulation_length(self, instrument='bc8n856M32k'):
         """
         Vector Accumulator Test (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0096
-            CBF-REQ-0089
-            CBF-REQ-0081
-            CBF-REQ-0099
-            CBF-REQ-0071
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -975,7 +886,6 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0013
-            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -991,7 +901,6 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0013
-            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1007,7 +916,6 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0013
-            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1023,7 +931,6 @@ class test_CBF(unittest.TestCase):
         CBF Data Product Switching Time (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0013
-            CBF-REQ-0021
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1035,7 +942,7 @@ class test_CBF(unittest.TestCase):
 
     # Flagging of data test waived as it not part of AR-1.
     @aqf_vr('TP.C.1.38')
-    def test_bc8n856M4k_overflow_flag(self, instrument='bc8n856M4k'):
+    def _test_bc8n856M4k_overflow_flag(self, instrument='bc8n856M4k'):
         """CBF flagging of data -- ADC overflow (bc8n856M4k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1046,7 +953,7 @@ class test_CBF(unittest.TestCase):
             self._test_adc_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc16n856M4k_overflow_flag(self, instrument='bc16n856M4k'):
+    def _test_bc16n856M4k_overflow_flag(self, instrument='bc16n856M4k'):
         """CBF flagging of data -- ADC overflow (bc16n856M4k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1057,7 +964,7 @@ class test_CBF(unittest.TestCase):
             self._test_adc_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc8n856M32k_overflow_flag(self, instrument='bc8n856M32k'):
+    def _test_bc8n856M32k_overflow_flag(self, instrument='bc8n856M32k'):
         """CBF flagging of data -- ADC overflow (bc8n856M32k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1068,7 +975,7 @@ class test_CBF(unittest.TestCase):
             self._test_adc_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc8n856M4k_noise_diode_flag(self, instrument='bc8n856M4k'):
+    def _test_bc8n856M4k_noise_diode_flag(self, instrument='bc8n856M4k'):
         """CBF flagging of data -- noise diode fired (bc8n856M4k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1079,7 +986,7 @@ class test_CBF(unittest.TestCase):
             self._test_noise_diode_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc16n856M4k_noise_diode_flag(self, instrument='bc16n856M4k'):
+    def _test_bc16n856M4k_noise_diode_flag(self, instrument='bc16n856M4k'):
         """CBF flagging of data -- noise diode fired (bc16n856M4k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1090,7 +997,7 @@ class test_CBF(unittest.TestCase):
             self._test_noise_diode_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc8n856M32k_noise_diode_flag(self, instrument='bc8n856M32k'):
+    def _test_bc8n856M32k_noise_diode_flag(self, instrument='bc8n856M32k'):
         """CBF flagging of data -- noise diode fired (bc8n856M32k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1101,7 +1008,7 @@ class test_CBF(unittest.TestCase):
             self._test_noise_diode_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc8n856M4k_fft_overflow_flag(self, instrument='bc8n856M4k'):
+    def _test_bc8n856M4k_fft_overflow_flag(self, instrument='bc8n856M4k'):
         """CBF flagging of data -- FFT overflow (bc8n856M4k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1112,7 +1019,7 @@ class test_CBF(unittest.TestCase):
             self._test_fft_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc16n856M4k_fft_overflow_flag(self, instrument='bc16n856M4k'):
+    def _test_bc16n856M4k_fft_overflow_flag(self, instrument='bc16n856M4k'):
         """CBF flagging of data -- FFT overflow (bc16n856M4k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1123,7 +1030,7 @@ class test_CBF(unittest.TestCase):
             self._test_fft_overflow_flag()
 
     @aqf_vr('TP.C.1.38')
-    def test_bc8n856M32k_fft_overflow_flag(self, instrument='bc8n856M32k'):
+    def _test_bc8n856M32k_fft_overflow_flag(self, instrument='bc8n856M32k'):
         """CBF flagging of data -- FFT overflow (bc8n856M32k)"""
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1133,7 +1040,9 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_fft_overflow_flag()
 
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M4k_delay_rate(self, instrument='bc8n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc8n856M4k)
         """
@@ -1146,35 +1055,22 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_rate()
 
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc32n856M4k_delay_rate(self, instrument='bc32n856M4k'):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc32n856M4k)"""
-        instrument_success = self.set_instrument(instrument, acc_time=1)
-        if instrument_success.keys()[0] is not True:
-            Aqf.end(passed=False, message=instrument_success.values()[0])
-        else:
-            _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
-            self._systems_tests()
-            self._test_delay_rate()
-
-    @aqf_vr('TP.C.1.27')
-    @aqf_vr('TP.C.1.26')
-    def test_bc16n856M4k_delay_rate(self, instrument='bc16n856M4k'):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc16n856M4k)"""
-        instrument_success = self.set_instrument(instrument, acc_time=1)
-        if instrument_success.keys()[0] is not True:
-            Aqf.end(passed=False, message=instrument_success.values()[0])
-        else:
-            _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
-            self._systems_tests()
-            self._test_delay_rate()
-
-    @aqf_vr('TP.C.1.27')
-    @aqf_vr('TP.C.1.26')
-    def test_bc8n856M32k_delay_rate(self, instrument='bc8n856M32k'):
-        """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc8n856M32k)"""
+        """
+        CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc32n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
+        """
         instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
@@ -1185,23 +1081,70 @@ class test_CBF(unittest.TestCase):
             self._test_delay_rate()
 
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.26')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
+    def test_bc16n856M4k_delay_rate(self, instrument='bc16n856M4k'):
+        """
+        CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc16n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
+        """
+        instrument_success = self.set_instrument(instrument, acc_time=1)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument()
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._systems_tests()
+            self._test_delay_rate()
+
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
+    def test_bc8n856M32k_delay_rate(self, instrument='bc8n856M32k'):
+        """
+        CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc8n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
+        """
+        instrument_success = self.set_instrument(instrument, acc_time=1)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument()
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._systems_tests()
+            self._test_delay_rate()
+
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M4k_fringe_offset(self, instrument='bc8n856M4k'):
         """
         CBF per-antenna phase error -- Fringe Offset (bc8n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
             CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0087
-            CBF-REQ-0001
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0110
-            CBF-REQ-0066
-            CBF-REQ-0185
             CBF-REQ-0072
-            CBF-REQ-0112
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1213,23 +1156,20 @@ class test_CBF(unittest.TestCase):
             self._test_fringe_offset()
 
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.26')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc32n856M4k_fringe_offset(self, instrument='bc32n856M4k'):
         """
         CBF per-antenna phase error -- Fringe Offset (bc32n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
             CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0087
-            CBF-REQ-0001
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0110
-            CBF-REQ-0066
-            CBF-REQ-0185
-            CBF-REQ-0112
             CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1240,24 +1180,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_offset()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc16n856M4k_fringe_offset(self, instrument='bc16n856M4k'):
         """
         CBF per-antenna phase error -- Fringe Offset (bc16n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
             CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0087
-            CBF-REQ-0001
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0110
-            CBF-REQ-0066
-            CBF-REQ-0185
             CBF-REQ-0072
-            CBF-REQ-0112
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1268,24 +1205,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_offset()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M32k_fringe_offset(self, instrument='bc8n856M32k'):
         """
         CBF per-antenna phase error -- Fringe Offset (bc8n856M32k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
             CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0087
-            CBF-REQ-0001
-            CBF-REQ-0091
-            CBF-REQ-0104
-            CBF-REQ-0110
-            CBF-REQ-0066
-            CBF-REQ-0185
             CBF-REQ-0072
-            CBF-REQ-0112
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
@@ -1296,14 +1230,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_offset()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M4k_fringe_rate(self, instrument='bc8n856M4k'):
         """
         CBF per-antenna phase error -- Fringe Rate (bc8n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
@@ -1315,13 +1256,20 @@ class test_CBF(unittest.TestCase):
             self._test_fringe_rate()
 
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.26')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc32n856M4k_fringe_rate(self, instrument='bc32n856M4k'):
         """
         CBF per-antenna phase error -- Fringe Rate (bc32n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
@@ -1332,14 +1280,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_rate()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc16n856M4k_fringe_rate(self, instrument='bc16n856M4k'):
         """
         CBF per-antenna phase error -- Fringe Rate (bc16n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
@@ -1350,14 +1305,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_rate()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M32k_fringe_rate(self, instrument='bc8n856M32k'):
         """
         CBF per-antenna phase error -- Fringe Rate (bc8n856M32k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success.keys()[0] is not True:
@@ -1368,16 +1330,22 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_fringe_rate()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M4k_fringes_delays(self, instrument='bc8n856M4k'):
         """
         CBF per-antenna phase error
         -- Delays, Delay Rate, Fringe Offset and Fringe Rate. (bc8n856M4k)
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1388,16 +1356,22 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_all_delays()
 
-    @aqf_vr('TP.C.1.26')
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc32n856M4k_fringes_delays(self, instrument='bc32n856M4k'):
         """
         CBF per-antenna phase error (bc32n856M4k)
         -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1409,24 +1383,21 @@ class test_CBF(unittest.TestCase):
             self._test_all_delays()
 
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.26')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc16n856M4k_fringes_delays(self, instrument='bc16n856M4k'):
         """
         CBF per-antenna phase error (bc16n856M4k)
         -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0066
-            CBF-REQ-0072
-            CBF-REQ-0067
             CBF-REQ-0187
+            CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1438,24 +1409,21 @@ class test_CBF(unittest.TestCase):
             self._test_all_delays()
 
     @aqf_vr('TP.C.1.24')
-    @aqf_vr('TP.C.1.26')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M32k_fringes_delays(self, instrument='bc8n856M32k'):
         """
         CBF per-antenna phase error  (bc8n856M32k)
         -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0066
-            CBF-REQ-0072
-            CBF-REQ-0067
             CBF-REQ-0187
+            CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1466,14 +1434,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_all_delays()
 
-    @aqf_vr('TP.C.1.27')
-    @aqf_vr('TP.C.1.26')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M4k_delay_inputs(self, instrument='bc8n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial (bc8n856M4k)
            Delay applied to the correct input
         Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
             CBF-REQ-0077
-            CBF-REQ-0204
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1484,23 +1459,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_inputs()
 
-    @aqf_vr('TP.C.1.26')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc32n856M4k_delay_inputs(self, instrument='bc32n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial (bc32n856M4k)
            Delay applied to the correct input
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0066
-            CBF-REQ-0072
-            CBF-REQ-0067
             CBF-REQ-0187
+            CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1511,23 +1484,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_inputs()
 
-    @aqf_vr('TP.C.1.26')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc16n856M4k_delay_inputs(self, instrument='bc16n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial (bc16n856M4k)
            Delay applied to the correct input
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0066
-            CBF-REQ-0072
-            CBF-REQ-0067
             CBF-REQ-0187
+            CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1538,23 +1509,21 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_delay_inputs()
 
-    @aqf_vr('TP.C.1.26')
-    @aqf_vr('TP.C.1.27')
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
     def test_bc8n856M32k_delay_inputs(self, instrument='bc8n856M32k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial (bc8n856M32k)
            Delay applied to the correct input
         Test Verifies these requirements:
-            CBF-REQ-0077
-            CBF-REQ-0204
-            CBF-REQ-0066
-            CBF-REQ-0072
-            CBF-REQ-0067
             CBF-REQ-0187
+            CBF-REQ-0188
             CBF-REQ-0110
-            CBF-REQ-0001
-            CBF-REQ-0087
-            CBF-REQ-0091
-            CBF-REQ-0104
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1566,14 +1535,13 @@ class test_CBF(unittest.TestCase):
             self._test_delay_inputs()
 
     @aqf_vr('TP.C.1.33')
-    @aqf_vr('TP.C.1.47')
     def test_bc8n856M4k_data_product(self, instrument='bc8n856M4k'):
         """
         CBF Imaging Data Product Set (bc8n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0208
-            CBF-REQ-0002
             CBF-REQ-0120
+            CBF-REQ-0213
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1590,9 +1558,9 @@ class test_CBF(unittest.TestCase):
         """
         CBF Imaging Data Product Set (bc32n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0208
-            CBF-REQ-0002
             CBF-REQ-0120
+            CBF-REQ-0213
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1609,9 +1577,9 @@ class test_CBF(unittest.TestCase):
         """
         CBF Imaging Data Product Set (bc16n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0208
-            CBF-REQ-0002
             CBF-REQ-0120
+            CBF-REQ-0213
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1628,9 +1596,9 @@ class test_CBF(unittest.TestCase):
         """
         CBF Imaging Data Product Set (bc8n856M32k)
         Test Verifies these requirements:
-            CBF-REQ-0208
-            CBF-REQ-0002
             CBF-REQ-0120
+            CBF-REQ-0213
+            CBF-REQ-0223
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1642,16 +1610,11 @@ class test_CBF(unittest.TestCase):
             self._test_data_product(instrument, no_channels=32768)
 
     @aqf_vr('TP.C.1.42')
-    def test_bc8n856M4k_time_sync(self, instrument='bc8n856M4k'):
+    def test__generic_time_sync(self, instrument='bc8n856M4k'):
         """
-        CBF Time synchronisation (bc8n856M4k)
+        CBF Time synchronisation
         Test Verifies these requirements:
             CBF-REQ-0203
-            CBF-REQ-0072
-            CBF-REQ-0076
-            CBF-REQ-0099
-            CBF-REQ-0066
-            CBF-REQ-0122
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1662,74 +1625,11 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_time_sync()
 
-    @aqf_vr('TP.C.1.42')
-    def test_bc32n856M4k_time_sync(self, instrument='bc32n856M4k'):
-        """
-        CBF Time synchronisation (bc32n856M4k)
-        Test Verifies these requirements:
-            CBF-REQ-0203
-            CBF-REQ-0072
-            CBF-REQ-0076
-            CBF-REQ-0099
-            CBF-REQ-0066
-            CBF-REQ-0122
-        """
-        instrument_success = self.set_instrument(instrument)
-        if instrument_success.keys()[0] is not True:
-            Aqf.end(passed=False, message=instrument_success.values()[0])
-        else:
-            _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
-            self._systems_tests()
-            self._test_time_sync()
-
-    @aqf_vr('TP.C.1.42')
-    def test_bc16n856M4k_time_sync(self, instrument='bc16n856M4k'):
-        """
-        CBF Time synchronisation (bc16n856M4k)
-        Test Verifies these requirements:
-            CBF-REQ-0203
-            CBF-REQ-0072
-            CBF-REQ-0076
-            CBF-REQ-0099
-            CBF-REQ-0066
-            CBF-REQ-0122
-        """
-        instrument_success = self.set_instrument(instrument)
-        if instrument_success.keys()[0] is not True:
-            Aqf.end(passed=False, message=instrument_success.values()[0])
-        else:
-            _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
-            self._systems_tests()
-            self._test_time_sync()
-
-    @aqf_vr('TP.C.1.42')
-    def test_bc8n856M32k_time_sync(self, instrument='bc8n856M32k'):
-        """
-        CBF Time synchronisation (bc8n856M32k)
-        Test Verifies these requirements:
-            CBF-REQ-0203
-            CBF-REQ-0072
-            CBF-REQ-0076
-            CBF-REQ-0099
-            CBF-REQ-0066
-            CBF-REQ-0122
-        """
-        instrument_success = self.set_instrument(instrument)
-        if instrument_success.keys()[0] is not True:
-            Aqf.end(passed=False, message=instrument_success.values()[0])
-        else:
-            _running_inst = self.corr_fix.get_running_intrument()
-            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
-            self._systems_tests()
-            self._test_time_sync()
 
     @aqf_vr('TP.C.1.29')
     def test_bc8n856M4k_gain_correction(self, instrument='bc8n856M4k'):
         """CBF Gain Correction (bc8n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0121
             CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
@@ -1746,7 +1646,6 @@ class test_CBF(unittest.TestCase):
         """
         CBF Gain Correction (bc32n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0121
             CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
@@ -1762,7 +1661,6 @@ class test_CBF(unittest.TestCase):
     def test_bc16n856M4k_gain_correction(self, instrument='bc16n856M4k'):
         """CBF Gain Correction (bc16n856M4k)
         Test Verifies these requirements:
-            CBF-REQ-0121
             CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
@@ -1779,7 +1677,6 @@ class test_CBF(unittest.TestCase):
         """
         CBF Gain Correction (bc8n856M32k)
         Test Verifies these requirements:
-            CBF-REQ-0121
             CBF-REQ-0119
         """
         instrument_success = self.set_instrument(instrument)
@@ -1795,7 +1692,15 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.51')
     @aqf_vr('TP.C.1.35')
     def test_bc8n856M4k_beamforming(self, instrument='bc8n856M4k'):
-        """CBF Beamformer functionality (bc8n856M4k)
+        """
+        CBF Beamformer functionality (bc8n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0117
+            CBF-REQ-0094
+            CBF-REQ-0118
+            CBF-REQ-0123
+            CBF-REQ-0092
+            CBF-REQ-0183
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1811,7 +1716,16 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.51')
     @aqf_vr('TP.C.1.35')
     def test_bc32n856M4k_beamforming(self, instrument='bc32n856M4k'):
-        """Test beamformer functionality (bc32n856M4k)"""
+        """
+        CBF Beamformer functionality (bc32n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0117
+            CBF-REQ-0094
+            CBF-REQ-0118
+            CBF-REQ-0123
+            CBF-REQ-0092
+            CBF-REQ-0183
+        """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
@@ -1825,7 +1739,16 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.51')
     @aqf_vr('TP.C.1.35')
     def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
-        """CBF Beamformer functionality (bc16n856M4k)"""
+        """
+        CBF Beamformer functionality (bc16n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0117
+            CBF-REQ-0094
+            CBF-REQ-0118
+            CBF-REQ-0123
+            CBF-REQ-0092
+            CBF-REQ-0183
+        """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
@@ -1839,6 +1762,8 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M4k_bf_efficiency(self, instrument='bc8n856M4k'):
         """
         CBF Beamformer efficiency
+        Test Verifies these requirements:
+            CBF-REQ-0124
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1855,6 +1780,8 @@ class test_CBF(unittest.TestCase):
     def test_bc16n856M4k_bf_efficiency(self, instrument='bc16n856M4k'):
         """
         CBF Beamformer efficiency
+        Test Verifies these requirements:
+            CBF-REQ-0124
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1871,6 +1798,8 @@ class test_CBF(unittest.TestCase):
     def test_bc32n856M4k_bf_efficiency(self, instrument='bc32n856M4k'):
         """
         CBF Beamformer efficiency
+        Test Verifies these requirements:
+            CBF-REQ-0124
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -1926,14 +1855,12 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             self._test_config_report(verbose=False)
 
-    @aqf_vr('TP.C.1.5.1')
     @aqf_vr('TP.C.1.18')
-    def test__generic_overtemperature(self, instrument='bc8n856M4k'):
+    @aqf_vr('TP.C.1.15')
+    def test__generic_fault_detection(self, instrument='bc8n856M4k'):
         """
-        ROACH2 overtemperature display test
+        CBF Fault Detection
         Test Verifies these requirements:
-            CBF-REQ-0107
-            CBF-REQ-0177
             CBF-REQ-0157
         """
         running_inst = self.corr_fix.get_running_intrument()
@@ -1941,31 +1868,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = running_inst.keys()[0]
         else:
             _running_inst = instrument
+
         if self.set_instrument(_running_inst):
             self._systems_tests()
-            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
-            self._test_overtemp()
-            msg = Style.Bold('ROACH2 Sensor (Temp, Voltage, Current, Fan) '
-                             'Status: {}\n'.format(_running_inst))
+            msg = Style.Bold(
+                '[CBF-REQ-0157] ROACH2 Temperature Fault Detection: {}\n'.format(_running_inst))
             Aqf.step(msg)
-            self._test_roach_sensors_status()
+            self._test_overtemp()
 
-    @aqf_vr('TP.C.1.18')
-    @aqf_vr('TP.C.1.15')
-    def test__generic_fault_detection(self, instrument='bc8n856M4k'):
-        """
-        CBF Fault Detection
-        Test Verifies these requirements:
-            [CBF-REQ-0157]
-        """
-        running_inst = self.corr_fix.get_running_intrument()
-        if running_inst.values()[0]:
-            _running_inst = running_inst.keys()[0]
-        else:
-            _running_inst = instrument
-
-        if self.set_instrument(_running_inst):
-            self._systems_tests()
             msg = Style.Bold(
                 '[CBF-REQ-0157] QDR Memory Fault Detection: {}\n'.format(_running_inst))
             Aqf.step(msg)
@@ -1982,16 +1892,15 @@ class test_CBF(unittest.TestCase):
             self._test_roach_pfb_sensors()
         clear_host_status(self)
 
+    @aqf_vr('VR.C.14')
     @aqf_vr('TP.C.1.16')
     def test__generic_sensor_values(self, instrument='bc8n856M4k'):
         """
         CBF Report Sensor-values
         Test Verifies these requirements:
-            CBF-REQ-0060
             CBF-REQ-0068
             CBF-REQ-0069
             CBF-REQ-0178
-            CBF-REQ-0204
             CBF-REQ-0056
         """
         running_inst = self.corr_fix.get_running_intrument()
@@ -1999,78 +1908,105 @@ class test_CBF(unittest.TestCase):
             _running_inst = running_inst.keys()[0]
         else:
             _running_inst = instrument
-        Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
         if self.set_instrument(_running_inst):
             self._systems_tests()
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
             self._test_sensor_values()
+            msg = Style.Bold('ROACH2 Sensor (Temp, Voltage, Current, Fan) '
+                             'Status: {}\n'.format(_running_inst))
+            Aqf.step(msg)
+            self._test_roach_sensors_status()
         clear_host_status(self)
 
     @aqf_vr('TP.C.1.23')
     def test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
         """
-        CBF Determining L-Band correlator efficiency
+        CBF L-Band Correlator Efficiency (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0127
         """
         if self.set_instrument(instrument, acc_time=0.05):
-            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._corr_efficiency(n_accs = 16000)
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._corr_efficiency()
+
     @aqf_vr('TP.C.1.23')
     def test_bc16n856M4k_corr_efficiency(self, instrument='bc16n856M4k'):
         """
-        CBF Determining L-Band correlator efficiency
+        CBF L-Band Correlator Efficiency (bc16n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0127
         """
         if self.set_instrument(instrument, acc_time=0.05):
-            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._corr_efficiency(n_accs = 16000)
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._corr_efficiency()
+
     @aqf_vr('TP.C.1.23')
     def test_bc32n856M4k_corr_efficiency(self, instrument='bc32n856M4k'):
         """
-        CBF Determining L-Band correlator efficiency
+        CBF L-Band Correlator Efficiency (bc32n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0127
         """
         if self.set_instrument(instrument, acc_time=0.05):
-            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._corr_efficiency(n_accs = 16000)
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._corr_efficiency()
+
     @aqf_vr('TP.C.1.23')
     def test_bc8n856M32k_corr_efficiency(self, instrument='bc8n856M32k'):
         """
-        CBF Determining L-Band correlator efficiency
+        CBF L-Band Correlator Efficiency (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0127
         """
         if self.set_instrument(instrument, acc_time=0.05):
-            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._corr_efficiency(n_accs = 16000)
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._corr_efficiency()
+
     @aqf_vr('TP.C.1.23')
     def test_bc16n856M32k_corr_efficiency(self, instrument='bc16n856M32k'):
         """
-        CBF Determining L-Band correlator efficiency
+        CBF L-Band Correlator Efficiency (bc16n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0127
         """
         if self.set_instrument(instrument, acc_time=0.05):
-            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._corr_efficiency(n_accs = 16000)
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._corr_efficiency()
+
     @aqf_vr('TP.C.1.23')
     def test_bc32n856M32k_corr_efficiency(self, instrument='bc32n856M32k'):
         """
-        CBF Determining L-Band correlator efficiency
+        CBF L-Band Correlator Efficiency (bc32n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0127
         """
         if self.set_instrument(instrument, acc_time=0.05):
-            Aqf.step('Calculating Correlator Efficiency: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._corr_efficiency(n_accs = 16000)
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._corr_efficiency()
+
+    @aqf_vr('TP.C.4.6')
+    def test__generic_small_voltage_buffer(self, instrument='bc8n856M4k'):
+        """
+        CBF Voltage Buffer Data Product
+        Test Verifies these requirements:
+            CBF-REQ-0083
+            CBF-REQ-0084
+            CBF-REQ-0085
+            CBF-REQ-0086
+            CBF-REQ-0221
+        """
+        if self.set_instrument(instrument):
+            Aqf.step(Style.Bold(''.join(['\n\t', self._testMethodDoc])))
+            self._small_voltage_buffer()
+
+
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
 
     def _systems_tests(self):
         """Checking system stability before and after use"""
@@ -2458,7 +2394,6 @@ class test_CBF(unittest.TestCase):
             ant_delay.append((delay, fringe))
 
         ant_idx = setup_data['test_source_ind']
-        print ant_idx
         delay = ant_delay[ant_idx][0][0]
         delay_rate = ant_delay[ant_idx][0][1]
         fringe_offset = ant_delay[ant_idx][1][0]
@@ -3496,7 +3431,7 @@ class test_CBF(unittest.TestCase):
                     if scan_i == 0:
                         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=0.125)
                         if self.corr_fix.start_x_data():
-                            Aqf.hop('Getting Frequency SPEAD accumulation #{0} with Dsim '
+                            Aqf.hop('Getting Frequency SPEAD accumulation #{0} with Digitiser simulator '
                                     'configured to generate cw at {1:.3f}MHz'.format(i, freq / 1e6))
                             try:
                                 this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -3832,7 +3767,8 @@ class test_CBF(unittest.TestCase):
                     assert isinstance(host_sensor,
                                       katcp.resource_client.ThreadSafeKATCPSensorWrapper)
                 except Exception:
-                    Aqf.failed('Could not get sensor attributes on {}'.format(host.host.upper()))
+                    Aqf.failed('Could not retrieve hosts sensor attributes from katcp '
+                               'client on {}'.format(host.host.upper()))
                 else:
                     # Check if QDR is okay before test is ran
                     msg = ('Confirm that ({}) hardware sensor indicates QDR status is '
@@ -4171,7 +4107,7 @@ class test_CBF(unittest.TestCase):
         test_freq = self.corr_freqs.bandwidth / 2.
         test_input = sorted(self.correlator.fengine_sources.keys())[0]
         eq_scaling = 30
-        acc_times = [0.2, 0.3, 1]
+        acc_times = [0.2, 0.49, 1]
         n_chans = self.corr_freqs.n_chans
 
         internal_accumulations = int(
@@ -4193,7 +4129,7 @@ class test_CBF(unittest.TestCase):
             if reply.reply_ok():
                 Aqf.hop('[CBF-REQ-0119] Gain factors set successfully via CAM interface.')
         Aqf.step(
-            'Configured Dsim output(cw0 @ {0:.3f}MHz) to be periodic in FFT-length: {1} '
+            'Configured Digitiser simulator output(cw0 @ {0:.3f}MHz) to be periodic in FFT-length: {1} '
             'in order for each FFT to be identical'.format(test_freq / 1e6, n_chans * 2))
         cw_scale = 0.125
 
@@ -4267,7 +4203,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_product_switch(self, instrument, no_channels):
 
-        Aqf.step('Confirm that SPEAD accumulations are being produced when Dsim is '
+        Aqf.step('Confirm that SPEAD accumulations are being produced when Digitiser simulator is '
                  'configured to output correlated noise')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         with ignored(Queue.Empty):
@@ -4298,7 +4234,7 @@ class test_CBF(unittest.TestCase):
                 corr_init = True
                 retries -= 1
                 if corr_init:
-                    msg = 'Correlator started successfully'
+                    msg = 'CBF Re-Initialised Successfully'
                     Aqf.step(msg)
                     LOGGER.info(msg + 'after %s retries' %(retries))
             except:
@@ -4310,9 +4246,9 @@ class test_CBF(unittest.TestCase):
 
         if corr_init:
             end_time = time.time()
-            _none = [Aqf.is_true(host.is_running(),
-                                 'Confirm that the instrument is initialised by checking if '
-                                 '{} is programmed.'.format(host.host)) for host in xhosts + fhosts]
+            host = xhosts[randrange(len(xhosts))]
+            Aqf.is_true(host.is_running(), 'Confirm that the instrument is initialised by checking if '
+                                 '{} is programmed.'.format(host.host))
 
             Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
                     'that the instrument activated is valid.')
@@ -4348,7 +4284,7 @@ class test_CBF(unittest.TestCase):
 
         # TODO 2015-09-22 (NM): Test is currently failing since the noise diode flag is
         # also set when the overange occurs. Needs to check if the dsim is doing this or
-        # if it is an error in the CBF. 2015-09-30 update: Nope, Dsim seems to be fine,
+        # if it is an error in the CBF. 2015-09-30 update: Nope, Digitiser simulator seems to be fine,
         # only the adc bit is set in the SPEAD header, checked many packets by network
         # packet capture.
         def enable_adc_overflow():
@@ -5561,7 +5497,6 @@ class test_CBF(unittest.TestCase):
                                   log_dynamic_range=90, log_normalise_to=1,
                                   caption='Delay applied to the correct input')
 
-    @aqf_vr('TP.C.1.33')
     def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
         # Put some correlated noise on both outputs
@@ -5604,7 +5539,7 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(test_dump['xeng_raw'].value.shape[0], no_channels,
                        '[CBF-REQ-0104, 0213] Check that data product has the number of frequency '
                        'channels {no_channels} corresponding to the {instrument} '
-                       'instrument product'.format(**locals()))
+                       'instrument product.\n'.format(**locals()))
             response = normalised_magnitude(test_dump['xeng_raw'].value[:, test_baseline, :])
 
             if response.shape[0] == no_channels:
@@ -5695,7 +5630,7 @@ class test_CBF(unittest.TestCase):
             cap[i] = np.array(complexise(bf_raw[:, i, :]))
         cap_mag = np.abs(cap)
         cap_avg = cap_mag.sum(axis=0)/nc
-        # Confirm that the beam channel bandwidth corresponds to the channel bandwidth 
+        # Confirm that the beam channel bandwidth corresponds to the channel bandwidth
         # determined from the baseline capture
         baseline_ch_bw = bw*dsim_clk_factor/response.shape[0]
         beam_ch_bw = pb/len(cap_mag[0])
@@ -5712,7 +5647,7 @@ class test_CBF(unittest.TestCase):
                           log_dynamic_range=90, log_normalise_to=1,
                           caption='Tied Array Beamformer data captured during Baseline Correlation '
                           'Product test.', plot_type='bf')
-        
+
 
     def _test_control_init(self):
         """
@@ -5756,11 +5691,11 @@ class test_CBF(unittest.TestCase):
 
     def _test_gain_correction(self):
         """CBF Gain Correction"""
-        Aqf.step('Dsim configured to generate correlated noise.')
+        Aqf.step('Digitiser simulator configured to generate correlated noise.')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         self.addCleanup(set_default_eq, self)
         source = randrange(len(self.correlator.fengine_sources))
-        gains = [0, 1, 2j, 6j, 6]
+        gains = [1, 2j, 6j, 6]
         legends = ['[CBF-REQ-0119] Gain set to {}'.format(x) for x in gains]
 
         try:
@@ -5778,7 +5713,6 @@ class test_CBF(unittest.TestCase):
             test_input = [input_source[0]
                           for input_source in initial_dump['input_labelling'].value][source]
             Aqf.step('Randomly selected input {}'.format(test_input))
-
 
             chan_resp = []
             for gain in gains:
@@ -5979,9 +5913,6 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to set beamformer quantiser gain via cam interface')
         return actual_beam_gain
 
-    @aqf_vr('TP.C.1.37')
-    @aqf_vr('TP.C.1.51')
-    @aqf_vr('TP.C.1.35')
     def _test_beamforming(self):
         """
         Apply weights and capture beamformer data, Verify that weights are correctly applied.
@@ -6083,7 +6014,7 @@ class test_CBF(unittest.TestCase):
         ch_bw = bw/nr_ch
         beams = ('beam_0x', 'beam_0y')
         beam = beams[1]
-        
+
         #Set beamformer quantiser gain for selected beam to 1
         self._set_beam_quant_gain(beam, 1)
 
@@ -6114,7 +6045,7 @@ class test_CBF(unittest.TestCase):
 
         beam_data = []
         beam_lbls = []
-        
+
         beam_dict = {}
         beam_pol = beam[-1]
         for label in labels:
@@ -6135,7 +6066,7 @@ class test_CBF(unittest.TestCase):
         d,l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
         beam_data.append(d)
         beam_lbls.append(l)
-        
+
         weight = 2.0/ants
         beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
         d,l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
@@ -6148,7 +6079,7 @@ class test_CBF(unittest.TestCase):
                           plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
                           '\nIntegrated over {} captures'.format(beam, pb/1e6, cf/1e6, nc)),
                           log_dynamic_range=90, log_normalise_to=1,
-                          caption='Captured beamformer data', hlines = [exp0,exp1], 
+                          caption='Captured beamformer data', hlines = [exp0,exp1],
                           plot_type='bf', hline_strt_idx=1)
 
         beam_data = []
@@ -6380,7 +6311,6 @@ class test_CBF(unittest.TestCase):
         plt.plot(np.log10(np.abs(np.fft.fft(cap_half[:,max_ch]))))
         plt.show()
 
-    @aqf_vr('TP.C.1.48')
     def _bf_efficiency(self):
         try:
             reply, informs = correlator_fixture.katcp_rct.req.input_labels()
@@ -6488,7 +6418,7 @@ class test_CBF(unittest.TestCase):
                                        awgn_scale,gain,fft_shift),
                            bins=256, ranges=(-1, 1))
         p_std = np.std(quant_snap)
-        aqf_plot_histogram(np.abs(quant_snap), 
+        aqf_plot_histogram(np.abs(quant_snap),
                            plot_filename='{}_quant_hist_{}.png'.format(self._testMethodName, inp),
                            plot_title=('Quantiser Histogram for input {}\n '
                                        'Standard Deviation: {:.3f}'.format(inp, p_std)),
@@ -6510,7 +6440,7 @@ class test_CBF(unittest.TestCase):
         beam_dict = self._populate_beam_dict(1, weight, beam_dict)
         bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
                 beam_dict, target_pb, target_cfreq)
-        
+
         Aqf.hop('Packaging beamformer data.')
         num_caps = np.shape(bf_raw)[1]
         cap = [0]*num_caps
@@ -6535,11 +6465,11 @@ class test_CBF(unittest.TestCase):
         plt_filename = '{}_beamformer_efficiency.png'.format(self._testMethodName)
         plt_title = ('Beamformer Efficiency per Channel\n '
                      'Mean Efficiency = {:.2f}%'.format(100*eff.mean()))
-        caption = ('Beamformer efficiency per channel calculated over {} samples ' 
+        caption = ('Beamformer efficiency per channel calculated over {} samples '
                    'with a channel bandwidth of {:.2f}Hz and a FFT window length '
                    'of {:.3f} micro seconds per sample.'.format(
                        num_caps, ch_bw, acc_time*1000000.))
-        aqf_plot_channels(eff*100, plt_filename, plt_title, caption=caption, 
+        aqf_plot_channels(eff*100, plt_filename, plt_title, caption=caption,
                 log_dynamic_range=None, hlines=95, plot_type='eff')
 
 
@@ -6569,7 +6499,7 @@ class test_CBF(unittest.TestCase):
                                                         lt_abs_t.microsecond)
             print 'Number of dumps in future = {:.10f}'.format(
                 (load_timestamp-dump_ts)/dump_ticks)
-            # Dsim local clock factor of 8 slower
+            # Digitiser simulator local clock factor of 8 slower
             # (FPGA clock = sample clock / 8).
             load_timestamp = load_timestamp/8
             if not load_timestamp.is_integer():
@@ -6790,7 +6720,7 @@ class test_CBF(unittest.TestCase):
                                                         lt_abs_t.microsecond)
             print 'Number of dumps in future = {:.10f}'.format(
                 (load_timestamp - dump_ts) / dump_ticks)
-            # Dsim local clock factor of 8 slower
+            # Digitiser simulator local clock factor of 8 slower
             # (FPGA clock = sample clock / 8).
             load_timestamp = load_timestamp / 8
             if not load_timestamp.is_integer():
@@ -6872,23 +6802,23 @@ class test_CBF(unittest.TestCase):
         plt.show()
 
     def _test_input_levels(self, instrument='bc8n856M4k'):
-        """Testing Dsim input levels (bc8n856M4k)
+        """Testing Digitiser simulator input levels (bc8n856M4k)
         Set input levels to requested values and check that the ADC and the
         quantiser block do not see saturated samples.
         """
         if self.set_instrument(instrument):
-            Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
+            Aqf.step('Setting and checking Digitiser simulator input levels: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
             self._set_input_levels_and_gain(profile='noise', cw_freq=100000, cw_margin = 0.3,
                                             trgt_bits=4, trgt_q_std = 0.30, fft_shift=511)
 
     def test_bc8n856M32k_input_levels(self, instrument='bc8n856M32k'):
-        """Testing Dsim input levels (bc8n856M32k)
+        """Testing Digitiser simulator input levels (bc8n856M32k)
         Set input levels to requested values and check that the ADC and the
         quantiser block do not see saturated samples.
         """
         if self.set_instrument(instrument):
-            Aqf.step('Setting and checking Dsim input levels: {}\n'.format(
+            Aqf.step('Setting and checking Digitiser simulator input levels: {}\n'.format(
                 self.corr_fix.get_running_intrument()))
             fft_shift = pow(2,15)-1
             self._set_input_levels_and_gain(profile='cw', cw_freq=200000000, cw_margin = 0.6,
@@ -7024,7 +6954,7 @@ class test_CBF(unittest.TestCase):
         noise_scale = scale
         p_std = np.std(adc_data)
         p_bits = np.log2(p_std * 512)
-        Aqf.step('Dsim noise scale set to {:.3f}, toggling {:.2f} bits at '\
+        Aqf.step('Digitiser simulator noise scale set to {:.3f}, toggling {:.2f} bits at '\
                  'standard deviation.'.format(noise_scale, p_bits))
 
         if profile == 'cw':
@@ -7062,7 +6992,7 @@ class test_CBF(unittest.TestCase):
                     freq = set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
                     adc_data = fpga.get_adc_snapshots()[pol].data
                     found = True
-            Aqf.step('Dsim CW scale set to {:.3f}.'.format(scale))
+            Aqf.step('Digitiser simulator CW scale set to {:.3f}.'.format(scale))
             aqf_plot_histogram(adc_data,
                                plot_filename='adc_hist_{}.png'.format(inp),
                                plot_title=(
@@ -7312,8 +7242,8 @@ class test_CBF(unittest.TestCase):
 
         key = ret_dict.keys()[0]
         if profile == 'cw':
-            Aqf.step('Dsim Sine Wave scaled at {:0.3f}'.format(ret_dict[key]['scale']))
-        Aqf.step('Dsim Noise scaled at {:0.3f}'.format(ret_dict[key]['noise_scale']))
+            Aqf.step('Digitiser simulator Sine Wave scaled at {:0.3f}'.format(ret_dict[key]['scale']))
+        Aqf.step('Digitiser simulator Noise scaled at {:0.3f}'.format(ret_dict[key]['noise_scale']))
         Aqf.step('FFT Shift set to {}'.format(ret_dict[key]['fft_shift']))
         for key in sources.keys():
             Aqf.step('{} ADC standard deviation: {:0.3f} toggling {:0.2f} bits'.format(
@@ -7328,8 +7258,7 @@ class test_CBF(unittest.TestCase):
         return ret_dict
 
 
-    @aqf_vr('TP.C.1.23')
-    def _corr_efficiency(self, n_accs):
+    def _corr_efficiency(self, n_accs=16000):
         """
 
         Parameters
@@ -7349,7 +7278,6 @@ class test_CBF(unittest.TestCase):
             awgn_scale=0.063
             gain='344+0j'
             fft_shift=4095
-        import IPython; IPython.embed()
 
         Aqf.step('Digitiser simulator configured to generate gaussian noise, '
                  'with awgn scale: {}, eq gain: {}, fft shift: {}'.format(
@@ -7374,6 +7302,7 @@ class test_CBF(unittest.TestCase):
             reply, informs = self.corr_fix.katcp_rct.req.adc_snapshot(inp)
         except Exception:
             Aqf.failed('Failed to grab adc snapshot.')
+        print_counts = 3
         fpga = self.correlator.fhosts[0]
         adc_data = fpga.get_adc_snapshots()['p0'].data
         p_std = np.std(adc_data)
@@ -7390,7 +7319,7 @@ class test_CBF(unittest.TestCase):
                                        awgn_scale,gain,fft_shift),
                            bins=256, ranges=(-1, 1))
         p_std = np.std(quant_snap)
-        aqf_plot_histogram(np.abs(quant_snap), 
+        aqf_plot_histogram(np.abs(quant_snap),
                            plot_filename='{}_quant_hist_{}.png'.format(self._testMethodName, inp),
                            plot_title=('Quantiser Histogram for input {}\n '
                                        'Standard Deviation: {:.3f}'.format(inp, p_std)),
@@ -7412,14 +7341,23 @@ class test_CBF(unittest.TestCase):
             auto_corr = dval[:, inp_autocorr_idx, :][:, 0]
             writer.writerow(auto_corr)
             #ch_time_series = auto_corr
-            for i in range(n_accs-1):
-                Aqf.hop('grabbing accumulation {}'.format(i+1))
+            for i in range(n_accs - 1):
+
+                if i < print_counts:
+                    Aqf.hop('Getting Spead Heap #{}'.format(i + 1))
+                elif i == print_counts:
+                    Aqf.hop('.' * print_counts)
+                elif i > (n_accs - print_counts):
+                    Aqf.hop('Getting Spead Heap #{}'.format(i + 1))
+                else:
+                    LOGGER.info('Getting Spead Heap #{}'.format(i + 1))
+
                 dump = self.receiver.data_queue.get(DUMP_TIMEOUT)
                 dval = dump['xeng_raw'].value
-                auto_corr = dval[:, inp_autocorr_idx, :][:,0]
+                auto_corr = dval[:, inp_autocorr_idx, :][:, 0]
                 writer.writerow(auto_corr)
                 #ch_time_series = np.vstack((ch_time_series, auto_corr))
-        
+
         Aqf.hop('Reading data from file.')
         file = open('ch_time_series.csv', 'rb')
         read = csv.reader(file)
@@ -7436,35 +7374,20 @@ class test_CBF(unittest.TestCase):
 
         Aqf.step('Calculating channel efficiency.')
         eff = 1/((ch_std/ch_mean)*sqrt_bw_at)
-        Aqf.step('Mean channel efficiency = {:.2f}%'.format(100*eff.mean()))
+
+        expected_eff = 0.98      # [CBF-REQ-0127]
+        Aqf.more(eff.mean(), expected_eff, 'Mean channel efficiency is {:.2f}%'.format(eff.mean()))
+
         plt_filename = '{}_correlator_efficiency.png'.format(self._testMethodName)
         plt_title = ('Correlator Efficiency per Channel\n '
                      'Mean Efficiency = {:.2f}%'.format(100*eff.mean()))
-        caption = ('Correlator efficiency per channel calculated over {} samples ' 
+        caption = ('Correlator efficiency per channel calculated over {} samples '
                    'with a channel bandwidth of {:.2f}Hz and an accumulation time '
                    'of {:.4f} seconds per sample.'.format(n_accs, ch_bw, acc_time))
-        aqf_plot_channels(eff*100, plt_filename, plt_title, caption=caption, 
+        aqf_plot_channels(eff*100, plt_filename, plt_title, caption=caption,
                 log_dynamic_range=None, hlines=98, plot_type='eff')
 
 
-    @aqf_vr('TP.C.4.6')
-    def test_bc8n856M4k_small_voltage_buffer(self, instrument='bc8n856M4k'):
-        """
-        CBF Capture small voltage buffer data
-        Test Verifies these requirements:
-            CBF-REQ-0083
-            CBF-REQ-0084
-            CBF-REQ-0085
-            CBF-REQ-0086
-            CBF-REQ-0221
-        """
-        if self.set_instrument(instrument, acc_time=0.2):
-            Aqf.step('Capturing small voltage buffer: {}\n'.format(
-                self.corr_fix.get_running_intrument()))
-            self._small_voltage_buffer()
-
-
-    @aqf_vr('TP.C.4.6')
     def _small_voltage_buffer(self):
         try:
             reply, informs = correlator_fixture.katcp_rct.req.input_labels()
@@ -7478,7 +7401,7 @@ class test_CBF(unittest.TestCase):
 
         ch_list = self.corr_freqs.chan_freqs
         #Choose a frequency 3 quarters through the band
-        cw_chan_set = int(self.corr_freqs.n_chans*3/4) 
+        cw_chan_set = int(self.corr_freqs.n_chans*3/4)
         cw_freq = ch_list[cw_chan_set]
         dsim_clk_factor = 1.712e9/self.corr_freqs.sample_freq
         bw = self.corr_freqs.bandwidth
@@ -7500,7 +7423,7 @@ class test_CBF(unittest.TestCase):
 
         Aqf.step('Digitiser simulator configured to generate a continuous wave '
                  'at {} Hz (channel={}), with cw scale: {}, awgn scale: {}, '
-                 'eq gain: {}, fft shift: {}'.format(cw_freq, cw_chan_set, cw_scale, 
+                 'eq gain: {}, fft shift: {}'.format(cw_freq, cw_chan_set, cw_scale,
                      awgn_scale, gain, fft_shift))
         dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
                                             freq=cw_freq, fft_shift=fft_shift, gain=gain, cw_src=0)

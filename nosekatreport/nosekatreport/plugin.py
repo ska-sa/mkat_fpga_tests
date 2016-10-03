@@ -900,6 +900,31 @@ class Aqf(object):
             return False
 
     @classmethod
+    def more(cls, result, expected, description):
+        """Evaluate: obtained result more than the expected value.
+
+        Shortcut for: ::
+
+            if result > expected:
+                Aqf.pass()
+            else:
+                Aqf.failed('Result: {result} not less than {expected}')
+
+        :param result: The obtained value.
+        :param expected: The expected value.
+        :param description: A description of this test.
+
+        """
+
+        if result >= expected:
+            cls.passed(description)
+            return True
+        else:
+            cls.failed('Result {result} not less than {expected} - {description}'
+                       .format(**locals()))
+            return False
+
+    @classmethod
     def almost_equals(cls, result, expected, tolerance, description):
         """Evaluate: expected result equals the obtained result within the tolerance.
         Meaningful only for numeric values.
