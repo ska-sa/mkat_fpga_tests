@@ -4155,6 +4155,9 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel + 1:] == 0),
                     'Check that the spectrum is zero except in the test channel:'
                     ' [test_freq_channel+1:]')
+        Aqf.step('FFT Window [{} samples] = {:.3f} micro seconds, Internal Accumulations = {}, '
+                 'One VACC accumulation = {}s'.format(n_chans*2, 
+                    self.corr_freqs.fft_period*1e6, internal_accumulations, delta_acc_t))
 
         chan_response = []
         for vacc_accumulations in test_acc_lens:
@@ -4168,7 +4171,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.almost_equals(vacc_accumulations,
                                   self.correlator.xops.get_acc_len(), 1e-2,
                                   'Confirm that vacc length was set successfully with'
-                                  ' {}.'.format(vacc_accumulations))
+                                  ' {}, which equates to an accumulation time of {:.6f}s'
+                                  ''.format(vacc_accumulations, 
+                                            vacc_accumulations*delta_acc_t))
                 no_accs = internal_accumulations * vacc_accumulations
                 expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
                 try:
@@ -5691,8 +5696,26 @@ class test_CBF(unittest.TestCase):
 
     def _test_gain_correction(self):
         """CBF Gain Correction"""
-        Aqf.step('Digitiser simulator configured to generate correlated noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        if self.corr_freqs.n_chans == 4096:
+            # 4K
+            awgn_scale=0.0645
+            gain='113+0j'
+            fft_shift=511
+        else:
+            # 32K
+            awgn_scale=0.063
+            gain='344+0j'
+            fft_shift=4095
+
+        Aqf.step('Digitiser simulator configured to generate gaussian noise, '
+                 'with awgn scale: {}, eq gain: {}, fft shift: {}'.format(
+                 awgn_scale, gain, fft_shift))
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+                cw_scale=0.0, fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitiser simulator levels')
+            return False
+
         self.addCleanup(set_default_eq, self)
         source = randrange(len(self.correlator.fengine_sources))
         gains = [1, 2j, 6j, 6]
@@ -5714,11 +5737,15 @@ class test_CBF(unittest.TestCase):
                           for input_source in initial_dump['input_labelling'].value][source]
             Aqf.step('Randomly selected input {}'.format(test_input))
 
+            initial_resp = (initial_dump['xeng_raw'].value[:, source, :])
+            import IPython; IPython.embed()
+
             chan_resp = []
             for gain in gains:
                 try:
                     reply, informs = self.corr_fix.katcp_rct.req.gain(test_input,
                                                                   complex(gain))
+                    import IPython; IPython.embed()
                 except TimeoutError:
                     msg = ('Could not set gains/eqs {} on input {} :CAM interface Timed-out, '.format(
                         gain, test_input))
