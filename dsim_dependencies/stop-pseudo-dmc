@@ -1,0 +1,4 @@
+#!/bin/bash
+
+kcpcmd -s localhost:9010 halt
+
