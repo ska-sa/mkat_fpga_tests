@@ -5753,6 +5753,7 @@ class test_CBF(unittest.TestCase):
             legends = []
             found = False
             fnd_less_one = False
+            count = 0
             while not found:
                 if not fnd_less_one:
                     target = 1
@@ -5807,6 +5808,11 @@ class test_CBF(unittest.TestCase):
                     else:
                         Aqf.failed('Gain correction on {} could not be set to {}.: '
                                    'KATCP Reply: {}'.format(test_input, gain, reply))
+                count += 1
+                if count == 5:
+                    Aqf.failed('Gains to change output power by less than 1 and more than 6 dB '
+                               'could not be found.')
+                    found = True
             if chan_resp != []:
                 aqf_plot_channels(zip(chan_resp, legends),
                                   plot_filename='{}_chan_resp.png'.format(
