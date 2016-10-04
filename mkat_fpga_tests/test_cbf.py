@@ -4155,6 +4155,9 @@ class test_CBF(unittest.TestCase):
         Aqf.is_true(np.all(quantiser_spectrum[test_freq_channel + 1:] == 0),
                     'Check that the spectrum is zero except in the test channel:'
                     ' [test_freq_channel+1:]')
+        Aqf.step('FFT Window [{} samples] = {:.3f} micro seconds, Internal Accumulations = {}, '
+                 'One VACC accumulation = {}s'.format(n_chans*2, 
+                    self.corr_freqs.fft_period*1e6, internal_accumulations, delta_acc_t))
 
         chan_response = []
         for vacc_accumulations in test_acc_lens:
@@ -4168,7 +4171,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.almost_equals(vacc_accumulations,
                                   self.correlator.xops.get_acc_len(), 1e-2,
                                   'Confirm that vacc length was set successfully with'
-                                  ' {}.'.format(vacc_accumulations))
+                                  ' {}, which equates to an accumulation time of {:.6f}s'
+                                  ''.format(vacc_accumulations, 
+                                            vacc_accumulations*delta_acc_t))
                 no_accs = internal_accumulations * vacc_accumulations
                 expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
                 try:
@@ -5691,12 +5696,30 @@ class test_CBF(unittest.TestCase):
 
     def _test_gain_correction(self):
         """CBF Gain Correction"""
-        Aqf.step('Digitiser simulator configured to generate correlated noise.')
-        self.dhost.noise_sources.noise_corr.set(scale=0.25)
+        if self.corr_freqs.n_chans == 4096:
+            # 4K
+            awgn_scale=0.0645
+            gain = 113
+            gain_str = complex(gain)
+            fft_shift=511
+        else:
+            # 32K
+            awgn_scale=0.063
+            gain=344
+            gain_str = complex(gain)
+            fft_shift=4095
+
+        Aqf.step('Digitiser simulator configured to generate gaussian noise, '
+                 'with awgn scale: {}, eq gain: {}, fft shift: {}'.format(
+                 awgn_scale, gain, fft_shift))
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+                cw_scale=0.0, fft_shift=fft_shift, gain=gain_str)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitiser simulator levels')
+            return False
+
         self.addCleanup(set_default_eq, self)
         source = randrange(len(self.correlator.fengine_sources))
-        gains = [1, 2j, 6j, 6]
-        legends = ['[CBF-REQ-0119] Gain set to {}'.format(x) for x in gains]
 
         try:
             initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
@@ -5714,18 +5737,40 @@ class test_CBF(unittest.TestCase):
                           for input_source in initial_dump['input_labelling'].value][source]
             Aqf.step('Randomly selected input {}'.format(test_input))
 
+            # Get auto correlation index of the selected input
+            bls_order = initial_dump['bls_ordering'].value
+            for idx, val in enumerate(bls_order):
+                if val[0]==test_input and val[1]==test_input:
+                    auto_corr_idx = idx
+
+            n_chans = self.corr_freqs.n_chans
+            rand_ch = randrange(n_chans)
+            gain_vector = [gain]*n_chans
+            base_gain = gain
+            initial_resp = np.abs(complexise(initial_dump['xeng_raw'].value[:, auto_corr_idx, :]))
+            initial_resp = 10*np.log10(initial_resp)
             chan_resp = []
-            for gain in gains:
+            legends = []
+            found = False
+            fnd_less_one = False
+            while not found:
+                if not fnd_less_one:
+                    target = 1
+                    gain_inc = 5
+                else:
+                    target = 6
+                    gain_inc = 150
+                gain = gain + gain_inc
+                gain_vector[rand_ch] = gain
                 try:
-                    reply, informs = self.corr_fix.katcp_rct.req.gain(test_input,
-                                                                  complex(gain))
+                    reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, *gain_vector)
                 except TimeoutError:
                     msg = ('Could not set gains/eqs {} on input {} :CAM interface Timed-out, '.format(
                         gain, test_input))
                     Aqf.failed(msg)
                 else:
-                    msg = ('[CBF-REQ-0119] Gain correction on input {} set to {}.'.format(
-                        test_input, gain))
+                    msg = ('[CBF-REQ-0119] Gain correction on input {}, channel {} set to {}.'.format(
+                        test_input, rand_ch, complex(gain)))
                     if reply.reply_ok():
                         Aqf.passed(msg)
                         try:
@@ -5740,8 +5785,25 @@ class test_CBF(unittest.TestCase):
                             Aqf.failed(errmsg)
                             LOGGER.exception(errmsg)
                         else:
-                            response = normalised_magnitude(dump['xeng_raw'].value[:, source, :])
-                            chan_resp.append(response)
+                            response = np.abs(complexise(dump['xeng_raw'].value[:, auto_corr_idx, :]))
+                            response = 10*np.log10(response)
+                            resp_diff = response[rand_ch]-initial_resp[rand_ch]
+                            if resp_diff < target:
+                                msg = ('[CBF-REQ-0119] Ouput power increased by less than 1 dB '
+                                       '(actual = {:.2f} dB) with a gain '
+                                       'increment of {}.'.format(resp_diff, complex(gain_inc)))
+                                Aqf.passed(msg)
+                                fnd_less_one = True
+                                chan_resp.append(response)
+                                legends.append('Gain set to {}'.format(complex(gain)))
+                            elif fnd_less_one and (resp_diff > target):
+                                msg = ('[CBF-REQ-0119] Ouput power increased by more than 6 dB '
+                                       '(actual = {:.2f} dB) with a gain '
+                                       'increment of {}.'.format(resp_diff, complex(gain_inc)))
+                                Aqf.passed(msg)
+                                found = True
+                                chan_resp.append(response)
+                                legends.append('Gain set to {}'.format(complex(gain)))
                     else:
                         Aqf.failed('Gain correction on {} could not be set to {}.: '
                                    'KATCP Reply: {}'.format(test_input, gain, reply))
@@ -5749,9 +5811,10 @@ class test_CBF(unittest.TestCase):
                 aqf_plot_channels(zip(chan_resp, legends),
                                   plot_filename='{}_chan_resp.png'.format(
                                       self._testMethodName),
-                                  plot_title='Channel Response Gain Correction',
+                                  plot_title='Channel Response Gain Correction for channel {}'.format(rand_ch),
                                   log_dynamic_range=90, log_normalise_to=1,
-                                  caption='Gain Correction channel response')
+                                  caption='Gain Correction channel response, gain varied for channel {}, '
+                                          'all remaining channels are set to {}'.format(rand_ch, complex(base_gain)))
             else:
                 Aqf.failed('Could not retrieve channel response with gain/eq corrections.')
 
