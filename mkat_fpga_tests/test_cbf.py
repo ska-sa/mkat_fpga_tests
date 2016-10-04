@@ -3843,9 +3843,9 @@ class test_CBF(unittest.TestCase):
                     def blindwrite(host):
                         """Writes junk to memory"""
                         junk_msg = ('0x' + ''.join(x.encode('hex')
-                                                   for x in 'oidhfeijfp3ioejfg'))
+                                                   for x in 'oidhsdvwsfvbgrfbsdceijfp3ioejfg'))
                         try:
-                            for i in xrange(10):
+                            for i in xrange(100):
                                 host.blindwrite('qdr0_memory', junk_msg)
                                 host.blindwrite('qdr1_memory', junk_msg)
                             return True
@@ -3855,17 +3855,26 @@ class test_CBF(unittest.TestCase):
                     msg = ('[CBF-REQ-0157] Writing random data to {} the '
                            'QDR memory.'.format(host.host.upper()))
                     Aqf.is_true(blindwrite(host), msg)
-                    # TODO MM 2016-09-23
-                    # perhaps try to put it in a while loop to make sure everything is
-                    # failing as it should
+
+                    def status_change(host_sensor):
+                        success = False
+                        retries = 30
+                        while retries and not success:
+                            time.sleep(1)
+                            retries -= 1
+                            success = not host_sensor.get_value()
+                            if retries == 0:
+                                break
+                        return success
+
                     try:
-                        msg = ('[CBF-REQ-0157] Confirm that sensor indicates that'
-                               ' the memory on {} is unreadable/corrupted.'.format(host.host))
-                        if host_sensor.wait(False, timeout=sensor_timeout):
-                            Aqf.equals(host_sensor.get_status(), 'error', msg)
+                        assert status_change(host_sensor)
                     except:
-                        Aqf.failed('Timed-out: Could not verify if the QDR memory is '
-                                   'corrupted or unreadable after {}s.'.format(sensor_timeout))
+                        Aqf.failed('Failed to verify if the QDR memory is corrupted or unreadable')
+                    else:
+                        msg = ('[CBF-REQ-0157] Confirm that sensor indicates that the memory on {} '
+                               'is unreadable/corrupted.'.format(host.host))
+                        Aqf.is_false(host_sensor.get_value(), msg)
 
                     if engine_type == 'xeng':
                         current_errors = (
