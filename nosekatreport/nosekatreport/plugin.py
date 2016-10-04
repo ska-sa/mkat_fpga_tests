@@ -875,6 +875,29 @@ class Aqf(object):
             cls.passed(description)
 
     @classmethod
+    def in_range(cls, result, expected_min, expected_max, description):
+        """Evaluates: obtained result to a minimum and maximum expected value (interval comparison)
+
+        Parameters
+        ----------
+        result: numeric type
+            Actual result to be checked.
+        expected minimum: numeric type
+            Expected minimum result to be checked against actual results
+        expected maximum: numeric type
+            Expected maximum result to be checked against actual results
+        description: String
+            Message describing the purpose of the comparison.
+        """
+        try:
+            assert expected_min <= result <= expected_max
+        except AssertionError:
+            cls.failed("Actual value '%s' is not between '%s' and '%s' -  %s" % (
+                str(result), str(expected_min), str(expected_max),  description))
+        else:
+            cls.passed(description)
+
+    @classmethod
     def less(cls, result, expected, description):
         """Evaluate: obtained result less than the expected value.
 
