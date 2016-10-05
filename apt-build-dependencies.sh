@@ -34,6 +34,7 @@ gfortran \
 libatlas-base-dev \
 python-scipy"
 
+apt-get update -qq
 for pkg in $list_packages;
     do echo 'Installing '$pkg;
     apt-get install -q --force-yes -y $pkg;
