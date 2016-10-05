@@ -318,9 +318,17 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
         LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
         return False
     else:
-        sync_time = self.correlator.get_synch_time()
-        if sync_time == -1:
-            sync_time = dump['sync_time'].value
+
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
+            if not reply.reply_ok():
+                raise Exception
+        except Exception:
+            Aqf.failed('Could not retrieve sync time via correlator object.')
+            return False
+        else:
+            sync_time = float(reply.arguments[-1])
+
         dump_1_timestamp = (sync_time + roundtrip +
                             dump['timestamp'].value / dump['scale_factor_timestamp'].value)
         t_apply = dump_1_timestamp + 10 * dump['int_time'].value
@@ -454,8 +462,17 @@ def get_and_restore_initial_eqs(test_instance, correlator):
     initial_equalisations = correlator.fops.eq_get()
 
     def restore_initial_equalisations():
-        for _input, _eq in initial_equalisations.iteritems():
-            correlator.fops.eq_set(source_name=_input, new_eq=_eq)
+        try:
+            for _input, _eq in initial_equalisations.iteritems():
+                reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+            if not reply.reply_ok():
+                raise Exception
+        except Exception:
+            msg = 'Failed to set gain for input: {} gain of: {}'.format(_input, _eq)
+            LOGGER.error(msg)
+            return False
+        else:
+            return True
 
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
@@ -516,8 +533,13 @@ def set_default_eq(self):
         return False
     else:
         try:
-            self.correlator.fops.eq_write_all(dict(zip(ant_inputs, eq_levels)))
+            for _input, _eq in zip(ant_inputs, eq_levels):
+                reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+            if not reply.reply_ok():
+                raise Exception
         except Exception:
+            msg = 'Failed to set gain for input: {} gain of: {}'.format(_input, _eq)
+            LOGGER.error(msg)
             return False
         else:
             return True
@@ -557,7 +579,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
     except TypeError:
         LOGGER.error('Failed to set fftshift via cam interface, resorting to native setting.')
-        self.correlator.fops.set_fft_shift_all(fft_shift)
+        return False
     try:
         assert reply.reply_ok()
     except AssertionError:
@@ -573,17 +595,18 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         return False
     else:
         sources = reply.arguments[1:]
-    try:
-        assert sorted(sources) == sorted(self.correlator.fengine_sources.keys())
-    except AssertionError:
-        LOGGER.error('Input labels retrieved via CAM interface are not the same as correlator'
-                     ' object fengine sources')
-        sources = self.correlator.fengine_sources.keys()
 
     LOGGER.info('Writting input sources gains to %s' % (gain))
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
-    self.correlator.fops.eq_write_all(source_gain_dict)
-    return True
+    try:
+        for i, v in source_gain_dict.items():
+            reply, informs = self.corr_fix.katcp_rct.req.gain(i, v)
+    except Exception:
+        msg = 'Failed to set gain for input: {} with gain of: {}'.format(i, v)
+        LOGGER.error(msg)
+        return False
+    else:
+        return True
 
 
 def get_delay_bounds(correlator):

@@ -149,14 +149,18 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             has_legend = True
             kwargs['label'] = legend
         if log_dynamic_range is not None:
-            plot_data = loggerise(plot_data, log_dynamic_range,
-                                  normalise_to=log_normalise_to, normalise=normalise)
+            plot_data = loggerise(plot_data, log_dynamic_range, normalise_to=log_normalise_to,
+                                  normalise=normalise)
             ylbl = 'Channel response [dB]'
         else:
             if plot_type == 'eff':
                 ylbl = 'Efficiency [%]'
             else:
                 ylbl = 'Channel response (linear)'
+                if cutoff:
+                    msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
+                    plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
+
         plt.grid(True)
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
@@ -213,10 +217,6 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                          bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
                          arrowprops=dict(arrowstyle='->', fc='yellow',
                                          connectionstyle='arc3, rad=0.5', color='red'))
-    if cutoff:
-        msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
-        plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
-
     if ylimits:
         plt.ylim(ylimits)
 

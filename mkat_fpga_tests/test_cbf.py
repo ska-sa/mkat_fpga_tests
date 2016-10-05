@@ -2207,10 +2207,16 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                sync_time = self.correlator.get_synch_time()
-                if sync_time == -1:
+                try:
+                    reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
+                    if not reply.reply_ok():
+                        raise Exception
+                except Exception:
                     Aqf.failed('Could not retrieve sync time via correlator object.')
                     return False
+                else:
+                    sync_time = float(reply.arguments[-1])
+
                 scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
                 time_stamp = initial_dump['timestamp'].value
                 n_accs = initial_dump['n_accs'].value
@@ -2935,9 +2941,8 @@ class test_CBF(unittest.TestCase):
                 '[VR.C.20] Check that the correct channels have the peak response to each frequency')
             Aqf.array_abs_error(max_channels, channel_range, msg , 1)
 
-        msg = (
-            "[CBF-REQ-0126] Check that no other channels response more than -{cutoff} dB".format(
-                **locals()))
+        msg = ("[CBF-REQ-0126] Check that no other channels response more than -{cutoff} dB".format(
+                                                                                        **locals()))
         if extra_peaks == [[]] * len(max_channels):
             Aqf.passed(msg)
         else:
@@ -3037,18 +3042,35 @@ class test_CBF(unittest.TestCase):
                        all_nonzero_baselines(test_data), msg)
             Aqf.step('Save initial f-engine equalisations, and ensure they are '
                      'restored at the end of the test')
+            # TODO MM 2016-10-05 Fix the function to only accept self
             initial_equalisations = get_and_restore_initial_eqs(self, self.correlator)
 
             Aqf.step('Set all inputs gains to \'Zero\', and confirm that output product '
                      'is all-zero')
+
             try:
-                self.correlator.fops.eq_write_all({i: 0 for i in input_labels})
+                for inp in input_labels:
+                    reply, informs = self.corr_fix.katcp_rct.req.gain(inp, 0)
+                    if not reply.reply_ok():
+                        raise Exception
             except Exception:
                 Aqf.failed('Failed to set equalisations on all F-engines')
+            else:
+                Aqf.passed('All the inputs equalisations have been set to Zero.')
 
-            get_eqs = self.correlator.fops.eq_get()
-            all_eqs = list(set([i[0] for i in get_eqs.values()]))
-            Aqf.equals(all_eqs, [0j], 'Confirm that all input gains have been set to \'Zero\'.')
+            try:
+                eq_values = []
+                for inp in input_labels:
+                    reply, informs = self.corr_fix.katcp_rct.req.gain(inp)
+                    if not reply.reply_ok():
+                        raise Exception
+                    eq_values.append(reply.arguments[-1])
+            except Exception:
+                Aqf.failed('Failed to get equalisations on {}'.format(inp))
+            else:
+                all_eqs = list(set(eq_values))
+                msg = 'Confirm that all the inputs equalisations have been set to \'Zero\'.'
+                Aqf.equals(all_eqs, ['0j'], msg)
 
             def _retrieve_clean_dump(self):
                 """Recursive SPEAD dump retrieval"""
@@ -4227,7 +4249,7 @@ class test_CBF(unittest.TestCase):
                     'Check that the spectrum is zero except in the test channel:'
                     ' [test_freq_channel+1:]')
         Aqf.step('FFT Window [{} samples] = {:.3f} micro seconds, Internal Accumulations = {}, '
-                 'One VACC accumulation = {}s'.format(n_chans*2,
+                 'One VACC accumulation = {}s'.format(n_chans * 2,
                     self.corr_freqs.fft_period*1e6, internal_accumulations, delta_acc_t))
 
         chan_response = []
@@ -4239,12 +4261,13 @@ class test_CBF(unittest.TestCase):
                            'sync attempts.'.format(vacc_accumulations,
                                                    MAX_VACC_SYNCH_ATTEMPTS))
             else:
+                # TODO MM get acclen from cam interface
                 Aqf.almost_equals(vacc_accumulations,
                                   self.correlator.xops.get_acc_len(), 1e-2,
                                   'Confirm that vacc length was set successfully with'
                                   ' {}, which equates to an accumulation time of {:.6f}s'
                                   ''.format(vacc_accumulations,
-                                            vacc_accumulations*delta_acc_t))
+                                            vacc_accumulations * delta_acc_t))
                 no_accs = internal_accumulations * vacc_accumulations
                 expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
                 try:
@@ -5488,20 +5511,24 @@ class test_CBF(unittest.TestCase):
             delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
 
             settling_time = 600e-3
-            roundtrip = 0.003
-            sync_time = self.correlator.get_synch_time()
-            if sync_time == -1:
-                sync_time = initial_dump['sync_time'].value
+            try:
+                reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
+                if not reply.reply_ok():
+                    raise Exception
+            except Exception:
+                Aqf.failed('Could not retrieve sync time via CAM Interface.')
+                return False
+            else:
+                sync_time = float(reply.arguments[-1])
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT,
-                                                              discard=0)
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                dump_timestamp = (roundtrip + sync_time +
+                dump_timestamp = (sync_time +
                                   this_freq_dump['timestamp'].value /
                                   this_freq_dump['scale_factor_timestamp'].value)
                 t_apply = (dump_timestamp + 10 * this_freq_dump['int_time'].value)
@@ -5512,12 +5539,10 @@ class test_CBF(unittest.TestCase):
                        'and reply: {}'.format(delayed_input, reply.reply.arguments[1]))
                 Aqf.is_true(reply.reply.reply_ok(), msg)
 
-                Aqf.wait(settling_time,
-                         'Settling time in order to set delay: {} ns.'.format(
-                             test_delay * 1e9))
+                Aqf.wait(settling_time, 'Settling time in order to set delay: {} ns.'.format(
+                                                                                test_delay * 1e9))
 
-                Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after '
-                         'channelisation.')
+                Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after channelisation.')
 
             try:
                 QDR_error_roaches = check_fftoverflow_qdrstatus(self.correlator,
@@ -6484,8 +6509,7 @@ class test_CBF(unittest.TestCase):
             reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
             reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
             reply, informs = correlator_fixture.katcp_rct.req.capture_stop('c856M4k')
-            reply, informs = correlator_fixture.katcp_rct.req.input_labels(
-                *local_src_names)
+            reply, informs = correlator_fixture.katcp_rct.req.input_labels(*local_src_names)
             if reply.reply_ok():
                 labels = reply.arguments[1:]
             else:
@@ -6500,7 +6524,7 @@ class test_CBF(unittest.TestCase):
         # Start of test. Setting required partitions and center frequency
         partitions = 2
         part_size = bw / 16
-        target_cfreq = bw + part_size #+ bw*0.5
+        target_cfreq = bw + bw * 0.5
         target_pb = partitions * part_size
         ch_bw = bw/nr_ch
         beams = ('beam_0x', 'beam_0y')
