@@ -7515,11 +7515,12 @@ class test_CBF(unittest.TestCase):
         eff = 1 / ((ch_std / ch_mean) * sqrt_bw_at)
 
         expected_eff = 0.98      # [CBF-REQ-0127]
-        Aqf.more(eff.mean(), expected_eff, 'Mean channel efficiency is {:.2f}%'.format(eff.mean()))
+        Aqf.more(eff.mean(), expected_eff, 'Mean channel efficiency is {:.2f}%'.format(
+                                                                                100 * eff.mean()))
 
         plt_filename = '{}_correlator_efficiency.png'.format(self._testMethodName)
         plt_title = ('Correlator Efficiency per Channel\n '
-                     'Mean Efficiency = {:.2f}%'.format(100*eff.mean()))
+                     'Mean Efficiency is {:.2f}%'.format(100 * eff.mean()))
         caption = ('Correlator efficiency per channel calculated over {} samples '
                    'with a channel bandwidth of {:.2f}Hz and an accumulation time '
                    'of {:.4f} seconds per sample.'.format(n_accs, ch_bw, acc_time))
