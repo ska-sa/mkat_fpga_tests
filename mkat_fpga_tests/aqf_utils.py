@@ -1,11 +1,14 @@
 import functools
-import matplotlib.pyplot as plt
 import textwrap
+from Tkinter import tkinter
+
+import matplotlib
+
+import matplotlib.pyplot as plt
 import numpy as np
+from mkat_fpga_tests.utils import loggerise
 from nosekatreport import Aqf
 
-from mkat_fpga_tests.utils import loggerise
-from Tkinter import tkinter
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""

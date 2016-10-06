@@ -1,64 +1,49 @@
 from __future__ import division
 
 import Queue
+import csv
 import glob
-import h5py
 import logging
-import matplotlib.pyplot as plt
-import numpy as np
 import operator
 import os
 import subprocess
 import sys
 import telnetlib
-import csv
-
-from subprocess import Popen, PIPE
-
-import pandas
-import warnings
-
-import colors as clrs
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.cbook
-
-import corr2
-import katcp
-
-from random import randrange
 import time
 import unittest
 from collections import namedtuple
-from concurrent.futures import TimeoutError
 from random import randrange
+from subprocess import Popen, PIPE
 
 import corr2
+import h5py
 import katcp
+import matplotlib
+
+import matplotlib.pyplot as plt
 import ntplib
+import numpy as np
 import pandas
-from casperfpga.utils import threaded_fpga_function
+from concurrent.futures import TimeoutError
 from corr2.corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
-from nosekatreport import Aqf, aqf_vr
-
 from mkat_fpga_tests import correlator_fixture
-from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
+from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
 from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
 from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
 from mkat_fpga_tests.utils import get_baselines_lookup, TestTimeout
-from mkat_fpga_tests.utils import get_pfb_counts, get_adc_snapshot, check_host_okay
+from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import ignored, clear_host_status, restore_src_names
 from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
+from nosekatreport import Aqf, aqf_vr
 
 LOGGER = logging.getLogger(__name__)
 

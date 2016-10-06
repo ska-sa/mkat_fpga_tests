@@ -1,20 +1,18 @@
 import Queue
 import contextlib
 import logging
-import matplotlib
-import numpy as np
+import signal
 import time
 import warnings
-import signal
-import errno
-import os
-
-from functools import wraps
-from nosekatreport import Aqf
+from collections import Mapping
+from random import randrange
 from socket import inet_ntoa
 from struct import pack
-from random import randrange
-from collections import Mapping
+
+import matplotlib
+import numpy as np
+from nosekatreport import Aqf
+
 try:
     from collections import ChainMap
 except ImportError:

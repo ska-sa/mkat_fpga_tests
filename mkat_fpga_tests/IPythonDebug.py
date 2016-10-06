@@ -1,8 +1,8 @@
 """Drop into an embedded IPython session for debugging purposes."""
-from IPython.terminal.embed import InteractiveShellEmbed
-# from IPython.config.loader import Config
 import inspect
+
 import traitlets
+from IPython.terminal.embed import InteractiveShellEmbed
 
 # Configure the prompt so that I know I am in a nested (embedded) shell
 cfg = traitlets.config.Config()
