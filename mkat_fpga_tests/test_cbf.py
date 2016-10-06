@@ -5817,7 +5817,7 @@ class test_CBF(unittest.TestCase):
         # determined from the baseline capture
         baseline_ch_bw = bw*dsim_clk_factor/response.shape[0]
         beam_ch_bw = pb/len(cap_mag[0])
-        Aqf.equals(baseline_ch_bw, beam_ch_bw,
+        Aqf.almost_equals(baseline_ch_bw, beam_ch_bw, 1e-3,
                     '[CBF-REQ-0120] Confirm Baseline Correlation Product channel width {}Hz '
                     'is the same as the Tied Array Beam channel width {}Hz'.format(
                         baseline_ch_bw, beam_ch_bw))
