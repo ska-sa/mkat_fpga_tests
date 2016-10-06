@@ -10,6 +10,8 @@ from socket import inet_ntoa
 from struct import pack
 
 import matplotlib
+matplotlib.use('Agg')
+
 import numpy as np
 from nosekatreport import Aqf
 

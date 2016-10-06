@@ -19,6 +19,7 @@ import corr2
 import h5py
 import katcp
 import matplotlib
+matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 import ntplib
