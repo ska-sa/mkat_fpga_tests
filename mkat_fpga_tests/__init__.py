@@ -103,6 +103,7 @@ class CorrelatorFixture(object):
             self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
 
             if os.path.exists(self.config_filename):
+                LOGGER.info('Retrieving dsim engine info from config file: %s' % self.config_filename)
                 self.dsim_conf = corr2.utils.parse_ini_file(
                     self.config_filename)['dsimengine']
                 dig_host = self.dsim_conf['host']

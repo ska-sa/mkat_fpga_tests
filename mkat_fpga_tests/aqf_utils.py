@@ -157,9 +157,6 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                 ylbl = 'Efficiency [%]'
             else:
                 ylbl = 'Channel response (linear)'
-                if cutoff:
-                    msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
-                    plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
 
         plt.grid(True)
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
@@ -212,6 +209,10 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                 msg = ('Expected: {:.2f}dB'.format(lines))
             else:
                 msg = ('Frequency resolution: {:.2f} dB'.format(lines))
+                if cutoff:
+                    msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
+                    plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
+
             plt.annotate(msg, xy=(len(plot_data) / 2, lines), xytext=(-20, -30),
                          textcoords='offset points', ha='center', va='bottom',
                          bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
