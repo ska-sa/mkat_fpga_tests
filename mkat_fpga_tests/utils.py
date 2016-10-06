@@ -523,11 +523,20 @@ def set_default_eq(self):
     Return: None
     """
     LOGGER.info('Reset gains to default values from config file.\n')
+    try:
+        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
+        if not reply.reply_ok():
+            raise Exception
+    except Exception:
+        LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
+        return False
+    else:
+        ant_inputs = reply.arguments[1:]
+
     eq_levels = []
     try:
         for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
             eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
-        ant_inputs = self.correlator.configd['fengine']['source_names'].split(',')
     except Exception:
         LOGGER.error('Failed to retrieve default ant_inputs and eq levels from config file')
         return False
@@ -697,24 +706,34 @@ def get_figure_numbering(self):
         return get_fig_prefix(2)
 
 
-def disable_spead2_warnings():
-    """This function sets SPEAD2 logger to only report error messages"""
-    # set the SPEAD2 logger to Error only
-    spead_logger = logging.getLogger('spead2')
-    spead_logger.setLevel(logging.ERROR)
-    # set the corr_rx logger to Error only
-    corr_rx_logger = logging.getLogger("corr2.corr_rx")
-    corr_rx_logger.setLevel(logging.ERROR)
-
-
-def disable_maplotlib_warning():
-    """This function disable matplotlibs deprecation warnings"""
-    warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
-
-
-def disable_numpycomplex_warning():
-    """Ignoring all warnings raised when casting a complex dtype to a real dtype."""
-    warnings.simplefilter("ignore", np.ComplexWarning)
+def disable_warnings_messages(spead2_warn=False, corr_rx_warn=False, plt_warn=False,
+                              np_warn=False, deprecated_warn=False):
+    """This function disables all error warning messages
+    :param:
+        spead2 : Boolean
+        corr_rx : Boolean
+        plt : Boolean
+        np : Boolean
+        deprecated : Boolean
+    :rtype: None
+    """
+    if spead2_warn:
+        # set the SPEAD2 logger to Error only
+        spead_logger = logging.getLogger('spead2')
+        spead_logger.setLevel(logging.ERROR)
+    if corr_rx_warn:
+        # set the corr_rx logger to Error only
+        corr_rx_logger = logging.getLogger("corr2.corr_rx")
+        corr_rx_logger.setLevel(logging.ERROR)
+    if plt_warn:
+        # This function disable matplotlibs deprecation warnings
+        warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+    if np_warn:
+        # Ignoring all warnings raised when casting a complex dtype to a real dtype.
+        warnings.simplefilter("ignore", np.ComplexWarning)
+    if deprecated_warn:
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 class Text_Style(object):
