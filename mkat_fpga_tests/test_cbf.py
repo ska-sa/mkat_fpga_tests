@@ -2063,12 +2063,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
                        'ie data is being spewed elsewhere.')
 
-        try:
-            if set_default_eq(self) is False:
-                Aqf.failed('Failed to reset gains to default values from config file on all '
-                           'F-Engines')
-        except Exception:
-            pass
+        set_default_eq(self)
         # ---------------------------------------------------------------
         def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
             LOGGER.info('Retrieving PFB, LRU, QDR, PHY and reorder status on all Engines.')
@@ -4200,7 +4195,7 @@ class test_CBF(unittest.TestCase):
         test_freq = self.corr_freqs.bandwidth / 2.
         test_input = sorted(self.correlator.fengine_sources.keys())[0]
         eq_scaling = 30
-        acc_times = [0.2, 0.49, 1]
+        acc_times = [0.2, 0.49, 0.89]
         n_chans = self.corr_freqs.n_chans
 
         internal_accumulations = int(
