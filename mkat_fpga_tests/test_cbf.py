@@ -5336,9 +5336,11 @@ class test_CBF(unittest.TestCase):
         get_roach_config()
 
         try:
-            Aqf.hop('Test ran by: {} on {}'.format(os.getlogin(), time.ctime()))
+            Aqf.hop('Test ran by: {} on {} system at {}'.format(os.getlogin(), time.ctime(),
+                                                                os.uname()[1]))
         except OSError:
-            Aqf.hop('Test ran by: Jenkins on {}'.format(time.ctime()))
+            Aqf.hop('Test ran by: Jenkins on system {} at {}'.format(time.ctime(),
+                                                                     os.uname()[1]))
 
     def _test_overtemp(self):
         """ROACH2 overtemperature display test """
