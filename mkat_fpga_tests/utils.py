@@ -523,35 +523,41 @@ def set_default_eq(self):
     Return: None
     """
     LOGGER.info('Reset gains to default values from config file.\n')
-    try:
-        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-        if not reply.reply_ok():
-            raise Exception
-    except Exception:
-        LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
-        return False
-    else:
-        ant_inputs = reply.arguments[1:]
-
-    eq_levels = []
-    try:
-        for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
-            eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
-    except Exception:
-        LOGGER.error('Failed to retrieve default ant_inputs and eq levels from config file')
-        return False
-    else:
+    def get_ant_inputs(self):
         try:
-            for _input, _eq in zip(ant_inputs, eq_levels):
-                reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+            reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
             if not reply.reply_ok():
                 raise Exception
         except Exception:
-            msg = 'Failed to set gain for input: {} gain of: {}'.format(_input, _eq)
-            LOGGER.error(msg)
+            LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
             return False
         else:
-            return True
+            return reply.arguments[1:]
+
+    def get_eqs_levels(self):
+        eq_levels = []
+        try:
+            for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
+                eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
+        except Exception:
+            LOGGER.error('Failed to retrieve default ant_inputs and eq levels from config file')
+            return False
+        else:
+            return eq_levels
+
+    ant_inputs = get_ant_inputs(self)
+    eq_levels = get_eqs_levels(self)
+    try:
+        for _input, _eq in zip(ant_inputs, eq_levels):
+            reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+        if not reply.reply_ok():
+            raise Exception
+    except Exception:
+        msg = 'Failed to set gain for input: {} gain of: {}'.format(_input, _eq)
+        LOGGER.error(msg)
+        return False
+    else:
+        return True
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
                      fft_shift=None, gain=None, cw_src=0):
@@ -583,28 +589,37 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     if awgn_scale is not None:
         self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
 
-    LOGGER.info('Writting F-Engines fft shift to {} via cam interface'.format(fft_shift))
-    try:
-        reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
-    except TypeError:
-        LOGGER.error('Failed to set fftshift via cam interface, resorting to native setting.')
-        return False
-    try:
-        assert reply.reply_ok()
-    except AssertionError:
-        LOGGER.error('Failed to set FFT shift.')
-        return False
+    def set_fft_shift(self):
+        LOGGER.info('Writting F-Engines FFT shift to {} via CAM interface'.format(fft_shift))
+        try:
+            reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
+        except TypeError:
+            LOGGER.error('Failed to set FFT shift via CAM interface.')
+            return False
+        try:
+            assert reply.reply_ok()
+        except AssertionError:
+            LOGGER.error('Failed to set FFT shift.')
+            return False
+        else:
+            return True
 
-    try:
-        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-        if not reply.reply_ok():
-            raise Exception
-    except Exception:
-        LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
-        return False
-    else:
-        sources = reply.arguments[1:]
+    def get_ant_inputs(self):
+        try:
+            reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
+            if not reply.reply_ok():
+                raise Exception
+        except Exception:
+            LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
+            return False
+        else:
+            return reply.arguments[1:]
 
+    if set_fft_shift(self) is not True:
+        LOGGER.error('Failed to set FFT-Shift via CAM interface')
+        return 0
+
+    sources = get_ant_inputs(self)
     LOGGER.info('Writting input sources gains to %s' % (gain))
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
