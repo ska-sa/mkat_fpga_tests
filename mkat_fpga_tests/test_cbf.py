@@ -104,7 +104,7 @@ class test_CBF(unittest.TestCase):
             sys.exit(errmsg)
         self.receiver = None
 
-    def set_instrument(self, instrument, acc_time=0.2):
+    def set_instrument(self, instrument, acc_time=0.5):
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
 
@@ -166,6 +166,7 @@ class test_CBF(unittest.TestCase):
                     return {False: errmsg}
                 else:
                     start_thread_with_cleanup(self, self.receiver, start_timeout=1)
+                    #self.addCleanup(self.receiver)
                     self.correlator = self.corr_fix.correlator
                     try:
                         self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
@@ -218,7 +219,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0046
             CBF-REQ-0043
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1.1)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -868,6 +869,31 @@ class test_CBF(unittest.TestCase):
                                                                                     timeout_test))
                 Aqf.failed(errmsg)
 
+    @aqf_vr('TP.C.1.31')
+    def test_bc16n856M32k_accumulation_length(self, instrument='bc16n856M32k'):
+        """
+        Vector Accumulator Test (bc16n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0096
+        """
+        instrument_success = self.set_instrument(instrument)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument().keys()[0]
+            Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
+                                     self._testMethodDoc])))
+            self._systems_tests()
+            test_chan = randrange(self.corr_freqs.n_chans)
+            timeout_test = 1800
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_vacc(test_chan)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                                                                                    timeout_test))
+                Aqf.failed(errmsg)
+
 
     @aqf_vr('TP.C.1.31')
     def test_bc8n856M32k_accumulation_length(self, instrument='bc8n856M32k'):
@@ -1081,6 +1107,32 @@ class test_CBF(unittest.TestCase):
     def test_bc32n856M4k_delay_rate(self, instrument='bc32n856M4k'):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc32n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0187
+            CBF-REQ-0188
+            CBF-REQ-0110
+            CBF-REQ-0112
+            CBF-REQ-0128
+            CBF-REQ-0077
+            CBF-REQ-0072
+            CBF-REQ-0066
+        """
+        instrument_success = self.set_instrument(instrument, acc_time=1)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument().keys()[0]
+            Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
+                                     self._testMethodDoc])))
+            self._systems_tests()
+            self._test_delay_rate()
+
+    @aqf_vr('TP.C.1.24')
+    @aqf_vr('TP.C.1.49')
+    @aqf_vr('TP.C.1.54')
+    def test_bc16n856M32k_delay_rate(self, instrument='bc16n856M32k'):
+        """
+        CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc16n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0187
             CBF-REQ-0188
@@ -2029,7 +2081,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0127
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.05)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -7503,7 +7555,7 @@ class test_CBF(unittest.TestCase):
         return ret_dict
 
 
-    def _corr_efficiency(self, n_accs=16000):
+    def _corr_efficiency(self, n_accs=8000):
         """
 
         Parameters
