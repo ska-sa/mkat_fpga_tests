@@ -10,6 +10,7 @@ import subprocess
 import sys
 import telnetlib
 import time
+import textwrap
 import unittest
 from collections import namedtuple
 from random import randrange
@@ -174,7 +175,7 @@ class test_CBF(unittest.TestCase):
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                         self.corr_fix.start_x_data()
                         self.addCleanup(self.corr_fix.stop_x_data)
-                        self.corr_fix.issue_metadata()
+                        # self.corr_fix.issue_metadata()
                         try:
                             sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
                             self.correlator.set_synch_time(sync_time)
@@ -2092,7 +2093,6 @@ class test_CBF(unittest.TestCase):
             self._systems_tests()
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                         self._testMethodDoc])))
-            self._systems_tests()
             self._small_voltage_buffer()
 
     def test_bc8n856M32k_input_levels(self, instrument='bc8n856M32k'):
@@ -2268,13 +2268,12 @@ class test_CBF(unittest.TestCase):
             else:
                 try:
                     reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
+                    sync_time = float(reply.arguments[-1])
                     if not reply.reply_ok():
                         raise Exception
                 except Exception:
                     Aqf.failed('Could not retrieve sync time via correlator object.')
                     return False
-                else:
-                    sync_time = float(reply.arguments[-1])
 
                 scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
                 time_stamp = initial_dump['timestamp'].value
@@ -3186,10 +3185,17 @@ class test_CBF(unittest.TestCase):
                                  # plot_data = [loggerise(test_data[:, i, :])
                                  for i in plot_baseline_inds]
                     plot_filename = '{}_channel_resp_{}.png'.format(self._testMethodName, inp)
+                    #plot_title = ('Baseline Correlation Products on input: {}\n'
+                    #              'Bls channel response \'Non-Zero\' inputs:\n {}\n'
+                    #               '\'Zero\' inputs:\n {}'.format(inp, sorted(nonzero_inputs),
+                    #                                              sorted(zero_inputs)))
                     plot_title = ('Baseline Correlation Products on input: {}\n'
                                   'Bls channel response \'Non-Zero\' inputs:\n {}\n'
-                                   '\'Zero\' inputs:\n {}'.format(inp, sorted(nonzero_inputs),
-                                                                  sorted(zero_inputs)))
+                                   '\'Zero\' inputs:\n {}'.format(inp,
+                                        ' \n'.join(textwrap.wrap(', \n'.join(sorted(
+                                                                        nonzero_inputs)))),
+                                        ' \n'.join(textwrap.wrap(', \n'.join(sorted(
+                                                                        zero_inputs))))))
 
                     caption = ('Baseline channel response on input:{}'
                                ' {} with the following non-zero inputs:\n {} \n and\n'
@@ -3671,9 +3677,15 @@ class test_CBF(unittest.TestCase):
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
                     else:
-                        sync_time = self.correlator.get_synch_time()
-                        if sync_time == -1:
-                                sync_time = this_freq_dump['sync_time'].value
+                        try:
+                            reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
+                            sync_time = float(reply.arguments[-1])
+                            if not reply.reply_ok():
+                                raise Exception
+                        except Exception:
+                            Aqf.failed('Could not retrieve sync time via correlator object.')
+                            return False
+
                         dump_timestamp = (roundtrip + sync_time +
                                           this_freq_dump['timestamp'].value /
                                           this_freq_dump['scale_factor_timestamp'].value)
@@ -4258,7 +4270,7 @@ class test_CBF(unittest.TestCase):
         test_freq = self.corr_freqs.bandwidth / 2.
         test_input = sorted(self.correlator.fengine_sources.keys())[0]
         eq_scaling = 30
-        acc_times = [0.2, 0.49]
+        acc_times = [0.199, 0.49]
         n_chans = self.corr_freqs.n_chans
 
         internal_accumulations = int(
@@ -4308,13 +4320,18 @@ class test_CBF(unittest.TestCase):
                     ' [test_freq_channel+1:]')
         Aqf.step('FFT Window [{} samples] = {:.3f} micro seconds, Internal Accumulations = {}, '
                  'One VACC accumulation = {}s'.format(n_chans * 2,
-                    self.corr_freqs.fft_period*1e6, internal_accumulations, delta_acc_t))
+                    self.corr_freqs.fft_period * 1e6, internal_accumulations, delta_acc_t))
 
         chan_response = []
-        for vacc_accumulations in test_acc_lens:
+        # TODO MM 2016-10-07 Fix tests to use cam interface instead of corr object
+        for vacc_accumulations, acc_time in zip(test_acc_lens, acc_times):
             try:
-                self.correlator.xops.set_acc_len(vacc_accumulations)
-            except VaccSynchAttemptsMaxedOut:
+                #self.correlator.xops.set_acc_len(vacc_accumulations)
+                reply = self.corr_fix.katcp_rct.req.accumulation_length(
+                    acc_time, timeout=60)
+                self.assertIsInstance(reply, katcp.resource.KATCPReply)
+
+            except (TimeoutError, VaccSynchAttemptsMaxedOut):
                 Aqf.failed('Failed to set accumulation length of {} after {} maximum vacc '
                            'sync attempts.'.format(vacc_accumulations,
                                                    MAX_VACC_SYNCH_ATTEMPTS))
@@ -7629,6 +7646,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _small_voltage_buffer(self):
+
         try:
             reply, informs = correlator_fixture.katcp_rct.req.input_labels()
             if reply.reply_ok():

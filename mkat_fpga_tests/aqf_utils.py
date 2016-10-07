@@ -226,7 +226,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         plt.ylim(ylimits)
 
     if caption:
-        plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.figtext(.1, -.19, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
                    loc='center left', bbox_to_anchor=(1, .8),
