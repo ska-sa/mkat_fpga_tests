@@ -346,7 +346,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.20')
     def test_bc8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc8n856M32k'):
         """
-        CBF Channelisation Spurious Free Dynamic Range (bc16n856M4k)
+        CBF Channelisation Spurious Free Dynamic Range (bc8n856M4k)
         Test Verifies these requirements:
             CBF-REQ-0126
             CBF-REQ-0047
@@ -376,6 +376,69 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc8n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0126
+            CBF-REQ-0047
+            CBF-REQ-0046
+            CBF-REQ-0053
+            CBF-REQ-0050
+            CBF-REQ-0049
+        """
+        # Fast Test spurious free dynamic range for wideband fine (bc8n856M32k)
+
+        # Check that the correct channels have the peak response to each
+        # frequency and that no other channels have significant relative power.
+
+        # This is the faster version that sweeps through 32768 channels
+        # whilst stepping through `x`, where x is the step size given.
+
+        # _____________________________NOTE____________________________
+        # Usage: Run nosetests with -e
+        # Example: nosetests  -s -v --with-katreport --exclude=slow
+
+        instrument_success = self.set_instrument(instrument, acc_time=0.49)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument().keys()[0]
+            Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
+                                self._testMethodDoc])))
+            self._systems_tests()
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  # Hz
+
+    @aqf_vr('TP.C.1.20')
+    def test_bc16n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc16n856M32k'):
+        """
+        CBF Channelisation Spurious Free Dynamic Range (bc16n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0126
+            CBF-REQ-0047
+            CBF-REQ-0046
+            CBF-REQ-0053
+            CBF-REQ-0050
+            CBF-REQ-0049
+        """
+        # Slow Test spurious free dynamic range for wideband fine (bc8n856M32k)
+        # This is the slow version that sweeps through all 32768 channels.
+
+        # _____________________________NOTE____________________________
+        # Usage: Run nosetests with -e
+        # Example: nosetests  -s -v --with-katreport --exclude=slow
+
+        instrument_success = self.set_instrument(instrument, acc_time=0.49)
+        if instrument_success.keys()[0] is not True:
+            Aqf.end(passed=False, message=instrument_success.values()[0])
+        else:
+            _running_inst = self.corr_fix.get_running_intrument().keys()[0]
+            Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
+                                self._testMethodDoc])))
+            self._systems_tests()
+            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)  # Hz
+
+    @aqf_vr('TP.C.1.20')
+    def test_bc16n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc16n856M32k'):
+        """
+        CBF Channelisation Spurious Free Dynamic Range (bc16n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0126
             CBF-REQ-0047
