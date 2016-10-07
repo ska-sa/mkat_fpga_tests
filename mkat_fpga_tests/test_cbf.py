@@ -104,7 +104,7 @@ class test_CBF(unittest.TestCase):
             sys.exit(errmsg)
         self.receiver = None
 
-    def set_instrument(self, instrument, acc_time=0.2):
+    def set_instrument(self, instrument, acc_time=0.5):
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
 
@@ -166,6 +166,7 @@ class test_CBF(unittest.TestCase):
                     return {False: errmsg}
                 else:
                     start_thread_with_cleanup(self, self.receiver, start_timeout=1)
+                    #self.addCleanup(self.receiver)
                     self.correlator = self.corr_fix.correlator
                     try:
                         self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
