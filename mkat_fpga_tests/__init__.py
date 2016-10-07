@@ -190,7 +190,7 @@ class CorrelatorFixture(object):
         else:
             _major, _minor, _flags = katcp_prot.split(',')
             protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
-        multicast_ip = self.get_multicast_ips(self.instrument)
+        multicast_ip = self.get_multicast_ips()
         if self._katcp_rct is None:
             reply, informs = self.rct.req.array_list(self.array_name)
             # If no sub-array present create one, but this could cause problems
@@ -545,13 +545,13 @@ class CorrelatorFixture(object):
         else:
             return False
 
-    def get_multicast_ips(self, instrument):
+    def get_multicast_ips(self):
         """
         Retrieves multicast ips from test configuration file and calculates the number
         of inputs depending on which instrument is being initialised
         :param instrument: Correlator
         """
-        if instrument is None:
+        if self.instrument is None:
             return False
         try:
             multicast_ip_inp = (
@@ -559,13 +559,25 @@ class CorrelatorFixture(object):
         except TypeError:
             msg = ('Could not read and split the multicast ip\'s in the test config file')
             LOGGER.error(msg)
-            return False
+            return 0
         else:
             if self.instrument.startswith('bc') or self.instrument.startswith('c'):
                 if self.instrument[0] == 'b':
-                    multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
+                    try:
+                        # multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
+                        multicast_ip = multicast_ip_inp * int(
+                                                    self.instrument.replace('bc', '').split('n')[0])
+                    except Exception:
+                        LOGGER.error('Could not calculate multicast ips from config file')
+                        return 0
                 else:
-                    multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
+                    try:
+                        # multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
+                        multicast_ip = multicast_ip_inp * int(
+                                                    self.instrument.replace('c', '').split('n')[0])
+                    except Exception:
+                        LOGGER.error('Could not calculate multicast ips from config file')
+                        return 0
 
             return multicast_ip
 
@@ -579,7 +591,8 @@ class CorrelatorFixture(object):
         LOGGER.info('Confirm DEngine is running before starting correlator')
         if not self.dhost.is_running():
             raise RuntimeError('DEngine: %s not running.' % (self.dhost.host))
-        multicast_ip = self.get_multicast_ips(self.instrument)
+
+        multicast_ip = self.get_multicast_ips()
         self.rct.start()
         try:
             self.rct.until_synced(timeout=timeout)
