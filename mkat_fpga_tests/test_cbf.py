@@ -7905,7 +7905,8 @@ class test_CBF(unittest.TestCase):
                                                                                        fft_shift)),
                            bins=64, ranges=(0, 1.5))
 
-        with open('ch_time_series_{}.csv'.format(self._testMethodName, 'wb') as file:
+        csvfile = 'ch_time_series_{}.csv'.format(self._testMethodName)
+        with open(csvfile, 'wb') as file:
             writer = csv.writer(file)
             Aqf.step('Getting initial Spead Heap')
             try:
@@ -7945,7 +7946,7 @@ class test_CBF(unittest.TestCase):
                         #ch_time_series = np.vstack((ch_time_series, auto_corr))
 
         Aqf.hop('Reading data from file.')
-        file = open('ch_time_series.csv', 'rb')
+        file = open(csvfile, 'rb')
         read = csv.reader(file)
         ch_time_series = []
         for row in read:
