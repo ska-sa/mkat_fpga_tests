@@ -6100,42 +6100,42 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed('Imaging data product set has not been implemented.')
         if self.corr_freqs.n_chans == 4096:
-        try:
-            reply, informs = correlator_fixture.katcp_rct.req.input_labels()
-            if reply.reply_ok():
-            ants = int(len(reply.arguments[1:])/2)
-            else:
-            raise Exception
-        except Exception, e:
-            Aqf.failed(e)
-            return
+            try:
+                reply, informs = correlator_fixture.katcp_rct.req.input_labels()
+                if reply.reply_ok():
+                    ants = int(len(reply.arguments[1:])/2)
+                else:
+                    raise Exception
+            except Exception, e:
+                Aqf.failed(e)
+                return
         # Set list for all the correlator input labels
-        if ants == 4:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                       'm002_x', 'm002_y', 'm003_x', 'm003_y']
-        elif ants == 8:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                       'm002_x', 'm002_y', 'm003_x', 'm003_y',
-                       'm004_x', 'm004_y', 'm005_x', 'm005_y',
-                       'm006_x', 'm006_y', 'm007_x', 'm007_y']
-        elif ants == 16:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                       'm002_x', 'm002_y', 'm003_x', 'm003_y',
-                       'm004_x', 'm004_y', 'm005_x', 'm005_y',
-                       'm006_x', 'm006_y', 'm007_x', 'm007_y',
-                       'm008_x', 'm008_y', 'm009_x', 'm009_y',
-                       'm010_x', 'm010_y', 'm011_x', 'm011_y',
-                       'm012_x', 'm012_y', 'm013_x', 'm013_y',
-                       'm014_x', 'm014_y', 'm015_x', 'm015_y']
+            if ants == 4:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                           'm002_x', 'm002_y', 'm003_x', 'm003_y']
+            elif ants == 8:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                           'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                           'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                           'm006_x', 'm006_y', 'm007_x', 'm007_y']
+            elif ants == 16:
+                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
+                           'm002_x', 'm002_y', 'm003_x', 'm003_y',
+                           'm004_x', 'm004_y', 'm005_x', 'm005_y',
+                           'm006_x', 'm006_y', 'm007_x', 'm007_y',
+                           'm008_x', 'm008_y', 'm009_x', 'm009_y',
+                           'm010_x', 'm010_y', 'm011_x', 'm011_y',
+                           'm012_x', 'm012_y', 'm013_x', 'm013_y',
+                           'm014_x', 'm014_y', 'm015_x', 'm015_y']
         try:
             reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0x')
             reply, informs = correlator_fixture.katcp_rct.req.capture_stop('beam_0y')
             reply, informs = correlator_fixture.katcp_rct.req.input_labels(
             *local_src_names)
             if reply.reply_ok():
-            labels = reply.arguments[1:]
+                labels = reply.arguments[1:]
             else:
-            raise Exception
+                raise Exception
         except Exception, e:
             Aqf.failed(e)
             return
@@ -6159,7 +6159,7 @@ class test_CBF(unittest.TestCase):
         beam_pol = beam[-1]
         for label in labels:
             if label.find(beam_pol) != -1:
-            beam_dict[label]=0.0
+                beam_dict[label]=0.0
 
         # Only one antenna gain is set to 1, this will be used as the reference
         # input level

@@ -529,12 +529,19 @@ class CorrelatorFixture(object):
         """
         path, _none = os.path.split(__file__)
         path, _none = os.path.split(path)
-        conf_path = '/config/test_conf.ini'
+        try:
+            assert os.uname()[1].startswith('dbelab')
+        except AssertionError:
+            conf_path = '/config/test_conf_site.ini'
+            LOGGER.info('Using site test config file: %s' %conf_path)
+        else:
+            conf_path = '/config/test_conf.ini'
+            LOGGER.info('Using Lab test config file on %s' % conf_path)
+
         config_file = path + conf_path
         if os.path.exists(config_file):
             try:
-                test_conf = corr2.utils.parse_ini_file(config_file)
-                return test_conf
+                return corr2.utils.parse_ini_file(config_file)
             except (IOError, ValueError, TypeError):
                 errmsg = ('Failed to read test config file, Test will exit'
                           '\n\t File:%s Line:%s' % (
