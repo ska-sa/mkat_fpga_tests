@@ -915,3 +915,10 @@ def get_clean_dump(self, retries=5, timeout=10):
             LOGGER.error(errmsg)
 
     return test_dump
+
+def get_local_src_names(self):
+    """
+    Calculate the number of inputs depending on correlators objects number of antennas
+    :param: Object
+    :rtype: List"""
+    return ['m0{:02d}_{}'.format(x, i) for x in xrange(self.correlator.n_antennas) for i in 'xy']
