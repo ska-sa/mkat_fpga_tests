@@ -890,3 +890,28 @@ class TestTimeout:
 
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
+
+def get_clean_dump(self, retries=5, timeout=10):
+    import spead2
+    success = False
+    test_dump = None
+    while retries and not success:
+        retries -= 1
+        try:
+            test_dump = self.receiver.get_clean_dump(timeout)
+            assert type(test_dump) == spead2.ItemGroup
+        except Queue.Empty:
+            errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
+            LOGGER.exception(errmsg)
+            pass
+        except AssertionError:
+            errmsg = 'Dump is not a spead2 itemgroup.'
+            LOGGER.exception(errmsg)
+            pass
+        else:
+            success = True
+        if retries == 0:
+            errmsg = 'Could not get SPEAD heaps after a number of retries.'
+            LOGGER.error(errmsg)
+
+    return test_dump
