@@ -152,10 +152,10 @@ class CorrelatorFixture(object):
                         'test correlator', config_source=self.config_filename)
                     self.correlator.initialise(program=False)
                     return self._correlator
-                except:
-                    LOGGER.error(
-                        'Failed to create new correlator instance, Will now try to '
-                        'start correlator with config: %s-%s' % (self.array_name, self.instrument))
+                except Exception, e:
+                    LOGGER.error('Failed to create new correlator instance (%s), Will now try to '
+                                 'start correlator with config: %s-%s' % (str(e), self.array_name,
+                                                                          self.instrument))
                     self.start_correlator(instrument=self.instrument)
             else:
                 LOGGER.error('No Config file (/etc/corr/array*-instrument), '
@@ -572,16 +572,16 @@ class CorrelatorFixture(object):
                 if self.instrument[0] == 'b':
                     try:
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
-                        multicast_ip = multicast_ip_inp * int(
-                                                    self.instrument.replace('bc', '').split('n')[0])
+                        multicast_ip = multicast_ip_inp * (
+                                       int(self.instrument.replace('bc', '').split('n')[0]) / 2)
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return 0
                 else:
                     try:
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
-                        multicast_ip = multicast_ip_inp * int(
-                                                    self.instrument.replace('c', '').split('n')[0])
+                        multicast_ip = multicast_ip_inp * (
+                                       int(self.instrument.replace('c', '').split('n')[0]) / 2)
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return 0
