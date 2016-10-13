@@ -115,19 +115,26 @@ class CorrelatorFixture(object):
                 self.dsim_conf = self._test_config_file['dsimengine']
                 dig_host = self.dsim_conf['host']
 
-            self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
-            # Check if D-eng is running else start it.
-            if self._dhost.is_running():
-                LOGGER.info('D-Eng is already running.')
-            # Disabled DSim programming as it would alter the systems sync epoch
-            elif program and not self._dhost.is_running():
-                LOGGER.info('Programming and starting the Digitiser Simulator.')
-                self._dhost.initialise()
-                self._dhost.enable_data_output(enabled=True)
-                self._dhost.registers.control.write(gbe_txen=True)
+            try:
+                self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
+            except Exception:
+                errmsg = (
+                'Failed to connect to retrieve information from Digitiser Simulator.')
+                LOGGER.exception(errmsg)
+                sys.exit(errmsg)
             else:
-                LOGGER.info('D-Eng started succesfully')
-            return self._dhost
+                # Check if D-eng is running else start it.
+                if self._dhost.is_running():
+                    LOGGER.info('D-Eng is already running.')
+                # Disabled DSim programming as it would alter the systems sync epoch
+                elif program and not self._dhost.is_running():
+                    LOGGER.info('Programming and starting the Digitiser Simulator.')
+                    self._dhost.initialise()
+                    self._dhost.enable_data_output(enabled=True)
+                    self._dhost.registers.control.write(gbe_txen=True)
+                else:
+                    LOGGER.info('D-Eng started succesfully')
+                return self._dhost
 
     @property
     def correlator(self):
@@ -533,10 +540,8 @@ class CorrelatorFixture(object):
             assert os.uname()[1].startswith('dbelab')
         except AssertionError:
             conf_path = '/config/test_conf_site.ini'
-            LOGGER.info('Using site test config file: %s' %conf_path)
         else:
             conf_path = '/config/test_conf.ini'
-            LOGGER.info('Using Lab test config file on %s' % conf_path)
 
         config_file = path + conf_path
         if os.path.exists(config_file):
