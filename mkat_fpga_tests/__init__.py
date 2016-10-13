@@ -579,6 +579,7 @@ class CorrelatorFixture(object):
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
                         multicast_ip = multicast_ip_inp * (
                                        int(self.instrument.replace('bc', '').split('n')[0]) / 2)
+                        return multicast_ip
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return 0
@@ -587,11 +588,12 @@ class CorrelatorFixture(object):
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
                         multicast_ip = multicast_ip_inp * (
                                        int(self.instrument.replace('c', '').split('n')[0]) / 2)
+                        return multicast_ip
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return 0
 
-            return multicast_ip
+
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.info('Will now try to start the correlator')
