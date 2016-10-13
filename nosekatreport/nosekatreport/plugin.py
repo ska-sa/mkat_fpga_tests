@@ -666,6 +666,20 @@ class Aqf(object):
         cls.log_step(message)
 
     @classmethod
+    def addLine(cls, linetype, count):
+        """A step in a test section with lines
+
+        eg. Aqf.step("Test that the antenna is stowed when X is set to Y")
+
+        :param linetype: String. linetype eg: * - _
+        :param count: Int. How long do you want your line to be.
+
+        """
+        message = linetype * count
+        _state.store.add_step(message)
+        cls.log_step(message)
+
+    @classmethod
     def image(cls, filename, caption='', alt=''):
         _state.store.add_image(filename, caption, alt)
 
