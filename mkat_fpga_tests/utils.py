@@ -604,7 +604,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         else:
             return True
 
-    def get_ant_inputs(self):
+    def get_input_labels(self):
         try:
             reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
             if not reply.reply_ok():
@@ -619,7 +619,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
         return 0
 
-    sources = get_ant_inputs(self)
+    sources = get_input_labels(self)
     LOGGER.info('Writting input sources gains to %s' % (gain))
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
@@ -721,8 +721,8 @@ def get_figure_numbering(self):
         return get_fig_prefix(2)
 
 
-def disable_warnings_messages(spead2_warn=False, corr_rx_warn=False, plt_warn=False,
-                              np_warn=False, deprecated_warn=False):
+def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True,
+                              np_warn=True, deprecated_warn=True):
     """This function disables all error warning messages
     :param:
         spead2 : Boolean
@@ -921,4 +921,31 @@ def get_local_src_names(self):
     Calculate the number of inputs depending on correlators objects number of antennas
     :param: Object
     :rtype: List"""
-    return ['m0{:02d}_{}'.format(x, i) for x in xrange(self.correlator.n_antennas) for i in 'xy']
+    try:
+        self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
+    except AssertionError, e:
+        errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
+        LOGGER.error(errmsg)
+        Aqf.failed(errmsg)
+        return
+    else:
+        return ['m0{:02d}_{}'.format(x, i)
+                for x in xrange(self.correlator.n_antennas)
+                    for i in 'xy']
+
+def get_input_labels(self):
+    """
+    :param: Obj: self
+    :rtype: list: input labels
+    """
+    try:
+        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
+        if not reply.reply_ok():
+            raise Exception
+    except Exception:
+        errmsg = ('Failed to retrieve input lables via Cam interface with a reply: %s' % (str(reply)))
+        LOGGER.error(errmsg)
+        Aqf.failed(errmsg)
+        return False
+    else:
+        return reply.arguments[1:]
