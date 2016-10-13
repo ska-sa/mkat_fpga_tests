@@ -1,5 +1,8 @@
 #!/bin/bash
 # Script that runs nosetests and initiate an instrument
+# Note: The script assumes that you have a script on your home path,
+# that initialises the instrument, else create one
+
 # Mpho Mphego <mmphego@ska.ac.za>
 
 printf 'Enter username> '
