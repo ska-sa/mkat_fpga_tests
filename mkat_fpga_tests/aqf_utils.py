@@ -170,30 +170,32 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
             return False
 
-        if type(vlines) is list:
-            try:
-                plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
-            except StopIteration:
-                pass
-            except TypeError:
-                plt.axvline(x=_vlines, linestyle='dashdot', color=plt_color)
-            if len(vlines) == 3:
-                ymid = np.min(plot_data) / 2.
-                plt.annotate('', xy=[vlines[0], ymid], xytext=(vlines[1], ymid),
-                             arrowprops=dict(arrowstyle='<->'))
-                plt.annotate('', xy=[vlines[1], ymid], xytext=(vlines[2], ymid),
-                             arrowprops=dict(arrowstyle='<->'))
-                plt.text(vlines[0], ymid + 1, annotate_text)
-
-        if ylabel:
-            plt.ylabel(ylabel)
-        else:
-            plt.ylabel(ylbl)
-        if xlabel:
-            plt.xlabel(xlabel)
-        else:
-            plt.xlabel('Channel number')
         plt_line.append(plt_line_obj)
+
+    if type(vlines) is list:
+        try:
+            plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
+        except StopIteration:
+            pass
+        except TypeError:
+            plt.axvline(x=_vlines, linestyle='dashdot', color=plt_color)
+        if len(vlines) == 3:
+            ymid = np.min(plot_data) / 2.
+            plt.annotate('', xy=[vlines[0], ymid], xytext=(vlines[1], ymid),
+                         arrowprops=dict(arrowstyle='<->'))
+            plt.annotate('', xy=[vlines[1], ymid], xytext=(vlines[2], ymid),
+                         arrowprops=dict(arrowstyle='<->'))
+            plt.text(vlines[0], ymid + 1, annotate_text)
+
+    if ylabel:
+        plt.ylabel(ylabel)
+    else:
+        plt.ylabel(ylbl)
+    if xlabel:
+        plt.xlabel(xlabel)
+    else:
+        plt.xlabel('Channel number')
+
 
     if plot_title:
         plt.title(plot_title)

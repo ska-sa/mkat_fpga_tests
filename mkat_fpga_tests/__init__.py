@@ -591,7 +591,7 @@ class CorrelatorFixture(object):
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return 0
 
-            return multicast_ip
+                return multicast_ip
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.info('Will now try to start the correlator')

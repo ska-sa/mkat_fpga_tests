@@ -28,3 +28,9 @@ ntplib
 pandas
 pillow
 chainmap
+nose-parameterized
+nose-leak-detector
+nose-performance
+NoseXUnit
+nose-congestion
+ipynose

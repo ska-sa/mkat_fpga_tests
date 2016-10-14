@@ -3,6 +3,7 @@ import contextlib
 import logging
 import signal
 import time
+import corr2
 import warnings
 from collections import Mapping
 from random import randrange
@@ -929,7 +930,7 @@ def get_local_src_names(self):
         Aqf.failed(errmsg)
         return
     else:
-        return ['m0{:02d}_{}'.format(x, i)
+        return ['inp0{:02d}_{}'.format(x, i)
                 for x in xrange(self.correlator.n_antennas)
                     for i in 'xy']
 
