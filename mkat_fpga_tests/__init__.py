@@ -402,7 +402,7 @@ class CorrelatorFixture(object):
                              getframeinfo(currentframe()).lineno))
             return False
 
-    def get_running_intrument(self):
+    def get_running_instrument(self):
         """
         Returns currently running instrument listed on the sensor(s)
         """
