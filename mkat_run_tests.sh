@@ -13,19 +13,19 @@ printf 'What instrument do you want to run? Enter full name> '
 read -r Instrument
 
 
-printf '[Y/y] Do you want to run nosetests %s?'$Instrument
+printf '[Y/y] Do you want to run nosetests %s?'${Instrument}
 if read -t 10 input ; then
-    if [ $input == 'Y' -o $input == 'y' ] ;then
-    prinf 'Initialising instrument:' $ $Instrument
-    ssh -X $Username@$Server_name './instrument_activate_'$Instrument
+    if [ ${input} == 'Y' -o ${input} == 'y' ] ;then
+    prinf 'Initialising instrument:' $ ${Instrument}
+    ssh -X ${Username}@${Server_name} './instrument_activate_'${Instrument}
 
-    printf 'Running nosetests %s\n' $Instrument
+    printf 'Running nosetests %s\n' ${Instrument}
     ModeInst=${Instrument##*M}
     ModAlwd='4k'
 
 
         timeout 30m \
-            nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
+            nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests*-+/test_cbf.py:test_CBF.\
                 test__generic_config_report 2>&1 | tee test__generic_config_report.txt;
 
         timeout 30m \
@@ -50,79 +50,79 @@ if read -t 10 input ; then
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_accumulation_length 2>&1 | tee test_`echo $Instrument`_accumulation_length.txt;
+                test_`echo ${Instrument}`_accumulation_length 2>&1 | tee test_`echo ${Instrument}`_accumulation_length.txt;
 
-        ssh -X $Username@$Server_name './instrument_activate_'$Instrument;
-
-        timeout 30m \
-             nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_baseline_correlation_product 2>&1 | tee test_`echo $Instrument`_baseline_correlation_product;
+        ssh -X ${Username}@${Server_name} './instrument_activate_'${Instrument};
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_baseline_correlation_product_consistency 2>&1 | tee test_`echo $Instrument`_baseline_correlation_product_consistency;
+                test_`echo ${Instrument}`_baseline_correlation_product 2>&1 | tee test_`echo ${Instrument}`_baseline_correlation_product;
 
-        if [ $ModeInst == $ModAlwd ]
+        timeout 30m \
+             nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
+                test_`echo ${Instrument}`_baseline_correlation_product_consistency 2>&1 | tee test_`echo ${Instrument}`_baseline_correlation_product_consistency;
+
+        if [ ${ModeInst} == ${ModAlwd} ]
             then
             printf 'Running Beamforming tests\n'
 
 
             timeout 30m \
                  nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                    test_`echo $Instrument`_beamforming 2>&1 | tee test_`echo $Instrument`_beamforming;
+                    test_`echo ${Instrument}`_beamforming 2>&1 | tee test_`echo ${Instrument}`_beamforming;
 
             timeout 30m \
                  nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                    test_`echo $Instrument`_bf_efficiency 2>&1 | tee test_`echo $Instrument`_bf_efficiency;
+                    test_`echo ${Instrument}`_bf_efficiency 2>&1 | tee test_`echo ${Instrument}`_bf_efficiency;
         fi
 
         timeout 50m nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-            test_`echo $Instrument`_channelisation 2>&1 | tee test_`echo $Instrument`_channelisation;
+            test_`echo ${Instrument}`_channelisation 2>&1 | tee test_`echo ${Instrument}`_channelisation;
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_data_product 2>&1 | tee test_`echo $Instrument`_data_product.txt
+                test_`echo ${Instrument}`_data_product 2>&1 | tee test_`echo ${Instrument}`_data_product.txt
 
-        ssh -X $Username@$Server_name './instrument_activate_'$Instrument;
-
-        timeout 30m \
-             nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_delay_inputs 2>&1 | tee test_`echo $Instrument`_delay_inputs.txt;
+        ssh -X ${Username}@${Server_name} './instrument_activate_'${Instrument};
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_delay_rate 2>&1 | tee test_`echo $Instrument`_delay_rate.txt
+                test_`echo ${Instrument}`_delay_inputs 2>&1 | tee test_`echo ${Instrument}`_delay_inputs.txt;
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_delay_tracking 2>&1 | tee test_`echo $Instrument`_delay_tracking.txt;
+                test_`echo ${Instrument}`_delay_rate 2>&1 | tee test_`echo ${Instrument}`_delay_rate.txt
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_fringe_offset 2>&1 | tee test_`echo $Instrument`_fringe_offset.txt
+                test_`echo ${Instrument}`_delay_tracking 2>&1 | tee test_`echo ${Instrument}`_delay_tracking.txt;
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_fringe_rate 2>&1 | tee test_`echo $Instrument`_fringe_rate.txt;
-
-        ssh -X $Username@$Server_name './instrument_activate_'$Instrument
+                test_`echo ${Instrument}`_fringe_offset 2>&1 | tee test_`echo ${Instrument}`_fringe_offset.txt
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-             test_`echo $Instrument`_gain_correction 2>&1 | tee test_`echo $Instrument`_gain_correction.txt;
+                test_`echo ${Instrument}`_fringe_rate 2>&1 | tee test_`echo ${Instrument}`_fringe_rate.txt;
+
+        ssh -X ${Username}@${Server_name} './instrument_activate_'${Instrument}
 
         timeout 30m \
              nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-                test_`echo $Instrument`_product_switch 2>&1 | tee test_`echo $Instrument`_product_switch.txt;
+             test_`echo ${Instrument}`_gain_correction 2>&1 | tee test_`echo ${Instrument}`_gain_correction.txt;
+
+        timeout 30m \
+             nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
+                test_`echo ${Instrument}`_product_switch 2>&1 | tee test_`echo ${Instrument}`_product_switch.txt;
 
         nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-            test_`echo $Instrument`_channelisation_sfdr_peaks_fast 2>&1 | tee test_`echo $Instrument`_channelisation_sfdr_peaks_fast.txt;
+            test_`echo ${Instrument}`_channelisation_sfdr_peaks_fast 2>&1 | tee test_`echo ${Instrument}`_channelisation_sfdr_peaks_fast.txt;
 
-        ssh -X $Username@$Server_name './instrument_activate_'$Instrument
+        ssh -X ${Username}@${Server_name} './instrument_activate_'${Instrument}
 
         nosetests  -v --logging-level=FATAL --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.\
-            test_`echo $Instrument`_corr_efficiency 2>&1 | tee test_`echo $Instrument`_corr_efficiency.txt;
+            test_`echo ${Instrument}`_corr_efficiency 2>&1 | tee test_`echo ${Instrument}`_corr_efficiency.txt;
         fi
-    echo 'Deprogramming ROACHES associated with instrument %s'$Instrument
-    corr2_deprogram.py --hosts /etc/corr/array0-$Instrument
+    echo 'Deprogramming ROACHES associated with instrument %s'${Instrument}
+    corr2_deprogram.py --hosts /etc/corr/array0-${Instrument}
     fi
