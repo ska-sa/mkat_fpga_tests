@@ -172,6 +172,25 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
 
         plt_line.append(plt_line_obj)
 
+    if ylabel:
+        plt.ylabel(ylabel)
+    else:
+        plt.ylabel(ylbl)
+
+    if xlabel:
+        plt.xlabel(xlabel)
+    else:
+        plt.xlabel('Channel number')
+
+    if plot_title:
+        plt.title(plot_title)
+
+    if ylimits:
+        plt.ylim(ylimits)
+
+    if caption:
+        plt.figtext(.1, -.19, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+
     if type(vlines) is list:
         try:
             plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
@@ -187,19 +206,6 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                          arrowprops=dict(arrowstyle='<->'))
             plt.text(vlines[0], ymid + 1, annotate_text)
 
-    if ylabel:
-        plt.ylabel(ylabel)
-    else:
-        plt.ylabel(ylbl)
-    if xlabel:
-        plt.xlabel(xlabel)
-    else:
-        plt.xlabel('Channel number')
-
-
-    if plot_title:
-        plt.title(plot_title)
-
     if hlines:
         if type(hlines) is not list:
             hlines = [hlines]
@@ -209,6 +215,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             except:
                 color = 'red'
             plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
+
             if plot_type == 'eff':
                 msg = ('Requirement: {}%'.format(lines))
             elif plot_type == 'bf':
@@ -224,11 +231,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                          bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
                          arrowprops=dict(arrowstyle='->', fc='yellow',
                                          connectionstyle='arc3, rad=0.5', color='red'))
-    if ylimits:
-        plt.ylim(ylimits)
 
-    if caption:
-        plt.figtext(.1, -.19, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,
                    loc='center left', bbox_to_anchor=(1, .8),
