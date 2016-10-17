@@ -38,7 +38,7 @@ from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
 from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
 from mkat_fpga_tests.utils import get_baselines_lookup, TestTimeout
-from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay
+from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, who_ran_test
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import ignored, clear_host_status, restore_src_names
 from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
@@ -2006,6 +2006,7 @@ class test_CBF(unittest.TestCase):
                                         self._testMethodDoc])))
             self._systems_tests()
             self._test_time_sync()
+            who_ran_test()
 
 
     @aqf_vr('TP.C.1.29')
@@ -2239,6 +2240,7 @@ class test_CBF(unittest.TestCase):
             self.set_instrument(instrument)
         self._systems_tests()
         self._test_control_init()
+        who_ran_test()
 
     @aqf_vr('TP.C.1.17')
     def test__generic_config_report(self, instrument='bc8n856M4k'):
@@ -2259,6 +2261,7 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(_running_inst):
             self._systems_tests()
             self._test_config_report(verbose=False)
+            who_ran_test()
 
     @aqf_vr('TP.C.1.18')
     @aqf_vr('TP.C.1.15')
@@ -2296,6 +2299,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step(msg)
             self._test_roach_pfb_sensors()
         clear_host_status(self)
+        who_ran_test()
 
     @aqf_vr('VR.C.14')
     @aqf_vr('TP.C.1.16')
@@ -2323,6 +2327,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step(msg)
             self._test_roach_sensors_status()
         clear_host_status(self)
+        who_ran_test()
 
     @aqf_vr('TP.C.1.23')
     def test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
@@ -2393,7 +2398,7 @@ class test_CBF(unittest.TestCase):
             self._corr_efficiency()
 
     @aqf_vr('TP.C.1.23')
-    def test_bc16n856M32k_corr_efficiency(self, instrument='bc16n856M32k'):
+    def _test_bc16n856M32k_corr_efficiency(self, instrument='bc16n856M32k'):
         """
         CBF L-Band Correlator Efficiency (bc16n856M32k)
         Test Verifies these requirements:
@@ -2447,6 +2452,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                         self._testMethodDoc])))
             self._small_voltage_buffer()
+            who_ran_test()
 
     def _test_bc8n856M32k_input_levels(self, instrument='bc8n856M32k'):
         """
@@ -3176,6 +3182,7 @@ class test_CBF(unittest.TestCase):
                     '({co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq '
                     '{co_high_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                     'relative to channel centre response.'.format(**locals()))
+        who_ran_test()
 
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53):
         """Test channel spacing and out-of-channel response
@@ -3359,6 +3366,7 @@ class test_CBF(unittest.TestCase):
         else:
             LOGGER.info('Expected: %s\n\nGot: %s' % (extra_peaks, [[]] * len(max_channels)))
             Aqf.failed(msg)
+        who_ran_test()
 
     def _test_product_baselines(self):
         if self.corr_freqs.n_chans == 4096:
@@ -3583,6 +3591,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     Aqf.failed(msg + str(reply))
             dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
+            who_ran_test()
 
     def _test_back2back_consistency(self):
         """
@@ -3690,6 +3699,7 @@ class test_CBF(unittest.TestCase):
                     aqf_plot_channels(zip(chan_responses, legends), plot_filename, plot_title,
                                       log_dynamic_range=90, log_normalise_to=1, normalise=False,
                                       caption=caption)
+        who_ran_test()
 
     def _test_freq_scan_consistency(self, threshold=1e-1):
         """Check that identical frequency scans produce equal results"""
@@ -3787,6 +3797,7 @@ class test_CBF(unittest.TestCase):
                         aqf_plot_channels(zip(chan_responses, legends),
                                           plot_filename='{}_chan_resp.png'.format(
                                                 self._testMethodName), caption=caption)
+        who_ran_test()
 
     def _test_restart_consistency(self, instrument, no_channels):
         """
@@ -3991,6 +4002,7 @@ class test_CBF(unittest.TestCase):
                 plot_title = ('CBF restart consistency channel response {}'.format(test_chan))
                 aqf_plot_channels(zip(channel_responses, legends), plot_filename, plot_title,
                     caption=caption)
+        who_ran_test()
 
     def _test_delay_tracking(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
@@ -4172,6 +4184,7 @@ class test_CBF(unittest.TestCase):
                             degree))
                     Aqf.array_abs_error(actual_phases[count][1:],
                                              expected_phases_[count][1:], msg, degree)
+        who_ran_test()
 
     def _test_sensor_values(self):
         """
@@ -4730,6 +4743,7 @@ class test_CBF(unittest.TestCase):
                                                     actual_response[:chan_index].real, msg):
                         aqf_plot_channels(actual_response_, plot_filename, plot_title,
                                           log_normalise_to=0, normalise=0, caption=caption)
+        who_ran_test()
 
     def _test_product_switch(self, instrument, no_channels):
 
@@ -4808,6 +4822,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.less(final_time, minute,
                          '[CBF-REQ-0013] Confirm that instrument switching to {instrument} '
                          'time is less than one minute'.format(**locals()))
+        who_ran_test()
 
     def _test_adc_overflow_flag(self):
         """CBF flagging of data -- ADC overflow"""
@@ -5112,6 +5127,7 @@ class test_CBF(unittest.TestCase):
                                 self._testMethodName, i),
                             plot_title='Delay Rate:\nActual vs Expected Phase Response',
                             plot_units=plot_units, caption=caption, )
+        who_ran_test()
 
     def _test_fringe_rate(self):
         """CBF per-antenna phase error -- Fringe rate"""
@@ -5220,6 +5236,7 @@ class test_CBF(unittest.TestCase):
                                 self._testMethodName, i),
                             plot_title='Fringe Rate: Actual vs Expected Phase Response',
                             plot_units=plot_units, caption=caption, )
+        who_ran_test()
 
     def _test_fringe_offset(self):
         """CBF per-antenna phase error -- Fringe offset"""
@@ -5332,6 +5349,7 @@ class test_CBF(unittest.TestCase):
                                 self._testMethodName, i),
                             plot_title=('Fringe Offset:\nActual vs Expected Phase Response'),
                             plot_units=plot_units, caption=caption, )
+        who_ran_test()
 
     def _test_all_delays(self):
         """
@@ -5406,7 +5424,7 @@ class test_CBF(unittest.TestCase):
                 degree = 1.0
                 actual_phases = np.unwrap(actual_phases)
                 expected_phases = np.unwrap([phase for label, phase in expected_phases])
-
+        who_ran_test()
                 # (MM) 14-07-2016
                 # Still need more work in here
 
@@ -5774,13 +5792,7 @@ class test_CBF(unittest.TestCase):
         get_package_versions()
         Aqf.step('CBF ROACH version information.\n')
         get_roach_config()
-
-        try:
-            Aqf.hop('Test ran by: {} on {} system at {}'.format(os.getlogin(), os.uname()[1].upper(),
-                                                                time.ctime()))
-        except OSError:
-            Aqf.hop('Test ran by: Jenkins on system {} at {}'.format(os.uname()[1], time.ctime()))
-
+        who_ran_test()
     def _test_overtemp(self):
         """ROACH2 overtemperature display test """
 
@@ -6038,6 +6050,7 @@ class test_CBF(unittest.TestCase):
                                   plot_title='Channel Response Phase Offsets Found',
                                   log_dynamic_range=90, log_normalise_to=1,
                                   caption='Delay applied to the correct input')
+        who_ran_test()
 
     def _test_data_product(self, instrument, no_channels):
         """CBF Imaging Data Product Set"""
@@ -6190,7 +6203,7 @@ class test_CBF(unittest.TestCase):
                   log_dynamic_range=90, log_normalise_to=1,
                   caption='Tied Array Beamformer data captured during Baseline Correlation '
                   'Product test.', plot_type='bf')
-
+        who_ran_test()
 
     def _test_control_init(self):
         """
@@ -6363,7 +6376,7 @@ class test_CBF(unittest.TestCase):
                                                                                 complex(base_gain)))
             else:
                 Aqf.failed('Could not retrieve channel response with gain/eq corrections.')
-
+            who_ran_test()
 
     def _capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time = 0.1):
         """ Capture beamformer data
@@ -6724,6 +6737,7 @@ class test_CBF(unittest.TestCase):
                           log_dynamic_range=90, log_normalise_to=1,
                           caption='Captured beamformer data with level adjust after beamforming gain set.',
                           hlines = exp1, plot_type='bf', hline_strt_idx=1)
+        who_ran_test()
 
     def _test_cap_beam(self, instrument='bc8n856M4k'):
         """Testing timestamp accuracy (bc8n856M4k)
@@ -7087,7 +7101,7 @@ class test_CBF(unittest.TestCase):
         aqf_plot_channels(eff*100, plt_filename, plt_title, caption=caption,
                 log_dynamic_range=None, hlines=95, ylimits=(90, 105), plot_type='eff')
 
-
+        who_ran_test()
     def _timestamp_accuracy(self, manual=False, manual_offset=0,
                             future_dump=3):
         """

@@ -5,6 +5,7 @@ import signal
 import time
 import corr2
 import warnings
+import os
 from collections import Mapping
 from random import randrange
 from socket import inet_ntoa
@@ -950,3 +951,12 @@ def get_input_labels(self):
         return False
     else:
         return reply.arguments[1:]
+
+
+def who_ran_test():
+    """Get who ran the test."""
+    try:
+        Aqf.hop('Test ran by: {} on {} system at {}'.format(os.getlogin(), os.uname()[1].upper(),
+                                                            time.ctime()))
+    except OSError:
+        Aqf.hop('Test ran by: Jenkins on system {} at {}'.format(os.uname()[1], time.ctime()))
