@@ -2081,7 +2081,6 @@ class test_CBF(unittest.TestCase):
                                      self._testMethodDoc])))
             self._systems_tests()
             self._test_data_product(instrument, no_channels=32768)
-            who_ran_test()
 
     @aqf_vr('TP.C.1.29')
     def test_bc8n856M4k_gain_correction(self, instrument='bc8n856M4k'):
@@ -3155,6 +3154,7 @@ class test_CBF(unittest.TestCase):
         chan_responses = np.array(chan_responses)
         df = self.corr_freqs.delta_f
 
+        import IPython;IPython.embed()
         plt_filename = '{}_Channel_Response.png'.format(self._testMethodName)
         plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True)
         plt_caption = ('Frequncy channel {} @ {}Mhz response vs source frequency'.format(test_chan,
@@ -6224,7 +6224,6 @@ class test_CBF(unittest.TestCase):
                                   caption=caption)
             else:
                 Aqf.failed('Imaging data product set has not been implemented.')
-
         local_src_names = get_local_src_names(self)
         try:
             running_instrument = self.corr_fix.get_running_intrument().keys()[0]
@@ -6232,7 +6231,9 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Could not retrieve running instrument.')
         else:
             if running_instrument.endswith('4k'):
+
                 local_src_names = get_local_src_names(self)
+
                 try:
                     reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0x')
                     reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0y')
