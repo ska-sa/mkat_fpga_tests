@@ -5,6 +5,7 @@ from inspect import currentframe, getframeinfo
 import corr2
 from casperfpga import katcp_fpga
 from casperfpga import utils as fpgautils
+from casperfpga import tengbe
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -592,6 +593,39 @@ class CorrelatorFixture(object):
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return 0
+
+    def subscribe_multicast(self):
+        """Automated multicasting subscription"""
+        if self.config_filename is None:
+            return
+
+        config = corr2.utils.parse_ini_file(self.config_filename)
+        output = {'src_ip': tengbe.IpAddress(config['xengine']['output_destination_ip']),
+                  'port': int(config['xengine']['output_destination_port'])
+                 }
+        data_port = output['port']
+        if output['src_ip'].is_multicast():
+            import socket
+            import struct
+            LOGGER.info('Source is multicast: %s' % output['src_ip'])
+            # look up multicast group address in name server and find out IP version
+            addrinfo = socket.getaddrinfo(str(output['src_ip']), None)[0]
+            # create a socket
+            mcast_sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
+            # join group
+            group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
+            if addrinfo[0] == socket.AF_INET:  # IPv4
+                mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
+                mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                LOGGER.info('Subscribing to %s.' % str(output['src_ip']))
+                return True
+            else:
+                mreq = group_bin + struct.pack('@I', 0)
+                mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+        else:
+            mcast_sock = None
+            LOGGER.info('Source is not multicast: %s' % output['src_ip'])
+            return False
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.info('Will now try to start the correlator')

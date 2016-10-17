@@ -174,6 +174,7 @@ class test_CBF(unittest.TestCase):
                         Aqf.failed('Failed to instantiate a correlator object')
                     else:
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
+                        self.corr_fix.subscribe_multicast()
                         self.corr_fix.start_x_data()
                         self.addCleanup(self.corr_fix.stop_x_data)
                         self.corr_fix.issue_metadata()
