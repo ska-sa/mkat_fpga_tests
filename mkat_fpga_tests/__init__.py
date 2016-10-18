@@ -617,15 +617,17 @@ class CorrelatorFixture(object):
             if addrinfo[0] == socket.AF_INET:  # IPv4
                 mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
                 mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-                LOGGER.info('Subscribing to %s.' % str(output['src_ip']))
-                return True
+                msg = 'Subscribing to %s.' % str(output['src_ip'])
+                LOGGER.info(msg)
+                return {True: msg}
             else:
                 mreq = group_bin + struct.pack('@I', 0)
                 mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
         else:
             mcast_sock = None
-            LOGGER.info('Source is not multicast: %s' % output['src_ip'])
-            return False
+            msg = 'Source is not multicast: %s' % output['src_ip']
+            LOGGER.info(msg)
+            return {False: msg}
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.info('Will now try to start the correlator')
