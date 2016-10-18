@@ -199,7 +199,7 @@ class StoreTestRun(object):
         try:
             shutil.copy(filename, os.path.join(self.image_tempdir, prepended_filename))
         except IOError:
-            log.error('Failed to copy filename:%s to %s' %(filename, self.image_tempdir))
+            log.error('Failed to copy filename:%s to %s' % (filename, self.image_tempdir))
         else:
             final_filename = os.path.join('images', prepended_filename)
             self._update_step({'_updated': True}, dict(type='image', filename=final_filename,
@@ -236,7 +236,7 @@ class StoreTestRun(object):
             except Exception:
                 matplotlib.pyplot.clf()
             self.add_image(filename, caption, alt)
-            #matplotlib.pyplot.close('all')
+            # matplotlib.pyplot.close('all')
 
     def as_json(self):
         """Output report in json format.
@@ -907,7 +907,7 @@ class Aqf(object):
             assert expected_min <= result <= expected_max
         except AssertionError:
             cls.failed("Actual value '%s' is not between '%s' and '%s' -  %s" % (
-                str(result), str(expected_min), str(expected_max),  description))
+                str(result), str(expected_min), str(expected_max), description))
         else:
             cls.passed(description)
 
@@ -1112,7 +1112,7 @@ class Aqf(object):
 
         """
         if not traceback:
-            sys.tracebacklimit = 0      # Disabled Traceback report
+            sys.tracebacklimit = 0  # Disabled Traceback report
 
         if passed is True:
             cls.passed(message)
@@ -1130,16 +1130,16 @@ class Aqf(object):
         elif _state.store.test_failed:
             _state.store.test_failed = False
             raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                             _state.store.test_name, _state.store.error_msg))
+                _state.store.test_name, _state.store.error_msg))
         else:
             try:
                 assert _state.store.test_passed
             except AssertionError:
                 raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                                _state.store.test_name, _state.store.error_msg))
+                    _state.store.test_name, _state.store.error_msg))
 
-            #assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                                              #(_state.store.test_name, _state.store.error_msg))
+                # assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
+                # (_state.store.test_name, _state.store.error_msg))
 
 
 def wait_for_key(timeout=-1):

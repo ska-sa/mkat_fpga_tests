@@ -3,6 +3,7 @@ import textwrap
 from Tkinter import tkinter
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
@@ -48,7 +49,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
             plt.plot(freqs, phases)
     else:
         plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(np.max(np.abs(actual_data[0])),
-                                                             plot_units))
+                                                                    plot_units))
 
     plt.gca().set_prop_cycle(None)
     if len(expected_data) == dump_counts or len(expected_data) == dump_counts - 1:
@@ -59,7 +60,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
                 freqs, phases, '--', label='{0:.3f} {1}'.format(label_, plot_units))[0]
     else:
         fig = plt.plot(freqs, expected_data[-1],
-            '--', label='{0:.3f} {1}'.format(expected_data[0], plot_units))[0]
+                       '--', label='{0:.3f} {1}'.format(expected_data[0], plot_units))[0]
 
     axes = fig.get_axes()
     ybound = axes.get_ybound()
@@ -89,7 +90,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="",
                       log_dynamic_range=90, log_normalise_to=1, normalise=False, hlines=None,
                       vlines=None, ylimits=None, xlabel=None, ylabel=None, plot_type='channel',
-                      hline_strt_idx=0, cutoff=None, show=False,):
+                      hline_strt_idx=0, cutoff=None, show=False, ):
     """
         Simple magnitude plot of a channelised result
         return: None

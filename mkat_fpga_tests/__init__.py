@@ -72,8 +72,8 @@ class CorrelatorFixture(object):
             self.io_wrapper = resource_client.IOLoopThreadWrapper(
                 self.io_manager.get_ioloop())
             LOGGER.info('Cleanup function: File: %s line: %s' % (
-                        getframeinfo(currentframe()).filename.split('/')[-1],
-                        getframeinfo(currentframe()).lineno))
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             add_cleanup(self.io_manager.stop)
             self.io_wrapper.default_timeout = timeout
             self.io_manager.start()
@@ -87,8 +87,8 @@ class CorrelatorFixture(object):
                                                                               self.io_wrapper))
             self._rct.start()
             LOGGER.info('Cleanup function: File: %s line: %s' % (
-                        getframeinfo(currentframe()).filename.split('/')[-1],
-                        getframeinfo(currentframe()).lineno))
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             add_cleanup(self._rct.stop)
             try:
                 self._rct.until_synced(timeout=timeout)
@@ -111,8 +111,8 @@ class CorrelatorFixture(object):
             else:
                 LOGGER.error('Could not retrieve information from config file, '
                              'resorting to test_conf.ini: File:%s Line:%s' % (
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
+                                 getframeinfo(currentframe()).filename.split('/')[-1],
+                                 getframeinfo(currentframe()).lineno))
                 self.dsim_conf = self._test_config_file['dsimengine']
                 dig_host = self.dsim_conf['host']
 
@@ -120,7 +120,7 @@ class CorrelatorFixture(object):
                 self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             except Exception:
                 errmsg = (
-                'Failed to connect to retrieve information from Digitiser Simulator.')
+                    'Failed to connect to retrieve information from Digitiser Simulator.')
                 LOGGER.exception(errmsg)
                 sys.exit(errmsg)
             else:
@@ -187,7 +187,7 @@ class CorrelatorFixture(object):
         # Must still be implemented.
         self._correlator_started = False
         self._correlator = None
-        LOGGER.info('Array %s halted and teared-down' % ( self.array_name))
+        LOGGER.info('Array %s halted and teared-down' % (self.array_name))
 
     @property
     def katcp_rct(self):
@@ -209,8 +209,8 @@ class CorrelatorFixture(object):
             else:
                 LOGGER.info('Array has not been assigned yet, will try to assign.'
                             ' File:%s Line:%s' % (
-                            getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
+                                getframeinfo(currentframe()).filename.split('/')[-1],
+                                getframeinfo(currentframe()).lineno))
                 try:
                     reply, _informs = self.rct.req.array_assign(self.array_name,
                                                                 *multicast_ip)
@@ -268,12 +268,12 @@ class CorrelatorFixture(object):
         except IndexError:
             LOGGER.error('Config file does not contain Xengine output products.:'
                          ': File:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
+                                                getframeinfo(currentframe()).lineno))
             return False
         except (AttributeError, AssertionError):
             LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s'
                          % (getframeinfo(currentframe()).filename.split('/')[-1],
-                         getframeinfo(currentframe()).lineno))
+                            getframeinfo(currentframe()).lineno))
             return False
         else:
             if reply.succeeded:
@@ -282,8 +282,8 @@ class CorrelatorFixture(object):
                 except IndexError:
                     LOGGER.error('KATCP reply does not contain a capture list: '
                                  '\nFile:%s Line:%s'
-                                    % (getframeinfo(currentframe()).filename.split('/')[-1],
-                                       getframeinfo(currentframe()).lineno))
+                                 % (getframeinfo(currentframe()).filename.split('/')[-1],
+                                    getframeinfo(currentframe()).lineno))
                     return False
             else:
                 self.output_product = (
@@ -306,16 +306,16 @@ class CorrelatorFixture(object):
         LOGGER.info('Stop X data capture')
         try:
             assert isinstance(self.katcp_rct,
-                  resource_client.ThreadSafeKATCPClientResourceWrapper)
+                              resource_client.ThreadSafeKATCPClientResourceWrapper)
             reply = self.katcp_rct.req.capture_stop(self.output_product)
         except IndexError:
             LOGGER.error('Failed to capture stop, might be because config file does not contain '
                          'Xengine output products.\n: File:%s Line:%s' % (
-                            getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
+                             getframeinfo(currentframe()).filename.split('/')[-1],
+                             getframeinfo(currentframe()).lineno))
             return False
         except (AttributeError, AssertionError):
-            LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s'% (
+            LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s' % (
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
             return False
@@ -370,8 +370,8 @@ class CorrelatorFixture(object):
             else:
                 LOGGER.error('Failed to retrieve hosts from CORR2INI \n\t '
                              'File:%s Line:%s' % (
-                                getframeinfo(currentframe()).filename.split('/')[-1],
-                                getframeinfo(currentframe()).lineno))
+                                 getframeinfo(currentframe()).filename.split('/')[-1],
+                                 getframeinfo(currentframe()).lineno))
                 return False
 
         if not len(hosts) == 0:
@@ -380,7 +380,7 @@ class CorrelatorFixture(object):
                     connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
                         hostclass, list(set(hosts)), timeout=timeout)
                     hosts = [host.host for host in connected_fpgas
-                         if host.ping() is True]
+                             if host.ping() is True]
                 except Exception:
                     return False
                 try:
@@ -412,22 +412,24 @@ class CorrelatorFixture(object):
         except AttributeError:
             LOGGER.error('KATCP Request does not contain attributes '
                          '\n\t File:%s Line:%s' % (
-                         getframeinfo(currentframe()).filename.split('/')[-1],
-                         getframeinfo(currentframe()).lineno))
+                             getframeinfo(currentframe()).filename.split('/')[-1],
+                             getframeinfo(currentframe()).lineno))
             return False
 
         except KATCPSensorError:
             LOGGER.error('KATCP Error polling sensor\n\t File:%s Line:%s' % (
-                         getframeinfo(currentframe()).filename.split('/')[-1],
-                         getframeinfo(currentframe()).lineno))
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             return False
 
         if reply.istatus:
             return {reply.value: True}
         else:
-            LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % ( reply,
-                         getframeinfo(currentframe()).filename.split('/')[-1],
-                         getframeinfo(currentframe()).lineno))
+            LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (reply,
+                                                                             getframeinfo(
+                                                                                 currentframe()).filename.split('/')[
+                                                                                 -1],
+                                                                             getframeinfo(currentframe()).lineno))
             return {reply.value: False}
 
     def ensure_instrument(self, instrument, **kwargs):
@@ -475,8 +477,8 @@ class CorrelatorFixture(object):
             # not be available
             LOGGER.error('katcp rct has no attribute or no correlator '
                          'instance is running.\n\t File:%s Line:%s' % (
-                         getframeinfo(currentframe()).filename.split('/')[-1],
-                         getframeinfo(currentframe()).lineno))
+                             getframeinfo(currentframe()).filename.split('/')[-1],
+                             getframeinfo(currentframe()).lineno))
             return False
         else:
             if self.katcp_rct.state == 'synced':
@@ -484,13 +486,13 @@ class CorrelatorFixture(object):
                     reply = self.katcp_rct.req.instrument_list(instrument)
                 except Exception:
                     LOGGER.error('Array request failed: %s\n\tFile:%s Line:%s' % (
-                                 reply, getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
+                        reply, getframeinfo(currentframe()).filename.split('/')[-1],
+                        getframeinfo(currentframe()).lineno))
                 else:
                     if not reply.succeeded:
                         LOGGER.error('Array request failed: %s\n\tFile:%s Line:%s' % (
-                                     reply, getframeinfo(currentframe()).filename.split('/')[-1],
-                                     getframeinfo(currentframe()).lineno))
+                            reply, getframeinfo(currentframe()).filename.split('/')[-1],
+                            getframeinfo(currentframe()).lineno))
                         return False
             else:
                 return False
@@ -500,9 +502,9 @@ class CorrelatorFixture(object):
             # Test to see if requested instrument is available on the instrument list
             if instrument not in instruments_available:
                 LOGGER.error('Instrument: %s is not in instrument list: %s'
-                             '\n\t File:%s Line:%s' % ( instrument, instruments_available,
-                                getframeinfo(currentframe()).filename.split('/')[-1],
-                                getframeinfo(currentframe()).lineno))
+                             '\n\t File:%s Line:%s' % (instrument, instruments_available,
+                                                       getframeinfo(currentframe()).filename.split('/')[-1],
+                                                       getframeinfo(currentframe()).lineno))
                 return False
 
             # Get currently running instrument listed on the sensor(s)
@@ -511,14 +513,14 @@ class CorrelatorFixture(object):
             except AttributeError:
                 LOGGER.error('Instrument state could not be retrieved from the '
                              'sensors\n\t File:%s Line:%s' % (
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
+                                 getframeinfo(currentframe()).filename.split('/')[-1],
+                                 getframeinfo(currentframe()).lineno))
                 return False
             else:
                 if not reply.istatus:
                     LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (
-                                 reply, getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
+                        reply, getframeinfo(currentframe()).filename.split('/')[-1],
+                        getframeinfo(currentframe()).lineno))
                     return False
                 running_intrument = reply.value
 
@@ -526,7 +528,7 @@ class CorrelatorFixture(object):
                 if instrument_present:
                     self.instrument = instrument
                     LOGGER.info('Confirmed that the named instrument %s is enabled on '
-                                'correlator %s.' % ( self.instrument, self.array_name))
+                                'correlator %s.' % (self.instrument, self.array_name))
                 return instrument_present
 
     @property
@@ -551,8 +553,8 @@ class CorrelatorFixture(object):
             except (IOError, ValueError, TypeError):
                 errmsg = ('Failed to read test config file, Test will exit'
                           '\n\t File:%s Line:%s' % (
-                          getframeinfo(currentframe()).filename.split('/')[-1],
-                          getframeinfo(currentframe()).lineno))
+                              getframeinfo(currentframe()).filename.split('/')[-1],
+                              getframeinfo(currentframe()).lineno))
                 LOGGER.error(errmsg)
                 return False
         else:
@@ -579,7 +581,7 @@ class CorrelatorFixture(object):
                     try:
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
                         multicast_ip = multicast_ip_inp * (
-                                       int(self.instrument.replace('bc', '').split('n')[0]) / 2)
+                            int(self.instrument.replace('bc', '').split('n')[0]) / 2)
                         return multicast_ip
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
@@ -588,7 +590,7 @@ class CorrelatorFixture(object):
                     try:
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
                         multicast_ip = multicast_ip_inp * (
-                                       int(self.instrument.replace('c', '').split('n')[0]) / 2)
+                            int(self.instrument.replace('c', '').split('n')[0]) / 2)
                         return multicast_ip
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
@@ -602,7 +604,7 @@ class CorrelatorFixture(object):
         config = corr2.utils.parse_ini_file(self.config_filename)
         output = {'src_ip': tengbe.IpAddress(config['xengine']['output_destination_ip']),
                   'port': int(config['xengine']['output_destination_port'])
-                 }
+                  }
         data_port = output['port']
         if output['src_ip'].is_multicast():
             import socket
@@ -653,8 +655,8 @@ class CorrelatorFixture(object):
         if not reply.reply_ok():
             LOGGER.error('Failed to halt down the array in primary interface: reply: %s'
                          '\n\t File:%s Line:%s' % (reply,
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
+                                                   getframeinfo(currentframe()).filename.split('/')[-1],
+                                                   getframeinfo(currentframe()).lineno))
         else:
             try:
                 informs = informs[0]
@@ -699,8 +701,8 @@ class CorrelatorFixture(object):
                     [int(i) for i in self._test_config_file['inst_param']['instrument_param']
                      if i != ','])
                 LOGGER.info('Starting %s with %s parameters. Try #%s' % (self.instrument,
-                                                                        instrument_param,
-                                                                        retries))
+                                                                         instrument_param,
+                                                                         retries))
 
                 reply = self.katcp_rct.req.instrument_activate(self.instrument,
                                                                *instrument_param,
@@ -736,8 +738,8 @@ class CorrelatorFixture(object):
                     except AttributeError:
                         LOGGER.error('KATCP request does not contain attributes: '
                                      'File:%s Line:%s' % (
-                                        getframeinfo(currentframe()).filename.split('/')[-1],
-                                        getframeinfo(currentframe()).lineno))
+                                         getframeinfo(currentframe()).filename.split('/')[-1],
+                                         getframeinfo(currentframe()).lineno))
                         return False
                     else:
                         retries -= 1
@@ -772,8 +774,8 @@ class CorrelatorFixture(object):
             return True
         except:
             LOGGER.error('Failed to issue new metadata: File:%s Line:%s' % (
-                         getframeinfo(currentframe()).filename.split('/')[-1],
-                         getframeinfo(currentframe()).lineno))
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             return False
 
 
