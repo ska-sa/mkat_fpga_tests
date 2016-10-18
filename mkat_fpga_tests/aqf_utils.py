@@ -1,8 +1,7 @@
 import functools
+import matplotlib
 import textwrap
 from Tkinter import tkinter
-
-import matplotlib
 
 matplotlib.use('Agg')
 

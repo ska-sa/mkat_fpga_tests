@@ -1,25 +1,20 @@
 from __future__ import with_statement
 
-from nose.plugins import Plugin
-
+import datetime
 import json
 import logging
-import numpy as np
 import os
 import shutil
 import stat
-import string
 import subprocess
+import sys
 import tempfile
+import time
 import traceback
-import unittest
 
 import colors
-import datetime
-import gc
-import nose
-import sys
-import time
+import numpy as np
+from nose.plugins import Plugin
 
 log = logging.getLogger('nose.plugins.nosekatreport')
 

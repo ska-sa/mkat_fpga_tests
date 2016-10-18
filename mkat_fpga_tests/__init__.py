@@ -4,8 +4,8 @@ from inspect import currentframe, getframeinfo
 
 import corr2
 from casperfpga import katcp_fpga
-from casperfpga import utils as fpgautils
 from casperfpga import tengbe
+from casperfpga import utils as fpgautils
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.dsimhost_fpga import FpgaDsimHost

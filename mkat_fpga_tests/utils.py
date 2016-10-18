@@ -1,17 +1,17 @@
 import Queue
 import contextlib
 import logging
+import matplotlib
+import os
 import signal
 import time
-import corr2
 import warnings
-import os
 from collections import Mapping
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
 
-import matplotlib
+import corr2
 
 matplotlib.use('Agg')
 
