@@ -89,7 +89,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="",
                       log_dynamic_range=90, log_normalise_to=1, normalise=False, hlines=None,
                       vlines=None, ylimits=None, xlabel=None, ylabel=None, plot_type='channel',
-                      hline_strt_idx=0, cutoff=-53, show=False,):
+                      hline_strt_idx=0, cutoff=None, show=False,):
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -136,6 +136,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     ax = plt.gca()
 
     try:
+        vlines_plotd = False
         if len(vlines) > 3:
             annotate_text = vlines[-1]
             vlines = vlines[:-1]
@@ -170,6 +171,16 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
             return False
 
+        if type(vlines) is list:
+            try:
+                plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
+                vlines_plotd = True
+            except StopIteration:
+                pass
+            except TypeError:
+                plt.axvline(x=_vlines, linestyle='dashdot', color=plt_color)
+                vlines_plotd = True
+
         plt_line.append(plt_line_obj)
 
     if ylabel:
@@ -181,6 +192,9 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         plt.xlabel(xlabel)
     else:
         plt.xlabel('Channel number')
+        if cutoff:
+            msg = ('CBF Channel Isolation: {0:.3f}dB'.format(cutoff))
+            plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
 
     if plot_title:
         plt.title(plot_title)
@@ -191,46 +205,39 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     if caption:
         plt.figtext(.1, -.19, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
 
-    if type(vlines) is list:
-        try:
-            plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
-        except StopIteration:
-            pass
-        except TypeError:
-            plt.axvline(x=_vlines, linestyle='dashdot', color=plt_color)
-        if len(vlines) == 3:
-            ymid = np.min(plot_data) / 2.
-            plt.annotate('', xy=[vlines[0], ymid], xytext=(vlines[1], ymid),
-                         arrowprops=dict(arrowstyle='<->'))
-            plt.annotate('', xy=[vlines[1], ymid], xytext=(vlines[2], ymid),
-                         arrowprops=dict(arrowstyle='<->'))
-            plt.text(vlines[0], ymid + 1, annotate_text)
+    if vlines_plotd:
+        ymid = np.min(plot_data) / 2.
+        plt.annotate('', xy=[vlines[0], ymid], xytext=(vlines[1], ymid),
+                     arrowprops=dict(arrowstyle='<->'))
+        plt.annotate('', xy=[vlines[1], ymid], xytext=(vlines[2], ymid),
+                     arrowprops=dict(arrowstyle='<->'))
+        plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
         if type(hlines) is not list:
-            hlines = [hlines]
-        for idx, lines in enumerate(hlines):
-            try:
-                color = plt_line[idx + hline_strt_idx][0].get_color()
-            except:
-                color = 'red'
-            plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
+            lines = hlines
+            msg = ('CBF Freq. resolution: {:.3f}dB'.format(lines))
+            plt.axhline(lines, linestyle='dotted', linewidth=1.5)
+        else:
+            for idx, lines in enumerate(hlines):
+                try:
+                    color = plt_line[idx + hline_strt_idx][0].get_color()
+                except:
+                    color = 'red'
+                plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
 
-            if plot_type == 'eff':
-                msg = ('Requirement: {}%'.format(lines))
-            elif plot_type == 'bf':
-                msg = ('Expected: {:.2f}dB'.format(lines))
-            else:
-                msg = ('Frequency resolution: {:.2f} dB'.format(lines))
-                if cutoff:
-                    msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
-                    plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
+                if plot_type == 'eff':
+                    msg = ('Requirement: {}%'.format(lines))
+                elif plot_type == 'bf':
+                    msg = ('Expected: {:.2f}dB'.format(lines))
+                else:
+                    msg = ('{:.2f} dB'.format(lines))
 
-            plt.annotate(msg, xy=(len(plot_data) / 2, lines), xytext=(-20, -30),
-                         textcoords='offset points', ha='center', va='bottom',
-                         bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                         arrowprops=dict(arrowstyle='->', fc='yellow',
-                                         connectionstyle='arc3, rad=0.5', color='red'))
+        plt.annotate(msg, xy=(len(plot_data) / 2, lines), xytext=(-20, -30),
+                     textcoords='offset points', ha='center', va='bottom',
+                     bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                     arrowprops=dict(arrowstyle='->', fc='yellow',
+                                     connectionstyle='arc3, rad=0.5', color='red'))
 
     if has_legend:
         plt.legend(fontsize=9, fancybox=True,

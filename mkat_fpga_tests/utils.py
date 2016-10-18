@@ -955,7 +955,9 @@ def get_input_labels(self):
 def who_ran_test():
     """Get who ran the test."""
     try:
-        Aqf.hop('Test ran by: {} on {} system at {}'.format(os.getlogin(), os.uname()[1].upper(),
+        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(os.getlogin().upper(),
+                                                            os.uname()[1].upper(),
                                                             time.ctime()))
     except OSError:
-        Aqf.hop('Test ran by: Jenkins on system {} at {}'.format(os.uname()[1], time.ctime()))
+        Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
+                                                                 time.ctime()))

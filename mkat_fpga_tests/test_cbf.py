@@ -140,10 +140,7 @@ class test_CBF(unittest.TestCase):
 
         else:
             if not reply.succeeded:
-                errmsg = (
-                    'Failed to set Accumulation time via kcs. KATCP Reply: {}'.format(
-                        reply))
-                return {False: errmsg}
+                return {False: str(reply)}
             else:
                 Aqf.step('[CBF-REQ-0071, 0096, 0089] Accumulation time set via CAM interface: '
                          '{0:.3f}s\n'.format((float(reply.reply.arguments[-1]))))
@@ -3069,7 +3066,8 @@ class test_CBF(unittest.TestCase):
             chan_spacing_tol = [chan_spacing - (chan_spacing * 1/100),
                                 chan_spacing + (chan_spacing * 1/100)]
             msg = ('[CBF-REQ-0043, 0046, 0053]: Verify that the calculated channel '
-                   'frequency step size is between {} and {} Hz'.format(req_chan_spacing / 2,
+                   'frequency ({} Hz)step size is between {} and {} Hz'.format(chan_spacing,
+                                                                        req_chan_spacing / 2,
                                                                         req_chan_spacing))
             Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
             msg = ('[CBF-REQ-0047] Channelisation spacing is within maximum tolerance of 1% of the '
@@ -3127,15 +3125,16 @@ class test_CBF(unittest.TestCase):
             # Plot an overall frequency response at the centre frequency just as
             # a sanity check
 
-            plt_filename = '{}_overall_channel_resp.png'.format(self._testMethodName)
-            plt_title = 'Overall frequency response at {0} at {1:.3f}MHz.'.format(test_chan,
-                this_source_freq / 1e6)
-
             if np.abs(freq - expected_fc) < 0.1:
+                plt_filename = '{}_overall_channel_resolution.png'.format(self._testMethodName)
+                plt_title = 'Overall frequency response at {} at {:.3f}MHz.'.format(
+                                                                            test_chan,
+                                                                            this_source_freq / 1e6)
                 max_peak = np.max(loggerise(this_freq_response))
                 new_cutoff = max_peak - cutoff
+                y_axis_limits = (-100, 1)
                 caption = ('An overrall frequency response at the center frequency, and ({:.3f}dB) '
-                           'channel isolation [max channel peak ({:.3f}dB) - ({}dB) cutoff] when '
+                           'CBF channel isolation [max channel peak ({:.3f}dB) - ({}dB) cutoff] when '
                            'digitiser simulator is configured to generate a continuous wave, with '
                            'cw scale: {}, awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(
                                                                                   new_cutoff,
@@ -3146,7 +3145,7 @@ class test_CBF(unittest.TestCase):
                                                                                   gain,
                                                                                   fft_shift))
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title, caption=caption,
-                    hlines=new_cutoff)
+                    hlines=new_cutoff, ylimits=y_axis_limits)
 
 
         # Test fft overflow and qdr status after
@@ -3159,49 +3158,13 @@ class test_CBF(unittest.TestCase):
         chan_responses = np.array(chan_responses)
         df = self.corr_freqs.delta_f
 
-        import IPython;IPython.embed()
         plt_filename = '{}_Channel_Response.png'.format(self._testMethodName)
         plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True)
         plt_caption = ('Frequncy channel {} @ {}Mhz response vs source frequency'.format(test_chan,
                                                                               expected_fc / 1e6))
         plt_title = 'Channel {0} @ {1:.3f}MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
-        aqf_plot_and_save(actual_test_freqs, plot_data, df, expected_fc, plt_filename, plt_title,
-                          plt_caption, -cutoff)
-
-        # Plot PFB channel response with -6dB cuttoff horizontal line
-        # TODO MM 2016-10-04 hard coded center bins, should probably fix
-        no_of_responses = 3
-        center_bin = [150, 250, 350]
-        legends = ['Channel {} / Sample {} @ {:.3f} MHz'.format(((test_chan + i) - 1), v,
-                        self.corr_freqs.chan_freqs[test_chan + i] / 1e6)
-                   for i, v in zip(range(no_of_responses), center_bin)]
-        center_bin.append('Channel spacing: {:.3f}kHz'.format(chan_spacing/1e3))
-        #legends = ['Channel {} @ {:.3f} MHz'.format(((test_chan + i) - 1),
-                        #self.corr_freqs.chan_freqs[test_chan + i] / 1e6)
-                   #for i in range(no_of_responses)]
-
-        channel_response_list = [chan_responses[:, test_chan + i - 1]
-                                for i in range(no_of_responses)]
-        plot_title = 'PFB Channel Response'
-        plot_filename = '{}_adjacent_channels.png'.format(self._testMethodName)
-
-        caption = ('Sample PFB central channel response between channel {}, with '
-                   'channelisation spacing at {:.3f}kHz within tolerance of 1%'.format(test_chan,
-                                                                             chan_spacing/1e3))
-
-        aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
-                          normalise=True, caption=caption, hlines=-6, vlines=center_bin,
-                          xlabel='Sample Steps')
-
-        # Plot Central PFB channel response with ylimit 0 to -6dB
-        y_axis_limits = (-7, 1)
-        plot_filename = '{}_central_adjacent_channels.png'.format(self._testMethodName)
-        plot_title = 'PFB Central Channel Response'
-        caption = ('Sample PFB central channel response between channel {}'.format(test_chan))
-        aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
-                          normalise=True, caption=caption, xlabel='Sample Steps',
-                          ylimits=y_axis_limits,)
+        aqf_plot_and_save(freqs=actual_test_freqs, data=plot_data, df=df, expected_fc=expected_fc, plot_filename=plt_filename, plt_title=plt_title, caption=plt_caption, cutoff=-cutoff)
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
@@ -3288,6 +3251,54 @@ class test_CBF(unittest.TestCase):
 
         low_rel_resp_accept = np.abs(desired_cutoff_resp + acceptable_co_var)
         hi_rel_resp_accept = np.abs(desired_cutoff_resp - acceptable_co_var)
+
+        cutoff_edge = np.abs((co_lo_band_edge_rel_resp + co_hi_band_edge_rel_resp) / 2)
+
+        # Plot PFB channel response with -6dB cuttoff horizontal line
+        # TODO MM 2016-10-04 hard coded center bins, should probably fix
+        no_of_responses = 3
+        center_bin = [150, 250, 350]
+        y_axis_limits = (-90, 1)
+        legends = ['Channel {} / Sample {} \n@ {:.3f} MHz'.format(((test_chan + i) - 1), v,
+                        self.corr_freqs.chan_freqs[test_chan + i] / 1e6)
+                   for i, v in zip(range(no_of_responses), center_bin)]
+        center_bin.append('Channel spacing: {:.3f}kHz'.format(856e6 / self.corr_freqs.n_chans / 1e3))
+        #center_bin.append('Channel spacing: {:.3f}kHz'.format(chan_spacing/1e3))
+
+        channel_response_list = [chan_responses[:, test_chan + i - 1]
+                                for i in range(no_of_responses)]
+        plot_title = 'PFB Channel Response'
+        plot_filename = '{}_adjacent_channels.png'.format(self._testMethodName)
+
+        caption = ('Sample PFB central channel response between channel {}, with '
+                   'channelisation spacing of {:.3f}kHz within tolerance of 1%, with the digitiser '
+                   'simulator configured to generate a continuous wave, with cw scale: {}, '
+                   'awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(test_chan,
+                                                                          chan_spacing/1e3,
+                                                                          cw_scale,
+                                                                          awgn_scale,
+                                                                          gain,
+                                                                          fft_shift))
+
+        aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
+                          normalise=True, caption=caption, hlines=-cutoff_edge, vlines=center_bin,
+                          xlabel='Sample Steps', ylimits=y_axis_limits)
+
+        # Plot Central PFB channel response with ylimit 0 to -6dB
+        y_axis_limits = (-7, 1)
+        plot_filename = '{}_central_adjacent_channels.png'.format(self._testMethodName)
+        plot_title = 'PFB Central Channel Response'
+        caption = ('Sample PFB central channel response between channel {}, with the digitiser '
+                   'simulator configured to generate a continuous wave, with cw scale: {}, '
+                   'awgn scale: {}, Eq gain: {} and FFT shift: {}'.format(test_chan,
+                                                                          cw_scale,
+                                                                          awgn_scale,
+                                                                          gain,
+                                                                          fft_shift))
+
+        aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
+                          normalise=True, caption=caption, xlabel='Sample Steps',
+                          ylimits=y_axis_limits,)
 
         Aqf.is_true(low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
                     '[CBF-REQ-0126] Check that relative response at the low band-edge '
@@ -3654,16 +3665,12 @@ class test_CBF(unittest.TestCase):
                     expected_z_bls, expected_nz_bls = (calc_zero_and_nonzero_baselines(
                         nonzero_inputs))
                     test_data = _retrieve_clean_dump(self)
-
                     # plot baseline channel response
                     plot_data = [normalised_magnitude(test_data[:, i, :])
                                  # plot_data = [loggerise(test_data[:, i, :])
                                  for i in plot_baseline_inds]
                     plot_filename = '{}_channel_resp_{}.png'.format(self._testMethodName, inp)
-                    #plot_title = ('Baseline Correlation Products on input: {}\n'
-                    #              'Bls channel response \'Non-Zero\' inputs:\n {}\n'
-                    #               '\'Zero\' inputs:\n {}'.format(inp, sorted(nonzero_inputs),
-                    #                                              sorted(zero_inputs)))
+
                     plot_title = ('Baseline Correlation Products on input: {}\n'
                                   'Bls channel response \'Non-Zero\' inputs:\n {}\n'
                                    '\'Zero\' inputs:\n {}'.format(inp,
@@ -3679,7 +3686,7 @@ class test_CBF(unittest.TestCase):
 
                     aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
                                     plot_title,log_dynamic_range=90,
-                                    log_normalise_to=1, caption=caption, ylimits=(0, -100))
+                                    log_normalise_to=1, caption=caption, ylimits=(-100, 0))
 
                     actual_nz_bls_indices = all_nonzero_baselines(test_data)
                     actual_nz_bls = set(tuple(bls_ordering[i]) for i in actual_nz_bls_indices)
@@ -6463,6 +6470,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed('Gains to change output power by less than 1 and more than 6 dB '
                                'could not be found.')
                     found = True
+
             if chan_resp != []:
                 aqf_plot_channels(zip(chan_resp, legends),
                                   plot_filename='{}_chan_resp.png'.format(
@@ -8121,13 +8129,13 @@ class test_CBF(unittest.TestCase):
         fpga = self.correlator.fhosts[0]
         adc_data = fpga.get_adc_snapshots()['p0'].data
         fft_len = len(adc_data)
-        Aqf.step('ADC capture lenght: {}'.format(fft_len))
+        Aqf.step('ADC capture length: {}'.format(fft_len))
         fft_real = np.abs(np.fft.fft(adc_data))
         fft_pos = fft_real[0:fft_len/2]
         cw_chan = np.argmax(fft_pos)
-        cw_freq_found = cw_chan/(fft_len/2)*bw
+        cw_freq_found = cw_chan / (fft_len/2)*bw
         msg = ('Check that the expected frequency: {}Hz and measured frequency: '
-                '{}Hz matches to within a channel bandwidth: {:.3f}Hz'.format(
+               '{}Hz matches to within a channel bandwidth: {:.3f}Hz'.format(
                       cw_freq_found, cw_freq, ch_bw))
         Aqf.almost_equals(cw_freq_found, cw_freq, ch_bw, msg)
         aqf_plot_channels(np.log10(fft_pos),
@@ -8136,4 +8144,4 @@ class test_CBF(unittest.TestCase):
                         '= {}Hz'.format(cw_freq, cw_chan, cw_freq_found)),log_dynamic_range=None,
             caption=('FFT of captured small voltage buffer. {} voltage points captured '
                      'on input {}. Input bandwidth = {}Hz'.format(fft_len, label, bw)),
-            xlabel = 'FFT bins', ylabel = 'Response [dB]')
+            xlabel='FFT bins')
