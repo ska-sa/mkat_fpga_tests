@@ -174,7 +174,10 @@ class test_CBF(unittest.TestCase):
                         return {False: errmsg}
                     else:
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
-                        self.corr_fix.subscribe_multicast()
+                        subscribe_multicast = self.corr_fix.subscribe_multicast()
+                        if subscribe_multicast.keys()[0]:
+                            Aqf.step('Successfully subscribed to {}'.format(
+                                                                    subscribe_multicast.values()[0])
                         self.corr_fix.start_x_data()
                         self.addCleanup(self.corr_fix.stop_x_data)
                         self.corr_fix.issue_metadata()
