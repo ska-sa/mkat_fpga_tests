@@ -8,7 +8,7 @@ setup(name='mkat_fpga_tests',
       description='Tests for MeerKAT signal processing FPGAs ',
       license='GPL',
       author='SKA SA DBE Team',
-      author_email='paulp at ska.ac.za',
+      author_email='mmphego@ska.ac.za',
       url='https://github.com/ska-sa/mkat_fpga',
       classifiers=[
         'Development Status :: 3 - Alpha',

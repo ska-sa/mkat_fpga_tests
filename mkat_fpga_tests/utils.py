@@ -927,8 +927,12 @@ def get_clean_dump(self, retries=5, timeout=10):
         if retries == 0:
             errmsg = 'Could not get SPEAD heaps after a number of retries.'
             LOGGER.error(errmsg)
+    try:
+        assert type(test_dump) == spead2.ItemGroup
+        return test_dump
+    except AssertionError:
+        return False
 
-    return test_dump
 
 
 def get_local_src_names(self):

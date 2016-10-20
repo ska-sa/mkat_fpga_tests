@@ -3717,16 +3717,17 @@ class test_CBF(unittest.TestCase):
             who_ran_test()
 
     def _test_back2back_consistency(self):
-        """This test confirms that back-to-back SPEAD accumulations with same frequency input are
-        identical/bit-perfect.
+        """
+        This test confirms that back-to-back SPEAD accumulations with same frequency input are
+                identical/bit-perfect.
         """
         test_chan = randrange(self.corr_freqs.n_chans)
-        Aqf.addLine('-', 100)
         test_baseline = 0  # auto-corr
         requested_test_freqs = self.corr_freqs.calc_freq_samples(
             test_chan, samples_per_chan=9, chans_around=1)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         Aqf.step(Style.Bold(self._test_back2back_consistency.__doc__))
+        Aqf.addLine('-', 100)
         source_period_in_samples = self.corr_freqs.n_chans * 2
         cw_scale = 0.675
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=cw_scale,
@@ -3803,9 +3804,9 @@ class test_CBF(unittest.TestCase):
                 # 'same frequency input differ by no more than {2} dB threshold.'.format(
                 # dumps_comp, 10 * np.log10(dumps_comp), 10 * np.log10(threshold)))
 
-                msg = ('Check that the maximum difference between the initial SPEAD '
-                       'accumulations and final SPEAD accumulations with the same '
-                       'frequency input ({}Hz) is \'Zero\'.\n'.format(this_source_freq))
+                msg = ('Check that the maximum difference between the subsequent SPEAD accumulations'
+                       ' with the same frequency input ({}Hz) is \'Zero\'.\n'.format(
+                            this_source_freq))
 
                 # if not Aqf.equal(dumps_comp, 1, msg):
                 if not Aqf.equals(dumps_comp, 0, msg):
@@ -3862,9 +3863,9 @@ class test_CBF(unittest.TestCase):
                     if scan_i == 0:
                         Aqf.hop('Getting channel response for freq {} @ {}: {} MHz.'
                                 .format(i + 1, len(requested_test_freqs), freq / 1e6))
-                        # self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
                         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale,
                                                           repeatN=source_period_in_samples)
+                        freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
                             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                         except Queue.Empty:
@@ -3876,11 +3877,9 @@ class test_CBF(unittest.TestCase):
                             this_freq_data = this_freq_dump['xeng_raw'].value
                             initial_max_freq_list.append(initial_max_freq)
                     else:
-                        # TODO MM 2016-09-16: cw tone changed to repeat inorder to get
-                        # identical dumps
-                        # self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
                         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale,
                                                           repeatN=source_period_in_samples)
+                        freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
                             this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                         except Queue.Empty:
@@ -3894,12 +3893,10 @@ class test_CBF(unittest.TestCase):
                         this_freq_data[:, test_baseline, :])
                     chan_responses.append(this_freq_response)
                     scan_dumps.append(this_freq_data)
-                    frequencies.append(freq)
+                    frequencies.append(freq_val)
 
-            # Todo 16-09-2016
-            # Fix me by zipping freq with data and interate
             for scan_i in xrange(1, len(scans)):
-                for freq_i in xrange(len(scans[0])):
+                for freq_i, freq_x in zip(xrange(len(scans[0])), frequencies):
                     s0 = scans[0][freq_i]
                     s1 = scans[scan_i][freq_i]
                     norm_fac = initial_max_freq_list[freq_i]
@@ -3908,9 +3905,9 @@ class test_CBF(unittest.TestCase):
                     # then have a final Aqf-check so that there is only one step
                     # (not n_chan) in the report.
                     max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
-                    msg = ('Check that identical frequency scans produce equal results({0:.3f} dB) '
-                           'are within the selected {1:.3f}dB threshold.'.format(
-                        np.abs(max_freq_scan), np.abs(np.log10(threshold))))
+
+                    msg = ('Confirm that identical frequency ({:.3f} MHz) scans between subsequent '
+                           'SPEAD accumulations produce equal results.\n'.format(freq_x / 1e6))
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
                         legends = ['Freq scan #{}'.format(x) for x in xrange(len(chan_responses))]
