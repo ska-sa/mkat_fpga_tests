@@ -50,7 +50,8 @@ from mkat_fpga_tests.utils import get_local_src_names, get_input_labels
 from nosekatreport import Aqf, aqf_vr
 from nose.plugins.attrib import attr
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('mkat_fpga_tests')
+# LOGGER = logging.getLogger(__name__)
 
 DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
 
@@ -606,12 +607,12 @@ class test_CBF(unittest.TestCase):
                                          self._testMethodDoc])))
             self._systems_tests()
             self._test_product_baselines()
-            linelength = 100
-            Aqf.addLine('-', linelength)
-            self._test_back2back_consistency()
-            Aqf.addLine('-', linelength)
-            self._test_freq_scan_consistency()
-            # Aqf.addLine('-', linelength)
+            #linelength = 100
+            #Aqf.addLine('-', linelength)
+            #self._test_back2back_consistency()
+            #Aqf.addLine('-', linelength)
+            #self._test_freq_scan_consistency()
+            ## Aqf.addLine('-', linelength)
             # self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
@@ -3651,7 +3652,6 @@ class test_CBF(unittest.TestCase):
             bls_msg = ('Stepping through input combinations, verifying for each that '
                        'the correct output appears in the correct baseline product')
             Aqf.step(bls_msg)
-
             dataFrame = pandas.DataFrame(index=sorted(input_labels),
                                          columns=list(sorted(present_baselines)))
             for count, inp in enumerate(input_labels, start=1):

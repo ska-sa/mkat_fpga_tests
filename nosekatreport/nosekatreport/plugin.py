@@ -17,10 +17,10 @@ import numpy as np
 from nose.plugins import Plugin
 
 log = logging.getLogger('nose.plugins.nosekatreport')
+test_logger = logging.getLogger('mkat_fpga_tests')
 
 try:
     import matplotlib.pyplot
-
     matplotlib.use('Agg', warn=False, force=True)
 except ImportError:
     log.info('Matplotlib not found, will not be able to add matplotlib figures')
@@ -647,6 +647,7 @@ class Aqf(object):
             message = "Doing Setup"
         _state.store.add_step(message, hop=True)
         cls.log_hop(message)
+        test_logger.info(message)
 
     @classmethod
     def step(cls, message):
@@ -659,6 +660,7 @@ class Aqf(object):
         """
         _state.store.add_step(message)
         cls.log_step(message)
+        test_logger.info(message)
 
     @classmethod
     def addLine(cls, linetype, count):
