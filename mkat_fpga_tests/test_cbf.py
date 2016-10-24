@@ -607,12 +607,12 @@ class test_CBF(unittest.TestCase):
                                          self._testMethodDoc])))
             self._systems_tests()
             self._test_product_baselines()
-            linelength = 100
-            Aqf.addLine('-', linelength)
-            self._test_back2back_consistency()
-            Aqf.addLine('-', linelength)
-            self._test_freq_scan_consistency()
-            # Aqf.addLine('-', linelength)
+            #linelength = 100
+            #Aqf.addLine('-', linelength)
+            #self._test_back2back_consistency()
+            #Aqf.addLine('-', linelength)
+            #self._test_freq_scan_consistency()
+            ## Aqf.addLine('-', linelength)
             # self._test_restart_consistency(instrument, no_channels=4096)
 
     @aqf_vr('TP.C.1.30')
