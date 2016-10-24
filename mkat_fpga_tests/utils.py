@@ -27,7 +27,8 @@ from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
 from inspect import currentframe, getframeinfo
 
-LOGGER = logging.getLogger(__name__)
+# LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('mkat_fpga_tests')
 
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)

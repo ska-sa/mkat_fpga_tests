@@ -19,6 +19,11 @@ from katcp.resource_client import KATCPSensorError
 from testconfig import config as nose_test_config
 
 LOGGER = logging.getLogger(__name__)
+Formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : %(lineno)d - %(message)s')
+Handler = logging.FileHandler('/tmp/%s.log' %__name__)
+Handler.setFormatter(Formatter)
+LOGGER.addHandler(Handler)
+
 
 _cleanups = []
 """Callables that will be called in reverse order at package teardown
