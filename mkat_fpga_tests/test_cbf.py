@@ -52,7 +52,7 @@ from nose.plugins.attrib import attr
 
 LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 10  # How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
 
 # From
 # https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
@@ -150,10 +150,10 @@ class test_CBF(unittest.TestCase):
                     corrRx_port = 8888
                     LOGGER.info('Failed to retrieve corr rx port from config file.'
                                 'Setting it to default port: %s' % (corrRx_port))
-
-                if instrument.upper().find('M4K') > 0:
+                try:
+                    assert instrument.upper().endswith('M4K')
                     self.receiver = CorrRx(port=corrRx_port, queue_size=1000)
-                else:
+                except AssertionError:
                     self.receiver = CorrRx(port=corrRx_port, queue_size=100)
 
                 try:
@@ -173,8 +173,7 @@ class test_CBF(unittest.TestCase):
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                         subscribe_multicast = self.corr_fix.subscribe_multicast()
                         if subscribe_multicast.keys()[0]:
-                            Aqf.step('Successfully subscribed to {}'.format(
-                                subscribe_multicast.values()[0]))
+                            Aqf.step(subscribe_multicast.values()[0])
                         self.corr_fix.start_x_data()
                         self.addCleanup(self.corr_fix.stop_x_data)
                         self.corr_fix.issue_metadata()
@@ -2731,7 +2730,7 @@ class test_CBF(unittest.TestCase):
             self.corr_fix.issue_metadata()
             self.corr_fix.start_x_data()
             try:
-                initial_dump = get_clean_dump(self, DUMP_TIMEOUT)
+                initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Exception:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
                 Aqf.failed(errmsg)
@@ -3532,7 +3531,7 @@ class test_CBF(unittest.TestCase):
                  'of all the correlator input labels from SPEAD accumulation.')
 
         try:
-            test_dump = get_clean_dump(self, DUMP_TIMEOUT)
+            test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
         except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation, Item has too few elements for shape.'
             Aqf.failed(errmsg)
@@ -3622,7 +3621,7 @@ class test_CBF(unittest.TestCase):
                 """Recursive SPEAD dump retrieval"""
                 for i in xrange(5):
                     try:
-                        test_data = get_clean_dump(self, DUMP_TIMEOUT)
+                        test_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)
                     except Exception:
                         pass
                     else:
