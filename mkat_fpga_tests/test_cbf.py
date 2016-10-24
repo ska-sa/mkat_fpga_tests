@@ -5635,33 +5635,33 @@ class test_CBF(unittest.TestCase):
                 os.path.realpath(__file__)))
 
             return {
-                corr2_name: corr2_dir,
-                casper_name: casper_dir,
-                katcp_name: katcp_dir,
-                spead2_name: spead2_dir,
-                mkat_name: mkat_dir,
-                test_name: test_dir
+                corr2_name: [corr2_dir, corr2_version],
+                casper_name: [casper_dir, casper_version],
+                katcp_name: [katcp_dir, katcp_version],
+                spead2_name: [spead2_dir, spead2_version],
+                mkat_name: [mkat_dir, None],
+                test_name: [test_dir, None],
             }
 
         def get_package_versions():
             for name, repo_dir in get_src_dir().iteritems():
                 try:
                     git_hash = subprocess.check_output(['git', '--git-dir={}/.git'
-                                                       .format(repo_dir), '--work-tree={}'
-                                                       .format(repo_dir), 'rev-parse',
+                                                       .format(repo_dir[0]), '--work-tree={}'
+                                                       .format(repo_dir[0]), 'rev-parse',
                                                         '--short', 'HEAD']).strip()
 
                     git_branch = subprocess.check_output(['git', '--git-dir={}/.git'
-                                                         .format(repo_dir), '--work-tree={}'
-                                                         .format(repo_dir), 'rev-parse',
+                                                         .format(repo_dir[0]), '--work-tree={}'
+                                                         .format(repo_dir[0]), 'rev-parse',
                                                           '--abbrev-ref', 'HEAD']).strip()
 
                     Aqf.hop('Repo: {}, Git Dir: {}, Branch: {}, Last Hash: {}'
-                            .format(name, repo_dir, git_branch, git_hash))
+                            .format(name, repo_dir[0], git_branch, git_hash))
 
                     git_diff = subprocess.check_output(
-                        ['git', '--git-dir={}/.git'.format(repo_dir),
-                         '--work-tree={}'.format(repo_dir), 'diff', 'HEAD'])
+                        ['git', '--git-dir={}/.git'.format(repo_dir[0]),
+                         '--work-tree={}'.format(repo_dir[0]), 'diff', 'HEAD'])
                     if bool(git_diff):
                         if verbose:
                             Aqf.progress('Repo: {}: Contains changes not staged for commit.\n\n'
@@ -5672,7 +5672,8 @@ class test_CBF(unittest.TestCase):
                     else:
                         Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
                 except subprocess.CalledProcessError:
-                    Aqf.hop('Repo: {}, Branch: Dirty, Last Hash: Dirty\n'.format(name))
+                    Aqf.hop('Repo: {}, Version: {}, Branch: Dirty, Last Hash: Dirty\n'.format(name,
+                                                                                        repo_dir[1]))
                 except AssertionError:
                     Aqf.failed('AssertionError occured while retrieving git repo: {}\n'.format(name))
                 except OSError:
@@ -6239,9 +6240,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Could not retrieve running instrument.')
         else:
             if running_instrument.endswith('4k'):
-
                 local_src_names = get_local_src_names(self)
-
                 try:
                     reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0x')
                     reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0y')
