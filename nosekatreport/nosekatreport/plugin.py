@@ -1,31 +1,26 @@
 from __future__ import with_statement
 
-from nose.plugins import Plugin
-
+import datetime
 import json
 import logging
-import numpy as np
 import os
 import shutil
 import stat
-import string
 import subprocess
+import sys
 import tempfile
+import time
 import traceback
-import unittest
 
 import colors
-import datetime
-import gc
-import nose
-import sys
-import time
+import numpy as np
+from nose.plugins import Plugin
 
 log = logging.getLogger('nose.plugins.nosekatreport')
+test_logger = logging.getLogger('mkat_fpga_tests')
 
 try:
     import matplotlib.pyplot
-
     matplotlib.use('Agg', warn=False, force=True)
 except ImportError:
     log.info('Matplotlib not found, will not be able to add matplotlib figures')
@@ -199,7 +194,7 @@ class StoreTestRun(object):
         try:
             shutil.copy(filename, os.path.join(self.image_tempdir, prepended_filename))
         except IOError:
-            log.error('Failed to copy filename:%s to %s' %(filename, self.image_tempdir))
+            log.error('Failed to copy filename:%s to %s' % (filename, self.image_tempdir))
         else:
             final_filename = os.path.join('images', prepended_filename)
             self._update_step({'_updated': True}, dict(type='image', filename=final_filename,
@@ -236,7 +231,7 @@ class StoreTestRun(object):
             except Exception:
                 matplotlib.pyplot.clf()
             self.add_image(filename, caption, alt)
-            #matplotlib.pyplot.close('all')
+            # matplotlib.pyplot.close('all')
 
     def as_json(self):
         """Output report in json format.
@@ -652,6 +647,7 @@ class Aqf(object):
             message = "Doing Setup"
         _state.store.add_step(message, hop=True)
         cls.log_hop(message)
+        test_logger.info(message)
 
     @classmethod
     def step(cls, message):
@@ -662,6 +658,21 @@ class Aqf(object):
         :param message: String. Message describe what the step will test.
 
         """
+        _state.store.add_step(message)
+        cls.log_step(message)
+        test_logger.info(message)
+
+    @classmethod
+    def addLine(cls, linetype, count):
+        """A step in a test section with lines
+
+        eg. Aqf.step("Test that the antenna is stowed when X is set to Y")
+
+        :param linetype: String. linetype eg: * - _
+        :param count: Int. How long do you want your line to be.
+
+        """
+        message = linetype * count
         _state.store.add_step(message)
         cls.log_step(message)
 
@@ -893,7 +904,7 @@ class Aqf(object):
             assert expected_min <= result <= expected_max
         except AssertionError:
             cls.failed("Actual value '%s' is not between '%s' and '%s' -  %s" % (
-                str(result), str(expected_min), str(expected_max),  description))
+                str(result), str(expected_min), str(expected_max), description))
         else:
             cls.passed(description)
 
@@ -1098,7 +1109,7 @@ class Aqf(object):
 
         """
         if not traceback:
-            sys.tracebacklimit = 0      # Disabled Traceback report
+            sys.tracebacklimit = 0  # Disabled Traceback report
 
         if passed is True:
             cls.passed(message)
@@ -1116,16 +1127,16 @@ class Aqf(object):
         elif _state.store.test_failed:
             _state.store.test_failed = False
             raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                             _state.store.test_name, _state.store.error_msg))
+                _state.store.test_name, _state.store.error_msg))
         else:
             try:
                 assert _state.store.test_passed
             except AssertionError:
                 raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                                _state.store.test_name, _state.store.error_msg))
+                    _state.store.test_name, _state.store.error_msg))
 
-            #assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
-                                              #(_state.store.test_name, _state.store.error_msg))
+                # assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
+                # (_state.store.test_name, _state.store.error_msg))
 
 
 def wait_for_key(timeout=-1):

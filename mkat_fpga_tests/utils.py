@@ -1,6 +1,8 @@
 import Queue
 import contextlib
 import logging
+import matplotlib
+import os
 import signal
 import time
 import warnings
@@ -9,7 +11,8 @@ from random import randrange
 from socket import inet_ntoa
 from struct import pack
 
-import matplotlib
+import corr2
+
 matplotlib.use('Agg')
 
 import numpy as np
@@ -24,8 +27,8 @@ from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
 from inspect import currentframe, getframeinfo
 
-
-LOGGER = logging.getLogger(__name__)
+# LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('mkat_fpga_tests')
 
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)
@@ -131,6 +134,7 @@ def init_dsim_sources(dhost):
         dhost.registers.cwg1_en.write(en=1)
     except Exception:
         pass
+
 
 class CorrelatorFrequencyInfo(object):
     """Derive various bits of correlator frequency info using correlator config"""
@@ -405,6 +409,7 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
 
     return list(qdr_error_roaches)
 
+
 def check_host_okay(self, engine=None, sensor=None):
     """
     Function retrieves PFB, LRU, QDR, PHY and reorder status on all F/X-Engines via Cam interface.
@@ -423,8 +428,8 @@ def check_host_okay(self, engine=None, sensor=None):
         return False
 
     pfb_status = [[' '.join(i.arguments[2:]) for i in informs
-                    if i.arguments[2] == '{}-{}-{}-ok'.format(host, engine, sensor)]
-                        for host in hosts]
+                   if i.arguments[2] == '{}-{}-{}-ok'.format(host, engine, sensor)]
+                  for host in hosts]
     _errors_list = []
     for i in pfb_status:
         try:
@@ -436,12 +441,13 @@ def check_host_okay(self, engine=None, sensor=None):
         except IndexError:
             LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
                          'File: %s line: %s' % (
-                            getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
+                             getframeinfo(currentframe()).filename.split('/')[-1],
+                             getframeinfo(currentframe()).lineno))
             return False
         else:
             return True
     return _errors_list
+
 
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0,
@@ -523,6 +529,7 @@ def set_default_eq(self):
     Return: None
     """
     LOGGER.info('Reset gains to default values from config file.\n')
+
     def get_ant_inputs(self):
         try:
             reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
@@ -559,6 +566,7 @@ def set_default_eq(self):
     else:
         return True
 
+
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
                      fft_shift=None, gain=None, cw_src=0):
     """
@@ -581,7 +589,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             source 0 or 1
     Return: Bool
     """
-    if cw_src==0:
+    if cw_src == 0:
         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
     else:
         self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
@@ -604,7 +612,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         else:
             return True
 
-    def get_ant_inputs(self):
+    def get_input_labels(self):
         try:
             reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
             if not reply.reply_ok():
@@ -619,7 +627,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
         return 0
 
-    sources = get_ant_inputs(self)
+    sources = get_input_labels(self)
     LOGGER.info('Writting input sources gains to %s' % (gain))
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
@@ -699,7 +707,7 @@ def get_figure_numbering(self):
     """
     _test_name = 'test_{}'.format(self.corr_fix.instrument)
     fig_numbering = {y: str(x)
-                    for x, y in enumerate([i
+                     for x, y in enumerate([i
                                             for i in dir(self) if i.startswith(_test_name)], start=1)}
 
     def get_fig_prefix(version=None, _dict=fig_numbering):
@@ -721,8 +729,8 @@ def get_figure_numbering(self):
         return get_fig_prefix(2)
 
 
-def disable_warnings_messages(spead2_warn=False, corr_rx_warn=False, plt_warn=False,
-                              np_warn=False, deprecated_warn=False):
+def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True,
+                              np_warn=True, deprecated_warn=True):
     """This function disables all error warning messages
     :param:
         spead2 : Boolean
@@ -768,6 +776,7 @@ class Text_Style(object):
 
 Style = Text_Style()
 
+
 @contextlib.contextmanager
 def ignored(*exceptions):
     """
@@ -779,6 +788,7 @@ def ignored(*exceptions):
         yield
     except exceptions:
         pass
+
 
 def clear_host_status(self, timeout=60):
     """Clear the status registers and counters on this host
@@ -795,6 +805,7 @@ def clear_host_status(self, timeout=60):
         LOGGER.info('Clear the status registers and counters on this host.')
         time.sleep(self.correlator.sensor_poll_time)
         return True
+
 
 def restore_src_names(self):
     """Restore default CBF input/source names.
@@ -820,6 +831,7 @@ def restore_src_names(self):
             self.corr_fix.start_x_data()
         return True
 
+
 def deprogram_hosts(self, timeout=60):
     """Function that deprograms F and X Engines
     :param: Object
@@ -837,10 +849,11 @@ def deprogram_hosts(self, timeout=60):
     else:
         return True
 
+
 def human_readable_ip(hex_ip):
     hex_ip = hex_ip[2:]
-    return '.'.join([str(int(x + y, 16)) for x, y in zip(hex_ip[::2],
-                                                         hex_ip[1::2])])
+    return '.'.join([str(int(x + y, 16)) for x, y in zip(hex_ip[::2], hex_ip[1::2])])
+
 
 def confirm_out_dest_ip(self):
     """Confirm is correlators output destination ip is the same as the one in config file
@@ -874,6 +887,7 @@ class TestTimeout:
     :param: error_message -> Str
     :rtype: Exception
     """
+
     class TestTimeoutError(Exception):
         pass
 
@@ -890,6 +904,7 @@ class TestTimeout:
 
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
+
 
 def get_clean_dump(self, retries=5, timeout=10):
     import spead2
@@ -913,5 +928,56 @@ def get_clean_dump(self, retries=5, timeout=10):
         if retries == 0:
             errmsg = 'Could not get SPEAD heaps after a number of retries.'
             LOGGER.error(errmsg)
+    try:
+        assert type(test_dump) == spead2.ItemGroup
+        return test_dump
+    except AssertionError:
+        return False
 
-    return test_dump
+
+
+def get_local_src_names(self):
+    """
+    Calculate the number of inputs depending on correlators objects number of antennas
+    :param: Object
+    :rtype: List"""
+    try:
+        self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
+    except AssertionError, e:
+        errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
+        LOGGER.error(errmsg)
+        Aqf.failed(errmsg)
+        return
+    else:
+        return ['inp0{:02d}_{}'.format(x, i)
+                for x in xrange(self.correlator.n_antennas)
+                for i in 'xy']
+
+
+def get_input_labels(self):
+    """
+    :param: Obj: self
+    :rtype: list: input labels
+    """
+    try:
+        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
+        if not reply.reply_ok():
+            raise Exception
+    except Exception:
+        errmsg = ('Failed to retrieve input lables via Cam interface with a reply: %s' % (str(reply)))
+        LOGGER.error(errmsg)
+        Aqf.failed(errmsg)
+        return False
+    else:
+        return reply.arguments[1:]
+
+
+def who_ran_test():
+    """Get who ran the test."""
+    try:
+        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(os.getlogin(),
+                                                            os.uname()[1].upper(),
+                                                            time.ctime()))
+    except OSError:
+        Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
+                                                                    time.ctime()))
