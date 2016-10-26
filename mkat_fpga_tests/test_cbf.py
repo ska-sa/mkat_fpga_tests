@@ -26,7 +26,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import ntplib
 import numpy as np
-import pandas
+import pandas as pd
 from concurrent.futures import TimeoutError
 from corr2.corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
@@ -49,6 +49,9 @@ from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_le
 from mkat_fpga_tests.utils import get_local_src_names, get_input_labels
 from nosekatreport import Aqf, aqf_vr
 from nose.plugins.attrib import attr
+from power_logger import PowerLogger
+from inspect import currentframe, getframeinfo
+from datetime import datetime
 
 LOGGER = logging.getLogger('mkat_fpga_tests')
 # LOGGER = logging.getLogger(__name__)
@@ -328,6 +331,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slow')
     @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.4.1')
     def test_bc8n856M4k_channelisation_sfdr_peaks(self, instrument='bc8n856M4k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc8n856M4k)
@@ -338,6 +342,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc8n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -351,6 +359,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slow')
     @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.4.1')
     def test_bc16n856M4k_channelisation_sfdr_peaks(self, instrument='bc16n856M4k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc16n856M4k)
@@ -361,6 +370,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc16n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -374,6 +387,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slow')
     @aqf_vr('TP.C.1.19')
+    @aqf_vr('TP.C.4.1')
     def test_bc32n856M4k_channelisation_sfdr_peaks(self, instrument='bc32n856M4k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc32n856M4k)
@@ -384,6 +398,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc32n856M4k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         instrument_success = self.set_instrument(instrument)
         if instrument_success.keys()[0] is not True:
@@ -397,9 +415,10 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slowwer')
     @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.4.1')
     def test_bc8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc8n856M32k'):
         """
-        CBF Channelisation Spurious Free Dynamic Range (bc8n856M4k)
+        CBF Channelisation Spurious Free Dynamic Range (bc8n856M32k)
         Test Verifies these requirements:
             CBF-REQ-0126
             CBF-REQ-0047
@@ -407,6 +426,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc8n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         # Slow Test spurious free dynamic range for wideband fine (bc8n856M32k)
         # This is the slow version that sweeps through all 32768 channels.
@@ -427,6 +450,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slow')
     @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.4.1')
     def test_bc8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc8n856M32k)
@@ -437,6 +461,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc8n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         # Fast Test spurious free dynamic range for wideband fine (bc8n856M32k)
 
@@ -462,6 +490,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slowwer')
     @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.4.1')
     def test_bc16n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc16n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc16n856M4k)
@@ -472,6 +501,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc16n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         # Slow Test spurious free dynamic range for wideband fine
         # This is the slow version that sweeps through all 32768 channels.
@@ -492,6 +525,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slow')
     @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.4.1')
     def test_bc16n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc16n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc16n856M32k)
@@ -502,6 +536,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc16n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         # Fast Test spurious free dynamic range for wideband fine (bc8n856M32k)
 
@@ -527,6 +565,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slowwer')
     @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.4.1')
     def test_bc32n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc32n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc32n856M32k)
@@ -537,6 +576,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc32n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         # Slow Test spurious free dynamic range for wideband fine (bc8n856M32k)
         # This is the slow version that sweeps through all 32768 channels.
@@ -556,6 +599,7 @@ class test_CBF(unittest.TestCase):
 
     @attr(speed='slow')
     @aqf_vr('TP.C.1.20')
+    @aqf_vr('TP.C.4.1')
     def test_bc32n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc32n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range (bc32n856M32k)
@@ -566,6 +610,10 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0053
             CBF-REQ-0050
             CBF-REQ-0049
+        CBF Power Consumption (bc32n856M32k)
+        Test Verifies these requirements:
+            CBF-REQ-0164
+            CBF-REQ-0191
         """
         # Fast Test spurious free dynamic range for wideband fine (bc32n856M32k)
 
@@ -2999,6 +3047,165 @@ class test_CBF(unittest.TestCase):
                            for phase in delay_data]
             return zip(delay_phase, wrapped_results)
 
+    def _process_power_log(self, start_timestamp, power_log_file):
+        max_power_per_rack = 6.25
+        max_power_diff_per_rack = 33
+        max_power_cbf = 60
+        time_gap = 60
+
+        df = pd.read_csv(power_log_file, delimiter='\t')
+        headers = list(df.keys())
+        exp_headers = ['Sample Time', 'PDU Host IP', 'Phase Current', 'Phase Power']
+        if headers != exp_headers:
+            raise IOError(power_log_file)
+
+        pdus = list(set(list(df[headers[1]])))
+        pdu_list = []
+
+        path, _none = os.path.split(__file__)
+        path, _none = os.path.split(path)
+        host_path = '/config/hosts'
+        host_file = path + host_path
+        if os.path.exists(host_file):
+            with open(host_file, 'rb') as csvf:
+                csv_reader = csv.reader(csvf, delimiter='\t')
+                hosts = list(csv_reader)
+        else:
+            errmsg = ('Failed to read test config file, Test will exit'
+                      '\n\t File:%s Line:%s' % (
+                          getframeinfo(currentframe()).filename.split('/')[-1],
+                          getframeinfo(currentframe()).lineno))
+            LOGGER.error(errmsg)
+            return
+        for pdu in pdus:
+            for entry in hosts:
+                try:
+                    entry.index(pdu)
+                except ValueError:
+                    pass
+                else:
+                    idx = entry[1].find('.')
+                    pdu_list.append(entry[1][:idx])
+        pdu_str = ', '.join(pdu_list)
+
+        # Slice out requested time block
+        end_ts = df['Sample Time'].iloc[-1]
+        strt_idx = df[df['Sample Time'] >= int(start_timestamp)].index
+        df = df.loc[strt_idx]
+        end_idx = df[df['Sample Time'] <= end_ts].index
+        df = df.loc[end_idx]
+        # Check for gaps and warn
+        time_stamps = df['Sample Time'].values
+        ts_diff = np.diff(time_stamps)
+        time_gaps = np.where(ts_diff > time_gap)
+        for idx in time_gaps[0]:
+            ts = time_stamps[idx]
+            diff_time = datetime.fromtimestamp(int(ts)).strftime('%Y-%m-%d_%H:%M')
+            diff = ts_diff[idx]
+            Aqf.step('Time gap of {}s found at {} in PDU samples.'
+                     ''.format(diff, diff_time))
+
+        pdus = zip(pdus,pdu_list)
+        power_dict = {}
+        for pdu, pdu_name in pdus:
+            power_dict[pdu_name] = df[df['PDU Host IP'].isin([pdu])]
+        pdus_set = pdus
+        # Convert power column to floats and build new array
+        df_list = np.asarray(df.values.tolist())
+        power_col = [x.split(',') for x in df_list[:,3]]
+        power_col = [[float(x) for x in y] for y in power_col]
+        curr_col = [x.split(',') for x in df_list[:,2]]
+        curr_col = [[float(x) for x in y] for y in curr_col]
+        cp_col = zip(curr_col,power_col)
+        power_array = []
+        for idx, val in enumerate(cp_col):
+            power_array.append([df_list[idx,0],df_list[idx,1], val[0], val[1]])
+        # Cut array into sets containing all pdus for a time slice            
+        num_pdus = len(pdus_set)
+        rolled_up_samples = []
+        time_slice=[]
+        ip_found = []
+        pdus_set = np.asarray(pdus_set)
+        # Create dictionary with rack names
+        pdu_samples = {x:[] for x in pdus_set[:,1]}
+        for time,ip,cur,power in power_array:
+            try:
+                ip_found.index(ip)
+            except ValueError:
+                # Only populate with selected PDUs
+                try:
+                    pdus_set[:,0].tolist().index(ip)
+                except ValueError:
+                    pass
+                else:
+                    # Remove NANs
+                    if not (np.isnan(cur[0]) or np.isnan(power[0])):
+                        time_slice.append([time,ip,cur,power])
+                ip_found.append(ip)
+            else:
+                #Only add time slices with samples from all PDUS
+                if len(time_slice) == num_pdus:
+                    rolled_up = np.zeros(3)
+                    for sample in time_slice:
+                        rolled_up += np.asarray(sample[3])
+                    # add first timestamp from slice
+                    rolled_up = np.insert(rolled_up,0,int(time_slice[0][0]))
+                    rolled_up_samples.append(rolled_up)
+                    # Populate samples per pdu
+                    for ip,name in pdus_set:
+                        sample = next(x for x in time_slice if x[1]==ip)
+                        sample = (sample[2],sample[3])
+                        smple = np.asarray(sample)
+                        pdu_samples[name].append(smple)
+
+                time_slice=[]
+                ip_found = []
+
+        start_time = datetime.fromtimestamp(rolled_up_samples[0][0]).strftime('%Y-%m-%d %H:%M:%S')
+        end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime('%Y-%m-%d %H:%M:%S')
+        ru_smpls = np.asarray(rolled_up_samples)
+        tot_power = ru_smpls[:,1:4].sum(axis=1)
+        Aqf.hop('Power report from {} to {}'.format(start_time, end_time))
+        Aqf.hop('Average sample time: {}s'.format(int(np.diff(ru_smpls[:,0]).mean())))
+        #Add samples for pdus in same rack
+        rack_samples = {x[:x.find('-')]:[] for x in pdus_set[:,1]}
+        for name in pdu_samples:
+            rack_name = name[:name.find('-')]
+            if rack_samples[rack_name] != []:
+                sample = np.add(rack_samples[rack_name],pdu_samples[name])
+            else:
+                sample = pdu_samples[name]
+            rack_samples[rack_name] = sample
+        for rack in rack_samples:
+            val = np.asarray(rack_samples[rack])
+            curr  = val[:,0]
+            power = val[:,1]
+            watts = power.sum(axis=1).mean()
+            msg = ('[CBF-REQ-0164] Measured power for rack {} ({:.2f}kW) is less than {}kW'
+                   ''.format(rack,watts,max_power_per_rack))
+            Aqf.less(watts,max_power_per_rack,msg)
+            phase = np.zeros(3)
+            for i,x in enumerate(phase):
+                phase[i] = curr[:,i].mean()
+            Aqf.hop('Average current per phase for rack {}: P1={:.2f}A, P2={:.2f}A, P3={:.2f}A'
+                    ''.format(rack,phase[0],phase[1],phase[2]))
+            ph_m = np.max(phase)
+            max_diff = np.max([100*(x/ph_m) for x in ph_m-phase])
+            max_diff = float('{:.1f}'.format(max_diff))
+            msg = ('[CBF-REQ-0191] Maximum difference in current per phase for rack {} ({:.1f}%) is less than {}%'
+                   ''.format(rack,max_diff,max_power_diff_per_rack))
+            #Aqf.less(max_diff,max_power_diff_per_rack,msg)
+            Aqf.waived(msg)
+        watts = tot_power.mean()
+        msg = '[CBF-REQ-0164] Measured power for CBF ({:.2f}kW) is less than {}kW'.format(watts, max_power_cbf)
+        Aqf.less(watts,max_power_cbf,msg)
+        watts = tot_power.max()
+        msg = '[CBF-REQ-0164] Measured peak power for CBF ({:.2f}kW) is less than {}kW'.format(watts, max_power_cbf)
+        Aqf.less(watts,max_power_cbf,msg)
+
+
+
+
     #################################################################
     #                       Test Methods                            #
     #################################################################
@@ -3314,7 +3521,7 @@ class test_CBF(unittest.TestCase):
                     'relative to channel centre response.'.format(**locals()))
         who_ran_test()
 
-    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53):
+    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53, log_power=True):
         """Test channel spacing and out-of-channel response
 
         Check that the correct channels have the peak response to each
@@ -3333,6 +3540,11 @@ class test_CBF(unittest.TestCase):
             of the channel with centre frequency corresponding to the source frequency
 
         """
+        # Start a power logger in a thread
+        if log_power:
+            power_logger = PowerLogger(self.corr_fix._test_config_file)
+            power_logger.start()
+
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         # Placeholder of actual frequencies that the signal generator produces
@@ -3497,6 +3709,12 @@ class test_CBF(unittest.TestCase):
         else:
             LOGGER.info('Expected: %s\n\nGot: %s' % (extra_peaks, [[]] * len(max_channels)))
             Aqf.failed(msg)
+        if power_logger:
+            power_logger.stop()
+            start_timestamp = power_logger.start_timestamp
+            power_log_file = power_logger.log_file_name
+            power_logger.join()
+            self._process_power_log(start_timestamp, power_log_file)
         who_ran_test()
 
     def _test_product_baselines(self):
@@ -3652,8 +3870,8 @@ class test_CBF(unittest.TestCase):
             bls_msg = ('Stepping through input combinations, verifying for each that '
                        'the correct output appears in the correct baseline product')
             Aqf.step(bls_msg)
-            dataFrame = pandas.DataFrame(index=sorted(input_labels),
-                                         columns=list(sorted(present_baselines)))
+            dataFrame = pd.DataFrame(index=sorted(input_labels),
+                                     columns=list(sorted(present_baselines)))
             for count, inp in enumerate(input_labels, start=1):
                 old_eq = complex(initial_equalisations[inp][0])
                 reply, informs = self.corr_fix.katcp_rct.req.gain(inp, old_eq)
