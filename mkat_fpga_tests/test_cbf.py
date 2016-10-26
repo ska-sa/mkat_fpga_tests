@@ -3055,39 +3055,10 @@ class test_CBF(unittest.TestCase):
 
         df = pd.read_csv(power_log_file, delimiter='\t')
         headers = list(df.keys())
-        exp_headers = ['Sample Time', 'PDU Host IP', 'Phase Current', 'Phase Power']
+        exp_headers = ['Sample Time', 'PDU Host', 'Phase Current', 'Phase Power']
         if headers != exp_headers:
             raise IOError(power_log_file)
-
         pdus = list(set(list(df[headers[1]])))
-        pdu_list = []
-
-        path, _none = os.path.split(__file__)
-        path, _none = os.path.split(path)
-        host_path = '/config/hosts'
-        host_file = path + host_path
-        if os.path.exists(host_file):
-            with open(host_file, 'rb') as csvf:
-                csv_reader = csv.reader(csvf, delimiter='\t')
-                hosts = list(csv_reader)
-        else:
-            errmsg = ('Failed to read test config file, Test will exit'
-                      '\n\t File:%s Line:%s' % (
-                          getframeinfo(currentframe()).filename.split('/')[-1],
-                          getframeinfo(currentframe()).lineno))
-            LOGGER.error(errmsg)
-            return
-        for pdu in pdus:
-            for entry in hosts:
-                try:
-                    entry.index(pdu)
-                except ValueError:
-                    pass
-                else:
-                    idx = entry[1].find('.')
-                    pdu_list.append(entry[1][:idx])
-        pdu_str = ', '.join(pdu_list)
-
         # Slice out requested time block
         end_ts = df['Sample Time'].iloc[-1]
         strt_idx = df[df['Sample Time'] >= int(start_timestamp)].index
@@ -3104,12 +3075,6 @@ class test_CBF(unittest.TestCase):
             diff = ts_diff[idx]
             Aqf.step('Time gap of {}s found at {} in PDU samples.'
                      ''.format(diff, diff_time))
-
-        pdus = zip(pdus,pdu_list)
-        power_dict = {}
-        for pdu, pdu_name in pdus:
-            power_dict[pdu_name] = df[df['PDU Host IP'].isin([pdu])]
-        pdus_set = pdus
         # Convert power column to floats and build new array
         df_list = np.asarray(df.values.tolist())
         power_col = [x.split(',') for x in df_list[:,3]]
@@ -3121,27 +3086,21 @@ class test_CBF(unittest.TestCase):
         for idx, val in enumerate(cp_col):
             power_array.append([df_list[idx,0],df_list[idx,1], val[0], val[1]])
         # Cut array into sets containing all pdus for a time slice            
-        num_pdus = len(pdus_set)
+        num_pdus = len(pdus)
         rolled_up_samples = []
         time_slice=[]
-        ip_found = []
-        pdus_set = np.asarray(pdus_set)
+        name_found = []
+        pdus = np.asarray(pdus)
         # Create dictionary with rack names
-        pdu_samples = {x:[] for x in pdus_set[:,1]}
-        for time,ip,cur,power in power_array:
+        pdu_samples = {x:[] for x in pdus}
+        for time,name,cur,power in power_array:
             try:
-                ip_found.index(ip)
+                name_found.index(name)
             except ValueError:
-                # Only populate with selected PDUs
-                try:
-                    pdus_set[:,0].tolist().index(ip)
-                except ValueError:
-                    pass
-                else:
-                    # Remove NANs
-                    if not (np.isnan(cur[0]) or np.isnan(power[0])):
-                        time_slice.append([time,ip,cur,power])
-                ip_found.append(ip)
+                # Remove NANs
+                if not (np.isnan(cur[0]) or np.isnan(power[0])):
+                    time_slice.append([time,name,cur,power])
+                name_found.append(name)
             else:
                 #Only add time slices with samples from all PDUS
                 if len(time_slice) == num_pdus:
@@ -3152,14 +3111,14 @@ class test_CBF(unittest.TestCase):
                     rolled_up = np.insert(rolled_up,0,int(time_slice[0][0]))
                     rolled_up_samples.append(rolled_up)
                     # Populate samples per pdu
-                    for ip,name in pdus_set:
-                        sample = next(x for x in time_slice if x[1]==ip)
+                    for name in pdus:
+                        sample = next(x for x in time_slice if x[1]==name)
                         sample = (sample[2],sample[3])
                         smple = np.asarray(sample)
                         pdu_samples[name].append(smple)
 
                 time_slice=[]
-                ip_found = []
+                name_found = []
 
         start_time = datetime.fromtimestamp(rolled_up_samples[0][0]).strftime('%Y-%m-%d %H:%M:%S')
         end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime('%Y-%m-%d %H:%M:%S')
@@ -3168,7 +3127,7 @@ class test_CBF(unittest.TestCase):
         Aqf.hop('Power report from {} to {}'.format(start_time, end_time))
         Aqf.hop('Average sample time: {}s'.format(int(np.diff(ru_smpls[:,0]).mean())))
         #Add samples for pdus in same rack
-        rack_samples = {x[:x.find('-')]:[] for x in pdus_set[:,1]}
+        rack_samples = {x[:x.find('-')]:[] for x in pdus}
         for name in pdu_samples:
             rack_name = name[:name.find('-')]
             if rack_samples[rack_name] != []:
