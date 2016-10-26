@@ -1,3 +1,4 @@
+import base64
 import Queue
 import contextlib
 import logging
@@ -10,6 +11,7 @@ from collections import Mapping
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
+from Crypto.Cipher import AES
 
 import corr2
 
@@ -26,6 +28,7 @@ except ImportError:
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
 from inspect import currentframe, getframeinfo
+
 
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
@@ -471,10 +474,11 @@ def get_and_restore_initial_eqs(test_instance, correlator):
         try:
             for _input, _eq in initial_equalisations.iteritems():
                 reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+                time.sleep(0.5)
             if not reply.reply_ok():
                 raise Exception
         except Exception:
-            msg = 'Failed to set gain for input: {} gain of: {}'.format(_input, _eq)
+            msg = 'Failed to set gain for input: {} with gain of: {}'.format(_input, _eq)
             LOGGER.error(msg)
             return False
         else:
@@ -557,11 +561,11 @@ def set_default_eq(self):
     try:
         for _input, _eq in zip(ant_inputs, eq_levels):
             reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+            time.sleep(0.5)
         if not reply.reply_ok():
             raise Exception
     except Exception:
-        msg = 'Failed to set gain for input: {} gain of: {}'.format(_input, _eq)
-        LOGGER.error(msg)
+        LOGGER.error('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
         return False
     else:
         return True
@@ -628,11 +632,12 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         return 0
 
     sources = get_input_labels(self)
-    LOGGER.info('Writting input sources gains to %s' % (gain))
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
+        LOGGER.info('Writting input sources gains to %s' % (gain))
         for i, v in source_gain_dict.items():
             reply, informs = self.corr_fix.katcp_rct.req.gain(i, v)
+            time.sleep(0.5)
     except Exception:
         msg = 'Failed to set gain for input: {} with gain of: {}'.format(i, v)
         LOGGER.error(msg)
@@ -742,10 +747,12 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
     """
     if spead2_warn:
         # set the SPEAD2 logger to Error only
+        LOGGER.info('Setting spead2 logger to only log on Errors')
         spead_logger = logging.getLogger('spead2')
         spead_logger.setLevel(logging.ERROR)
     if corr_rx_warn:
         # set the corr_rx logger to Error only
+        LOGGER.info('Setting corr_rx logger to only log on Errors')
         corr_rx_logger = logging.getLogger("corr2.corr_rx")
         corr_rx_logger.setLevel(logging.ERROR)
     if plt_warn:
@@ -842,9 +849,10 @@ def deprogram_hosts(self, timeout=60):
     except Exception:
         return False
     try:
+        LOGGER.info('Deprogramming all F/X-engines.')
         threaded_fpga_function(hosts, timeout, 'deprogram')
     except Exception:
-        LOGGER.error('Failed to deprogram all connected hosts')
+        LOGGER.error('Failed to deprogram all connected hosts.')
         return False
     else:
         return True
@@ -905,37 +913,6 @@ class TestTimeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
-
-def get_clean_dump(self, retries=5, timeout=10):
-    import spead2
-    success = False
-    test_dump = None
-    while retries and not success:
-        retries -= 1
-        try:
-            test_dump = self.receiver.get_clean_dump(timeout)
-            assert type(test_dump) == spead2.ItemGroup
-        except Queue.Empty:
-            errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
-            LOGGER.exception(errmsg)
-            pass
-        except AssertionError:
-            errmsg = 'Dump is not a spead2 itemgroup.'
-            LOGGER.exception(errmsg)
-            pass
-        else:
-            success = True
-        if retries == 0:
-            errmsg = 'Could not get SPEAD heaps after a number of retries.'
-            LOGGER.error(errmsg)
-    try:
-        assert type(test_dump) == spead2.ItemGroup
-        return test_dump
-    except AssertionError:
-        return False
-
-
-
 def get_local_src_names(self):
     """
     Calculate the number of inputs depending on correlators objects number of antennas
@@ -981,3 +958,29 @@ def who_ran_test():
     except OSError:
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
+
+def encode_passwd(pw_encrypt, key=None):
+    """
+    :param: pw_encrypt: Str
+
+    :param: secret key : Str = 16 chars long
+        Keep your secret_key safe!
+    :rtype: encrypted password
+    """
+    if key is not None:
+        _cipher = AES.new(key, AES.MODE_ECB)
+        encoded = base64.b64encode(_cipher.encrypt(pw_encrypt.rjust(32)))
+        return encoded
+
+def decode_passwd(pw_decrypt, key=None):
+    """
+    :param: pw_decrypt: Str
+
+    :param: secret key : Str = 16 chars long
+        Keep your secret_key safe!
+    :rtype: decrypted password
+    """
+    if key is not None:
+        _cipher = AES.new(key, AES.MODE_ECB)
+        decoded = _cipher.decrypt(base64.b64decode(pw_decrypt))
+        return decoded.strip()
