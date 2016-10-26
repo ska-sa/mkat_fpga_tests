@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 from inspect import currentframe, getframeinfo
@@ -18,9 +19,11 @@ from katcp.core import ProtocolFlags
 from katcp.resource_client import KATCPSensorError
 from testconfig import config as nose_test_config
 
+dateTag = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 LOGGER = logging.getLogger(__name__)
-Formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : %(lineno)d - %(message)s')
-Handler = logging.FileHandler('/tmp/%s.log' %__name__)
+Formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(module)s - '
+                              '%(pathname)s : %(lineno)d - %(message)s')
+Handler = logging.FileHandler('/tmp/%s_%s.log' % (__name__, dateTag))
 Handler.setFormatter(Formatter)
 LOGGER.addHandler(Handler)
 
@@ -182,7 +185,7 @@ class CorrelatorFixture(object):
         """
         # if not self._correlator:
         # raise RuntimeError('Array not yet initialised')
-        LOGGER.info('Halting primary array.')
+        LOGGER.info('Halting primary array: %s.' % self.array_name)
         self.katcp_rct.stop()
         self.rct.req.array_halt(self.array_name)
         self.rct.stop()
@@ -312,7 +315,7 @@ class CorrelatorFixture(object):
         try:
             assert isinstance(self.katcp_rct,
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply = self.katcp_rct.req.capture_stop(self.output_product)
+            reply = self.katcp_rct.req.capture_stop(self.output_product, timeout=timeout)
         except IndexError:
             LOGGER.error('Failed to capture stop, might be because config file does not contain '
                          'Xengine output products.\n: File:%s Line:%s' % (
@@ -354,7 +357,7 @@ class CorrelatorFixture(object):
                                                        self.instrument)
 
             if os.path.exists(config_file):
-                LOGGER.info('Retrieving running hosts from running config')
+                LOGGER.info('Retrieving running hosts from running config: %s' % config_file)
                 fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
                 xhosts = corr2.utils.parse_hosts(config_file, section='xengine')
                 hosts = fhosts + xhosts
@@ -362,8 +365,8 @@ class CorrelatorFixture(object):
                 raise Exception
         except:
             LOGGER.error('Could not get instrument from sensors and config file does '
-                         'not exist, Resorting to plan B - retreiving roach list from'
-                         ' CORR2INI, In order to deprogram: File:%s Line:%s' % (
+                         'not exist: %s, Resorting to plan B - retreiving roach list from'
+                         ' CORR2INI, In order to deprogram: File:%s Line:%s' % (config_file,
                              getframeinfo(currentframe()).filename.split('/')[-1],
                              getframeinfo(currentframe()).lineno))
 
@@ -431,10 +434,8 @@ class CorrelatorFixture(object):
             return {reply.value: True}
         else:
             LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (reply,
-                                                                             getframeinfo(
-                                                                                 currentframe()).filename.split('/')[
-                                                                                 -1],
-                                                                             getframeinfo(currentframe()).lineno))
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             return {reply.value: False}
 
     def ensure_instrument(self, instrument, **kwargs):
@@ -488,15 +489,15 @@ class CorrelatorFixture(object):
         else:
             if self.katcp_rct.state == 'synced':
                 try:
-                    reply = self.katcp_rct.req.instrument_list(instrument)
+                    reply = self.katcp_rct.req.instrument_list(instrument, timeout=timeout)
                 except Exception:
-                    LOGGER.error('Array request failed: %s\n\tFile:%s Line:%s' % (
-                        reply, getframeinfo(currentframe()).filename.split('/')[-1],
+                    LOGGER.error('Array request failed might have timedout\n\tFile:%s Line:%s' % (
+                        getframeinfo(currentframe()).filename.split('/')[-1],
                         getframeinfo(currentframe()).lineno))
                 else:
                     if not reply.succeeded:
                         LOGGER.error('Array request failed: %s\n\tFile:%s Line:%s' % (
-                            reply, getframeinfo(currentframe()).filename.split('/')[-1],
+                            str(reply), getframeinfo(currentframe()).filename.split('/')[-1],
                             getframeinfo(currentframe()).lineno))
                         return False
             else:
@@ -554,10 +555,11 @@ class CorrelatorFixture(object):
         config_file = path + conf_path
         if os.path.exists(config_file):
             try:
-                return corr2.utils.parse_ini_file(config_file)
+                config = corr2.utils.parse_ini_file(config_file)
+                return config
             except (IOError, ValueError, TypeError):
-                errmsg = ('Failed to read test config file, Test will exit'
-                          '\n\t File:%s Line:%s' % (
+                errmsg = ('Failed to read test config file %s, Test will exit'
+                          '\n\t File:%s Line:%s' % (config_file,
                               getframeinfo(currentframe()).filename.split('/')[-1],
                               getframeinfo(currentframe()).lineno))
                 LOGGER.error(errmsg)
@@ -579,7 +581,7 @@ class CorrelatorFixture(object):
         except TypeError:
             msg = ('Could not read and split the multicast ip\'s in the test config file')
             LOGGER.error(msg)
-            return 0
+            return
         else:
             if self.instrument.startswith('bc') or self.instrument.startswith('c'):
                 if self.instrument[0] == 'b':
@@ -590,7 +592,7 @@ class CorrelatorFixture(object):
                         return multicast_ip
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
-                        return 0
+                        return
                 else:
                     try:
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[1]) / 2)
@@ -599,7 +601,7 @@ class CorrelatorFixture(object):
                         return multicast_ip
                     except Exception:
                         LOGGER.error('Could not calculate multicast ips from config file')
-                        return 0
+                        return
 
     def subscribe_multicast(self):
         """Automated multicasting subscription"""
