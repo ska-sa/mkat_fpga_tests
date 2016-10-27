@@ -3,6 +3,7 @@ from telnetlib import IAC, NOP
 from datetime import datetime
 from corr2.utils import parse_ini_file
 from inspect import currentframe, getframeinfo
+from utils import decode_passwd
 
 class NetworkError(RuntimeError):
     """
@@ -56,6 +57,8 @@ class PowerLogger(threading.Thread):
         self.logger.addHandler(console_handler)
         self.logger.addHandler(file_handler)
 
+        arb = '1234567890123456'
+
         threading.Thread.__init__(self)
         if isinstance(config_info, dict):
             test_conf = config_info
@@ -72,18 +75,20 @@ class PowerLogger(threading.Thread):
         else:
             raise IOError
         pdu_names = test_conf['pdu_hosts']['pdus'].split(',')
-        pdu_names
+        pdu_names = [x.replace(' ','') for x in pdu_names]
         pdu_host_domain = test_conf['pdu_hosts']['pdu_host_domain']
         pdu_hosts = [x+'.'+pdu_host_domain for x in pdu_names]
         self._pdu_hosts = [x.replace(' ','') for x in pdu_hosts]
         self._pdu_port = test_conf['pdu_hosts']['telnet_port']
-        self._pdu_username = test_conf['pdu_hosts']['username']
-        self._pdu_password = test_conf['pdu_hosts']['passwd']
+        pdu_username = test_conf['pdu_hosts']['username']
+        self._pdu_username = decode_passwd(pdu_username, arb)
+        pdu_password = test_conf['pdu_hosts']['passwd']
+        self._pdu_password = decode_passwd(pdu_password, arb)
         self._stop = threading.Event()
         self._conn_retry = conn_retry
         self.start_timestamp = None
         self.log_file_name = 'pdu_log.csv'
-        self.logger.info('PDUs logged: {}'.format(self._pdu_hosts))
+        self.logger.info('PDUs logged: {}'.format(pdu_names))
 
     def stop(self):
         self._stop.set()
