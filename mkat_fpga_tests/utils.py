@@ -1,19 +1,19 @@
-import base64
 import Queue
+import base64
 import contextlib
 import logging
-import matplotlib
 import os
-import signal
-import time
 import warnings
 from collections import Mapping
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
-from Crypto.Cipher import AES
 
 import corr2
+import matplotlib
+import signal
+import time
+from Crypto.Cipher import AES
 
 matplotlib.use('Agg')
 
@@ -960,7 +960,7 @@ def who_ran_test():
                                                                     time.ctime()))
 
 def encode_passwd(pw_encrypt, key=None):
-    """
+    """This function encrypts a string with base64 algorithm
     :param: pw_encrypt: Str
 
     :param: secret key : Str = 16 chars long
@@ -973,7 +973,7 @@ def encode_passwd(pw_encrypt, key=None):
         return encoded
 
 def decode_passwd(pw_decrypt, key=None):
-    """
+    """This function decrypts a string with base64 algorithm
     :param: pw_decrypt: Str
 
     :param: secret key : Str = 16 chars long
