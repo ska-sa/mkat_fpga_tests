@@ -4,14 +4,10 @@ import Queue
 import csv
 import glob
 import logging
-import matplotlib
-import operator
 import os
 import subprocess
-import sys
 import telnetlib
 import textwrap
-import time
 import unittest
 from collections import namedtuple
 from random import randrange
@@ -20,6 +16,10 @@ from subprocess import Popen, PIPE
 import corr2
 import h5py
 import katcp
+import matplotlib
+import operator
+import sys
+import time
 
 matplotlib.use('Agg')
 
@@ -39,7 +39,7 @@ from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
 from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
 from mkat_fpga_tests.utils import get_baselines_lookup, TestTimeout
-from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, get_clean_dump, who_ran_test
+from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, who_ran_test
 from mkat_fpga_tests.utils import get_quant_snapshot, get_fftoverflow_qdrstatus
 from mkat_fpga_tests.utils import ignored, clear_host_status, restore_src_names
 from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
@@ -113,6 +113,7 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
 
         if self.receiver:
+            LOGGER.info('Spead2 capturing thread cleanup.')
             self.receiver.stop()
             self.receiver = None
         acc_timeout = 60
@@ -1116,7 +1117,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc])))
-            self._test_product_switch(instrument, no_channels=4096)
+            timeout_test = 300
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_product_switch(instrument, no_channels=4096)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                    timeout_test))
+                Aqf.failed(errmsg)
 
     @aqf_vr('TP.C.1.40')
     def test_bc16n856M4k_product_switch(self, instrument='bc16n856M4k'):
@@ -1132,7 +1140,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc])))
-            self._test_product_switch(instrument, no_channels=4096)
+            timeout_test = 300
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_product_switch(instrument, no_channels=4096)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                    timeout_test))
+                Aqf.failed(errmsg)
 
     @aqf_vr('TP.C.1.40')
     def test_bc32n856M4k_product_switch(self, instrument='bc32n856M4k'):
@@ -1148,7 +1163,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc])))
-            self._test_product_switch(instrument, no_channels=4096)
+            timeout_test = 300
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_product_switch(instrument, no_channels=4096)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                    timeout_test))
+                Aqf.failed(errmsg)
 
     @aqf_vr('TP.C.1.40')
     def test_bc8n856M32k_product_switch(self, instrument='bc8n856M32k'):
@@ -1164,7 +1186,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc])))
-            self._test_product_switch(instrument, no_channels=32768)
+            timeout_test = 300
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_product_switch(instrument, no_channels=32768)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                    timeout_test))
+                Aqf.failed(errmsg)
 
     @aqf_vr('TP.C.1.40')
     def test_bc16n856M32k_product_switch(self, instrument='bc16n856M32k'):
@@ -1180,7 +1209,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc])))
-            self._test_product_switch(instrument, no_channels=32768)
+            timeout_test = 300
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_product_switch(instrument, no_channels=32768)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                    timeout_test))
+                Aqf.failed(errmsg)
 
     @aqf_vr('TP.C.1.40')
     def test_bc32n856M32k_product_switch(self, instrument='bc32n856M32k'):
@@ -1196,7 +1232,14 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc])))
-            self._test_product_switch(instrument, no_channels=32768)
+            timeout_test = 300
+            try:
+                with TestTimeout(timeout_test):
+                    self._test_product_switch(instrument, no_channels=32768)
+            except TestTimeout.TestTimeoutError:
+                errmsg = ('Could not be properly run the test, it timed-out after {} seconds.'.format(
+                    timeout_test))
+                Aqf.failed(errmsg)
 
     # Flagging of data test waived as it not part of AR-1.
     @aqf_vr('TP.C.1.38')
@@ -2634,13 +2677,8 @@ class test_CBF(unittest.TestCase):
             who_ran_test()
 
 
-# --------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------
+
+
 
     def _systems_tests(self):
         """Checking system stability before and after use"""
@@ -3077,93 +3115,90 @@ class test_CBF(unittest.TestCase):
                      ''.format(diff, diff_time))
         # Convert power column to floats and build new array
         df_list = np.asarray(df.values.tolist())
-        power_col = [x.split(',') for x in df_list[:,3]]
+        power_col = [x.split(',') for x in df_list[:, 3]]
         power_col = [[float(x) for x in y] for y in power_col]
-        curr_col = [x.split(',') for x in df_list[:,2]]
+        curr_col = [x.split(',') for x in df_list[:, 2]]
         curr_col = [[float(x) for x in y] for y in curr_col]
-        cp_col = zip(curr_col,power_col)
+        cp_col = zip(curr_col, power_col)
         power_array = []
         for idx, val in enumerate(cp_col):
-            power_array.append([df_list[idx,0],df_list[idx,1], val[0], val[1]])
-        # Cut array into sets containing all pdus for a time slice            
+            power_array.append([df_list[idx, 0], df_list[idx, 1], val[0], val[1]])
+        # Cut array into sets containing all pdus for a time slice
         num_pdus = len(pdus)
         rolled_up_samples = []
-        time_slice=[]
+        time_slice = []
         name_found = []
         pdus = np.asarray(pdus)
         # Create dictionary with rack names
-        pdu_samples = {x:[] for x in pdus}
-        for time,name,cur,power in power_array:
+        pdu_samples = {x: [] for x in pdus}
+        for time, name, cur, power in power_array:
             try:
                 name_found.index(name)
             except ValueError:
                 # Remove NANs
                 if not (np.isnan(cur[0]) or np.isnan(power[0])):
-                    time_slice.append([time,name,cur,power])
+                    time_slice.append([time, name, cur, power])
                 name_found.append(name)
             else:
-                #Only add time slices with samples from all PDUS
+                # Only add time slices with samples from all PDUS
                 if len(time_slice) == num_pdus:
                     rolled_up = np.zeros(3)
                     for sample in time_slice:
                         rolled_up += np.asarray(sample[3])
                     # add first timestamp from slice
-                    rolled_up = np.insert(rolled_up,0,int(time_slice[0][0]))
+                    rolled_up = np.insert(rolled_up, 0, int(time_slice[0][0]))
                     rolled_up_samples.append(rolled_up)
                     # Populate samples per pdu
                     for name in pdus:
-                        sample = next(x for x in time_slice if x[1]==name)
-                        sample = (sample[2],sample[3])
+                        sample = next(x for x in time_slice if x[1] == name)
+                        sample = (sample[2], sample[3])
                         smple = np.asarray(sample)
                         pdu_samples[name].append(smple)
 
-                time_slice=[]
+                time_slice = []
                 name_found = []
 
         start_time = datetime.fromtimestamp(rolled_up_samples[0][0]).strftime('%Y-%m-%d %H:%M:%S')
         end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime('%Y-%m-%d %H:%M:%S')
         ru_smpls = np.asarray(rolled_up_samples)
-        tot_power = ru_smpls[:,1:4].sum(axis=1)
+        tot_power = ru_smpls[:, 1:4].sum(axis=1)
         Aqf.hop('Power report from {} to {}'.format(start_time, end_time))
-        Aqf.hop('Average sample time: {}s'.format(int(np.diff(ru_smpls[:,0]).mean())))
-        #Add samples for pdus in same rack
-        rack_samples = {x[:x.find('-')]:[] for x in pdus}
+        Aqf.hop('Average sample time: {}s'.format(int(np.diff(ru_smpls[:, 0]).mean())))
+        # Add samples for pdus in same rack
+        rack_samples = {x[:x.find('-')]: [] for x in pdus}
         for name in pdu_samples:
             rack_name = name[:name.find('-')]
             if rack_samples[rack_name] != []:
-                sample = np.add(rack_samples[rack_name],pdu_samples[name])
+                sample = np.add(rack_samples[rack_name], pdu_samples[name])
             else:
                 sample = pdu_samples[name]
             rack_samples[rack_name] = sample
         for rack in rack_samples:
             val = np.asarray(rack_samples[rack])
-            curr  = val[:,0]
-            power = val[:,1]
+            curr = val[:, 0]
+            power = val[:, 1]
             watts = power.sum(axis=1).mean()
             msg = ('[CBF-REQ-0164] Measured power for rack {} ({:.2f}kW) is less than {}kW'
-                   ''.format(rack,watts,max_power_per_rack))
-            Aqf.less(watts,max_power_per_rack,msg)
+                   ''.format(rack, watts, max_power_per_rack))
+            Aqf.less(watts, max_power_per_rack, msg)
             phase = np.zeros(3)
-            for i,x in enumerate(phase):
-                phase[i] = curr[:,i].mean()
+            for i, x in enumerate(phase):
+                phase[i] = curr[:, i].mean()
             Aqf.hop('Average current per phase for rack {}: P1={:.2f}A, P2={:.2f}A, P3={:.2f}A'
-                    ''.format(rack,phase[0],phase[1],phase[2]))
+                    ''.format(rack, phase[0], phase[1], phase[2]))
             ph_m = np.max(phase)
-            max_diff = np.max([100*(x/ph_m) for x in ph_m-phase])
+            max_diff = np.max([100 * (x / ph_m) for x in ph_m - phase])
             max_diff = float('{:.1f}'.format(max_diff))
             msg = ('[CBF-REQ-0191] Maximum difference in current per phase for rack {} ({:.1f}%) is less than {}%'
-                   ''.format(rack,max_diff,max_power_diff_per_rack))
-            #Aqf.less(max_diff,max_power_diff_per_rack,msg)
+                   ''.format(rack, max_diff, max_power_diff_per_rack))
+            # Aqf.less(max_diff,max_power_diff_per_rack,msg)
             Aqf.waived(msg)
         watts = tot_power.mean()
         msg = '[CBF-REQ-0164] Measured power for CBF ({:.2f}kW) is less than {}kW'.format(watts, max_power_cbf)
-        Aqf.less(watts,max_power_cbf,msg)
+        Aqf.less(watts, max_power_cbf, msg)
         watts = tot_power.max()
         msg = '[CBF-REQ-0164] Measured peak power for CBF ({:.2f}kW) is less than {}kW'.format(watts, max_power_cbf)
-        Aqf.less(watts,max_power_cbf,msg)
-
-
-
+        Aqf.less(watts, max_power_cbf, msg)
 
     #################################################################
     #                       Test Methods                            #
@@ -3245,27 +3280,24 @@ class test_CBF(unittest.TestCase):
 
         for i, freq in enumerate(requested_test_freqs):
             if i < print_counts:
-                Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(i + 1,
-                                                                                           len(requested_test_freqs),
-                                                                                           freq / 1e6))
+                Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
+                    i + 1, len(requested_test_freqs), freq / 1e6))
             elif i == print_counts:
                 Aqf.hop('.' * print_counts)
             elif i > (len(requested_test_freqs) - print_counts):
-                Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(i + 1,
-                                                                                           len(requested_test_freqs),
-                                                                                           freq / 1e6))
+                Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
+                    i + 1, len(requested_test_freqs), freq / 1e6))
             else:
-                LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (i + 1,
-                                                                                    len(requested_test_freqs),
-                                                                                    freq / 1e6))
+                LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (
+                    i + 1, len(requested_test_freqs), freq / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
                 LOGGER.info('Skipping channel response for freq %s @ %s: %s MHz.\n'
-                            'Digitiser frequency is same as previous.' % (i + 1,
-                                                                          len(requested_test_freqs), freq / 1e6))
+                            'Digitiser frequency is same as previous.' % (
+                                i + 1, len(requested_test_freqs), freq / 1e6))
                 continue  # Already calculated this one
             else:
                 last_source_freq = this_source_freq
@@ -3331,7 +3363,8 @@ class test_CBF(unittest.TestCase):
         plt_title = 'Channel {0} @ {1:.3f}MHz response.'.format(test_chan, expected_fc / 1e6)
         # Plot channel response with -53dB cutoff horizontal line
         aqf_plot_and_save(freqs=actual_test_freqs, data=plot_data, df=df, expected_fc=expected_fc,
-                          plot_filename=plt_filename, plt_title=plt_title, caption=plt_caption, cutoff=-cutoff)
+                          plot_filename=plt_filename, plt_title=plt_title, caption=plt_caption,
+                          cutoff=-cutoff)
 
         # Get responses for central 80% of channel
         df = self.corr_freqs.delta_f
@@ -3367,8 +3400,8 @@ class test_CBF(unittest.TestCase):
         if fault_freqs:
             Aqf.failed('[CBF-REQ-0126] The following input frequencies (first and last): {!r} '
                        'respectively had peak channeliser responses in channels '
-                       '{!r}\n, and not test channel {} as expected.'.format(fault_freqs[1::-1],
-                                                                             set(sorted(fault_channels)), test_chan))
+                       '{!r}\n, and not test channel {} as expected.'.format(
+                fault_freqs[1::-1], set(sorted(fault_channels)), test_chan))
 
             LOGGER.error('The following input frequencies: %s respectively had '
                          'peak channeliser responses in channels %s, not '
@@ -3480,7 +3513,8 @@ class test_CBF(unittest.TestCase):
                     'relative to channel centre response.'.format(**locals()))
         who_ran_test()
 
-    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53, log_power=True):
+    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53,
+                         log_power=True):
         """Test channel spacing and out-of-channel response
 
         Check that the correct channels have the peak response to each
@@ -3982,7 +4016,7 @@ class test_CBF(unittest.TestCase):
 
                 msg = ('Check that the maximum difference between the subsequent SPEAD accumulations'
                        ' with the same frequency input ({}Hz) is \'Zero\'.\n'.format(
-                            this_source_freq))
+                    this_source_freq))
 
                 # if not Aqf.equal(dumps_comp, 1, msg):
                 if not Aqf.equals(dumps_comp, 0, msg):
@@ -5062,6 +5096,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Check that SPEAD accumulations are nolonger being produced.')
         with ignored(Queue.Empty):
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            self.receiver.stop()
             Aqf.failed('SPEAD accumulations are still being produced.')
 
         self.corr_fix.halt_array()
@@ -5077,7 +5112,7 @@ class test_CBF(unittest.TestCase):
                 corr_init = True
                 retries -= 1
                 if corr_init:
-                    msg = 'CBF Re-Initialised Successfully'
+                    msg = ('CBF Re-Initialised Successfully: %s' % instrument)
                     Aqf.step(msg)
                     LOGGER.info(msg + 'after %s retries' % (retries))
             except:
@@ -5095,7 +5130,10 @@ class test_CBF(unittest.TestCase):
 
             Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
                     'that the instrument activated is valid.')
+            self.set_instrument(instrument)
+            self.dhost.noise_sources.noise_corr.set(scale=0.25)
             try:
+                self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -5104,6 +5142,10 @@ class test_CBF(unittest.TestCase):
             except AttributeError:
                 errmsg = ('Could not retrieve clean SPEAD accumulation: Receiver could not '
                           'be instantiated.')
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
+            except AssertionError:
+                errmsg = 'Correlator Receiver is not instantiated.'
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
             else:
@@ -5850,176 +5892,11 @@ class test_CBF(unittest.TestCase):
                         Aqf.hop('Repo: {}: Up-to-date.\n'.format(name))
                 except subprocess.CalledProcessError:
                     Aqf.hop('Repo: {}, Version: {}, Branch: Dirty, Last Hash: Dirty\n'.format(name,
-                                                                                        repo_dir[1]))
+                                                                                              repo_dir[1]))
                 except AssertionError:
                     Aqf.failed('AssertionError occured while retrieving git repo: {}\n'.format(name))
                 except OSError:
                     Aqf.failed('OS Error occured while retrieving gut repo: {}\n'.format(name))
-
-        def get_pdu_config():
-            try:
-                pdu_host_info = test_config['pdu_hosts']
-                pdu_host_ips = test_config['pdu_hosts']['pdu_ips'].split(',')
-            except KeyError:
-                Aqf.failed('Could not retrieve PDU ip`s from config file')
-                return False
-            else:
-                user = (pdu_host_info['username'] + '\r\n')
-                password = (pdu_host_info['passwd'] + '\r\n')
-            model_cmd = 'prodInfo\r\n'
-            about_cmd = 'about\r\n'
-
-            for count, host_ip in enumerate(pdu_host_ips, start=1):
-
-                try:
-                    tn = telnetlib.Telnet(host_ip, timeout=10)
-
-                    tn.read_until('User Name : ')
-                    tn.write(user)
-                    if password:
-                        tn.read_until("Password")
-                        tn.write(password)
-
-                    tn.write(model_cmd)
-                    tn.write(about_cmd)
-                    tn.write("exit\r\n")
-                    stdout = tn.read_all()
-                    tn.close()
-
-                    if 'Model' in stdout:
-                        try:
-                            pdu_model = stdout[stdout.index('Model'):].split()[1]
-                            Aqf.step('Checking PDU no: {}'.format(count))
-                            Aqf.hop('PDU Model: {} on {}'.format(pdu_model, host_ip))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU model\n')
-
-                    if 'Name' in stdout:
-                        try:
-                            pdu_name = (' '.join(stdout[stdout.index('Name'):stdout.index(
-                                'Date')].split()[-4:]))
-                            Aqf.hop('PDU Name: {}'.format(pdu_name))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU name\n')
-
-                    if 'Serial' in stdout:
-                        try:
-                            pdu_serial = (stdout[stdout.find('Hardware Factory'):]
-                                          .splitlines()[3].split()[-1])
-                            Aqf.hop('PDU Serial Number: {}'.format(pdu_serial))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU serial number.\n')
-                    if 'Revision' in stdout:
-                        try:
-                            pdu_hw_rev = (stdout[stdout.find('Hardware Factory'):]
-                                          .splitlines()[4].split()[-1])
-                            Aqf.hop('PDU HW Revision: {}'.format(pdu_hw_rev))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU HW Revision.\n')
-
-                    if 'Application Module' and 'Version' in stdout:
-                        try:
-                            pdu_app_ver = (stdout[stdout.find('Application Module'):]
-                                           .split()[6])
-                            Aqf.hop('PDU Application Module Version: {} '.format(
-                                pdu_app_ver))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU Application Module Version.\n')
-
-                    if 'APC OS(AOS)' in stdout:
-                        try:
-                            pdu_apc_name = (stdout[stdout.find('APC OS(AOS)'):]
-                                            .splitlines()[2].split()[-1])
-                            pdu_apc_ver = (stdout[stdout.find('APC OS(AOS)'):]
-                                           .splitlines()[3].split()[-1])
-                            Aqf.hop('PDU APC OS: {}'.format(pdu_apc_name))
-                            Aqf.hop('PDU APC OS ver: {}'.format(pdu_apc_ver))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU APC OS info.\n')
-
-                    if 'APC Boot Monitor' in stdout:
-                        try:
-                            pdu_apc_boot = (stdout[stdout.find('APC Boot Monitor'):]
-                                            .splitlines()[2].split()[-1])
-                            pdu_apc_ver = (stdout[stdout.find('APC Boot Monitor'):]
-                                           .splitlines()[3].split()[-1])
-                            Aqf.hop('PDU APC Boot Mon: {}'.format(pdu_apc_boot))
-                            Aqf.hop('PDU APC Boot Mon Ver: {}\n'.format(pdu_apc_ver))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve PDU Boot info.\n')
-
-                except:
-                    errmsg = ('Could not connect to PDU host: %s \n' % (host_ip))
-                    Aqf.failed(errmsg)
-                    LOGGER.exception(errmsg)
-
-        def get_data_switch():
-            import paramiko
-            """Verify info on each Data Switch"""
-            try:
-                data_switches = test_config['data_switch_hosts']
-                data_switches_ips = test_config['data_switch_hosts']['data_switch_ips'].split(',')
-            except KeyError:
-                Aqf.failed('Could not retrieve Data switches ip`s from config file')
-                return False
-            else:
-                username = data_switches['username']
-                password = data_switches['passwd']
-
-            nbytes = 2048
-            wait_time = 1
-            for count, ip in enumerate(data_switches_ips, start=1):
-                try:
-                    remote_conn_pre = paramiko.SSHClient()
-                    # Load host keys from a system file.
-                    remote_conn_pre.load_system_host_keys()
-                    remote_conn_pre.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                    remote_conn_pre.connect(ip, username=username, password=password,
-                                            timeout=10)
-                    remote_conn = remote_conn_pre.invoke_shell()
-                    Aqf.step('Connected to Data switch {} on IP: {}'.format(count, ip))
-                except:
-                    errmsg = (
-                        'Failed to connect to Data switch %s on IP: %s\n' % (count, ip))
-                    Aqf.failed(errmsg)
-                    LOGGER.exception(errmsg)
-                else:
-                    remote_conn.send("\n")
-                    while not remote_conn.recv_ready():
-                        time.sleep(wait_time)
-                    remote_conn.recv(nbytes)
-
-                    remote_conn.send("show inventory | include CHASSIS\n")
-                    while not remote_conn.recv_ready():
-                        time.sleep(wait_time)
-                    inventory = remote_conn.recv(nbytes)
-                    if 'CHASSIS' in inventory:
-                        try:
-                            part_number = inventory.split()[8]
-                            Aqf.hop('Data Switch Part no: {}'.format(part_number))
-                            serial_number = inventory.split()[9]
-                            Aqf.hop('Data Switch Serial no: {}'.format(serial_number))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve Switches Part/Serial number.\n')
-
-                    remote_conn.send("show version\n")
-                    while not remote_conn.recv_ready():
-                        time.sleep(wait_time)
-                    version = remote_conn.recv(nbytes)
-                    if 'version' in version:
-                        try:
-                            prod_name = version[version.find('Product name:'):].split()[2]
-                            Aqf.hop('Software Product name: {}'.format(prod_name))
-                            prod_rel = version[version.find('Product release:'):].split()[2]
-                            Aqf.hop('Software Product release: {}'.format(prod_rel))
-                            build_date = version[version.find('Build date:'):].split()[2]
-                            Aqf.hop('Software Build date: {}\n'.format(build_date))
-                        except IndexError:
-                            Aqf.failed('Could not retrieve software product name/release.\n')
-
-                    remote_conn.send("exit\n")
-                    remote_conn.close()
-                    remote_conn_pre.close()
 
         def get_gateware_info(self):
             try:
@@ -6455,8 +6332,14 @@ class test_CBF(unittest.TestCase):
                 # input level
                 weight = 1.0
                 beam_dict = self._populate_beam_dict(1, weight, beam_dict)
-                bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
-                                                                                 beam_dict, target_pb, target_cfreq)
+                try:
+                    bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
+                                                                                     beam_dict, target_pb, target_cfreq)
+                except TypeError, e:
+                    errmsg = 'Failed to capture beam data: %s' % str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.info(errmsg)
+                    return
                 nc = 10000
                 cap = [0] * nc
                 for i in range(0, nc):
@@ -6716,18 +6599,25 @@ class test_CBF(unittest.TestCase):
         ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
         ingst_nd_p = self.corr_fix._test_config_file['beamformer'] \
             ['ingest_node_port']
-        p = Popen(
-            ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-init'],
-            stdin=PIPE,
-            stdout=PIPE,
-            stderr=PIPE)
-        output, err = p.communicate()
-        rc = p.returncode
+        try:
+            p = Popen(
+                ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-init'],
+                stdin=PIPE,
+                stdout=PIPE,
+                stderr=PIPE)
+        except Exception:
+            errmsg = ('Failed to issue capture-init kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
+            Aqf.failed(errmsg)
+            LOGGER.error(errmsg)
+        else:
+            output, err = p.communicate()
+            rc = p.returncode
         if rc != 0:
             Aqf.failed(
                 'Failure issuing capture-init to ingest process on ' + ingst_nd)
             Aqf.failed('Stdout: \n' + output)
             Aqf.failed('Stderr: \n' + err)
+            return False
         else:
             Aqf.step('Capture-init issued on {}'.format(ingst_nd))
         reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
@@ -6748,13 +6638,20 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.failed(
                 'Data transmission stop failed: {}'.format(reply.arguments))
-        p = Popen(
-            ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-done'],
-            stdin=PIPE,
-            stdout=PIPE,
-            stderr=PIPE)
-        output, err = p.communicate()
-        rc = p.returncode
+        try:
+            p = Popen(
+                ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-done'],
+                stdin=PIPE,
+                stdout=PIPE,
+                stderr=PIPE)
+        except Exception:
+            errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
+            Aqf.failed(errmsg)
+            LOGGER.error(errmsg)
+        else:
+            output, err = p.communicate()
+            rc = p.returncode
+
         if rc != 0:
             Aqf.failed('Failure issuing capture-done to ingest process on ' + ingst_nd)
             Aqf.failed('Stdout: \n' + output)
@@ -6819,8 +6716,15 @@ class test_CBF(unittest.TestCase):
 
         def get_beam_data(beam, beam_dict, target_pb, target_cfreq,
                           inp_ref_lvl=0, beam_quant_gain=1, num_caps=10000):
-            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(
-                beam, beam_dict, target_pb, target_cfreq)
+            try:
+                bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam, beam_dict,
+                                                                                 target_pb,
+                                                                                 target_cfreq)
+            except TypeError, e:
+                errmsg = 'Failed to capture beam data: %s' % str(e)
+                Aqf.failed(errmsg)
+                LOGGER.info(errmsg)
+                return
             data_type = bf_raw.dtype.name
             cap = [0] * num_caps
             cap_idx = 0
@@ -7054,18 +6958,24 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(
                 this_source_freq0 + bw, this_source_freq1 + bw))
 
-            bf_raw, cap_ts, bf_ts = self._capture_beam_data(beam,
-                                                            beamy_dict, target_pb, target_cfreq)
+            try:
+                bf_raw, cap_ts, bf_ts = self._capture_beam_data(beam,
+                                                                beamy_dict, target_pb, target_cfreq)
+            except TypeError, e:
+                errmsg = 'Failed to capture beam data: %s' % str(e)
+                Aqf.failed(errmsg)
+                LOGGER.info(errmsg)
+                return
 
-            # cap_ts_diff = np.diff(cap_ts)
-            # a = np.nonzero(np.diff(cap_ts)-8192)
-            # cap_ts[a[0]+1]
-            # cap_phase = numpy.angle(cap)
-            # ts = [datetime.datetime.fromtimestamp(float(timestamp)/1000).strftime("%H:%M:%S") for timestamp in timestamps]
+                # cap_ts_diff = np.diff(cap_ts)
+                # a = np.nonzero(np.diff(cap_ts)-8192)
+                # cap_ts[a[0]+1]
+                # cap_phase = numpy.angle(cap)
+                # ts = [datetime.datetime.fromtimestamp(float(timestamp)/1000).strftime("%H:%M:%S") for timestamp in timestamps]
 
-            # Average over timestamp show passband
-            # for i in range(0,len(cap)):
-            #    plt.plot(10*numpy.log(numpy.abs(cap[i])))
+                # Average over timestamp show passband
+                # for i in range(0,len(cap)):
+                #    plt.plot(10*numpy.log(numpy.abs(cap[i])))
 
     def _test_bc8n856M4k_beamforming_ch(self, instrument='bc8n856M4k'):
         """CBF Beamformer channel accuracy (bc8n856M4k)
@@ -7160,8 +7070,14 @@ class test_CBF(unittest.TestCase):
                           'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
                           'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
 
-        bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
-                                                                         beam_dict, target_pb, target_cfreq)
+        try:
+            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
+                                                                             beam_dict, target_pb, target_cfreq)
+        except TypeError, e:
+            errmsg = 'Failed to capture beam data: %s' % str(e)
+            Aqf.failed(errmsg)
+            LOGGER.info(errmsg)
+            return
         fft_length = 1024
         strt_idx = 0
         num_caps = np.shape(bf_raw)[1]
@@ -7281,10 +7197,15 @@ class test_CBF(unittest.TestCase):
         # input level
         weight = 1.0
         beam_dict = self._populate_beam_dict(1, weight, beam_dict)
-        bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
-                                                                         beam_dict, target_pb, target_cfreq,
-                                                                         capture_time=0.3)
-
+        try:
+            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
+                                                                             beam_dict, target_pb, target_cfreq,
+                                                                             capture_time=0.3)
+        except TypeError, e:
+            errmsg = 'Failed to capture beam data: %s' % str(e)
+            Aqf.failed(errmsg)
+            LOGGER.info(errmsg)
+            return
         Aqf.hop('Packaging beamformer data.')
         num_caps = np.shape(bf_raw)[1]
         cap = [0] * num_caps
