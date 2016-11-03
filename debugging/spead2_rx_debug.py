@@ -11,15 +11,15 @@ from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
 from katcp.testutils import start_thread_with_cleanup
 
-dump_timeout = 4
+dump_timeout = 10
 
-from corr2.corr_rx_debug import CorrRxDebug
+from corr2.corr_rx import CorrRx
 config = os.environ['CORR2INI']
 print 'Config file used = {}'.format(config)
 
 
 import logging
-logging.basicConfig(filename='debug_log.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 #corr_conf = utils.parse_ini_file(config, ['dsimengine'])
 #dsim_conf = corr_conf['dsimengine']
@@ -58,7 +58,7 @@ print 'correlator is running'
 #xhost = correlator.xhosts[0]
 #x = correlator.xhosts[0]
 try:
-    receiver = CorrRxDebug(port=8889, queue_size=10)
+    receiver = CorrRx(port=7148, queue_size=5)
 except:
     print 'Could not instantiate receiver'
 else:
@@ -81,7 +81,7 @@ else:
             prev_ts = dump['timestamp'].value
             while True:
                 try:
-                    dump = receiver.get_clean_dump(dump_timeout=dump_timeout,discard=0)
+                    dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
                 except KeyboardInterrupt:
                     raise
                 except:
@@ -99,6 +99,7 @@ else:
         template = "An exception of type {0} occured. Arguments:\n{1!r}"
         message = template.format(type(ex), ex.args)
         print message
-	receiver.stop()
+    #import IPython;IPython.embed()
+    receiver.stop()
     receiver.join()
     print 'Receiver stopped.'
