@@ -42,7 +42,12 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
         Gets actual and expected phase plots.
         return: None
     """
-    plt.gca().set_prop_cycle(None)
+    try:
+        plt.gca().set_prop_cycle(None)
+    except tkinter.TclError:
+        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        return False
+
     if len(actual_data) == dump_counts or len(expected_data) == dump_counts - 1:
         for phases in actual_data:
             plt.plot(freqs, phases)
@@ -69,21 +74,16 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     # linestyles='dotted', label='Center Chan.')
     plt.title('{}'.format(plot_title))
     axes.set_ybound(*new_ybound)
-    try:
-        plt.grid(True)
-    except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
-        return False
-    else:
-        plt.ylabel('Phase [radians]')
-        plt.xlabel('Channel number')
-        plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-        plt.legend()
-        Aqf.matplotlib_fig(plot_filename, caption=caption)
-        if show:
-            plt.show(block=False)
-        plt.cla()
-        plt.clf()
+    plt.grid(True)
+    plt.ylabel('Phase [radians]')
+    plt.xlabel('Channel number')
+    plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    plt.legend()
+    Aqf.matplotlib_fig(plot_filename, caption=caption)
+    if show:
+        plt.show(block=False)
+    plt.cla()
+    plt.clf()
 
 
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="",
@@ -133,7 +133,11 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
     has_legend = False
     plt_line = []
-    ax = plt.gca()
+    try:
+        ax = plt.gca()
+    except tkinter.TclError:
+        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        return False
 
     try:
         vlines_plotd = False
@@ -281,7 +285,11 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
 
 def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
                       caption="", cutoff=None, show=False):
-    fig = plt.plot(freqs, data)[0]
+    try:
+        fig = plt.plot(freqs, data)[0]
+    except tkinter.TclError:
+        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        return False
     axes = fig.get_axes()
     ybound = axes.get_ybound()
     yb_diff = abs(ybound[1] - ybound[0])
