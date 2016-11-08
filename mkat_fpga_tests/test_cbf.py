@@ -9,6 +9,7 @@ import subprocess
 import telnetlib
 import textwrap
 import unittest
+import signal
 from collections import namedtuple
 from random import randrange
 from subprocess import Popen, PIPE
@@ -35,7 +36,7 @@ from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
 from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
-from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style
+from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style, get_hosts_status
 from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip
 from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
 from mkat_fpga_tests.utils import get_baselines_lookup, TestTimeout
@@ -46,7 +47,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
-from mkat_fpga_tests.utils import get_local_src_names, get_input_labels
+from mkat_fpga_tests.utils import get_local_src_names, get_input_labels, get_sync_epoch
 from nosekatreport import Aqf, aqf_vr
 from nose.plugins.attrib import attr
 from power_logger import PowerLogger
@@ -81,8 +82,8 @@ xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode'
 
 disable_warnings_messages()
 # protected member included in __all__
-__all__ = ['correlator_fixture', '_test_config_file']
-
+unittest.signals.installHandler()
+default_handler = signal.getsignal(signal.SIGINT)
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
@@ -90,7 +91,7 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        self.conf_file = self.corr_fix._test_config_file
+        self.conf_file = self.corr_fix.test_config
         try:
             _conf = self.conf_file['inst_param']
         except (ValueError, TypeError):
@@ -101,6 +102,7 @@ class test_CBF(unittest.TestCase):
             self.corr_fix.resource_clt = _conf['katcp_client']
         self.dhost = self.corr_fix.dhost
         try:
+            assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost)
             self.dhost.get_system_information()
         except Exception:
             errmsg = ('Failed to connect to retrieve information from Digitiser Simulator.')
@@ -108,10 +110,9 @@ class test_CBF(unittest.TestCase):
             sys.exit(errmsg)
         self.receiver = None
 
-    def set_instrument(self, instrument, acc_time=0.5):
+    def set_instrument(self, instrument, acc_time=0.5, queue_size=10):
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
-
         if self.receiver:
             LOGGER.info('Spead2 capturing thread cleanup.')
             self.receiver.stop()
@@ -129,14 +130,16 @@ class test_CBF(unittest.TestCase):
             self.assertIsInstance(reply, katcp.resource.KATCPReply)
 
         except (TimeoutError, VaccSynchAttemptsMaxedOut):
-            self.corr_fix.halt_array()
+            self.corr_fix.halt_array
+            self.corr_fix.ensure_instrument(instrument)
             errmsg = ('Timed-Out: Failed to set accumulation time within {}s, '
                       '[CBF-REQ-0064] SubArray will be halted and restarted with next '
                       'test'.format(acc_timeout))
             return {False: errmsg}
 
         except (AttributeError, AssertionError):
-            self.corr_fix.halt_array()
+            self.corr_fix.halt_array
+            self.corr_fix.ensure_instrument(instrument)
             errmsg = (
                 'Failed to set accumulation time within {}s, due to katcp request '
                 'errors. [CBF-REQ-0064] SubArray will be halted and restarted with '
@@ -145,6 +148,9 @@ class test_CBF(unittest.TestCase):
 
         else:
             if not reply.succeeded:
+                LOGGER.error('Failed to set accumulation length, halting subarray and restarting CBF')
+                self.corr_fix.halt_array
+                self.corr_fix.ensure_instrument(instrument)
                 return {False: str(reply)}
             else:
                 Aqf.step('[CBF-REQ-0071, 0096, 0089] Accumulation time set via CAM interface: '
@@ -155,12 +161,7 @@ class test_CBF(unittest.TestCase):
                     corrRx_port = 8888
                     LOGGER.info('Failed to retrieve corr rx port from config file.'
                                 'Setting it to default port: %s' % (corrRx_port))
-                try:
-                    assert instrument.upper().endswith('M4K')
-                    self.receiver = CorrRx(port=corrRx_port, queue_size=1000)
-                except AssertionError:
-                    self.receiver = CorrRx(port=corrRx_port, queue_size=100)
-
+                self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
                 try:
                     self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 except AssertionError:
@@ -176,16 +177,17 @@ class test_CBF(unittest.TestCase):
                         return {False: errmsg}
                     else:
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
-                        subscribe_multicast = self.corr_fix.subscribe_multicast()
+                        subscribe_multicast = self.corr_fix.subscribe_multicast
                         if subscribe_multicast.keys()[0]:
                             Aqf.step(subscribe_multicast.values()[0])
                         self.corr_fix.start_x_data()
                         self.addCleanup(self.corr_fix.stop_x_data)
-                        self.corr_fix.issue_metadata()
+                        self.corr_fix.issue_metadata
                         try:
                             sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
-                            self.correlator.set_synch_time(sync_time)
-                        except:
+                            assert isinstance(sync_time, float)
+                            reply = self.correlator.set_synch_time(sync_time)
+                        except AssertionError:
                             errmsg = 'Sync time could not be read and/or set via CAM interface.'
                             LOGGER.error(errmsg)
                             return {False: errmsg}
@@ -202,7 +204,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0046
             CBF-REQ-0043
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.2)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -348,7 +350,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0164
             CBF-REQ-0191
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.2)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -647,7 +649,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0225
             CBF-REQ-0104
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.2)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -810,7 +812,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.2, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1338,7 +1340,7 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M4k_delay_rate(self, instrument='bc8n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc8n856M4k)
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1364,7 +1366,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1494,7 +1496,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1650,7 +1652,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -2584,26 +2586,28 @@ class test_CBF(unittest.TestCase):
 
         if self.set_instrument(_running_inst):
             self._systems_tests()
-            msg = Style.Bold(
-                '[CBF-REQ-0157] ROACH2 Temperature Fault Detection: {}\n'.format(_running_inst))
+            Aqf.step(Style.Bold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
+                                 self._testMethodDoc])))
+
+            msg = Style.Bold('ROACH2 Temperature Fault Detection: {}\n'.format(_running_inst))
             Aqf.step(msg)
             self._test_overtemp()
+            clear_host_status(self)
 
-            msg = Style.Bold(
-                '[CBF-REQ-0157] QDR Memory Fault Detection: {}\n'.format(_running_inst))
+            msg = Style.Bold('QDR Memory Fault Detection: {}\n'.format(_running_inst))
             Aqf.step(msg)
             self._test_roach_qdr_sensors()
+            clear_host_status(self)
 
-            msg = Style.Bold(
-                '[CBF-REQ-0157] Link-Error: F-engine to X-engine: {}\n'.format(_running_inst))
+            msg = Style.Bold('Link-Error: F-engine to X-engine: {}\n'.format(_running_inst))
             Aqf.step(msg)
             self._test_link_error()
+            clear_host_status(self)
 
-            msg = Style.Bold(
-                '[CBF-REQ-0157] PFB Fault Detection: {}\n'.format(_running_inst))
+            msg = Style.Bold('PFB Fault Detection: {}\n'.format(_running_inst))
             Aqf.step(msg)
             self._test_roach_pfb_sensors()
-        clear_host_status(self)
+            clear_host_status(self)
         who_ran_test()
 
     @aqf_vr('VR.C.14')
@@ -2682,32 +2686,28 @@ class test_CBF(unittest.TestCase):
 
     def _systems_tests(self):
         """Checking system stability before and after use"""
-        if not confirm_out_dest_ip(self):
-            Aqf.failed('Output destination IP is not the same as the one stored in the register, '
-                       'ie data is being spewed elsewhere.')
-
-        set_default_eq(self)
-
-        # ---------------------------------------------------------------
-        def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
-            LOGGER.info('Retrieving PFB, LRU, QDR, PHY and reorder status on all Engines.')
-            for _sensor in list_sensor:
-                _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
-                if _status_hosts is not True:
-                    for _status in _status_hosts:
-                        Aqf.failed(_status)
-
-        feng_sensors = ['pfb', 'phy', 'qdr', 'reorder']
-        try:
-            get_hosts_status(self, check_host_okay, feng_sensors, engine_type='feng')
-        except:
-            LOGGER.error('Failed to retrieve F-Eng status sensors')
-
-        xeng_sensors = ['phy', 'qdr', 'reorder']
-        try:
-            get_hosts_status(self, check_host_okay, xeng_sensors, engine_type='xeng')
-        except:
-            LOGGER.error('Failed to retrieve X-Eng status sensors')
+        timeout_test = 5
+        with ignored(Exception):
+            if not confirm_out_dest_ip(self):
+                Aqf.failed('Output destination IP is not the same as the one stored in the register, '
+                           'ie data is being spewed elsewhere.')
+            clear_host_status(self)
+            set_default_eq(self)
+            # ---------------------------------------------------------------
+            try:
+                xeng_sensors = ['phy', 'qdr', 'reorder']
+                with TestTimeout(timeout_test):
+                    get_hosts_status(self, check_host_okay, xeng_sensors, engine_type='xeng')
+            except TestTimeout.TestTimeoutError:
+                LOGGER.error('Failed to retrieve X-Eng status: Timed-out after %s seconds.' % (                                                                         timeout_test))
+            try:
+                xeng_sensors.append('phy')
+                feng_sensors = xeng_sensors
+                with TestTimeout(timeout_test):
+                    get_hosts_status(self, check_host_okay, feng_sensors, engine_type='feng')
+            except TestTimeout.TestTimeoutError:
+                LOGGER.error('Failed to retrieve F-Eng status: Timed-out after %s seconds.' % (
+                                                                                    timeout_test))
         # ---------------------------------------------------------------
         try:
             self.last_pfb_counts = get_pfb_counts(
@@ -2811,11 +2811,18 @@ class test_CBF(unittest.TestCase):
             clear_all_delays(self)
             self.addCleanup(clear_all_delays, self)
 
-            if not self.corr_fix.issue_metadata():
+            if not self.corr_fix.issue_metadata:
                 Aqf.failed('Could not issues new metadata')
             Aqf.step('Retrieving initial SPEAD accumulation.')
-            self.corr_fix.issue_metadata()
-            self.corr_fix.start_x_data()
+
+            try:
+                sync_time = float(get_sync_epoch(self))
+            except Exception:
+                errmsg = ('Could not retrieve sync time via correlator object.')
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
             try:
                 initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Exception:
@@ -2823,22 +2830,13 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                try:
-                    reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
-                    sync_time = float(reply.arguments[-1])
-                    if not reply.reply_ok():
-                        raise Exception
-                except Exception:
-                    Aqf.failed('Could not retrieve sync time via correlator object.')
-                    return False
-
                 scale_factor_timestamp = initial_dump['scale_factor_timestamp'].value
                 time_stamp = initial_dump['timestamp'].value
                 n_accs = initial_dump['n_accs'].value
                 int_time = initial_dump['int_time'].value
                 ticks_between_spectra = initial_dump['ticks_between_spectra'].value
                 int_time_ticks = n_accs * ticks_between_spectra
-                # roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
+                network_latency = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
                 roundtrip = 0
                 # Aqf.hop('Added {}s for the network round trip to dump timestamp'.format(
                 #    roundtrip))
@@ -2882,6 +2880,7 @@ class test_CBF(unittest.TestCase):
                         'n_accs': n_accs,
                         'sample_period': self.corr_freqs.sample_period,
                         'num_inputs': num_inputs,
+                        'network_latency': network_latency,
                         'test_source_ind': test_source_idx
                     }
 
@@ -2891,10 +2890,8 @@ class test_CBF(unittest.TestCase):
         try:
             # Max time it takes to resync katcp (client connection)
             katcp_rsync_time = 0.5
-            # Time it takes to execute the python command
-            cmd_exec_time = 0.2
             # Max network latency
-            network_roundtrip = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY + katcp_rsync_time
+            network_roundtrip = setup_data['network_latency'] + katcp_rsync_time
 
             # katcp_host = self.corr_fix.katcp_rct.host
             # katcp_port = self.corr_fix.katcp_rct.port
@@ -2908,7 +2905,7 @@ class test_CBF(unittest.TestCase):
             ## via telnet kcs interface.
             katcp_conn_time = time.time()
             reply, _informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
-                                                                 *delay_coefficients)
+                                                                 *delay_coefficients, timeout=30)
             cmd_end_time = time.time()
             actual_delay_coef = reply.arguments[1:]
             try:
@@ -2916,7 +2913,7 @@ class test_CBF(unittest.TestCase):
             except:
                 actual_delay_coef = None
 
-            cmd_tot_time = katcp_conn_time + network_roundtrip + cmd_exec_time
+            cmd_tot_time = katcp_conn_time + network_roundtrip
             final_cmd_time = np.abs(cmd_end_time - cmd_tot_time)
         except:
             errmsg = ('Failed to set delays via CAM interface with loadtime: %s, '
@@ -2927,7 +2924,7 @@ class test_CBF(unittest.TestCase):
             msg = ('[CBF-REQ-0077, 0187]: Time it takes to load delays is less than {}s with '
                    'integration time of {} seconds'.format(cam_max_load_time,
                                                            setup_data['int_time']))
-            # Aqf.less(final_cmd_time, cam_max_load_time, msg)
+            #Aqf.less(final_cmd_time, cam_max_load_time, msg)
             Aqf.passed(msg)
             msg = ('[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}'.format(
                 reply.arguments[1]))
@@ -3260,8 +3257,15 @@ class test_CBF(unittest.TestCase):
             Aqf.is_true(initial_dump['bandwidth'].value >= min_bandwithd_req,
                         '[CBF-REQ-0053] Channelise total bandwidth {}Hz shall be >= {}Hz.'.format(
                             initial_dump['bandwidth'].value, min_bandwithd_req))
+            # TODO (MM) 2016-10-27, As per JM
+            # Channel spacing is reported as 209.266kHz. This is probably spot-on, considering we're
+            # using a dsim that's not actually sampling at 1712MHz. But this is problematic for the
+            # test report. We would be getting 1712MHz/8192=208.984375kHz on site.
+            # Maybe we should be reporting this as a fraction of total sampling rate rather than
+            # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
 
-            chan_spacing = initial_dump['bandwidth'].value / initial_dump['xeng_raw'].value.shape[0]
+            # chan_spacing = initial_dump['bandwidth'].value / initial_dump['xeng_raw'].value.shape[0]
+            chan_spacing = 856e6 / initial_dump['xeng_raw'].value.shape[0]
             chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
                                 chan_spacing + (chan_spacing * 1 / 100)]
             msg = ('[CBF-REQ-0043, 0046, 0053]: Verify that the calculated channel '
@@ -3713,6 +3717,7 @@ class test_CBF(unittest.TestCase):
     def _test_product_baselines(self):
         if self.corr_freqs.n_chans == 4096:
             # 4K
+            cw_scale = 0.0675
             awgn_scale = 0.0645
             gain = '113+0j'
             fft_shift = 511
@@ -3732,13 +3737,8 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Set list for all the correlator input labels as per config file')
         local_src_names = self.correlator.configd['fengine']['source_names'].split(',')
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-
-        for i in range(2):
-            self.corr_fix.issue_metadata()
-            self.corr_fix.start_x_data()
-        if not self.corr_fix.issue_metadata():
+        if not self.corr_fix.issue_metadata:
             Aqf.failed('Could not issue new metadata')
-
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels from SPEAD accumulation.')
 
@@ -4204,7 +4204,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.is_true(_empty,
                             'Confirm that the SPEAD accumulations have stopped being produced.')
 
-                self.corr_fix.halt_array()
+                self.corr_fix.halt_array
                 xhosts = self.correlator.xhosts
                 fhosts = self.correlator.fhosts
 
@@ -4268,7 +4268,7 @@ class test_CBF(unittest.TestCase):
                     if not intrument_success:
                         msg = ('Failed to restart the correlator successfully.')
                         Aqf.failed(msg)
-                        self.corr_fix.halt_array()
+                        self.corr_fix.halt_array
                         time.sleep(10)
                         self.set_instrument(instrument)
                         return False
@@ -4352,6 +4352,14 @@ class test_CBF(unittest.TestCase):
             delays = [0] * setup_data['num_inputs']
             Aqf.step('[CBF-REQ-0185] Delays to be set (iteratively) {}\n'.format(test_delays))
 
+            try:
+                sync_time = float(get_sync_epoch(self))
+            except Exception:
+                errmsg = ('Could not retrieve sync time via correlator object.')
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
             def get_expected_phases():
                 expected_phases = []
                 for delay in test_delays:
@@ -4377,15 +4385,6 @@ class test_CBF(unittest.TestCase):
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
                     else:
-                        try:
-                            reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
-                            sync_time = float(reply.arguments[-1])
-                            if not reply.reply_ok():
-                                raise Exception
-                        except Exception:
-                            Aqf.failed('Could not retrieve sync time via correlator object.')
-                            return False
-
                         dump_timestamp = (roundtrip + sync_time +
                                           this_freq_dump['timestamp'].value /
                                           this_freq_dump['scale_factor_timestamp'].value)
@@ -4395,31 +4394,28 @@ class test_CBF(unittest.TestCase):
                             reply, _informs = self.corr_fix.katcp_rct.req.delays(t_apply,
                                                                                  *delay_coefficients)
                             final_cmd_time = (time.time() - cmd_start_time - roundtrip)
-                        except:
+                            assert reply.reply_ok()
+                        except Exception:
                             errmsg = ('Failed to set delays via CAM interface with loadtime: %s,'
                                       ' Delay coefficiencts: %s' % (t_apply, delay_coefficients))
                             LOGGER.exception(errmsg)
                             Aqf.failed(errmsg)
-
                         else:
-                            msg = ('[CBF-REQ-0077, 0187]: Time it takes to load delays is less '
-                                   'than {}s with integration time of {:.3f}s'.format(
-                                cam_max_load_time, this_freq_dump['int_time'].value))
-
-                            # Aqf.less(final_cmd_time, cam_max_load_time, msg)
-                            Aqf.passed(msg)
-
-                            msg = ('[CBF-REQ-0066, 0072] Delays Reply: {}'.format(
-                                reply.arguments[1]))
+                            msg = ('[CBF-REQ-0066, 0072] Delays Reply: {}'.format(reply.arguments[1]))
                             Aqf.is_true(reply.reply_ok(), msg)
 
+                            msg = ('[CBF-REQ-0077, 0187]: Time it takes to load delays is less '
+                                   'than {}s with integration time of {:.3f}s'.format(
+                                        cam_max_load_time, this_freq_dump['int_time'].value))
+
+                            #Aqf.less(final_cmd_time, cam_max_load_time, msg)
+                            Aqf.passed(msg)
                             msg = ('Settling time in order to set delay in the SPEAD data:'
                                    ' {} ns.'.format(delay * 1e9))
                             Aqf.wait(settling_time, msg)
-
-                            # time.sleep(settling_time)
+                            time.sleep(settling_time)
                             try:
-                                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
                             except Queue.Empty:
                                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                                 Aqf.failed(errmsg)
@@ -4536,7 +4532,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Check that the number of sensors available on the primary '
                      'and subarray interface is consistent.')
             try:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_list()
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_list(timeout=60)
             except:
                 errmsg = 'CAM interface connection encountered errors.'
                 Aqf.failed(errmsg)
@@ -4570,14 +4566,14 @@ class test_CBF(unittest.TestCase):
         def report_small_buffer(self):
             Aqf.step('Check that Transient Buffer ready is implemented.')
             try:
-                reply, _informs = self.corr_fix.katcp_rct.req.sensor_value(
-                    'corr.transient-buffer-ready')
-            except:
-                Aqf.failed('[CBF-REQ-0056] CBF Transient buffer ready for triggering'
+                assert self.corr_fix.katcp_rct.req.transient_buffer_trigger.is_active()
+            except Exception:
+                errmsg = ('[CBF-REQ-0056] CBF Transient buffer ready for triggering'
                            '\'Not\' implemented in this release.\n')
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
             else:
-                Aqf.is_true(reply.reply_ok(),
-                            '[CBF-REQ-0056] CBF Transient buffer ready for triggering'
+                Aqf.passed('[CBF-REQ-0056] CBF Transient buffer ready for triggering'
                             ' implemented in this release.\n')
 
         def report_primary_sensors(self):
@@ -4639,11 +4635,13 @@ class test_CBF(unittest.TestCase):
                         junk_msg = ('0x' + ''.join(x.encode('hex')
                                                    for x in 'oidhsdvwsfvbgrfbsdceijfp3ioejfg'))
                         try:
-                            for i in xrange(100):
+                            for i in xrange(500):
                                 host.blindwrite('qdr0_memory', junk_msg)
                                 host.blindwrite('qdr1_memory', junk_msg)
+                            LOGGER.info('Wrote junk chars to QDR\'s memory.')
                             return True
                         except:
+                            LOGGER.error('Failed to write junk chars to QDR\'s memory.')
                             return False
 
                     msg = ('[CBF-REQ-0157] Writing random data to {} the '
@@ -4652,17 +4650,18 @@ class test_CBF(unittest.TestCase):
 
                     def status_change(host_sensor):
                         success = False
-                        retries = 30
+                        retries = 200
                         while retries and not success:
-                            time.sleep(1)
+                            time.sleep(0.5)
                             retries -= 1
                             success = not host_sensor.get_value()
                             if retries == 0:
                                 break
                         return success
 
+                    sensor_status = status_change(host_sensor)
                     try:
-                        assert status_change(host_sensor)
+                        assert sensor_status
                     except:
                         Aqf.failed('Failed to verify if the QDR memory is corrupted or unreadable')
                     else:
@@ -4698,7 +4697,10 @@ class test_CBF(unittest.TestCase):
                                        'have stopped incrementing with last known '
                                        'incremented #{}.'.format(current_errors))
 
-                    clear_host_status(self)
+                    if not clear_host_status(self):
+                        for i in xrange(2):
+                            clear_host_status(self)
+                            time.sleep(0.5)
                     if engine_type == 'xeng':
                         vacc_errors_final = (
                             host.registers.vacc_errors1.read()['data']['parity'])
@@ -4791,10 +4793,14 @@ class test_CBF(unittest.TestCase):
                 if pfb_status == 1:
                     msg = 'Confirm that the sensors indicate that F-Eng PFB status is \'Okay\'.\n'
                     Aqf.passed(msg)
-                elif pfb_status == 0:
+                elif pfb_status == 0 and fft_shift == 0:
                     msg = ('Confirm that the sensors indicate that there is an \'Error\' on the '
                            'F-Eng PFB status.\n')
                     Aqf.passed(msg)
+                elif pfb_status == 1 and fft_shift == 0:
+                    msg = ('Confirm that the sensors indicate that there is an \'Error\' on the '
+                           'F-Eng PFB status.\n')
+                    Aqf.failed(msg)
                 else:
                     Aqf.failed('Could not retrieve PFB sensor status')
 
@@ -5097,9 +5103,10 @@ class test_CBF(unittest.TestCase):
         with ignored(Queue.Empty):
             self.receiver.get_clean_dump(DUMP_TIMEOUT)
             self.receiver.stop()
+            del self.receiver
             Aqf.failed('SPEAD accumulations are still being produced.')
 
-        self.corr_fix.halt_array()
+        self.corr_fix.halt_array
         Aqf.step(
             '[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(**locals()))
         corr_init = False
@@ -5112,9 +5119,10 @@ class test_CBF(unittest.TestCase):
                 corr_init = True
                 retries -= 1
                 if corr_init:
+                    end_time = time.time()
                     msg = ('CBF Re-Initialised Successfully: %s' % instrument)
                     Aqf.step(msg)
-                    LOGGER.info(msg + 'after %s retries' % (retries))
+                    LOGGER.info(msg + ' within %s retries' % (retries))
             except:
                 retries -= 1
                 if retries == 0:
@@ -5123,7 +5131,6 @@ class test_CBF(unittest.TestCase):
                     LOGGER.exception(errmsg)
 
         if corr_init:
-            end_time = time.time()
             host = xhosts[randrange(len(xhosts))]
             Aqf.is_true(host.is_running(), 'Confirm that the instrument is initialised by checking if '
                                            '{} is programmed.'.format(host.host))
@@ -6516,6 +6523,8 @@ class test_CBF(unittest.TestCase):
                                 found = True
                                 chan_resp.append(response)
                                 legends.append('Gain set to {}'.format(complex(gain)))
+                            else:
+                                pass
                     else:
                         Aqf.failed('Gain correction on {} could not be set to {}.: '
                                    'KATCP Reply: {}'.format(test_input, gain, reply))
@@ -6526,7 +6535,9 @@ class test_CBF(unittest.TestCase):
                     found = True
 
             if chan_resp != []:
-                aqf_plot_channels(zip(chan_resp, legends),
+                zipped_data = zip(chan_resp, legends)
+                zipped_data.reverse()
+                aqf_plot_channels(zipped_data,
                                   plot_filename='{}_chan_resp.png'.format(
                                       self._testMethodName),
                                   plot_title='Channel Response Gain Correction for channel {}'.format(
@@ -6671,17 +6682,22 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Stderr: \n' + err)
         else:
             Aqf.step('Data transferred from ' + ingst_nd)
-        newest_f = max(glob.iglob('mkat_fpga_tests/bf_data/*.h5'),
+        try:
+            newest_f = max(glob.iglob('mkat_fpga_tests/bf_data/*.h5'),
                        key=os.path.getctime)
-        # Read data file
-        fin = h5py.File(newest_f, 'r')
-        data = fin['Data'].values()
-        # Extract data
-        bf_raw = np.array(data[0])
-        cap_ts = np.array(data[1])
-        bf_ts = np.array(data[2])
-        fin.close()
-        return bf_raw, cap_ts, bf_ts, in_wgts, pb, cf
+        except ValueError:
+            Aqf.failed('Failed to get the latest beamformer data')
+            return None
+        else:
+            # Read data file
+            fin = h5py.File(newest_f, 'r')
+            data = fin['Data'].values()
+            # Extract data
+            bf_raw = np.array(data[0])
+            cap_ts = np.array(data[1])
+            bf_ts = np.array(data[2])
+            fin.close()
+            return bf_raw, cap_ts, bf_ts, in_wgts, pb, cf
 
     def _populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
         """
@@ -6721,7 +6737,7 @@ class test_CBF(unittest.TestCase):
                                                                                  target_pb,
                                                                                  target_cfreq)
             except TypeError, e:
-                errmsg = 'Failed to capture beam data: %s' % str(e)
+                errmsg = 'Failed to capture beam data due to error: %s' % str(e)
                 Aqf.failed(errmsg)
                 LOGGER.info(errmsg)
                 return
@@ -6839,60 +6855,66 @@ class test_CBF(unittest.TestCase):
         weight = 1.0
         beam_dict = self._populate_beam_dict(1, weight, beam_dict)
         rl = 0
-        d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
-        beam_data.append(d)
-        beam_lbls.append(l)
+        try:
+            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+        except TypeError, e:
+            errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
+            Aqf.failed(errmsg)
+            LOGGER.error(errmsg)
+        else:
+            beam_data.append(d)
+            beam_lbls.append(l)
 
-        weight = 1.0 / ants
-        beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
-        d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
-        beam_data.append(d)
-        beam_lbls.append(l)
+            weight = 1.0 / ants
+            beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
+            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            beam_data.append(d)
+            beam_lbls.append(l)
 
-        weight = 2.0 / ants
-        beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
-        d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
-        beam_data.append(d)
-        beam_lbls.append(l)
-        # Square the voltage data. This is a hack as aqf_plot expects squared
-        # power data
-        aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                          plot_filename='{}_chan_resp_{}.png'.format(self._testMethodName, beam),
-                          plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
-                                      '\nIntegrated over {} captures'.format(beam, pb / 1e6, cf / 1e6, nc)),
-                          log_dynamic_range=90, log_normalise_to=1,
-                          caption='Captured beamformer data', hlines=[exp0, exp1],
-                          plot_type='bf', hline_strt_idx=1)
+            weight = 2.0 / ants
+            beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
+            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            beam_data.append(d)
+            beam_lbls.append(l)
+            # Square the voltage data. This is a hack as aqf_plot expects squared
+            # power data
+            aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
+                              plot_filename='{}_chan_resp_{}.png'.format(self._testMethodName, beam),
+                              plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
+                                          '\nIntegrated over {} captures'.format(beam, pb / 1e6, cf / 1e6, nc)),
+                              log_dynamic_range=90, log_normalise_to=1,
+                              caption='Captured beamformer data', hlines=[exp0, exp1],
+                              plot_type='bf', hline_strt_idx=1)
 
-        beam_data = []
-        beam_lbls = []
-        # Set beamformer quantiser gain for selected beam to 1/number inputs
-        gain = 1.0 / ants
-        gain = self._set_beam_quant_gain(beam, gain)
-        weight = 1.0
-        beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
-        rl = 0
-        d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
-        beam_data.append(d)
-        l += '\nLevel adjust gain={}'.format(gain)
-        beam_lbls.append(l)
+            beam_data = []
+            beam_lbls = []
+            # Set beamformer quantiser gain for selected beam to 1/number inputs
+            gain = 1.0 / ants
+            gain = self._set_beam_quant_gain(beam, gain)
+            weight = 1.0
+            beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
+            rl = 0
+            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
+            beam_data.append(d)
+            l += '\nLevel adjust gain={}'.format(gain)
+            beam_lbls.append(l)
 
-        gain = 2.0 / ants
-        gain = self._set_beam_quant_gain(beam, gain)
-        d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
-        beam_data.append(d)
-        l += '\nLevel adjust gain={}'.format(gain)
-        beam_lbls.append(l)
+            gain = 2.0 / ants
+            gain = self._set_beam_quant_gain(beam, gain)
+            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
+            beam_data.append(d)
+            l += '\nLevel adjust gain={}'.format(gain)
+            beam_lbls.append(l)
 
-        # Square the voltage data. This is a hack as aqf_plot expects squared
-        # power data
-        aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                          plot_filename='{}_level_adjust_after_bf_{}.png'.format(self._testMethodName, beam),
-                          plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
-                                      '\nIntegrated over {} captures'.format(beam, pb / 1e6, cf / 1e6, nc)),
-                          log_dynamic_range=90, log_normalise_to=1,
-                          caption='Captured beamformer data with level adjust after beamforming gain set.',
-                          hlines=exp1, plot_type='bf', hline_strt_idx=1)
+            # Square the voltage data. This is a hack as aqf_plot expects squared
+            # power data
+            aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
+                              plot_filename='{}_level_adjust_after_bf_{}.png'.format(self._testMethodName, beam),
+                              plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
+                                          '\nIntegrated over {} captures'.format(beam, pb / 1e6, cf / 1e6, nc)),
+                              log_dynamic_range=90, log_normalise_to=1,
+                              caption='Captured beamformer data with level adjust after beamforming gain set.',
+                              hlines=exp1, plot_type='bf', hline_strt_idx=1)
         who_ran_test()
 
     def _test_cap_beam(self, instrument='bc8n856M4k'):
@@ -7643,9 +7665,7 @@ class test_CBF(unittest.TestCase):
         # main code
         sources = {}
         Aqf.step('Requesting input labels.')
-        for i in range(2):
-            self.corr_fix.issue_metadata()
-            self.corr_fix.start_x_data()
+        self.corr_fix.issue_metadata
 
         # Build dictionary with inputs and
         # which fhosts they are associated with.
