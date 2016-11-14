@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from inspect import currentframe, getframeinfo
 
 import corr2
@@ -17,6 +18,7 @@ from katcp import resource_client
 from katcp.core import ProtocolFlags
 from katcp.resource_client import KATCPSensorError
 from testconfig import config as nose_test_config
+from mkat_fpga_tests.utils import ignored
 
 try:
     get_username = os.getlogin()
@@ -56,6 +58,8 @@ class CorrelatorFixture(object):
         self.array_name = array
         self.instrument = instrument
         self.resource_clt = resource_clt
+        self.corr_config = None
+        self.corr2ini_path = None
         self._correlator = None
         self._dhost = None
         self._katcp_rct = None
@@ -106,27 +110,24 @@ class CorrelatorFixture(object):
         else:
             self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
             if not os.environ.has_key('CORR2INI') and self.instrument is not None:
-                corr2ini_path = str('/etc/corr/templates/{}'.format(self.instrument))
-                LOGGER.info('Setting CORR2INI system enviroment to point to %s' % corr2ini_path)
-                os.environ['CORR2INI'] = corr2ini_path
+                self.corr2ini_path = str('/etc/corr/templates/{}'.format(self.instrument))
+                LOGGER.info('Setting CORR2INI system enviroment to point to %s' % self.corr2ini_path)
+                os.environ['CORR2INI'] = self.corr2ini_path
             if os.path.exists(self.config_filename):
                 LOGGER.info('Retrieving dsim engine info from config file: %s' % self.config_filename)
-                self.dsim_conf = corr2.utils.parse_ini_file(
-                    self.config_filename)['dsimengine']
-                dig_host = self.dsim_conf['host']
+                self.corr_config = corr2.utils.parse_ini_file(self.config_filename)
+                self.dsim_conf = self.corr_config['dsimengine']
             else:
                 LOGGER.error('Could not retrieve information from config file, '
                              'resorting to test_conf.ini: File:%s Line:%s' % (
                                  getframeinfo(currentframe()).filename.split('/')[-1],
                                  getframeinfo(currentframe()).lineno))
                 self.dsim_conf = self.test_config['dsimengine']
-                dig_host = self.dsim_conf['host']
-
             try:
+                dig_host = self.dsim_conf['host']
                 self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             except Exception:
-                errmsg = (
-                    'Failed to connect to retrieve information from Digitiser Simulator.')
+                errmsg = 'Digitiser Simulator failed to retrieve information'
                 LOGGER.exception(errmsg)
                 sys.exit(errmsg)
             else:
@@ -157,8 +158,7 @@ class CorrelatorFixture(object):
             # instrument was started with the name contained in self.array_name
             # before running the test.
 
-            self.config_filename = '/etc/corr/{}-{}'.format(
-                self.array_name, self.instrument)
+            self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
             if os.path.exists(self.config_filename):
                 LOGGER.info('Making new correlator instance')
                 try:
@@ -166,9 +166,9 @@ class CorrelatorFixture(object):
                         'test correlator', config_source=self.config_filename)
                     self.correlator.initialise(program=False)
                     return self._correlator
-                except Exception, e:
-                    LOGGER.error('Failed to create new correlator instance (%s), Will now try to '
-                                 'start correlator with config: %s-%s' % (str(e), self.array_name,
+                except Exception:
+                    LOGGER.error('Failed to create new correlator instance, Will now try to '
+                                 'start correlator with config: %s-%s' % (self.array_name,
                                                                           self.instrument))
                     self.start_correlator(instrument=self.instrument)
             else:
@@ -264,8 +264,7 @@ class CorrelatorFixture(object):
         else:
             self._katcp_rct.start()
             try:
-                #self._katcp_rct.until_synced(timeout=timeout)
-                self._katcp_rct.until_synced()
+                self._katcp_rct.until_synced(timeout=timeout)
             except TimeoutError:
                 self._katcp_rct.stop()
         return self._katcp_rct
@@ -284,6 +283,7 @@ class CorrelatorFixture(object):
         else:
             return True
 
+    @property
     def start_x_data(self):
         """
         Enable/Start output product capture
@@ -326,6 +326,7 @@ class CorrelatorFixture(object):
             LOGGER.info('Capture started on %s product' % self.output_product)
             return True
 
+    @property
     def stop_x_data(self):
         """
         Disable/Stop output product capture
@@ -352,73 +353,80 @@ class CorrelatorFixture(object):
 
     def deprogram_fpgas(self, instrument):
         """
-        Deprogram CASPER devices listed on config file or dnsmasq leases
+        Deprogram CASPER devices listed on config file
         :param: object
         :param: str instrument
         """
         hostclass = katcp_fpga.KatcpFpga
-        try:
+
+        def get_hosts(self):
+            LOGGER.info('Deprogram CASPER devices listed on config file.')
             try:
-                _running_instrument = (
-                    self.katcp_rct.sensor.instrument_state.get_value())
-                LOGGER.info('Retrieving running instrument from sensors: %s' %_running_instrument)
-            except:
-                if self.instrument is not None:
-                    _running_instrument = self.instrument
+                get_running_instrument = self.get_running_instrument()
+                assert get_running_instrument.values()[0]
+                _running_instrument = get_running_instrument.keys()[0]
+                LOGGER.info('instrument from sensors %s to deprogram' %_running_instrument)
+            except AssertionError:
+                _running_instrument = self.instrument
+                LOGGER.info('Instrument %s to deprogram' %_running_instrument)
 
-            if len(_running_instrument) > 4:
-                config_file = '/etc/corr/{}-{}'.format(self.array_name,
-                                                       _running_instrument)
-            else:
-                config_file = '/etc/corr/{}-{}'.format(self.array_name,
-                                                       self.instrument)
-
-            if os.path.exists(config_file):
-                LOGGER.info('Retrieving running hosts from running config: %s' % config_file)
-                fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
-                xhosts = corr2.utils.parse_hosts(config_file, section='xengine')
-                hosts = fhosts + xhosts
-            else:
-                raise Exception
-        except Exception:
-            LOGGER.exception('Could not get instrument from sensors and config file does '
-                         'not exist: %s, Resorting to plan B - retrieving roach list from'
-                         ' CORR2INI, In order to deprogram: File:%s Line:%s' % (config_file,
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
-
-            corr2ini_link = os.environ.get('CORR2INI')
-            if corr2ini_link is not None:
-                fhosts = corr2.utils.parse_hosts(corr2ini_link, section='fengine')
-                xhosts = corr2.utils.parse_hosts(corr2ini_link, section='xengine')
-                hosts = fhosts + xhosts
-            else:
-                LOGGER.error('Failed to retrieve hosts from CORR2INI \n\t '
-                             'File:%s Line:%s' % (
+            try:
+                assert isinstance (self.corr_config, dict)
+                fengines = self.corr_config['fengine']['hosts'].split(',')
+                xengines = self.corr_config['xengine']['hosts'].split(',')
+                hosts = fengines + xengines
+                return hosts
+            except AssertionError:
+                if len(_running_instrument) > 4:
+                    config_file = '/etc/corr/{}-{}'.format(self.array_name,
+                                                           _running_instrument)
+                else:
+                    config_file = '/etc/corr/{}-{}'.format(self.array_name,
+                                                           self.instrument)
+                if os.path.exists(config_file) or os.path.isfile(config_file):
+                    LOGGER.info('Retrieving running hosts from running config: %s' % config_file)
+                    fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
+                    xhosts = corr2.utils.parse_hosts(config_file, section='xengine')
+                    hosts = fhosts + xhosts
+                    return hosts
+                else:
+                    LOGGER.info('Could not get instrument from sensors and config file does '
+                             'not exist: %s, Resorting to plan B - retrieving roach list from'
+                             ' CORR2INI, In order to deprogram: File:%s Line:%s' % (config_file,
                                  getframeinfo(currentframe()).filename.split('/')[-1],
                                  getframeinfo(currentframe()).lineno))
-                return False
+                    with ignored(Exception):
+                        if self.corr2ini_path is not None:
+                            fhosts = corr2.utils.parse_hosts(self.corr2ini_path, section='fengine')
+                            xhosts = corr2.utils.parse_hosts(self.corr2ini_path, section='xengine')
+                            hosts = fhosts + xhosts
+                            return hosts
+                        else:
+                            LOGGER.error('Failed to retrieve hosts from CORR2INI \n\t '
+                                         'File:%s Line:%s' % (
+                                             getframeinfo(currentframe()).filename.split('/')[-1],
+                                             getframeinfo(currentframe()).lineno))
 
-        if not len(hosts) == 0:
+
+        try:
+            hosts = list(set(get_hosts(self)))
+        except TypeError:
+            LOGGER.exception('Failed to deprogram all hosts, might be they\'ve been deprogrammed.')
+            return
+
+        if hosts:
             try:
-                try:
-                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                        hostclass, list(set(hosts)), timeout=timeout)
-                    hosts = [host.host for host in connected_fpgas
-                             if host.ping() is True]
-                except Exception:
-                    return False
-                try:
-                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(
-                        hostclass, hosts)
-                    fpgautils.threaded_fpga_function(connected_fpgas, 60, 'deprogram')
-                except Exception:
-                    return False
+                with ignored(Exception):
+                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(hostclass, hosts,
+                                                                             timeout=timeout)
+                    hosts = [host.host for host in connected_fpgas if host.ping() is True]
+                    LOGGER.info('Confirm that all hosts are up and running: %s' %hosts)
+                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(hostclass, hosts)
+                    fpgautils.threaded_fpga_function(connected_fpgas, 120, 'deprogram')
                 LOGGER.info('%s Deprogrammed successfully.' % hosts)
                 return True
-            except (katcp_fpga.KatcpRequestFail, KatcpClientError, KatcpDeviceError,
-                    KatcpSyntaxError):
-                errmsg = 'Failed to connect to roaches, reboot devices to fix.'
+            except Exception:
+                errmsg = 'Failed to connect to roaches and deprogram, reboot devices to fix.'
                 LOGGER.exception(errmsg)
                 return False
         else:
@@ -467,6 +475,8 @@ class CorrelatorFixture(object):
         while retries and not success:
             retries -= 1
             check_ins = self.check_instrument(self.instrument)
+            LOGGER.info('Return true if named instrument is enabled on correlator array after '
+                        '%s retries' %retries)
             if check_ins is True:
                 success = True
                 return success
@@ -583,6 +593,7 @@ class CorrelatorFixture(object):
         else:
             LOGGER.error('Test config path: %s does not exist' % config_file)
             return False
+
     @property
     def get_multicast_ips(self):
         """
@@ -626,7 +637,11 @@ class CorrelatorFixture(object):
         if self.config_filename is None:
             return
 
-        config = corr2.utils.parse_ini_file(self.config_filename)
+        config = self.corr_config
+        if config is None:
+            errmsg = 'Failed to retrieve correlator config file'
+            return {False: errmsg}
+
         output = {'src_ip': tengbe.IpAddress(config['xengine']['output_destination_ip']),
                   'port': int(config['xengine']['output_destination_port'])
                   }
@@ -640,6 +655,7 @@ class CorrelatorFixture(object):
             # create a socket
             mcast_sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
             # join group
+            mcast_sock.bind(('', data_port))
             group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
             if addrinfo[0] == socket.AF_INET:  # IPv4
                 mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
