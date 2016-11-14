@@ -5,12 +5,12 @@ import logging
 import os
 import warnings
 from collections import Mapping
+from collections import defaultdict
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
 
 import corr2
-import katcp
 import matplotlib
 import signal
 import time
@@ -129,6 +129,7 @@ def init_dsim_sources(dhost):
                 sin_source.set(repeatN=0)
             except NotImplementedError:
                 pass
+            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
     except Exception:
         LOGGER.error('Failed to reset sine sources on dhost.')
         pass
@@ -136,6 +137,7 @@ def init_dsim_sources(dhost):
     try:
         for noise_source in dhost.noise_sources:
             noise_source.set(scale=0)
+            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' %noise_source.name)
     except Exception:
         LOGGER.error('Failed to reset noise sources on dhost.')
         pass
@@ -144,6 +146,7 @@ def init_dsim_sources(dhost):
         for output in dhost.outputs:
             output.select_output('signal')
             output.scale_output(1)
+            LOGGER.info('Digitiser simulator signal output %s selected.' %output.name)
     except Exception:
         LOGGER.error('Failed to select output dhost.')
         pass
@@ -151,8 +154,13 @@ def init_dsim_sources(dhost):
     try:
         dhost.registers.cwg0_en.write(en=1)
         dhost.registers.cwg1_en.write(en=1)
+        cwg0_en = dhost.registers.cwg0_en.read()['data']['en']
+        cwg1_en = dhost.registers.cwg1_en.read()['data']['en']
+        assert cwg0_en == cwg1_en
+        LOGGER.info('Digitiser simulator cwg0 is enabled')
+        LOGGER.info('Digitiser simulator cwg1 is enabled')
     except Exception:
-        LOGGER.error('Failed to enable dhost cwg registers.')
+        LOGGER.error('Failed to enable dhost cwg0 and cwg1 registers.')
         pass
 
 
@@ -515,7 +523,7 @@ def get_vacc_offset(xeng_raw):
     elif np.max(input1) > 0 and np.max(input0) == 0:
         return 1
     else:
-        raise ValueError('Could not determine VACC offset')
+        return False
 
 
 def get_and_restore_initial_eqs(test_instance, correlator):
@@ -781,8 +789,8 @@ def get_figure_numbering(self):
         return get_fig_prefix(2)
 
 
-def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True,
-                              np_warn=True, deprecated_warn=True, katcp_warn=True):
+def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True, np_warn=True,
+                              deprecated_warn=True, katcp_warn=True, fxcorr=True):
     """This function disables all error warning messages
     :param:
         spead2 : Boolean
@@ -793,19 +801,25 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
     :rtype: None
     """
     if spead2_warn:
-        # set the SPEAD2 logger to Error only
-        LOGGER.info('Setting spead2 logger to only log on Errors')
+        # set the SPEAD2 logger to x only
         spead_logger = logging.getLogger('spead2')
         spead_logger.setLevel(logging.ERROR)
     if corr_rx_warn:
-        # set the corr_rx logger to Error only
-        LOGGER.info('Setting corr_rx logger to only log on Errors')
+        # set the corr_rx logger to x only
         corr_rx_logger = logging.getLogger("corr2.corr_rx")
         corr_rx_logger.setLevel(logging.ERROR)
     if katcp_warn:
-        # Set katcp.inspect_client logger to only report fatal messages
+        # Set katcp.inspect_client logger to x messages
+        import katcp
+        import tornado
         katcp_logger = logging.getLogger('katcp.inspect_client')
         katcp_logger.setLevel(logging.FATAL)
+        tornado_logger = logging.getLogger('tornado.application')
+        tornado_logger.setLevel(logging.FATAL)
+    if fxcorr:
+        # Set corr2.fxcorrelator logger to x messages
+        fxcorr_logger = logging.getLogger('corr2.fxcorrelator')
+        fxcorr_logger.setLevel(logging.INFO)
     if plt_warn:
         # This function disable matplotlibs deprecation warnings
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
