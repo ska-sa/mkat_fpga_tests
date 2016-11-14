@@ -9,7 +9,7 @@ setup(name='mkat_fpga_tests',
       license='GPL',
       author='SKA SA DBE Team',
       author_email='mmphego@ska.ac.za',
-      url='https://github.com/ska-sa/mkat_fpga',
+      url='https://github.com/ska-sa/mkat_fpga_tests',
       classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Radio Telescope correlator builders',
