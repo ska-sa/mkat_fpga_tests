@@ -188,7 +188,7 @@ class test_CBF(unittest.TestCase):
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                         self.corr_fix.start_x_data
                         self.addCleanup(self.corr_fix.stop_x_data)
-                        self.corr_fix.issue_metadata
+                        #self.corr_fix.issue_metadata
                         try:
                             sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
                             assert isinstance(sync_time, float)
@@ -3368,7 +3368,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after channelisation.')
         check_fftoverflow_qdrstatus(self.correlator, self.last_pfb_counts)
         clear_host_status(self)
-        self.corr_fix.stop_x_data
+        self.corr_fix.stop_x_data()
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
         chan_responses = np.array(chan_responses)
@@ -4233,7 +4233,7 @@ class test_CBF(unittest.TestCase):
             restart_retries = 5
 
             def _restart_instrument(retries=restart_retries):
-                if not self.corr_fix.stop_x_data:
+                if not self.corr_fix.stop_x_data():
                     Aqf.failed('Could not stop x data from capturing.')
                 with ignored(Exception):
                     deprogram_hosts(self)
@@ -5131,7 +5131,7 @@ class test_CBF(unittest.TestCase):
         with ignored(Queue.Empty):
             self.receiver.get_clean_dump(dump_timeout, discard=0)
 
-        self.corr_fix.stop_x_data
+        self.corr_fix.stop_x_data()
         Aqf.step('[CBF-REQ-0064] Deprogramming xhosts first then fhosts avoid '
                  'reorder timeout errors')
         with ignored(Exception):
