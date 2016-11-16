@@ -326,7 +326,6 @@ class CorrelatorFixture(object):
             LOGGER.info('Capture started on %s product' % self.output_product)
             return True
 
-    @property
     def stop_x_data(self):
         """
         Disable/Stop output product capture
