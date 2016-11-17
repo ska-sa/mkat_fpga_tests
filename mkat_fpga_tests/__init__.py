@@ -108,6 +108,8 @@ class CorrelatorFixture(object):
         if self._dhost is not None:
             return self._dhost
         else:
+            # TODO, issue when instantiating dsim when running instrument is not the same as default
+            # Perhaaps read etc corr array instrument and assume that is the default instrument
             self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
             if not os.environ.has_key('CORR2INI') and self.instrument is not None:
                 self.corr2ini_path = str('/etc/corr/templates/{}'.format(self.instrument))

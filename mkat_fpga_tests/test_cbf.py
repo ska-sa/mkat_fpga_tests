@@ -134,7 +134,7 @@ class test_CBF(unittest.TestCase):
             reply = self.corr_fix.katcp_rct.req.accumulation_length(
                 acc_time, timeout=acc_timeout)
             self.assertIsInstance(reply, katcp.resource.KATCPReply)
-
+            assert reply.succeeded
         except (TimeoutError, VaccSynchAttemptsMaxedOut):
             self.corr_fix.halt_array
             self.corr_fix.ensure_instrument(instrument)
@@ -147,31 +147,39 @@ class test_CBF(unittest.TestCase):
             self.corr_fix.halt_array
             self.corr_fix.ensure_instrument(instrument)
             errmsg = (
-                'Failed to set accumulation time within {}s, due to katcp request '
+                '%s, Failed to set accumulation time within %s s, due to katcp request '
                 'errors. [CBF-REQ-0064] SubArray will be halted and restarted with '
-                'next test'.format(acc_timeout))
+                'next test' %(str(reply), acc_timeout))
             return {False: errmsg}
 
         else:
-            if not reply.succeeded:
-                LOGGER.error('Failed to set accumulation length, halting subarray and restarting CBF')
-                self.corr_fix.halt_array
-                self.corr_fix.ensure_instrument(instrument)
-                return {False: str(reply)}
+            #if not reply.succeeded:
+                #LOGGER.error('%s, halting subarray and restarting CBF' %str(reply))
+                #self.corr_fix.halt_array
+                #self.corr_fix.ensure_instrument(instrument)
+                #return {False: str(reply)}
+            #else:
+            Aqf.step('[CBF-REQ-0071, 0096, 0089] Accumulation time set via CAM interface: '
+                     '{0:.3f}s\n'.format((float(reply.reply.arguments[-1]))))
+            try:
+                corrRx_port = int(self.conf_file['inst_param']['corr_rx_port'])
+            except (ValueError, IOError, TypeError):
+                corrRx_port = 8888
+                LOGGER.info('Failed to retrieve corr rx port from config file.'
+                            'Setting it to default port: %s' % (corrRx_port))
+            self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
+            try:
+                self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
+            except AssertionError:
+                errmsg = 'Correlator Receiver could not be instantiated.'
+                return {False: errmsg}
             else:
-                Aqf.step('[CBF-REQ-0071, 0096, 0089] Accumulation time set via CAM interface: '
-                         '{0:.3f}s\n'.format((float(reply.reply.arguments[-1]))))
+                start_thread_with_cleanup(self, self.receiver, start_timeout=1)
+                self.correlator = self.corr_fix.correlator
                 try:
-                    corrRx_port = int(self.conf_file['inst_param']['corr_rx_port'])
-                except (ValueError, IOError, TypeError):
-                    corrRx_port = 8888
-                    LOGGER.info('Failed to retrieve corr rx port from config file.'
-                                'Setting it to default port: %s' % (corrRx_port))
-                self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
-                try:
-                    self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
-                except AssertionError:
-                    errmsg = 'Correlator Receiver could not be instantiated.'
+                    self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
+                except AssertionError, e:
+                    errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
                     return {False: errmsg}
                 else:
                     subscribe_multicast = self.corr_fix.subscribe_multicast
@@ -179,10 +187,14 @@ class test_CBF(unittest.TestCase):
                         Aqf.step(subscribe_multicast.values()[0])
                     start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
                     self.correlator = self.corr_fix.correlator
+
                     try:
-                        self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
-                    except AssertionError, e:
-                        errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
+                        sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
+                        assert isinstance(sync_time, float)
+                        reply = self.correlator.set_synch_time(sync_time)
+                    except AssertionError:
+                        errmsg = 'Sync time could not be read and/or set via CAM interface.'
+                        LOGGER.error(errmsg)
                         return {False: errmsg}
                     else:
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
@@ -934,7 +946,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1436,7 +1448,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1748,7 +1760,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1960,7 +1972,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.2, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -2038,7 +2050,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1.8)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -3219,7 +3231,7 @@ class test_CBF(unittest.TestCase):
                                                                  chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Get baseline 0 data, i.e. auto-corr of m000h
-        test_baseline = 0
+        test_baseline = 2
         # [CBF-REQ-0053]
         min_bandwithd_req = 770e6
         # [CBF-REQ-0126] CBF channel isolation
@@ -4417,6 +4429,7 @@ class test_CBF(unittest.TestCase):
                 for delay in test_delays:
                     delays[setup_data['test_source_ind']] = delay
                     delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
+
                     try:
                         this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
                     except Queue.Empty:
@@ -5443,7 +5456,6 @@ class test_CBF(unittest.TestCase):
             caption = ('Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n'
                        'Note: Dashed line indicates expected value and solid line indicates '
                        'actual values received from SPEAD accumulation.')
-
             aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                    plot_filename, plot_title, plot_units, caption,
                                    dump_counts)
@@ -6149,7 +6161,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Trigger Air {} Temperature Warning.'.format(label))
             air_temp_warn('hwmon{}'.format(hwmon_dir), '{}'.format(label))
 
-    def _test_delay_inputs(self):
+    def _test_delay_inputs(self, settling_time=600e-3):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial:
         Delay applied to the correct input
@@ -6166,7 +6178,7 @@ class test_CBF(unittest.TestCase):
             # are known to have QDR issues which results to test failures, hence
             # input1 has been statically assigned to be the testing input
             # delayed_input = source_names[randrange(len(source_names))]
-            delayed_input = source_names[1]
+            delayed_input = source_names[0]
             try:
                 last_pfb_counts = get_pfb_counts(
                     get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
@@ -6194,7 +6206,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                settling_time = 600e-3
                 dump_timestamp = (sync_time +
                                   this_freq_dump['timestamp'].value /
                                   this_freq_dump['scale_factor_timestamp'].value)
@@ -6223,12 +6234,13 @@ class test_CBF(unittest.TestCase):
                 baselines = get_baselines_lookup(this_freq_dump)
                 sorted_bls = sorted(baselines.items(), key=operator.itemgetter(1))
                 chan_response = []
-                degree = 1.0
+                degree = 1
                 for b_line in sorted_bls:
                     b_line_val = b_line[1]
                     b_line_dump = (dump['xeng_raw'].value[:, b_line_val, :])
                     b_line_cplx_data = complexise(b_line_dump)
                     b_line_phase = np.angle(b_line_cplx_data)
+
                     b_line_phase_max = round(np.max(b_line_phase), 4)
                     if ((delayed_input in b_line[0]) and
                                 b_line[0] != (delayed_input, delayed_input)):

@@ -535,7 +535,7 @@ def get_and_restore_initial_eqs(test_instance, correlator):
                 reply, informs = test_instance.corr_fix.katcp_rct.req.gain(_input, _eq,
                                                                            timeout=cam_timeout)
                 time.sleep(0.5)
-            assert reply.reply_ok()
+                assert reply.reply_ok()
         except Exception:
             msg = 'Failed to set gain for input %s with gain of %s' %(_input, _eq)
             LOGGER.exception(msg)
