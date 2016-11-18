@@ -5,6 +5,7 @@ import logging
 import os
 import warnings
 from collections import Mapping
+from collections import defaultdict
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
@@ -36,6 +37,7 @@ LOGGER = logging.getLogger('mkat_fpga_tests')
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)
 
+cam_timeout = 60
 
 def complexise(input_data):
     """Convert input data shape (X,2) to complex shape (X)
@@ -117,25 +119,48 @@ def init_dsim_sources(dhost):
     try:
         dhost.registers.flag_setup.write(adc_flag=0, ndiode_flag=0, load_flags='pulse')
     except Exception:
-        LOGGER.exception('Failed to set dhost registers.')
-        return False
+        LOGGER.error('Failed to set dhost flag registers.')
+        pass
 
-    for sin_source in dhost.sine_sources:
-        sin_source.set(frequency=0, scale=0)
-        try:
-            sin_source.set(repeatN=0)
-        except NotImplementedError:
-            pass
+    try:
+        for sin_source in dhost.sine_sources:
+            sin_source.set(frequency=0, scale=0)
+            try:
+                sin_source.set(repeatN=0)
+            except NotImplementedError:
+                pass
+            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
+    except Exception:
+        LOGGER.error('Failed to reset sine sources on dhost.')
+        pass
 
-    for noise_source in dhost.noise_sources:
-        noise_source.set(scale=0)
-    for output in dhost.outputs:
-        output.select_output('signal')
-        output.scale_output(1)
+    try:
+        for noise_source in dhost.noise_sources:
+            noise_source.set(scale=0)
+            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' %noise_source.name)
+    except Exception:
+        LOGGER.error('Failed to reset noise sources on dhost.')
+        pass
+
+    try:
+        for output in dhost.outputs:
+            output.select_output('signal')
+            output.scale_output(1)
+            LOGGER.info('Digitiser simulator signal output %s selected.' %output.name)
+    except Exception:
+        LOGGER.error('Failed to select output dhost.')
+        pass
+
     try:
         dhost.registers.cwg0_en.write(en=1)
         dhost.registers.cwg1_en.write(en=1)
+        cwg0_en = dhost.registers.cwg0_en.read()['data']['en']
+        cwg1_en = dhost.registers.cwg1_en.read()['data']['en']
+        assert cwg0_en == cwg1_en
+        LOGGER.info('Digitiser simulator cwg0 is enabled')
+        LOGGER.info('Digitiser simulator cwg1 is enabled')
     except Exception:
+        LOGGER.error('Failed to enable dhost cwg0 and cwg1 registers.')
         pass
 
 
@@ -151,24 +176,28 @@ class CorrelatorFrequencyInfo(object):
             Correlator config dict as in :attr:`corr2.fxcorrelator.FxCorrelator.configd`
 
         """
-        self.corr_config = corr_config
-        self.n_chans = int(corr_config['fengine']['n_chans'])
-        assert isinstance(self.n_chans, int)
-        # Number of frequency channels
-        self.bandwidth = float(corr_config['fengine']['bandwidth'])
-        assert isinstance(self.bandwidth, float)
-        # Correlator bandwidth
-        self.delta_f = self.bandwidth / self.n_chans
-        assert isinstance(self.delta_f, float)
-        # Spacing between frequency channels
-        f_start = 0.  # Center freq of the first bin
-        self.chan_freqs = f_start + np.arange(self.n_chans) * self.delta_f
-        # Channel centre frequencies
-        self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
-        assert isinstance(self.sample_freq, float)
-        self.sample_period = 1 / self.sample_freq
-        self.fft_period = self.sample_period * 2 * self.n_chans
-        """Time length of a single FFT"""
+        try:
+            self.corr_config = corr_config
+            self.n_chans = int(corr_config['fengine']['n_chans'])
+            assert isinstance(self.n_chans, int)
+            # Number of frequency channels
+            self.bandwidth = float(corr_config['fengine']['bandwidth'])
+            assert isinstance(self.bandwidth, float)
+            # Correlator bandwidth
+            self.delta_f = self.bandwidth / self.n_chans
+            assert isinstance(self.delta_f, float)
+            # Spacing between frequency channels
+            f_start = 0.  # Center freq of the first bin
+            self.chan_freqs = f_start + np.arange(self.n_chans) * self.delta_f
+            # Channel centre frequencies
+            self.sample_freq = float(corr_config['FxCorrelator']['sample_rate_hz'])
+            assert isinstance(self.sample_freq, float)
+            self.sample_period = 1 / self.sample_freq
+            self.fft_period = self.sample_period * 2 * self.n_chans
+            """Time length of a single FFT"""
+        except Exception:
+            LOGGER.error('Failed to retrieve various bits of corr freq from corr config')
+
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
@@ -188,24 +217,26 @@ class CorrelatorFrequencyInfo(object):
         of points are specified.
 
         """
-        assert samples_per_chan > 0
-        assert chans_around > 0
-        assert 0 <= chan < self.n_chans
-        assert 0 <= chan + chans_around < self.n_chans
-        assert 0 <= chan - chans_around < self.n_chans
+        try:
+            assert samples_per_chan > 0
+            assert chans_around > 0
+            assert 0 <= chan < self.n_chans
+            assert 0 <= chan + chans_around < self.n_chans
+            assert 0 <= chan - chans_around < self.n_chans
 
-        start_chan = chan - chans_around
-        end_chan = chan + chans_around
-        if samples_per_chan == 1:
-            return self.chan_freqs[start_chan:end_chan + 1]
+            start_chan = chan - chans_around
+            end_chan = chan + chans_around
+            if samples_per_chan == 1:
+                return self.chan_freqs[start_chan:end_chan + 1]
 
-        start_freq = self.chan_freqs[start_chan] - self.delta_f / 2
-        end_freq = self.chan_freqs[end_chan] + self.delta_f / 2
-        sample_spacing = self.delta_f / (samples_per_chan - 1)
-        num_samples = int(np.round(
-            (end_freq - start_freq) / sample_spacing)) + 1
-        return np.linspace(start_freq, end_freq, num_samples)
-
+            start_freq = self.chan_freqs[start_chan] - self.delta_f / 2
+            end_freq = self.chan_freqs[end_chan] + self.delta_f / 2
+            sample_spacing = self.delta_f / (samples_per_chan - 1)
+            num_samples = int(np.round(
+                (end_freq - start_freq) / sample_spacing)) + 1
+            return np.linspace(start_freq, end_freq, num_samples)
+        except Exception:
+            LOGGER.error('Failed to calculate frequency points to sweep over a test channel')
 
 def get_dsim_source_info(dsim):
     """Return a dict with all the current sine, noise and output settings of a dsim"""
@@ -313,6 +344,22 @@ def get_baselines_lookup(spead):
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     return baseline_lookup
 
+def get_sync_epoch(self):
+    """ Get digitiser synch epoch
+    :Param: object
+    :rtype: float or boolean
+    """
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
+        assert reply.reply_ok()
+    except Exception:
+        errmsg = ('Could not retrieve sync time via correlator object.')
+        LOGGER.exception(errmsg)
+        Aqf.failed(errmsg)
+        return False
+    else:
+        return float(reply.arguments[-1])
+
 
 def clear_all_delays(self, roundtrip=0.003, timeout=10):
     """Clears all delays on all fhosts.
@@ -325,16 +372,10 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
         LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
         return False
     else:
-
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
-            if not reply.reply_ok():
-                raise Exception
-        except Exception:
-            Aqf.failed('Could not retrieve sync time via correlator object.')
-            return False
-        else:
-            sync_time = float(reply.arguments[-1])
+        sync_time = get_sync_epoch(self)
+        if not sync_time:
+            LOGGER.error('Digitiser sync epoch cannot be null')
+            return
 
         dump_1_timestamp = (sync_time + roundtrip +
                             dump['timestamp'].value / dump['scale_factor_timestamp'].value)
@@ -343,7 +384,7 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
         try:
             reply = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
         except Exception:
-            LOGGER.error('Could not clear delays')
+            LOGGER.exception('Could not clear delays')
             return False
         else:
             LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % (str(reply.reply.arguments[1])))
@@ -412,6 +453,18 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
 
     return list(qdr_error_roaches)
 
+def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
+            LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
+            for _sensor in list_sensor:
+                _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
+                if _status_hosts is not (True or None):
+                    for _status in _status_hosts:
+                        Aqf.failed(_status)
+                        LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
+                             getframeinfo(currentframe()).filename.split('/')[-1],
+                             getframeinfo(currentframe()).lineno))
+
+
 
 def check_host_okay(self, engine=None, sensor=None):
     """
@@ -421,35 +474,41 @@ def check_host_okay(self, engine=None, sensor=None):
     :param: Str: sensor
     :rtype: Boolean or List
     """
-    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
-    if engine == 'feng':
-        hosts = [_i.host.lower() for _i in self.correlator.fhosts]
-    elif engine == 'xeng':
-        hosts = [_i.host.lower() for _i in self.correlator.xhosts]
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+        assert reply.reply_ok()
+    except Exception:
+        LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
+        return None
     else:
-        LOGGER.error('Engine cannot be None')
-        return False
-
-    pfb_status = [[' '.join(i.arguments[2:]) for i in informs
-                   if i.arguments[2] == '{}-{}-{}-ok'.format(host, engine, sensor)]
-                  for host in hosts]
-    _errors_list = []
-    for i in pfb_status:
-        try:
-            assert int(i[0].split()[-1]) == 1
-        except AssertionError:
-            errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
-            LOGGER.error(errmsg)
-            _errors_list.append(errmsg)
-        except IndexError:
-            LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
-                         'File: %s line: %s' % (
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
-            return False
+        if engine == 'feng':
+            hosts = [_i.host.lower() for _i in self.correlator.fhosts]
+        elif engine == 'xeng':
+            hosts = [_i.host.lower() for _i in self.correlator.xhosts]
         else:
-            return True
-    return _errors_list
+            LOGGER.error('Engine cannot be None')
+            return None
+
+        sensor_status = [[' '.join(i.arguments[2:]) for i in informs
+                         if i.arguments[2] == '{}-{}-{}-ok'.format(host, engine, sensor)]
+                         for host in hosts]
+        _errors_list = []
+        for i in sensor_status:
+            try:
+                assert int(i[0].split()[-1]) == 1
+            except AssertionError:
+                errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
+                LOGGER.error(errmsg)
+                _errors_list.append(errmsg)
+            except IndexError:
+                LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
+                             'File: %s line: %s' % (
+                                 getframeinfo(currentframe()).filename.split('/')[-1],
+                                 getframeinfo(currentframe()).lineno))
+                return None
+            else:
+                return True
+        return _errors_list
 
 
 def get_vacc_offset(xeng_raw):
@@ -464,7 +523,7 @@ def get_vacc_offset(xeng_raw):
     elif np.max(input1) > 0 and np.max(input0) == 0:
         return 1
     else:
-        raise ValueError('Could not determine VACC offset')
+        return False
 
 
 def get_and_restore_initial_eqs(test_instance, correlator):
@@ -473,13 +532,13 @@ def get_and_restore_initial_eqs(test_instance, correlator):
     def restore_initial_equalisations():
         try:
             for _input, _eq in initial_equalisations.iteritems():
-                reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
+                reply, informs = test_instance.corr_fix.katcp_rct.req.gain(_input, _eq,
+                                                                           timeout=cam_timeout)
                 time.sleep(0.5)
-            if not reply.reply_ok():
-                raise Exception
+            assert reply.reply_ok()
         except Exception:
-            msg = 'Failed to set gain for input: {} with gain of: {}'.format(_input, _eq)
-            LOGGER.error(msg)
+            msg = 'Failed to set gain for input %s with gain of %s' %(_input, _eq)
+            LOGGER.exception(msg)
             return False
         else:
             return True
@@ -526,24 +585,29 @@ def get_adc_snapshot(fpga):
             rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
     return rv
 
+def get_input_labels(self):
+    """
+    :param: Obj: self
+    :rtype: list: input labels
+    """
+    try:
+        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
+        if not reply.reply_ok():
+            raise Exception
+    except Exception:
+        errmsg = ('Failed to retrieve input lables via Cam interface with a reply: %s' % (str(reply)))
+        LOGGER.error(errmsg)
+        Aqf.failed(errmsg)
+        return []
+    else:
+        return reply.arguments[1:]
+
 
 def set_default_eq(self):
     """ Iterate through config sources and set eq's as per config file
     Param: Correlator: Object
     Return: None
     """
-    LOGGER.info('Reset gains to default values from config file.\n')
-
-    def get_ant_inputs(self):
-        try:
-            reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-            if not reply.reply_ok():
-                raise Exception
-        except Exception:
-            LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
-            return False
-        else:
-            return reply.arguments[1:]
 
     def get_eqs_levels(self):
         eq_levels = []
@@ -551,24 +615,28 @@ def set_default_eq(self):
             for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
                 eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
         except Exception:
-            LOGGER.error('Failed to retrieve default ant_inputs and eq levels from config file')
+            LOGGER.exception('Failed to retrieve default ant_inputs and eq levels from config file')
             return False
         else:
             return eq_levels
 
-    ant_inputs = get_ant_inputs(self)
+    ant_inputs = get_input_labels(self)
     eq_levels = get_eqs_levels(self)
-    try:
-        for _input, _eq in zip(ant_inputs, eq_levels):
-            reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq)
-            time.sleep(0.5)
-        if not reply.reply_ok():
-            raise Exception
-    except Exception:
-        LOGGER.error('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
-        return False
+    if ant_inputs or eq_levels:
+        try:
+            for _input, _eq in zip(ant_inputs, eq_levels):
+                reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq, timeout=cam_timeout)
+                time.sleep(0.5)
+            assert reply.reply_ok()
+        except Exception:
+            LOGGER.exception('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
+            return False
+        else:
+            LOGGER.info('Reset gains to default values from config file.\n')
+            return True
     else:
-        return True
+        LOGGER.error('Failed to retrieve %s or %s' %(ant_inputs, eq_levels))
+        return False
 
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
@@ -602,30 +670,15 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
 
     def set_fft_shift(self):
-        LOGGER.info('Writting F-Engines FFT shift to {} via CAM interface'.format(fft_shift))
         try:
-            reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
-        except TypeError:
-            LOGGER.error('Failed to set FFT shift via CAM interface.')
-            return False
-        try:
+            reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift, timeout=cam_timeout)
             assert reply.reply_ok()
-        except AssertionError:
-            LOGGER.error('Failed to set FFT shift.')
+        except (TypeError, AssertionError):
+            LOGGER.exception('Failed to set FFT shift via CAM interface.')
             return False
         else:
+            LOGGER.info('F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
             return True
-
-    def get_input_labels(self):
-        try:
-            reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-            if not reply.reply_ok():
-                raise Exception
-        except Exception:
-            LOGGER.error('Failed to get input lables. KATCP Reply: %s' % (reply))
-            return False
-        else:
-            return reply.arguments[1:]
 
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
@@ -634,15 +687,17 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     sources = get_input_labels(self)
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
-        LOGGER.info('Writting input sources gains to %s' % (gain))
         for i, v in source_gain_dict.items():
-            reply, informs = self.corr_fix.katcp_rct.req.gain(i, v)
-            time.sleep(0.5)
+            LOGGER.info('Input %s gain set to %s' % (i, v))
+            reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
+            time.sleep(0.2)
+            assert reply.reply_ok()
     except Exception:
         msg = 'Failed to set gain for input: {} with gain of: {}'.format(i, v)
-        LOGGER.error(msg)
+        LOGGER.exception(msg)
         return False
     else:
+        LOGGER.info('Gains set successfully')
         return True
 
 
@@ -734,8 +789,8 @@ def get_figure_numbering(self):
         return get_fig_prefix(2)
 
 
-def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True,
-                              np_warn=True, deprecated_warn=True):
+def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True, np_warn=True,
+                              deprecated_warn=True, katcp_warn=True, fxcorr=True):
     """This function disables all error warning messages
     :param:
         spead2 : Boolean
@@ -746,15 +801,25 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
     :rtype: None
     """
     if spead2_warn:
-        # set the SPEAD2 logger to Error only
-        LOGGER.info('Setting spead2 logger to only log on Errors')
+        # set the SPEAD2 logger to x only
         spead_logger = logging.getLogger('spead2')
         spead_logger.setLevel(logging.ERROR)
     if corr_rx_warn:
-        # set the corr_rx logger to Error only
-        LOGGER.info('Setting corr_rx logger to only log on Errors')
+        # set the corr_rx logger to x only
         corr_rx_logger = logging.getLogger("corr2.corr_rx")
         corr_rx_logger.setLevel(logging.ERROR)
+    if katcp_warn:
+        # Set katcp.inspect_client logger to x messages
+        import katcp
+        import tornado
+        katcp_logger = logging.getLogger('katcp.inspect_client')
+        katcp_logger.setLevel(logging.FATAL)
+        tornado_logger = logging.getLogger('tornado.application')
+        tornado_logger.setLevel(logging.FATAL)
+    if fxcorr:
+        # Set corr2.fxcorrelator logger to x messages
+        fxcorr_logger = logging.getLogger('corr2.fxcorrelator')
+        fxcorr_logger.setLevel(logging.INFO)
     if plt_warn:
         # This function disable matplotlibs deprecation warnings
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
@@ -799,18 +864,18 @@ def ignored(*exceptions):
 
 def clear_host_status(self, timeout=60):
     """Clear the status registers and counters on this host
-    :param: Object
-    :param: timeout: int
+    :param: Self (Object):
+    :param: timeout: Int
     :rtype: Boolean
     """
     hosts = (self.correlator.fhosts + self.correlator.xhosts)
     try:
         threaded_fpga_function(hosts, timeout, 'clear_status')
     except Exception:
+        LOGGER.error('Failed to clear status registers and counters on all F/X-Engines.')
         return False
     else:
-        LOGGER.info('Clear the status registers and counters on this host.')
-        time.sleep(self.correlator.sensor_poll_time)
+        LOGGER.info('Cleared status registers and counters on all F/X-Engines.')
         return True
 
 
@@ -821,21 +886,21 @@ def restore_src_names(self):
     """
     try:
         orig_src_names = self.correlator.configd['fengine']['source_names'].split(',')
-    except:
+    except Exception:
         orig_src_names = ['ant_{}'.format(x) for x in xrange(self.correlator.n_antennas * 2)]
 
     LOGGER.info('Restoring source names to %s' % (', '.join(orig_src_names)))
     try:
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*orig_src_names)
-    except:
-        LOGGER.error('Failed to restore CBF source names back to default.')
+        assert reply.reply_ok()
+    except Exception:
+        LOGGER.exception('Failed to restore CBF source names back to default.')
         return False
     else:
+        if not self.corr_fix.issue_metadata:
+            LOGGER.error('Failed to re-issue CBF metadata')
         LOGGER.info('Successfully restored source names back to default %s' % (', '.join(
             orig_src_names)))
-        for i in xrange(2):
-            self.corr_fix.issue_metadata()
-            self.corr_fix.start_x_data()
         return True
 
 
@@ -849,12 +914,12 @@ def deprogram_hosts(self, timeout=60):
     except Exception:
         return False
     try:
-        LOGGER.info('Deprogramming all F/X-engines.')
         threaded_fpga_function(hosts, timeout, 'deprogram')
     except Exception:
         LOGGER.error('Failed to deprogram all connected hosts.')
         return False
     else:
+        LOGGER.info('F/X-engines deprogrammed successfully .')
         return True
 
 
@@ -897,6 +962,7 @@ class TestTimeout:
     """
 
     class TestTimeoutError(Exception):
+        """Custom TestTimeoutError exception"""
         pass
 
     def __init__(self, seconds=1, error_message='Test Timed-out'):
@@ -931,30 +997,12 @@ def get_local_src_names(self):
                 for i in 'xy']
 
 
-def get_input_labels(self):
-    """
-    :param: Obj: self
-    :rtype: list: input labels
-    """
-    try:
-        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-        if not reply.reply_ok():
-            raise Exception
-    except Exception:
-        errmsg = ('Failed to retrieve input lables via Cam interface with a reply: %s' % (str(reply)))
-        LOGGER.error(errmsg)
-        Aqf.failed(errmsg)
-        return False
-    else:
-        return reply.arguments[1:]
-
-
 def who_ran_test():
     """Get who ran the test."""
     try:
         Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(os.getlogin(),
                                                             os.uname()[1].upper(),
-                                                            time.ctime()))
+                                                            time.strftime("%Y-%m-%d %H:%M:%S")))
     except OSError:
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
@@ -984,3 +1032,35 @@ def decode_passwd(pw_decrypt, key=None):
         _cipher = AES.new(key, AES.MODE_ECB)
         decoded = _cipher.decrypt(base64.b64decode(pw_decrypt))
         return decoded.strip()
+
+
+class GracefullInterruptHandler(object):
+    """
+    Control-C keyboard interrupt handler.
+    :param: Signal type
+    :rtype: None
+    """
+
+    def __init__(self, sig=signal.SIGINT):
+        self.sig = sig
+
+    def __enter__(self):
+        self.interrupted = False
+        self.released = False
+
+        self.original_handler = signal.getsignal(self.sig)
+        def handler(signum, frame):
+            self.release()
+            self.interrupted = True
+        signal.signal(self.sig, handler)
+        return self
+
+    def __exit__(self, type, value, to):
+        self.release()
+
+    def release(self):
+        if self.released:
+            return False
+        signal.signal(self.sig, self.original_handler)
+        self.released = True
+        return True

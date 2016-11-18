@@ -10,18 +10,14 @@ from corr2 import fxcorrelator
 from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
 from katcp.testutils import start_thread_with_cleanup
+from corr2.corr_rx import CorrRx
 
 dump_timeout = 10
+logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)-7s - %(module)-8s - %(message)s')
+logger = logging.getLogger(__name__)
 
-from corr2.corr_rx import CorrRx
 #config = os.environ['CORR2INI']
 #print 'Config file used = {}'.format(config)
-
-
-import logging
-logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
 
 #corr_conf = utils.parse_ini_file(config, ['dsimengine'])
 #dsim_conf = corr_conf['dsimengine']
@@ -60,18 +56,26 @@ logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asct
 #xhost = correlator.xhosts[0]
 #x = correlator.xhosts[0]
 try:
-    receiver = CorrRx(port=7148, queue_size=5)#, buffer_size = 51200000)
-except:
-    print 'Could not instantiate receiver'
+    receiver = CorrRx(port=8888, queue_size=5)
+    corr_rx_logger = logging.getLogger("corr2.corr_rx")
+    corr_rx_logger.setLevel(logging.DEBUG)
+    spead2_logger = logging.getLogger("spead2")
+    spead2_logger.setLevel(logging.DEBUG)
+except Exception as ex:
+    template = "An exception of type {0} occured while trying to instantiate receiver. Arguments:\n{1!r}"
+    message = template.format(type(ex), ex.args)
+    print message
 else:
     try:
         #start_thread_with_cleanup(receiver, start_timeout=1)
-        receiver.start()
         print('Waiting for receiver to report running')
-        if not receiver.running_event.wait(timeout=10):
-            print('Receiver not ready')
-        else:
+        boop = receiver.start(timeout=10)
+        print boop
+        if receiver.running_event.wait(timeout=10):
             print('Receiver ready')
+        else:
+            print('Receiver not ready')
+            raise
         raw_input('press to get clean dump')
         try:
             dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
@@ -101,6 +105,7 @@ else:
         template = "An exception of type {0} occured. Arguments:\n{1!r}"
         message = template.format(type(ex), ex.args)
         print message
+        logger.error(message)
     #import IPython;IPython.embed()
     receiver.stop()
     receiver.join()
