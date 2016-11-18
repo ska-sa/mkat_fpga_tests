@@ -14,12 +14,14 @@ from katcp.testutils import start_thread_with_cleanup
 dump_timeout = 10
 
 from corr2.corr_rx import CorrRx
-config = os.environ['CORR2INI']
-print 'Config file used = {}'.format(config)
+#config = os.environ['CORR2INI']
+#print 'Config file used = {}'.format(config)
 
 
 import logging
 logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
 
 #corr_conf = utils.parse_ini_file(config, ['dsimengine'])
 #dsim_conf = corr_conf['dsimengine']
@@ -42,23 +44,23 @@ logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asct
 #    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link3)
 #else:
 #    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link4)
-correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
+#correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
 
-correlator.initialise(program=False)
+#correlator.initialise(program=False)
 #f_engines = {f.host: f for f in correlator.fhosts}
 #x_engines = {x.host: x for x in correlator.xhosts}
 #for fpga in correlator.fhosts + correlator.xhosts:
 #    if fpga.is_running():
 #        fpga.get_system_information()
 
-print 'correlator is running'
+#print 'correlator is running'
 #f = correlator.fhosts[0]
 #fhost = correlator.fhosts[0]
 
 #xhost = correlator.xhosts[0]
 #x = correlator.xhosts[0]
 try:
-    receiver = CorrRx(port=7148, queue_size=5)
+    receiver = CorrRx(port=7148, queue_size=5)#, buffer_size = 51200000)
 except:
     print 'Could not instantiate receiver'
 else:
