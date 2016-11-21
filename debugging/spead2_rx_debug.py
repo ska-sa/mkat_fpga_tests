@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 #config = os.environ['CORR2INI']
 #print 'Config file used = {}'.format(config)
 
-
 #corr_conf = utils.parse_ini_file(config, ['dsimengine'])
 #dsim_conf = corr_conf['dsimengine']
 #dig_host = dsim_conf['host']
