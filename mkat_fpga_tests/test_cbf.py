@@ -1111,7 +1111,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements:
             CBF-REQ-0096
         """
-        acc_time = 1
+        acc_time = 0.998
         instrument_success = self.set_instrument(instrument, acc_time)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
@@ -3222,7 +3222,7 @@ class test_CBF(unittest.TestCase):
     #                       Test Methods                            #
     #################################################################
     def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None):
-        requested_test_freqs = self.corr_freqs.calc_freq_samples(test_chan, samples_per_chan=10,
+        requested_test_freqs = self.corr_freqs.calc_freq_samples(test_chan, samples_per_chan=101,
                                                                  chans_around=2)
         expected_fc = self.corr_freqs.chan_freqs[test_chan]
         # Get baseline 0 data, i.e. auto-corr of m000h
@@ -6227,7 +6227,7 @@ class test_CBF(unittest.TestCase):
                 baselines = get_baselines_lookup(this_freq_dump)
                 sorted_bls = sorted(baselines.items(), key=operator.itemgetter(1))
                 chan_response = []
-                degree = 1
+                degree = 1.0
                 for b_line in sorted_bls:
                     b_line_val = b_line[1]
                     b_line_dump = (dump['xeng_raw'].value[:, b_line_val, :])
@@ -8227,7 +8227,7 @@ class test_CBF(unittest.TestCase):
 
         ch_list = self.corr_freqs.chan_freqs
         # Choose a frequency 3 quarters through the band
-        cw_chan_set = int(self.corr_freqs.n_chans * 3 / 5)
+        cw_chan_set = int(self.corr_freqs.n_chans * 3 / 4)
         cw_freq = ch_list[cw_chan_set]
         dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
         bw = self.corr_freqs.bandwidth
