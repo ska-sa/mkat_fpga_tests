@@ -157,10 +157,10 @@ def init_dsim_sources(dhost):
         cwg0_en = dhost.registers.cwg0_en.read()['data']['en']
         cwg1_en = dhost.registers.cwg1_en.read()['data']['en']
         assert cwg0_en == cwg1_en
-        LOGGER.info('Digitiser simulator cwg0 is enabled')
-        LOGGER.info('Digitiser simulator cwg1 is enabled')
+        LOGGER.info('Digitiser simulator cwg0 is enabled: %s' %cwg0_en)
+        LOGGER.info('Digitiser simulator cwg1 is enabled: %s' %cwg1_en)
     except Exception:
-        LOGGER.error('Failed to enable dhost cwg0 and cwg1 registers.')
+        LOGGER.exception('Failed to enable dhost cwg0 and cwg1 registers.')
         pass
 
 
@@ -369,7 +369,8 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
     try:
         dump = self.receiver.get_clean_dump(timeout, discard=0)
     except Queue.Empty:
-        LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty.')
+        LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty. '
+                         'Therefore Delays not cleared')
         return False
     else:
         sync_time = get_sync_epoch(self)
@@ -475,7 +476,7 @@ def check_host_okay(self, engine=None, sensor=None):
     :rtype: Boolean or List
     """
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
         assert reply.reply_ok()
     except Exception:
         LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
@@ -535,7 +536,7 @@ def get_and_restore_initial_eqs(test_instance, correlator):
                 reply, informs = test_instance.corr_fix.katcp_rct.req.gain(_input, _eq,
                                                                            timeout=cam_timeout)
                 time.sleep(0.5)
-            assert reply.reply_ok()
+                assert reply.reply_ok()
         except Exception:
             msg = 'Failed to set gain for input %s with gain of %s' %(_input, _eq)
             LOGGER.exception(msg)
@@ -661,9 +662,8 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             source 0 or 1
     Return: Bool
     """
-    if cw_src == 0:
+    if cw_scale is not None:
         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
-    else:
         self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
 
     if awgn_scale is not None:
@@ -690,7 +690,6 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         for i, v in source_gain_dict.items():
             LOGGER.info('Input %s gain set to %s' % (i, v))
             reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
-            time.sleep(0.2)
             assert reply.reply_ok()
     except Exception:
         msg = 'Failed to set gain for input: {} with gain of: {}'.format(i, v)
@@ -790,7 +789,7 @@ def get_figure_numbering(self):
 
 
 def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True, np_warn=True,
-                              deprecated_warn=True, katcp_warn=True, fxcorr=True):
+                              deprecated_warn=True, katcp_warn=True):
     """This function disables all error warning messages
     :param:
         spead2 : Boolean
@@ -816,10 +815,6 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
         katcp_logger.setLevel(logging.FATAL)
         tornado_logger = logging.getLogger('tornado.application')
         tornado_logger.setLevel(logging.FATAL)
-    if fxcorr:
-        # Set corr2.fxcorrelator logger to x messages
-        fxcorr_logger = logging.getLogger('corr2.fxcorrelator')
-        fxcorr_logger.setLevel(logging.INFO)
     if plt_warn:
         # This function disable matplotlibs deprecation warnings
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)

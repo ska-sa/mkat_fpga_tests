@@ -47,7 +47,7 @@ class PowerLogger(threading.Thread):
         # **************************************************************************
         # create logger
         self.logger = logging.getLogger('power_logger')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         # create a file handler
         file_handler = logging.FileHandler('power_logger.log')
         file_handler.setLevel(file_log_level)

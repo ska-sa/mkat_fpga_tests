@@ -79,9 +79,13 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     plt.xlabel('Channel number')
     plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend()
+    fig1 = plt.gcf()  # Get Current Figure
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
-        plt.show(block=False)
+
+        plt.show()
+        plt.draw()
+        fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
     plt.cla()
     plt.clf()
 
@@ -152,6 +156,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     except:
         pass
 
+    plt.grid(True)
     for plot_data, legend in channelisation:
         kwargs = {}
         if legend:
@@ -167,7 +172,6 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             else:
                 ylbl = 'Channel response (linear)'
 
-        plt.grid(True)
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
             plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
@@ -197,8 +201,13 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     else:
         plt.xlabel('Channel number')
         if cutoff:
-            msg = ('CBF Channel Isolation: {0:.3f}dB'.format(cutoff))
-            plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
+            msg = ('CBF Freq. resolution: {:.3f}dB'.format(cutoff))
+            plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1.5)
+            plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
+                        textcoords='offset points', ha='center', va='bottom',
+                         bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                         arrowprops=dict(arrowstyle='->', fc='yellow',
+                                         connectionstyle='arc3, rad=0.5', color='red'))
 
     if plot_title:
         plt.title(plot_title)
@@ -207,7 +216,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         plt.ylim(ylimits)
 
     if caption:
-        plt.figtext(.1, -.19, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.figtext(.1, -.25, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
 
     if vlines_plotd:
         ymid = np.min(plot_data) / 2.
@@ -220,7 +229,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     if hlines:
         if type(hlines) is not list:
             lines = hlines
-            msg = ('CBF Freq. resolution: {:.3f}dB'.format(lines))
+            msg = ('{:.3f}dB'.format(lines))
             plt.axhline(lines, linestyle='dotted', linewidth=1.5)
         else:
             for idx, lines in enumerate(hlines):
