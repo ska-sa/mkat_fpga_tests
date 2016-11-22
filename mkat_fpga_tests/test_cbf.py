@@ -889,7 +889,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.2, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=0.2, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -941,7 +941,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1367,7 +1367,7 @@ class test_CBF(unittest.TestCase):
     def test_bc8n856M4k_delay_rate(self, instrument='bc8n856M4k'):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate (bc8n856M4k)
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1393,7 +1393,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1445,7 +1445,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1523,7 +1523,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1679,7 +1679,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1757,7 +1757,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -1969,7 +1969,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -2047,7 +2047,7 @@ class test_CBF(unittest.TestCase):
             CBF-REQ-0072
             CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=100)
+        instrument_success = self.set_instrument(instrument, acc_time=1, queue_size=15)
         if instrument_success.keys()[0] is not True:
             Aqf.end(passed=False, message=instrument_success.values()[0])
         else:
@@ -3770,7 +3770,7 @@ class test_CBF(unittest.TestCase):
             fft_shift = 511
         else:
             # 32K
-            awgn_scale = 0.093
+            awgn_scale = 0.063
             gain = '344+0j'
             fft_shift = 4095
 
