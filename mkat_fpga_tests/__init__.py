@@ -17,7 +17,7 @@ from katcp import ioloop_manager
 from katcp import resource_client
 from katcp.core import ProtocolFlags
 from katcp.resource_client import KATCPSensorError
-from testconfig import config as nose_test_config
+#from testconfig import config as nose_test_config
 from mkat_fpga_tests.utils import ignored
 
 try:
@@ -66,6 +66,7 @@ class CorrelatorFixture(object):
         self._rct = None
         self.katcp_array_port = None
         # Assume the correlator is already started if start_correlator is False
+        nose_test_config = {}
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
         self.test_config = self._test_config_file
