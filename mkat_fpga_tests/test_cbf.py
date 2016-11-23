@@ -3257,7 +3257,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=1)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             Aqf.failed(errmsg)
@@ -3324,7 +3324,7 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                this_freq_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=1)
             except Queue.Empty:
                 spead_failure_counter += 1
                 errmsg = ('Could not retrieve clean SPEAD accumulation, as # %s '
@@ -3604,7 +3604,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=1)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             Aqf.failed(errmsg)
@@ -3652,7 +3652,8 @@ class test_CBF(unittest.TestCase):
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
             try:
-                this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT)['xeng_raw'].value
+                this_freq_data = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=1)
+                this_freq_data = this_freq_data['xeng_raw'].value
             except Queue.Empty:
                 spead_failure_counter += 1
                 errmsg = ('Could not retrieve clean SPEAD accumulation, as # %s Queue is'
