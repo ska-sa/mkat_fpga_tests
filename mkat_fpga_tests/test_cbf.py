@@ -5,6 +5,7 @@ import csv
 import glob
 import logging
 import os
+import gc
 import subprocess
 import telnetlib
 import textwrap
@@ -93,25 +94,18 @@ class test_CBF(unittest.TestCase):
 
     def setUp(self):
         self.corr_fix = correlator_fixture
-        self.conf_file = self.corr_fix.test_config
         try:
-            _conf = self.conf_file['inst_param']
+            self.conf_file = self.corr_fix.test_config
+            self.corr_fix.katcp_clt = self.conf_file['inst_param']['katcp_client']
         except (ValueError, TypeError):
             LOGGER.error('Failed to read test config file.')
-        else:
-            # TODO MM
-            # Read instrument from config file name in /etc/corr
-            self.corr_fix.instrument = _conf['default_instrument']
-            self.corr_fix.array_name = _conf['subarray']
-            self.corr_fix.resource_clt = _conf['katcp_client']
-        self.dhost = self.corr_fix.dhost
         try:
+            self.dhost = self.corr_fix.dhost
             assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost)
             self.dhost.get_system_information()
             Aqf.hop('Digitiser Simulator running on %s' % self.dhost.host)
         except Exception:
-            errmsg = ('Failed to connect to retrieve information on %s from Digitiser Simulator.'
-                      %self.dhost.host)
+            errmsg = ('Failed to connect to retrieve digitiser simulator information.')
             LOGGER.exception(errmsg)
             sys.exit(errmsg)
         self.receiver = None
@@ -196,6 +190,7 @@ class test_CBF(unittest.TestCase):
                         self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                         self.corr_fix.start_x_data
                         self.addCleanup(self.corr_fix.stop_x_data)
+                        self.addCleanup(gc.collect)
                         try:
                             sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
                             assert isinstance(sync_time, float)
@@ -3270,7 +3265,7 @@ class test_CBF(unittest.TestCase):
         else:
             bls_to_test =  list(initial_dump['bls_ordering'].value[test_baseline])
             Aqf.step('Randomly selected frequency channel to test: {} and'.format(test_chan))
-            Aqf.step('selected baseline {} / {} to test.'.format(test_baseline, bls_to_test))
+            Aqf.step('selected baseline {} / {} to test.'.format(test_baseline, tuple(bls_to_test)))
             Aqf.equals(initial_dump['xeng_raw'].value.shape[0], no_channels,
                        'Capture an initial correlator SPEAD accumulation, '
                        'determine the number of frequency channels: {}'.format(
@@ -3310,7 +3305,7 @@ class test_CBF(unittest.TestCase):
                     i + 1, len(requested_test_freqs), freq / 1e6))
             elif i == print_counts:
                 Aqf.hop('.' * print_counts)
-            elif i > (len(requested_test_freqs) - print_counts):
+            elif i >= (len(requested_test_freqs) - print_counts):
                 Aqf.hop('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
                     i + 1, len(requested_test_freqs), freq / 1e6))
             else:
@@ -3761,7 +3756,6 @@ class test_CBF(unittest.TestCase):
         init_dsim_sources(self.dhost)
         who_ran_test()
 
-
     def _test_product_baselines(self):
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -3790,7 +3784,7 @@ class test_CBF(unittest.TestCase):
                  'of all the correlator input labels from SPEAD accumulation.')
 
         try:
-            test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            test_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
         except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation, Item has too few elements for shape.'
             Aqf.failed(errmsg)

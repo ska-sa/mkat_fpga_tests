@@ -1,5 +1,6 @@
 import logging
 import os
+import glob
 import sys
 from inspect import currentframe, getframeinfo
 
@@ -54,10 +55,8 @@ def teardown_package():
 
 
 class CorrelatorFixture(object):
-    def __init__(self, array=None, instrument=None, resource_clt=None):
-        self.array_name = array
-        self.instrument = instrument
-        self.resource_clt = resource_clt
+    def __init__(self, katcp_clt=None):
+        self.katcp_clt = katcp_clt
         self.corr_config = None
         self.corr2ini_path = None
         self._correlator = None
@@ -70,6 +69,7 @@ class CorrelatorFixture(object):
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
         self.test_config = self._test_config_file
+        self.array_name, self.instrument = self._get_instrument
 
     @property
     def rct(self):
@@ -86,8 +86,8 @@ class CorrelatorFixture(object):
             self.io_wrapper.default_timeout = timeout
             self.io_manager.start()
             self.rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.resource_clt),
-                     address=('{}'.format(self.resource_clt),
+                dict(name='{}'.format(self.katcp_clt),
+                     address=('{}'.format(self.katcp_clt),
                               '7147'),
                      controlled=True))
             self.rc.set_ioloop(self.io_manager.get_ioloop())
@@ -109,23 +109,24 @@ class CorrelatorFixture(object):
         if self._dhost is not None:
             return self._dhost
         else:
-            # TODO, issue when instantiating dsim when running instrument is not the same as default
-            # Perhaaps read etc corr array instrument and assume that is the default instrument
             self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
-            if not os.environ.has_key('CORR2INI') and self.instrument is not None:
-                self.corr2ini_path = str('/etc/corr/templates/{}'.format(self.instrument))
-                LOGGER.info('Setting CORR2INI system enviroment to point to %s' % self.corr2ini_path)
-                os.environ['CORR2INI'] = self.corr2ini_path
             if os.path.exists(self.config_filename):
                 LOGGER.info('Retrieving dsim engine info from config file: %s' % self.config_filename)
                 self.corr_config = corr2.utils.parse_ini_file(self.config_filename)
                 self.dsim_conf = self.corr_config['dsimengine']
+            elif self.instrument is not None:
+                self.corr2ini_path = '/etc/corr/templates/{}'.format(self.instrument)
+                LOGGER.info('Setting CORR2INI system enviroment to point to %s' % self.corr2ini_path)
+                os.environ['CORR2INI'] = self.corr2ini_path
+                self.corr_config = corr2.utils.parse_ini_file(self.corr2ini_path)
+                self.dsim_conf = self.corr_config['dsimengine']
             else:
-                LOGGER.error('Could not retrieve information from config file, '
-                             'resorting to test_conf.ini: File:%s Line:%s' % (
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                self.dsim_conf = self.test_config['dsimengine']
+                errmsg = ('Could not retrieve dsim information from running config file in /etc/corr, '
+                          'Perhaps, restart CBF manually and ensure dsim is running.\n'
+                          'File:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
+                                               getframeinfo(currentframe()).lineno))
+                LOGGER.error(errmsg)
+                sys.exit(errmsg)
             try:
                 dig_host = self.dsim_conf['host']
                 self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
@@ -247,8 +248,8 @@ class CorrelatorFixture(object):
                             sys.exit(errmsg)
 
             katcp_rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.resource_clt),
-                     address=('{}'.format(self.resource_clt),
+                dict(name='{}'.format(self.katcp_clt),
+                     address=('{}'.format(self.katcp_clt),
                               '{}'.format(self.katcp_array_port)),
                      preset_protocol_flags=protocol_flags, controlled=True))
             katcp_rc.set_ioloop(self.io_manager.get_ioloop())
@@ -367,7 +368,7 @@ class CorrelatorFixture(object):
                 get_running_instrument = self.get_running_instrument()
                 assert get_running_instrument.values()[0]
                 _running_instrument = get_running_instrument.keys()[0]
-                LOGGER.info('instrument from sensors %s to deprogram' %_running_instrument)
+                LOGGER.info('Retrieved instrument %s from CAM Sensors' %_running_instrument)
             except AssertionError:
                 _running_instrument = self.instrument
                 LOGGER.info('Instrument %s to deprogram' %_running_instrument)
@@ -564,6 +565,24 @@ class CorrelatorFixture(object):
                     LOGGER.info('Confirmed that the named instrument %s is enabled on '
                                 'correlator %s.' % (self.instrument, self.array_name))
                 return instrument_present
+
+    @property
+    def _get_instrument(self):
+        """
+        Retrieve currently running instrument from /etc/corr
+        return: List
+        """
+        try:
+            running_instr = max(glob.iglob('/etc/corr/*'), key=os.path.getctime).split('/')[-1]
+            array, instrument = running_instr.split('-')
+            if (instrument.startswith('bc') or instrument.startswith('c')) and array.startswith('array'):
+                LOGGER.info('Currenly running instrument %s as per /etc/corr' %running_instr)
+                return running_instr.split('-')
+        except Exception:
+            LOGGER.exception('Could not retrieve information from config file, resorting to default:\n'
+                         'File:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
+                            getframeinfo(currentframe()).lineno))
+            return ['array0', 'bc8n856M4k']
 
     @property
     def _test_config_file(self):
