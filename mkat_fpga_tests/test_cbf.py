@@ -87,12 +87,14 @@ disable_warnings_messages()
 # protected member included in __all__
 unittest.signals.installHandler()
 default_handler = signal.getsignal(signal.SIGINT)
+have_subscribed = False
 
 @cls_end_aqf
 class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
 
     def setUp(self):
+        global have_subscribed
         self.corr_fix = correlator_fixture
         try:
             self.conf_file = self.corr_fix.test_config
@@ -105,12 +107,20 @@ class test_CBF(unittest.TestCase):
             self.dhost.get_system_information()
             Aqf.hop('Digitiser Simulator running on %s' % self.dhost.host)
         except Exception:
-            errmsg = ('Failed to connect to retrieve digitiser simulator information.')
+            errmsg = ('Failed to connect to retrieve digitiser simulator information, ensure that '
+                      'the correct digitiser simulator is running.')
             LOGGER.exception(errmsg)
             sys.exit(errmsg)
         self.receiver = None
+        # See: https://docs.python.org/2/library/functions.html#super
+        super(test_CBF, self).setUp()
+        if have_subscribed is False:
+            subscribed = self.corr_fix.subscribe_multicast
+            if subscribed:
+                have_subscribed = True
 
     def set_instrument(self, instrument, acc_time=0.5, queue_size=3):
+        acc_timeout = 60
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
         try:
@@ -122,23 +132,21 @@ class test_CBF(unittest.TestCase):
             self.receiver.stop()
             self.receiver = None
 
-        acc_timeout = 60
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if not instrument_state:
             errmsg = ('Could not initialise instrument or ensure running instrument: {}'.format(
                                                                                         instrument))
             return {False: errmsg}
         try:
-            reply = self.corr_fix.katcp_rct.req.accumulation_length(
-                acc_time, timeout=acc_timeout)
+            reply = self.corr_fix.katcp_rct.req.accumulation_length(acc_time, timeout=acc_timeout)
             self.assertIsInstance(reply, katcp.resource.KATCPReply)
             assert reply.succeeded
         except (TimeoutError, VaccSynchAttemptsMaxedOut):
             self.corr_fix.halt_array
             self.corr_fix.ensure_instrument(instrument)
-            errmsg = ('Timed-Out: Failed to set accumulation time within {}s, '
-                      '[CBF-REQ-0064] SubArray will be halted and restarted with next '
-                      'test'.format(acc_timeout))
+            errmsg = ('Timed-Out/VACC did not trigger: Failed to set accumulation time within %s, '
+                      '[CBF-REQ-0064] SubArray will be halted and restarted with next test' %(
+                            acc_timeout))
             return {False: errmsg}
 
         except (AttributeError, AssertionError):
@@ -158,26 +166,21 @@ class test_CBF(unittest.TestCase):
                 corrRx_port = 8888
                 LOGGER.info('Failed to retrieve corr rx port from config file.'
                             'Setting it to default port: %s' % (corrRx_port))
-            self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
             try:
+                self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
             except AssertionError:
                 errmsg = 'Correlator Receiver could not be instantiated.'
                 return {False: errmsg}
             else:
-                self.correlator = self.corr_fix.correlator
                 try:
+                    self.correlator = self.corr_fix.correlator
                     self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
+                    start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
                 except AssertionError, e:
                     errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
                     return {False: errmsg}
                 else:
-                    subscribe_multicast = self.corr_fix.subscribe_multicast
-                    if subscribe_multicast.keys()[0]:
-                        Aqf.step(subscribe_multicast.values()[0])
-                    start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
-                    self.correlator = self.corr_fix.correlator
-
                     try:
                         sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
                         assert isinstance(sync_time, float)
@@ -193,7 +196,7 @@ class test_CBF(unittest.TestCase):
                         self.addCleanup(gc.collect)
                         try:
                             sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
-                            assert isinstance(sync_time, float)
+                            assert isinstance(sync_time, float) or isinstance(sync_time, int)
                             reply = self.correlator.set_synch_time(sync_time)
                         except AssertionError:
                             errmsg = 'Sync time could not be read and/or set via CAM interface.'
