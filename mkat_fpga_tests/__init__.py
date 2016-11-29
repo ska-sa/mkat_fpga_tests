@@ -2,6 +2,9 @@ import logging
 import os
 import glob
 import sys
+import socket
+import struct
+
 from inspect import currentframe, getframeinfo
 
 import corr2
@@ -21,6 +24,10 @@ from katcp.resource_client import KATCPSensorError
 #from testconfig import config as nose_test_config
 from mkat_fpga_tests.utils import ignored
 
+# MEMORY LEAKS DEBUGGING
+# To use, add @DetectMemLeaks decorator to function
+from memory_profiler import profile as DetectMemLeaks
+
 try:
     get_username = os.getlogin()
 except OSError:
@@ -36,16 +43,28 @@ LOGGER.addHandler(Handler)
 
 
 _cleanups = []
-"""Callables that will be called in reverse order at package teardown
-
-Stored as a tuples of (callable, args, kwargs)
+"""Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
+args, kwargs)
 """
-timeout = 30
+timeout = 60
 
 def add_cleanup(_fn, *args, **kwargs):
     _cleanups.append((_fn, args, kwargs))
 
 def teardown_package():
+    """
+    nose allows tests to be grouped into test packages. This allows package-level setup; for instance,
+    if you need to create a test database or other data fixture for your tests, you may create it in
+    package setup and remove it in package teardown once per test run, rather than having to create and
+    tear it down once per test module or test case.
+    To create package-level setup and teardown methods, define setup and/or teardown functions in the
+    __init__.py of a test package. Setup methods may be named setup, setup_package, setUp, or
+    setUpPackage; teardown may be named teardown, teardown_package, tearDown or tearDownPackage.
+    Execution of tests in a test package begins as soon as the first test module is loaded from the
+    test package.
+
+    ref:https://nose.readthedocs.io/en/latest/writing_tests.html?highlight=setup_package#test-packages
+    """
     while _cleanups:
         _fn, args, kwargs = _cleanups.pop()
         try:
@@ -478,10 +497,10 @@ class CorrelatorFixture(object):
         while retries and not success:
             retries -= 1
             check_ins = self.check_instrument(self.instrument)
-            LOGGER.info('Return true if named instrument is enabled on correlator array after '
-                        '%s retries' %retries)
             if check_ins is True:
                 success = True
+                LOGGER.info('Return true if named instrument is enabled on correlator array after '
+                        '%s retries' %retries)
                 return success
 
         if self.check_instrument(self.instrument) is False:
@@ -660,38 +679,48 @@ class CorrelatorFixture(object):
 
         config = self.corr_config
         if config is None:
-            errmsg = 'Failed to retrieve correlator config file'
-            return {False: errmsg}
+            LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')
+            return False
+        outputIPs = {
+            'beam0_ip': [tengbe.IpAddress(config['beam0']['data_ip']), int(
+                                                    config['beam0']['data_port'])],
+            'beam1_ip' : [tengbe.IpAddress(config['beam1']['data_ip']), int(
+                                                    config['beam1']['data_port'])],
+            'xengine_ip' : [tengbe.IpAddress(config['xengine']['output_destination_ip']), int(
+                                                    config['xengine']['output_destination_port'])]
+            }
 
-        output = {'src_ip': tengbe.IpAddress(config['xengine']['output_destination_ip']),
-                  'port': int(config['xengine']['output_destination_port'])
-                  }
-        data_port = output['port']
-        if output['src_ip'].is_multicast():
-            import socket
-            import struct
-            LOGGER.info('Source is multicast: %s' % output['src_ip'])
-            # look up multicast group address in name server and find out IP version
-            addrinfo = socket.getaddrinfo(str(output['src_ip']), None)[0]
-            # create a socket
-            mcast_sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
-            # join group
-            mcast_sock.bind(('', data_port))
-            group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
-            if addrinfo[0] == socket.AF_INET:  # IPv4
-                mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-                mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-                msg = 'Subscribing to %s.' % str(output['src_ip'])
-                LOGGER.info(msg)
-                return {True: msg}
+        for prodct, data_output in outputIPs.iteritems():
+            multicastIP, DataPort = data_output
+            if multicastIP.is_multicast():
+                LOGGER.info('%s: source is multicast %s.' % (prodct, multicastIP))
+                # look up multicast group address in name server and find out IP version
+                addrinfo = socket.getaddrinfo(str(multicastIP), None)[0]
+                # create a socket
+                try:
+                    mcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                except Exception:
+                    mcast_sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
+                mcast_sock.setblocking(False)
+                # Do not bind as this will cause a conflict when instantiating a receiver on the main script
+                # Join group
+                # mcast_sock.bind(('', DataPort))
+                add_cleanup(mcast_sock.close)
+                group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
+                if addrinfo[0] == socket.AF_INET:  # IPv4
+                    mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
+                    mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                    LOGGER.info('Successfully subscribed to %s.' % str(multicastIP))
+                    return True
+                else:
+                    mreq = group_bin + struct.pack('@I', 0)
+                    mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+                    LOGGER.info('Successfully subscribed to %s.' % str(multicastIP))
+                    return True
             else:
-                mreq = group_bin + struct.pack('@I', 0)
-                mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
-        else:
-            mcast_sock = None
-            msg = 'Source is not multicast: %s' % output['src_ip']
-            LOGGER.info(msg)
-            return {False: msg}
+                mcast_sock = None
+                LOGGER.info('%s :Source is not multicast: %s' % (prodct, str(multicastIP)))
+                return False
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.info('Will now try to start the correlator')
@@ -837,6 +866,5 @@ class CorrelatorFixture(object):
                     retries_requested))
                 return False
             return False
-
 
 correlator_fixture = CorrelatorFixture()
