@@ -66,6 +66,7 @@ def teardown_package():
     ref:https://nose.readthedocs.io/en/latest/writing_tests.html?highlight=setup_package#test-packages
     """
     while _cleanups:
+        LOGGER.info('Cleanup in progress: %s' %_cleanups)
         _fn, args, kwargs = _cleanups.pop()
         try:
             _fn(*args, **kwargs)
@@ -249,7 +250,8 @@ class CorrelatorFixture(object):
                                                                 *multicast_ip)
                     assert reply.reply_ok()
                 except (ValueError, TypeError, AssertionError):
-                    LOGGER.exception('Failed to assign multicast ip on array: %s' % (self.array_name))
+                    LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
+                        self.array_name, str(reply)))
                 else:
                     if len(reply.arguments) == 2:
                         try:

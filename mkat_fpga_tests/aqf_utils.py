@@ -9,11 +9,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mkat_fpga_tests.utils import loggerise
 from nosekatreport import Aqf
+# MEMORY LEAKS DEBUGGING
+# To use, add @DetectMemLeaks decorator to function
+from memory_profiler import profile as DetectMemLeaks
 
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
-
     @functools.wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)

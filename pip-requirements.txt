@@ -34,3 +34,5 @@ nose-performance
 NoseXUnit
 nose-congestion
 ipynose
+memory_profiler
+psutils
