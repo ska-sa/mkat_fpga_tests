@@ -1,21 +1,18 @@
-import logging
 import functools
-import matplotlib
+import logging
 import textwrap
+
 from Tkinter import tkinter
-
-matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
 import numpy as np
+
 from mkat_fpga_tests.utils import loggerise
 from nosekatreport import Aqf
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 from memory_profiler import profile as DetectMemLeaks
 
-# LOGGER = logging.getLogger(__name__)
-LOGGER = logging.getLogger('mkat_fpga_tests')
+LOGGER = logging.getLogger(__name__)
 
 
 def meth_end_aqf(meth):

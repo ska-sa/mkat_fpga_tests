@@ -4,8 +4,10 @@ import contextlib
 import logging
 import os
 import warnings
+
 from collections import Mapping
 from collections import defaultdict
+from getpass import getuser as getusername
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
@@ -14,14 +16,13 @@ from struct import pack
 from memory_profiler import profile as DetectMemLeaks
 
 import corr2
-import matplotlib
 import signal
 import time
+
 from Crypto.Cipher import AES
 
-matplotlib.use('Agg')
-
 import numpy as np
+
 from nosekatreport import Aqf
 
 try:
@@ -31,7 +32,8 @@ except ImportError:
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
-from inspect import currentframe, getframeinfo
+from inspect import currentframe
+from inspect import getframeinfo
 
 
 # LOGGER = logging.getLogger(__name__)
@@ -804,6 +806,7 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
         tornado_logger.setLevel(logging.FATAL)
     if plt_warn:
         # This function disable matplotlibs deprecation warnings
+        import matplotlib
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
     if np_warn:
         # Ignoring all warnings raised when casting a complex dtype to a real dtype.
@@ -977,7 +980,7 @@ def get_local_src_names(self):
 def who_ran_test():
     """Get who ran the test."""
     try:
-        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(os.getlogin(),
+        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(getusername(),
                                                             os.uname()[1].upper(),
                                                             time.strftime("%Y-%m-%d %H:%M:%S")))
     except OSError:

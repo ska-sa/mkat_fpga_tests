@@ -2,20 +2,22 @@ from __future__ import division
 
 import Queue
 import csv
+import gc
 import glob
 import logging
 import os
-import gc
+import signal
 import subprocess
 import telnetlib
 import textwrap
 import unittest
-import signal
-from collections import namedtuple
+
 from collections import defaultdict
+from collections import namedtuple
 
 from random import randrange
-from subprocess import Popen, PIPE
+from subprocess import PIPE
+from subprocess import Popen
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 from memory_profiler import profile as DetectMemLeaks
@@ -23,23 +25,20 @@ from memory_profiler import profile as DetectMemLeaks
 import corr2
 import h5py
 import katcp
-import matplotlib
 import operator
 import sys
 import time
-
-matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 import ntplib
 import numpy as np
 import pandas as pd
+
 from concurrent.futures import TimeoutError
 from corr2.corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 from mkat_fpga_tests import correlator_fixture
-
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
 from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
@@ -55,11 +54,14 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 from mkat_fpga_tests.utils import get_local_src_names, get_input_labels, get_sync_epoch
-from nosekatreport import Aqf, aqf_vr
-from nose.plugins.attrib import attr
-from power_logger import PowerLogger
-from inspect import currentframe, getframeinfo
+
 from datetime import datetime
+from inspect import currentframe
+from inspect import getframeinfo
+from nose.plugins.attrib import attr
+from nosekatreport import Aqf
+from nosekatreport import aqf_vr
+from power_logger import PowerLogger
 
 LOGGER = logging.getLogger('mkat_fpga_tests')
 # LOGGER = logging.getLogger(__name__)

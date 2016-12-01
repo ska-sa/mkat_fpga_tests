@@ -1,19 +1,20 @@
+import corr2
+import glob
 import logging
 import os
-import glob
-import sys
 import socket
 import struct
+import sys
 
-from inspect import currentframe, getframeinfo
-
-import corr2
 from casperfpga import katcp_fpga
 from casperfpga import tengbe
 from casperfpga import utils as fpgautils
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.dsimhost_fpga import FpgaDsimHost
+from getpass import getuser as getusername
+from inspect import currentframe
+from inspect import getframeinfo
 from katcp import KatcpClientError
 from katcp import KatcpDeviceError
 from katcp import KatcpSyntaxError
@@ -29,7 +30,7 @@ from mkat_fpga_tests.utils import ignored
 from memory_profiler import profile as DetectMemLeaks
 
 try:
-    get_username = os.getlogin()
+    get_username = getusername()
 except OSError:
     import pwd
     get_username = pwd.getpwuid(os.getuid()).pw_name
