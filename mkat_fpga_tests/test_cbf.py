@@ -111,6 +111,7 @@ class test_CBF(unittest.TestCase):
             self.dhost = self.corr_fix.dhost
             assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost)
             self.dhost.get_system_information()
+            print '\n' 
             Aqf.hop('Digitiser Simulator running on %s' % self.dhost.host)
         except Exception:
             errmsg = ('Failed to connect to retrieve digitiser simulator information, ensure that '
@@ -3862,9 +3863,8 @@ class test_CBF(unittest.TestCase):
                                     sorted(nonzero_inputs), sorted(zero_inputs)))
 
                     aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
-                                      plot_title, log_dynamic_range=90,
-                                      log_normalise_to=1, caption=caption, ylimits=(-100, 0))
-
+                                      plot_title, log_dynamic_range=None,
+                                      log_normalise_to=1, caption=caption, ylimits=(-0.1, np.max(plot_data)+0.1))
                     actual_nz_bls_indices = all_nonzero_baselines(test_data)
                     actual_nz_bls = set(tuple(bls_ordering[i]) for i in actual_nz_bls_indices)
 
