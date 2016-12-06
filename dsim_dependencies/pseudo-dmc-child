@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e 
+
+echo '?client-config fixed'
+echo '?log-limit fatal'
+echo '#sensor-list synchronisation-epoch last\_synchronisation\_time seconds integer'
+
+#kcplog -l debug -s $1 | grep --line-buffered write..control | (while read log debug time rest ; do prefix=${time%%???} ; suffix=${time##${prefix}}; echo "#sensor-status ${prefix}.${suffix} 1 synchronisation-epoch nominal ${prefix}.${suffix}" ; done)
+kcplog -l debug -s $1 | grep --line-buffered write..control | (read log debug time rest ; prefix=${time%%???} ; suffix=${time##${prefix}}; echo "#sensor-status ${prefix}.${suffix} 1 synchronisation-epoch nominal ${prefix}.${suffix}"  )
