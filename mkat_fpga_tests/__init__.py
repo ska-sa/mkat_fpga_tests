@@ -1,19 +1,20 @@
+import corr2
+import glob
 import logging
 import os
-import glob
-import sys
 import socket
 import struct
+import sys
 
-from inspect import currentframe, getframeinfo
-
-import corr2
 from casperfpga import katcp_fpga
 from casperfpga import tengbe
 from casperfpga import utils as fpgautils
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.dsimhost_fpga import FpgaDsimHost
+from getpass import getuser as getusername
+from inspect import currentframe
+from inspect import getframeinfo
 from katcp import KatcpClientError
 from katcp import KatcpDeviceError
 from katcp import KatcpSyntaxError
@@ -29,7 +30,7 @@ from mkat_fpga_tests.utils import ignored
 from memory_profiler import profile as DetectMemLeaks
 
 try:
-    get_username = os.getlogin()
+    get_username = getusername()
 except OSError:
     import pwd
     get_username = pwd.getpwuid(os.getuid()).pw_name
@@ -66,6 +67,7 @@ def teardown_package():
     ref:https://nose.readthedocs.io/en/latest/writing_tests.html?highlight=setup_package#test-packages
     """
     while _cleanups:
+        LOGGER.info('Cleanup in progress: %s' %_cleanups)
         _fn, args, kwargs = _cleanups.pop()
         try:
             _fn(*args, **kwargs)
@@ -249,7 +251,8 @@ class CorrelatorFixture(object):
                                                                 *multicast_ip)
                     assert reply.reply_ok()
                 except (ValueError, TypeError, AssertionError):
-                    LOGGER.exception('Failed to assign multicast ip on array: %s' % (self.array_name))
+                    LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
+                        self.array_name, str(reply)))
                 else:
                     if len(reply.arguments) == 2:
                         try:

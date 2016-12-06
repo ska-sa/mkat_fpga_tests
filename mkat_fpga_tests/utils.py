@@ -4,21 +4,25 @@ import contextlib
 import logging
 import os
 import warnings
+
 from collections import Mapping
 from collections import defaultdict
+from getpass import getuser as getusername
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
+# MEMORY LEAKS DEBUGGING
+# To use, add @DetectMemLeaks decorator to function
+from memory_profiler import profile as DetectMemLeaks
 
 import corr2
-import matplotlib
 import signal
 import time
+
 from Crypto.Cipher import AES
 
-matplotlib.use('Agg')
-
 import numpy as np
+
 from nosekatreport import Aqf
 
 try:
@@ -28,7 +32,8 @@ except ImportError:
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
-from inspect import currentframe, getframeinfo
+from inspect import currentframe
+from inspect import getframeinfo
 
 
 # LOGGER = logging.getLogger(__name__)
@@ -242,14 +247,12 @@ def get_dsim_source_info(dsim):
     """Return a dict with all the current sine, noise and output settings of a dsim"""
     info = dict(sin_sources={}, noise_sources={}, outputs={})
     for sin_src in dsim.sine_sources:
-        info['sin_sources'][sin_src.name] = dict(scale=sin_src.scale,
-                                                 frequency=sin_src.frequency)
+        info['sin_sources'][sin_src.name] = dict(scale=sin_src.scale, frequency=sin_src.frequency)
     for noise_src in dsim.noise_sources:
         info['noise_sources'][noise_src.name] = dict(scale=noise_src.scale)
 
     for output in dsim.outputs:
-        info['outputs'][output.name] = dict(output_type=output.output_type,
-                                            scale=output.scale)
+        info['outputs'][output.name] = dict(output_type=output.output_type, scale=output.scale)
     return info
 
 
@@ -298,10 +301,9 @@ def get_snapshots(instrument, timeout=60):
     try:
         f_snaps = threaded_fpga_operation(instrument.fhosts, timeout,
                                           (get_feng_snapshots,))
+        return dict(feng=f_snaps)
     except Exception:
         return False
-    else:
-        return dict(feng=f_snaps)
 
 
 def rearrange_snapblock(snap_data, reverse=False):
@@ -352,13 +354,12 @@ def get_sync_epoch(self):
     try:
         reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
         assert reply.reply_ok()
+        return float(reply.arguments[-1])
     except Exception:
         errmsg = ('Could not retrieve sync time via correlator object.')
         LOGGER.exception(errmsg)
         Aqf.failed(errmsg)
         return False
-    else:
-        return float(reply.arguments[-1])
 
 
 def clear_all_delays(self, roundtrip=0.003, timeout=10):
@@ -384,12 +385,11 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
         delay_coefficients = ['0,0:0,0'] * len(self.correlator.fengine_sources)
         try:
             reply = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % (str(reply.reply.arguments[1])))
+            return True
         except Exception:
             LOGGER.exception('Could not clear delays')
             return False
-        else:
-            LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % (str(reply.reply.arguments[1])))
-            return True
 
 
 def get_fftoverflow_qdrstatus(correlator):
@@ -434,8 +434,7 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
     except Exception:
         return False
     if fftoverflow_qdrstatus is not False:
-        curr_pfb_counts = get_pfb_counts(
-            fftoverflow_qdrstatus['fhosts'].items())
+        curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
 
     if curr_pfb_counts is not False:
         for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
@@ -497,6 +496,7 @@ def check_host_okay(self, engine=None, sensor=None):
         for i in sensor_status:
             try:
                 assert int(i[0].split()[-1]) == 1
+                return True
             except AssertionError:
                 errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
                 LOGGER.error(errmsg)
@@ -507,8 +507,7 @@ def check_host_okay(self, engine=None, sensor=None):
                                  getframeinfo(currentframe()).filename.split('/')[-1],
                                  getframeinfo(currentframe()).lineno))
                 return None
-            else:
-                return True
+
         return _errors_list
 
 
@@ -533,16 +532,15 @@ def get_and_restore_initial_eqs(test_instance, correlator):
     def restore_initial_equalisations():
         try:
             for _input, _eq in initial_equalisations.iteritems():
+                if type(_eq) is list: _eq = _eq[0]
                 reply, informs = test_instance.corr_fix.katcp_rct.req.gain(_input, _eq,
                                                                            timeout=cam_timeout)
-                time.sleep(0.5)
                 assert reply.reply_ok()
+            return True
         except Exception:
             msg = 'Failed to set gain for input %s with gain of %s' %(_input, _eq)
             LOGGER.exception(msg)
             return False
-        else:
-            return True
 
     test_instance.addCleanup(restore_initial_equalisations)
     return initial_equalisations
@@ -593,8 +591,7 @@ def get_input_labels(self):
     """
     try:
         reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-        if not reply.reply_ok():
-            raise Exception
+        assert reply.reply_ok()
     except Exception:
         errmsg = ('Failed to retrieve input lables via Cam interface with a reply: %s' % (str(reply)))
         LOGGER.error(errmsg)
@@ -603,23 +600,20 @@ def get_input_labels(self):
     else:
         return reply.arguments[1:]
 
-
 def set_default_eq(self):
     """ Iterate through config sources and set eq's as per config file
     Param: Correlator: Object
     Return: None
     """
-
     def get_eqs_levels(self):
         eq_levels = []
         try:
             for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
                 eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
+            return eq_levels
         except Exception:
             LOGGER.exception('Failed to retrieve default ant_inputs and eq levels from config file')
             return False
-        else:
-            return eq_levels
 
     ant_inputs = get_input_labels(self)
     eq_levels = get_eqs_levels(self)
@@ -627,14 +621,12 @@ def set_default_eq(self):
         try:
             for _input, _eq in zip(ant_inputs, eq_levels):
                 reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq, timeout=cam_timeout)
-                time.sleep(0.5)
             assert reply.reply_ok()
+            LOGGER.info('Reset gains to default values from config file.\n')
+            return True
         except Exception:
             LOGGER.exception('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
             return False
-        else:
-            LOGGER.info('Reset gains to default values from config file.\n')
-            return True
     else:
         LOGGER.error('Failed to retrieve %s or %s' %(ant_inputs, eq_levels))
         return False
@@ -673,16 +665,14 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         try:
             reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift, timeout=cam_timeout)
             assert reply.reply_ok()
+            LOGGER.info('F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
+            return True
         except (TypeError, AssertionError):
             LOGGER.exception('Failed to set FFT shift via CAM interface.')
             return False
-        else:
-            LOGGER.info('F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
-            return True
 
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
-        return 0
 
     sources = get_input_labels(self)
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
@@ -691,13 +681,11 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             LOGGER.info('Input %s gain set to %s' % (i, v))
             reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
             assert reply.reply_ok()
-    except Exception:
-        msg = 'Failed to set gain for input: {} with gain of: {}'.format(i, v)
-        LOGGER.exception(msg)
-        return False
-    else:
         LOGGER.info('Gains set successfully')
         return True
+    except Exception:
+        LOGGER.exception('Failed to set gain for input: %s with gain of: %s' %(i, v))
+        return False
 
 
 def get_delay_bounds(correlator):
@@ -782,9 +770,10 @@ def get_figure_numbering(self):
             _dict[key] = '{}.{}'.format(value, version)
         return _dict
 
-    if self.corr_freqs.n_chans == 4096:
+    try:
+        assert self.corr_freqs.n_chans == 4096
         return get_fig_prefix(1)
-    else:
+    except AssertionError:
         return get_fig_prefix(2)
 
 
@@ -817,6 +806,7 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
         tornado_logger.setLevel(logging.FATAL)
     if plt_warn:
         # This function disable matplotlibs deprecation warnings
+        import matplotlib
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
     if np_warn:
         # Ignoring all warnings raised when casting a complex dtype to a real dtype.
@@ -863,16 +853,14 @@ def clear_host_status(self, timeout=60):
     :param: timeout: Int
     :rtype: Boolean
     """
-    hosts = (self.correlator.fhosts + self.correlator.xhosts)
     try:
+        hosts = self.correlator.fhosts + self.correlator.xhosts
         threaded_fpga_function(hosts, timeout, 'clear_status')
+        LOGGER.info('Cleared status registers and counters on all F/X-Engines.')
+        return True
     except Exception:
         LOGGER.error('Failed to clear status registers and counters on all F/X-Engines.')
         return False
-    else:
-        LOGGER.info('Cleared status registers and counters on all F/X-Engines.')
-        return True
-
 
 def restore_src_names(self):
     """Restore default CBF input/source names.
@@ -888,15 +876,12 @@ def restore_src_names(self):
     try:
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*orig_src_names)
         assert reply.reply_ok()
+        self.corr_fix.issue_metadata
+        LOGGER.info('Successfully restored source names back to default %s' % (', '.join(
+            orig_src_names)))
     except Exception:
         LOGGER.exception('Failed to restore CBF source names back to default.')
         return False
-    else:
-        if not self.corr_fix.issue_metadata:
-            LOGGER.error('Failed to re-issue CBF metadata')
-        LOGGER.info('Successfully restored source names back to default %s' % (', '.join(
-            orig_src_names)))
-        return True
 
 
 def deprogram_hosts(self, timeout=60):
@@ -906,17 +891,12 @@ def deprogram_hosts(self, timeout=60):
     """
     try:
         hosts = self.correlator.xhosts + self.correlator.fhosts
-    except Exception:
-        return False
-    try:
         threaded_fpga_function(hosts, timeout, 'deprogram')
+        LOGGER.info('F/X-engines deprogrammed successfully .')
+        return True
     except Exception:
         LOGGER.error('Failed to deprogram all connected hosts.')
         return False
-    else:
-        LOGGER.info('F/X-engines deprogrammed successfully .')
-        return True
-
 
 def human_readable_ip(hex_ip):
     hex_ip = hex_ip[2:]
@@ -930,30 +910,20 @@ def confirm_out_dest_ip(self):
     """
     try:
         xhost = self.correlator.xhosts[randrange(len(self.correlator.xhosts))]
+        int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
+        xhost_ip = inet_ntoa(pack(">L", int_ip))
+        dest_ip = self.correlator.configd['xengine']['output_destination_ip']
+        assert dest_ip == xhost_ip
+        return True
     except Exception:
         return False
-    else:
-        try:
-            int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
-            xhost_ip = inet_ntoa(pack(">L", int_ip))
-            dest_ip = self.correlator.configd['xengine']['output_destination_ip']
-        except Exception:
-            return False
-        else:
-            try:
-                assert dest_ip == xhost_ip
-            except AssertionError:
-                return False
-            else:
-                return True
-
 
 class TestTimeout:
     """
     Test Timeout class using ALARM signal.
     :param: seconds -> Int
     :param: error_message -> Str
-    :rtype: Exception
+    :rtype: None
     """
 
     class TestTimeoutError(Exception):
@@ -973,6 +943,21 @@ class TestTimeout:
 
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
+
+@contextlib.contextmanager
+def RunTestWithTimeout(test_timeout=1, errmsg='Test Timed-out'):
+    """
+    Context manager to execute tests with a timeout
+    :param: test_timeout : int
+    :param: errmsg : str
+    :rtype: None
+    """
+    try:
+        with TestTimeout(test_timeout):
+            yield
+    except Exception:
+        Aqf.failed(errmsg)
+        Aqf.end(traceback=True)
 
 def get_local_src_names(self):
     """
@@ -995,7 +980,7 @@ def get_local_src_names(self):
 def who_ran_test():
     """Get who ran the test."""
     try:
-        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(os.getlogin(),
+        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(getusername(),
                                                             os.uname()[1].upper(),
                                                             time.strftime("%Y-%m-%d %H:%M:%S")))
     except OSError:
