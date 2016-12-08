@@ -1,1 +1,3 @@
+# See: http://matplotlib.org/faq/usage_faq.html#what-is-a-backend
+# The Anti-Grain Geometry (Agg) rendering engine, capable of rendering high-quality images such as png
 backend: agg
