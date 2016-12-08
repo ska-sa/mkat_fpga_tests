@@ -663,6 +663,19 @@ class Aqf(object):
         test_logger.info(message)
 
     @classmethod
+    def stepBold(cls, message):
+        """A step bolded in a test section.
+
+        eg. Aqf.stepBold("Test that the antenna is stowed when X is set to Y")
+
+        :param message: String. Message describe what the step will test.
+
+        """
+        message = '\033[1m %s \033[0m' %message
+        _state.store.add_step(message)
+        cls.log_step(message)
+
+    @classmethod
     def addLine(cls, linetype, count):
         """A step in a test section with lines
 
