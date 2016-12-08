@@ -12,7 +12,7 @@ calls to nose_kat_report
 Installation
 ============
 
-From integration_tests/nosekatreport install nosekatreport package:
+From mkat_fpga_tests/nosekatreport install nosekatreport package:
 
 ::
 
@@ -22,10 +22,12 @@ From integration_tests/nosekatreport install nosekatreport package:
 Invocation
 ==========
 
-The simple way (from integration_tests directory)::
+The simple way (from mkat_fpga_tests directory)::
 
   nosetests --with-katreport tests
 
+DEPRECATED
+==========
 
 A utility script is provided to assist with running the test with the correct filters::
 
@@ -78,7 +80,7 @@ Typical AQF usage for Qualfication/Acceptance
 
 *Update test decoratirs and CORE export:
 
-  * Update CORE and export MeerKAT.xml, commit MeerKAT.xml to svn/katscripts/integration_tests/supplemental
+  * Update CORE and export MeerKAT.xml, commit MeerKAT.xml to svn/katscripts/mkat_fpga_tests/supplemental
   * Update all the decorators and VR links (aqf_vr) in the tests.
 
 * Perform the test runs:
@@ -87,8 +89,8 @@ Typical AQF usage for Qualfication/Acceptance
 
   	python run_aqf.py ; python run_aqf.py --accept
 
-  * This produces the Qualfication results and reports in svn/katscripts/integration_tests/katreport/*.json
-  * and the Acceptance results and reports in svn/katscripts/integration_tests/katreport_accept/*.json
+  * This produces the Qualfication results and reports in svn/katscripts/mkat_fpga_tests/katreport/*.json
+  * and the Acceptance results and reports in svn/katscripts/mkat_fpga_tests/katreport_accept/*.json
   * The test results land in katreport[_accept]/katreport.json
   * The reports produced are Qualification|Acceptance Testing|Demonstration Procedure|Results.
 
@@ -97,7 +99,7 @@ Typical AQF usage for Qualfication/Acceptance
   
   	python run_aqf.py --report=aqf_index
 
-  * Copy katreport/aqf_index.json to svn/katscripts/integration_tests/aqf_index.json and commit to SVN
+  * Copy katreport/aqf_index.json to svn/katscripts/mkat_fpga_tests/aqf_index.json and commit to SVN
 
 * Perform the Demonstration event:
   * --rundemo=all,all   # to specify all timescales and all VRs
