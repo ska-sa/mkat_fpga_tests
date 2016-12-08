@@ -11,6 +11,7 @@ from casperfpga import tengbe
 from casperfpga import utils as fpgautils
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
+from corr2.data_stream import StreamAddress
 from corr2.dsimhost_fpga import FpgaDsimHost
 from getpass import getuser as getusername
 from inspect import currentframe
@@ -208,13 +209,20 @@ class CorrelatorFixture(object):
         object is teared-down
         """
         LOGGER.info('Halting primary array: %s.' % self.array_name)
-        self.katcp_rct.stop()
-        self.rct.req.array_halt(self.array_name)
-        self.rct.stop()
+        try:
+            reply, informs = self.rct.req.array_list()
+            assert reply.reply_ok()
+            informs = informs[0]
+            if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
+                reply, informs = self.rct.req.array_halt(self.array_name)
+                assert reply.reply_ok()
+        except AssertionError:
+            msg = 'Failed to halt array: %s, STOPPING resource client' %self.array_name
+            LOGGER.exception(msg)       
+        if self.rct.is_active():
+            self.rct.stop()
         self._rct = None
         self._katcp_rct = None
-        # TODO: MM(2015-09-11) Proper teardown of corr object(katcp connections etc.)
-        # Must still be implemented.
         self._correlator_started = False
         self._correlator = None
         LOGGER.info('Array %s halted and teared-down' % (self.array_name))
@@ -251,8 +259,20 @@ class CorrelatorFixture(object):
                                                                 *multicast_ip)
                     assert reply.reply_ok()
                 except (ValueError, TypeError, AssertionError):
-                    LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
-                        self.array_name, str(reply)))
+                    try:
+                        reply, informs = self.rct.req.array_list()
+                        assert reply.reply_ok()
+                        informs = informs[0]
+                        if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
+                            msg = 'Array assigned successfully: %s' %str(informs)
+                            LOGGER.info(msg)
+                        else:
+                            LOGGER.error('Halting array.')
+                            reply, informs = self.rct.req.array_halt(self.array_name)
+                            assert reply.reply_ok()
+                    except AssertionError:
+                        LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
+                            self.array_name, str(reply)))
                 else:
                     if len(reply.arguments) == 2:
                         try:
@@ -314,43 +334,28 @@ class CorrelatorFixture(object):
         """
         Enable/Start output product capture
         """
-        LOGGER.info('Start X data capture')
         try:
-            assert isinstance(self.katcp_rct,
-                              resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply = self.katcp_rct.req.capture_list(timeout=timeout)
-            assert reply.succeeded
-        except IndexError:
-            LOGGER.error('Config file does not contain Xengine output products.:'
-                         ': File:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
-                                                getframeinfo(currentframe()).lineno))
-            return False
-        except (AttributeError, AssertionError):
-            LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s'
-                         % (getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
-            return False
-        else:
-            try:
-                self.output_product = reply.informs[0].arguments[0]
-            except IndexError:
-                self.output_product = (
-                    self.correlator.configd['xengine']['output_products'][0])
-
-                LOGGER.error('KATCP reply does not contain a capture list: '
-                             '\nFile:%s Line:%s'
-                             % (getframeinfo(currentframe()).filename.split('/')[-1],
+            assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper)
+            reply, informs = self.katcp_rct.req.capture_list(timeout=timeout)
+            assert reply.reply_ok()
+            self.output_product = [i.arguments[0] for i in informs 
+                                   if self.corr_config['xengine']['output_products'] in i.arguments][0]
+            assert self.output_product is not None
+            LOGGER.info('Capturing %s product' %self.output_product)
+        except Exception:
+            self.output_product = self.corr_config['xengine']['output_products']
+            LOGGER.exception('Failed to retrieve capture list via CAM interface, got it from config file.'
+                             '\nFile:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
                                 getframeinfo(currentframe()).lineno))
 
         try:
-            reply = self.katcp_rct.req.capture_start(self.output_product)
-            assert reply.succeeded
-        except Exception, e:
-            LOGGER.exception('Failed to capture start: %s due to %s' %str(reply, str(e)))
-            return False
-        else:
-            LOGGER.info('Capture started on %s product' % self.output_product)
+            reply, informs = self.katcp_rct.req.capture_start(self.output_product)
+            assert reply.reply_ok()
+            LOGGER.info('%s' % str(reply))
             return True
+        except Exception:
+            LOGGER.exception('Failed to capture start: %s' %str(reply))
+            return False
 
     def stop_x_data(self):
         """
@@ -359,22 +364,17 @@ class CorrelatorFixture(object):
         try:
             assert isinstance(self.katcp_rct,
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply = self.katcp_rct.req.capture_stop(self.output_product, timeout=timeout)
-            assert reply.succeeded
-        except IndexError:
-            LOGGER.error('Failed to capture stop, might be because config file does not contain '
-                         'Xengine output products.\n: File:%s Line:%s' % (
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
-            return False
-        except (AttributeError, AssertionError):
-            LOGGER.error('KATCP recourse client might not have any attributes: \nFile:%s Line:%s' % (
-                getframeinfo(currentframe()).filename.split('/')[-1],
-                getframeinfo(currentframe()).lineno))
-            return False
-        else:
-            LOGGER.info('Stop X data capture')
+            reply, informs = self.katcp_rct.req.capture_stop(self.output_product, timeout=timeout)
+            assert reply.reply_ok()
+            LOGGER.info('%s' %str(reply))
             return True
+        except Exception:
+            LOGGER.exception('Failed to capture stop, might be because config file does not contain '
+                             'Xengine output products.\n: File:%s Line:%s' % (
+                                getframeinfo(currentframe()).filename.split('/')[-1],
+                                getframeinfo(currentframe()).lineno))
+            return False
+
 
     def deprogram_fpgas(self, instrument):
         """
@@ -677,6 +677,7 @@ class CorrelatorFixture(object):
     @property
     def subscribe_multicast(self):
         """Automated multicasting subscription"""
+        parse_address = StreamAddress._parse_address_string
         if self.config_filename is None:
             return
 
@@ -684,14 +685,11 @@ class CorrelatorFixture(object):
         if config is None:
             LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')
             return False
-        outputIPs = {
-            'beam0_ip': [tengbe.IpAddress(config['beam0']['data_ip']), int(
-                                                    config['beam0']['data_port'])],
-            'beam1_ip' : [tengbe.IpAddress(config['beam1']['data_ip']), int(
-                                                    config['beam1']['data_port'])],
-            'xengine_ip' : [tengbe.IpAddress(config['xengine']['output_destination_ip']), int(
-                                                    config['xengine']['output_destination_port'])]
-            }
+
+        outputIPs = {}
+        for i in ['beam0', 'beam1', 'xengine']:
+            _IP, _num, _Port = list(parse_address(config[i]['output_destinations']))
+            outputIPs[i] = [tengbe.IpAddress(_IP), int(_Port)]
 
         for prodct, data_output in outputIPs.iteritems():
             multicastIP, DataPort = data_output
