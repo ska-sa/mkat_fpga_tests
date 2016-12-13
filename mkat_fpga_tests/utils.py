@@ -1,8 +1,12 @@
 import Queue
 import base64
 import contextlib
+import corr2
 import logging
+import numpy as np
 import os
+import signal
+import time
 import warnings
 
 from collections import Mapping
@@ -11,30 +15,21 @@ from getpass import getuser as getusername
 from random import randrange
 from socket import inet_ntoa
 from struct import pack
+from Crypto.Cipher import AES
+from casperfpga.utils import threaded_fpga_function
+from casperfpga.utils import threaded_fpga_operation
+from corr2.data_stream import StreamAddress
+from inspect import currentframe
+from inspect import getframeinfo
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 from memory_profiler import profile as DetectMemLeaks
-
-import corr2
-import signal
-import time
-
-from Crypto.Cipher import AES
-
-import numpy as np
-
 from nosekatreport import Aqf
 
 try:
     from collections import ChainMap
 except ImportError:
     from chainmap import ChainMap
-
-from casperfpga.utils import threaded_fpga_function
-from casperfpga.utils import threaded_fpga_operation
-from inspect import currentframe
-from inspect import getframeinfo
-
 
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
@@ -313,10 +308,10 @@ def rearrange_snapblock(snap_data, reverse=False):
     return np.column_stack(segs).flatten()
 
 
-def get_quant_snapshot(instrument, input_name, timeout=5):
+def get_quant_snapshot(self, input_name, timeout=5):
     """Get the quantiser snapshot of named input. Snapshot will be assembled"""
     data_sources = [_source
-                    for _input, _source in instrument.fengine_sources.iteritems()
+                    for _input, _source in self.correlator.fengine_sources.iteritems()
                     if input_name == _input][0]
 
     snap_name = 'snap_quant{}_ss'.format(data_sources.source_number)
@@ -333,18 +328,32 @@ def get_quant_snapshot(instrument, input_name, timeout=5):
     return quantiser_spectrum
 
 
-def get_baselines_lookup(spead):
+def get_baselines_lookup(self, spead, test_input=None, auto_corr_index=False):
     """Get list of all the baselines present in the correlator output.
     Param:
-      spead: spead_dump
+        self: object
+        spead: spead_dump
     Return: dict:
         baseline lookup with tuple of input label strings keys
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
         correlator dump's baselines
     """
-    bls_ordering = spead['bls_ordering'].value
+    try:
+        bls_ordering = eval(self.corr_fix.katcp_rct.sensor.c856m4k_bls_ordering.get_value())
+        LOGGER.info('Retrieved bls ordering via CAM Interface')
+    except Exception:
+        bls_ordering = spead['bls_ordering'].value
+        LOGGER.info('Retrieved bls ordering from spead accumulation.')
+
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
-    return baseline_lookup
+    if auto_corr_index:
+        for idx, val in enumerate(baseline_lookup):
+            if val[0] == test_input and val[1] == test_input:
+                auto_corr_idx = idx
+
+        return [baseline_lookup, auto_corr_idx]
+    else:
+        return baseline_lookup
 
 def get_sync_epoch(self):
     """ Get digitiser synch epoch
@@ -367,29 +376,43 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
     Param: object
     Return: Boolean
     """
+    # try:
+    #     dump = self.receiver.get_clean_dump(timeout, discard=0)
+    # except Queue.Empty:
+    #     LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty. '
+    #                      'Therefore Delays not cleared')
+    #     return False
+    # else:
+    #     sync_time = get_sync_epoch(self)
+    #     if not sync_time:
+    #         LOGGER.error('Digitiser sync epoch cannot be null')
+    #         return
+    #     try:
+    #         int_time = self.corr_fix.katcp_rct.sensor.corr_c856m4k_int_time.get_value()
+    #     except Exception:
+    #         int_time = dump['int_time'].value
+    #     try:
+    #         scale_factor_timestamp = self.corr_fix.katcp_rct.sensor.corr_scale_factor_timestamp.get_value()
+    #     except Exception:
+    #         scale_factor_timestamp = dump['scale_factor_timestamp'].value
     try:
-        dump = self.receiver.get_clean_dump(timeout, discard=0)
-    except Queue.Empty:
-        LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty. '
-                         'Therefore Delays not cleared')
-        return False
-    else:
-        sync_time = get_sync_epoch(self)
-        if not sync_time:
-            LOGGER.error('Digitiser sync epoch cannot be null')
-            return
+        no_fengines = self.corr_fix.katcp_rct.sensor.corr_n_fengs.get_value()
+    except Exception:
+        no_fengines = len(self.correlator.fops.fengines())
 
-        dump_1_timestamp = (sync_time + roundtrip +
-                            dump['timestamp'].value / dump['scale_factor_timestamp'].value)
-        t_apply = dump_1_timestamp + 10 * dump['int_time'].value
-        delay_coefficients = ['0,0:0,0'] * len(self.correlator.fengine_sources)
-        try:
-            reply = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-            LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % (str(reply.reply.arguments[1])))
-            return True
-        except Exception:
-            LOGGER.exception('Could not clear delays')
-            return False
+#     dump_1_timestamp = (sync_time + roundtrip +
+#                         dump['timestamp'].value / scale_factor_timestamp)
+#     t_apply = dump_1_timestamp + 10 * int_time
+
+    delay_coefficients = ['0,0:0,0'] * no_fengines
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.delays(time.time()+50, *delay_coefficients)
+        assert reply.reply_ok()
+        LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % str(reply))
+        return True
+    except Exception:
+        LOGGER.exception('Reply: %s:-> Could not clear delays' % str(reply))
+        return False
 
 
 def get_fftoverflow_qdrstatus(correlator):
@@ -406,7 +429,7 @@ def get_fftoverflow_qdrstatus(correlator):
     for fhost in fengs:
         fhosts[fhost.host] = {}
         try:
-            fhosts[fhost.host]['QDR_okay'] = fhost.qdr_okay()
+            fhosts[fhost.host]['QDR_okay'] = fhost.ct_okay()
         except Exception:
             return False
         for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
@@ -531,11 +554,9 @@ def get_and_restore_initial_eqs(test_instance, correlator):
 
     def restore_initial_equalisations():
         try:
-            for _input, _eq in initial_equalisations.iteritems():
-                if type(_eq) is list: _eq = _eq[0]
-                reply, informs = test_instance.corr_fix.katcp_rct.req.gain(_input, _eq,
-                                                                           timeout=cam_timeout)
-                assert reply.reply_ok()
+            init_eq = list(set([i for i in initial_equalisations.values()[0]]))[0]
+            reply, informs = test_instance.corr_fix.katcp_rct.req.gain_all(init_eq, timeout=cam_timeout)
+            assert reply.reply_ok()
             return True
         except Exception:
             msg = 'Failed to set gain for input %s with gain of %s' %(_input, _eq)
@@ -616,11 +637,10 @@ def set_default_eq(self):
             return False
 
     ant_inputs = get_input_labels(self)
-    eq_levels = get_eqs_levels(self)
+    eq_levels = list(set(get_eqs_levels(self)))[0]
     if ant_inputs or eq_levels:
         try:
-            for _input, _eq in zip(ant_inputs, eq_levels):
-                reply, informs = self.corr_fix.katcp_rct.req.gain(_input, _eq, timeout=cam_timeout)
+            reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_levels, timeout=cam_timeout)
             assert reply.reply_ok()
             LOGGER.info('Reset gains to default values from config file.\n')
             return True
@@ -676,12 +696,19 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
 
     sources = get_input_labels(self)
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
-    try:
-        for i, v in source_gain_dict.items():
-            LOGGER.info('Input %s gain set to %s' % (i, v))
-            reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
+    try: 
+        eq_level = list(set(source_gain_dict.values()))
+        if len(eq_level) is not 1:
+            for i, v in source_gain_dict.items():
+                LOGGER.info('Input %s gain set to %s' % (i, v))
+                reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
+                assert reply.reply_ok()
+        else:
+            eq_level = eq_level[0]
+            LOGGER.info('Inputs gain set to %s' % (eq_level))
+            reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
             assert reply.reply_ok()
-        LOGGER.info('Gains set successfully')
+        LOGGER.info('Gains set successfully: Reply:- %s' %str(reply))
         return True
     except Exception:
         LOGGER.exception('Failed to set gain for input: %s with gain of: %s' %(i, v))
@@ -908,14 +935,16 @@ def confirm_out_dest_ip(self):
     :param: Object
     :rtype: Boolean
     """
+    parse_address = StreamAddress._parse_address_string
     try:
         xhost = self.correlator.xhosts[randrange(len(self.correlator.xhosts))]
-        int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
+        int_ip = int(xhost.registers.gbe_iptx.read()['data']['reg'])
         xhost_ip = inet_ntoa(pack(">L", int_ip))
-        dest_ip = self.correlator.configd['xengine']['output_destination_ip']
+        dest_ip =  list(parse_address(self.correlator.configd['xengine']['output_destinations']))[0]
         assert dest_ip == xhost_ip
         return True
     except Exception:
+        LOGGER.exception('Failed to retrieve correlator ip address.')
         return False
 
 class TestTimeout:
@@ -945,7 +974,7 @@ class TestTimeout:
         signal.alarm(0)
 
 @contextlib.contextmanager
-def RunTestWithTimeout(test_timeout=1, errmsg='Test Timed-out'):
+def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
     """
     Context manager to execute tests with a timeout
     :param: test_timeout : int
@@ -953,9 +982,10 @@ def RunTestWithTimeout(test_timeout=1, errmsg='Test Timed-out'):
     :rtype: None
     """
     try:
-        with TestTimeout(test_timeout):
+        with TestTimeout(seconds=test_timeout):
             yield
     except Exception:
+        LOGGER.exception(errmsg)
         Aqf.failed(errmsg)
         Aqf.end(traceback=True)
 
@@ -1044,3 +1074,45 @@ class GracefullInterruptHandler(object):
         signal.signal(self.sig, self.original_handler)
         self.released = True
         return True
+
+def create_logs_directory(self):
+    """
+    Create custom `logs_instrument` directory on the test dir to store generated images
+    param: self
+    """
+    test_dir, test_name = os.path.split(os.path.dirname(
+                os.path.realpath(__file__)))
+    path = test_dir + '/logs_' + self.corr_fix.instrument
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+def dump_timestamp_param(self, xeng_raw):
+    """
+    Get all parameters you need to calculate dump time stamp.
+    param: self: object
+    param: spead: xeng_raw
+    rtype: list :- int time, scale factor timestand and sync epoch
+    """
+    try:
+        int_time = self.corr_fix.katcp_rct.sensor.corr_c856m4k_int_time.get_value()
+        LOGGER.info('Intergration time: %s via CAM int.'% int_time)
+    except Exception:
+        int_time =  this_freq_dump['int_time'].value
+        LOGGER.info('Intergration time: %s from spead dump'% int_time)
+    
+    try:
+        scale_factor_timestamp = self.corr_fix.katcp_rct.sensor.corr_scale_factor_timestamp.get_value()
+        LOGGER.info('scale_factor_timestamp: %s via CAM int.'% scale_factor_timestamp)
+    except Exception:
+        scale_factor_timestamp = this_freq_dump['scale_factor_timestamp'].value
+        LOGGER.info('scale_factor_timestamp: %s from spead dump'% scale_factor_timestamp)
+
+    try:
+        synch_epoch = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
+        LOGGER.info('synch_epoch : %s via CAM int.'% synch_epoch)        
+    except Exception:
+        synch_epoch = self.correlator.synchronisation_epoch
+        LOGGER.info('synch_epoch : %s from corr object.'% synch_epoch)        
+
+    return [int_time, scale_factor_timestamp, synch_epoch]
