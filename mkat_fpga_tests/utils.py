@@ -396,9 +396,11 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
     #     except Exception:
     #         scale_factor_timestamp = dump['scale_factor_timestamp'].value
     try:
-        no_fengines = self.corr_fix.katcp_rct.sensor.corr_n_fengs.get_value()
+        no_fengines = self.corr_fix.katcp_rct.sensor.n_fengs.get_value()
+        LOGGER.info('Retrieving number of fengines via CAM Interface: %s' %no_fengines)
     except Exception:
-        no_fengines = len(self.correlator.fops.fengines())
+        no_fengines = len(self.correlator.fops.fengines)
+        LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
 #     dump_1_timestamp = (sync_time + roundtrip +
 #                         dump['timestamp'].value / scale_factor_timestamp)
@@ -1098,21 +1100,21 @@ def dump_timestamp_param(self, xeng_raw):
         int_time = self.corr_fix.katcp_rct.sensor.corr_c856m4k_int_time.get_value()
         LOGGER.info('Intergration time: %s via CAM int.'% int_time)
     except Exception:
-        int_time =  this_freq_dump['int_time'].value
+        int_time =  xeng_raw['int_time'].value
         LOGGER.info('Intergration time: %s from spead dump'% int_time)
-    
+
     try:
         scale_factor_timestamp = self.corr_fix.katcp_rct.sensor.corr_scale_factor_timestamp.get_value()
         LOGGER.info('scale_factor_timestamp: %s via CAM int.'% scale_factor_timestamp)
     except Exception:
-        scale_factor_timestamp = this_freq_dump['scale_factor_timestamp'].value
+        scale_factor_timestamp = xeng_raw['scale_factor_timestamp'].value
         LOGGER.info('scale_factor_timestamp: %s from spead dump'% scale_factor_timestamp)
 
     try:
         synch_epoch = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
-        LOGGER.info('synch_epoch : %s via CAM int.'% synch_epoch)        
+        LOGGER.info('synch_epoch : %s via CAM int.'% synch_epoch)
     except Exception:
         synch_epoch = self.correlator.synchronisation_epoch
-        LOGGER.info('synch_epoch : %s from corr object.'% synch_epoch)        
+        LOGGER.info('synch_epoch : %s from corr object.'% synch_epoch)
 
     return [int_time, scale_factor_timestamp, synch_epoch]
