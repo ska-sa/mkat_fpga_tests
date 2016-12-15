@@ -4,7 +4,8 @@ import logging
 import time
 import casperfpga
 import corr2
-
+import atexit
+import fabric.api as fab
 from casperfpga import katcp_fpga
 from corr2 import fxcorrelator
 from corr2 import utils
@@ -15,6 +16,8 @@ from corr2.corr_rx import CorrRx
 dump_timeout = 10
 logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)-7s - %(module)-8s - %(message)s')
 logger = logging.getLogger(__name__)
+
+capture_start = True
 
 #config = os.environ['CORR2INI']
 #print 'Config file used = {}'.format(config)
@@ -55,6 +58,16 @@ logger = logging.getLogger(__name__)
 
 #xhost = correlator.xhosts[0]
 #x = correlator.xhosts[0]
+if capture_start:
+    print 'c856M4k Capture start'
+    fab.local("kcpcmd -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-start c856M4k")
+    print '\n\n'
+
+    @atexit.register
+    def Cleanup():
+        print 'c856M4k Capture stop'
+        fab.local("kcpcmd -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-stop c856M4k")
+        print '\n\n'
 try:
     receiver = CorrRx(port=8888, queue_size=5)
     corr_rx_logger = logging.getLogger("corr2.corr_rx")
