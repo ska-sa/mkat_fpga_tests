@@ -1086,6 +1086,7 @@ def create_logs_directory(self):
                 os.path.realpath(__file__)))
     path = test_dir + '/logs_' + self.corr_fix.instrument
     if not os.path.exists(path):
+        LOGGER.info('Created %s for storing images.'%path)
         os.makedirs(path)
     return path
 

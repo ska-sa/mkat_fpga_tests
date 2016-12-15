@@ -121,12 +121,13 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             sys.exit(errmsg)
         self.receiver = None
+        self.logs_path = None
         self.addCleanup(who_ran_test)
+        self.logs_path = create_logs_directory(self)
         # See: https://docs.python.org/2/library/functions.html#super
         super(test_CBF, self).setUp()
         if have_subscribed is False:
-            subscribed = self.corr_fix.subscribe_multicast
-            self.logs_path = create_logs_directory(self)
+            subscribed = self.corr_fix.subscribe_multicast            
             if subscribed:
                 have_subscribed = True
         if set_dsim_epoch is False:
@@ -2919,7 +2920,8 @@ class test_CBF(unittest.TestCase):
             # a sanity check
 
             if np.abs(freq - expected_fc) < 0.1:
-                plt_filename = '{}_overall_channel_resolution.png'.format(self._testMethodName)
+                plt_filename = '{}/{}_overall_channel_resolution.png'.format(self.logs_path, 
+                    self._testMethodName)
                 plt_title = 'Overall frequency response at {} at {:.3f}MHz.'.format(
                     test_chan, this_source_freq / 1e6)
                 max_peak = np.max(loggerise(this_freq_response))
@@ -2945,7 +2947,8 @@ class test_CBF(unittest.TestCase):
         chan_responses = np.array(chan_responses)
         df = self.corr_freqs.delta_f
 
-        plt_filename = '{}_Channel_Response.png'.format(self._testMethodName)
+        plt_filename = '{}/{}_Channel_Response.png'.format(self.logs_path, 
+            self._testMethodName)
         plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True)
         plt_caption = ('Frequency channel {} @ {}MHz response vs source frequency and '
                        'selected baseline {} / {} to test.'.format(test_chan, expected_fc / 1e6,
@@ -2964,7 +2967,7 @@ class test_CBF(unittest.TestCase):
         central_chan_test_freqs = actual_test_freqs[central_indices]
 
         # Plot channel response for central 80% of channel
-        graph_name_central = '{}_central.png'.format(self._testMethodName)
+        graph_name_central = '{}/{}_central.png'.format(self.logs_path, self._testMethodName)
         plot_data_central = loggerise(central_chan_responses[:, test_chan], dynamic_range=90,
                                       normalise=True)
 
@@ -3059,7 +3062,7 @@ class test_CBF(unittest.TestCase):
         channel_response_list = [chan_responses[:, test_chan + i - 1]
                                  for i in range(no_of_responses)]
         plot_title = 'PFB Channel Response'
-        plot_filename = '{}_adjacent_channels.png'.format(self._testMethodName)
+        plot_filename = '{}/{}_adjacent_channels.png'.format(self.logs_path, self._testMethodName)
 
         caption = ('Sample PFB central channel response between channel {} and selected baseline '
                    '{}/{},with channelisation spacing of {:.3f}kHz within tolerance of 1%, with '
@@ -3074,7 +3077,8 @@ class test_CBF(unittest.TestCase):
 
         # Plot Central PFB channel response with ylimit 0 to -6dB
         y_axis_limits = (-7, 1)
-        plot_filename = '{}_central_adjacent_channels.png'.format(self._testMethodName)
+        plot_filename = '{}/{}_central_adjacent_channels.png'.format(self.logs_path, 
+            self._testMethodName)
         plot_title = 'PFB Central Channel Response'
         caption = ('Sample PFB central channel response between channel {} and selected baseline '
                    '{}/{}, with the digitiser simulator configured to generate a continuous wave, '
@@ -3253,7 +3257,8 @@ class test_CBF(unittest.TestCase):
                 extra_peaks.append(extra_responses)
 
         for channel, channel_resp in zip(chans_to_plot, channel_response_lst):
-            plt_filename = '{}_channel_{}_resp.png'.format(self._testMethodName, channel)
+            plt_filename = '{}/{}_channel_{}_resp.png'.format(self.logs_path, 
+                self._testMethodName, channel)
 
             test_freq_mega = self.corr_freqs.chan_freqs[channel] / 1e6
             plt_title = 'Frequency response at {} @ {:.3f} MHz'.format(channel, test_freq_mega)
@@ -3491,7 +3496,8 @@ class test_CBF(unittest.TestCase):
                     plot_data = [normalised_magnitude(test_data[:, i, :])
                                  # plot_data = [loggerise(test_data[:, i, :])
                                  for i in plot_baseline_inds]
-                    plot_filename = '{}_channel_resp_{}.png'.format(self._testMethodName, inp)
+                    plot_filename = '{}/{}_channel_resp_{}.png'.format(self.logs_path, 
+                        self._testMethodName, inp)
 
                     plot_title = ('Baseline Correlation Products on input: {}\n'
                                   'Bls channel response \'Non-Zero\' inputs:\n {}\n'
@@ -3625,8 +3631,8 @@ class test_CBF(unittest.TestCase):
                 # if not Aqf.equal(dumps_comp, 1, msg):
                 if not Aqf.equals(dumps_comp, 0, msg):
                     legends = ['dump #{}'.format(x) for x in xrange(len(chan_responses))]
-                    plot_filename = ('{}_chan_resp_{}.png'.format(self._testMethodName,
-                                                                  i + 1))
+                    plot_filename = ('{}/{}_chan_resp_{}.png'.format(self.logs_path, 
+                            self._testMethodName, i + 1))
                     plot_title = 'Frequency Response {} @ {:.3f}MHz'.format(test_chan,
                                                                             this_source_freq / 1e6)
                     caption = (
@@ -3732,7 +3738,7 @@ class test_CBF(unittest.TestCase):
                                         requested_test_freqs[-1] / 1e6, expected_fc, msg))
 
                         aqf_plot_channels(zip(chan_responses, legends),
-                                          plot_filename='{}_chan_resp.png'.format(
+                                          plot_filename='{}/{}_chan_resp.png'.format(self.logs_path,
                                               self._testMethodName), caption=caption)
 
 
@@ -3787,7 +3793,7 @@ class test_CBF(unittest.TestCase):
             # a sanity check
             init_source_freq = normalised_magnitude(
                 this_freq_dump['xeng_raw'].value[:, test_baseline, :])
-            filename = '{}_channel_response.png'.format(self._testMethodName)
+            filename = '{}/{}_channel_response.png'.format(self.logs_path, self._testMethodName)
             title = ('Frequency response at {} @ {:.3f} MHz.\n'.format(test_chan,
                                                                          expected_fc / 1e6))
             caption = ('An overall frequency response at the centre frequency.')
@@ -3936,7 +3942,7 @@ class test_CBF(unittest.TestCase):
 
             if not Aqf.less(diff_scans_comp, threshold, msg):
                 legends = ['Channel Response #{}'.format(x) for x in xrange(len(channel_responses))]
-                plot_filename = '{}_chan_resp.png'.format(self._testMethodName)
+                plot_filename = '{}/{}_chan_resp.png'.format(self.logs_path, self._testMethodName)
                 caption = ('Check that results are consistent on CBF restart')
                 plot_title = ('CBF restart consistency channel response {}'.format(test_chan))
                 aqf_plot_channels(zip(channel_responses, legends), plot_filename, plot_title,
@@ -4043,7 +4049,8 @@ class test_CBF(unittest.TestCase):
                 caption = ('Actual and expected Unwrapped Correlation Phase [Delay tracking].\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD accumulation.')
-                plot_filename = '{}_phase_response.png'.format(self._testMethodName)
+                plot_filename = '{}/{}_phase_response.png'.format(self.logs_path, 
+                    self._testMethodName)
                 plot_units = 'secs'
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
@@ -4057,7 +4064,7 @@ class test_CBF(unittest.TestCase):
                 for i, delay in enumerate(test_delays):
                     delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
                     delta_expected = np.max(expected_phases_[i]) - np.min(
-                        expected_phases_[i])              
+                        expected_phases_[i])
                     abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
                     # abs_diff = np.abs(delta_expected - delta_actual)
                     msg = ('[CBF-REQ-0128, 0187] Check that if difference expected({:.5f}) '
@@ -4095,8 +4102,8 @@ class test_CBF(unittest.TestCase):
                         else:
                             expected_phases_i = (delta_expected, expected_phases[i])
                         aqf_plot_phase_results(no_chans, actual_phases_i, expected_phases_i,
-                                               plot_filename='{}_{}_phase_resp.png'.format(
-                                                    self._testMethodName, i),
+                                               plot_filename='{}/{}_{}_phase_resp.png'.format(
+                                                    self.logs_path, self._testMethodName, i),
                                                plot_title=('Delay offset:\n'
                                                            'Actual vs Expected Phase Response'),
                                                plot_units=plot_units, caption=caption)
@@ -4682,8 +4689,9 @@ class test_CBF(unittest.TestCase):
                                                                               test_freq / 1e6,
                                                                               cw_scale))
 
-                    plot_filename = ('{}_chan_resp_{}_acc.png'.format(self._testMethodName,
-                                                                      int(vacc_accumulations)))
+                    plot_filename = ('{}/{}_chan_resp_{}_acc.png'.format(self.logs_path, 
+                                                                         self._testMethodName,
+                                                                         int(vacc_accumulations)))
                     plot_title = ('Vector Accumulation Length: channel {}'.format(test_freq_channel))
                     msg = ('[CBF-REQ-0096, 0103] Check that the accumulator actual response is '
                            'equal to the expected response for {} accumulation length'.format(
@@ -5015,7 +5023,8 @@ class test_CBF(unittest.TestCase):
             no_chans = range(self.corr_freqs.n_chans)
             plot_units = 'ns/s'
             plot_title = 'Randomly generated delay rate {} {}'.format(delay_rate * 1e9, plot_units)
-            plot_filename = '{}_phase_response.png'.format(self._testMethodName)
+            plot_filename = '{}/{}_phase_response.png'.format(self.logs_path, 
+                self._testMethodName)
             caption = ('Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n'
                        'Note: Dashed line indicates expected value and solid line indicates '
                        'actual values received from SPEAD accumulation.')
@@ -5079,7 +5088,8 @@ class test_CBF(unittest.TestCase):
                             expected_phases_i = (delta_expected, expected_phases[i])
                         aqf_plot_phase_results(
                             no_chans, actual_phases_i, expected_phases_i,
-                            plot_filename='{}_{}_phase_resp.png'.format(self._testMethodName, i),
+                            plot_filename='{}/{}_{}_phase_resp.png'.format(self.logs_path, 
+                                self._testMethodName, i),
                             plot_title='Delay Rate:\nActual vs Expected Phase Response',
                             plot_units=plot_units, caption=caption, )
 
@@ -5127,7 +5137,8 @@ class test_CBF(unittest.TestCase):
                 plot_units = 'rads/sec'
                 plot_title = 'Randomly generated fringe rate {} {}'.format(fringe_rate,
                                                                            plot_units)
-                plot_filename = '{}_phase_response.png'.format(self._testMethodName)
+                plot_filename = '{}/{}_phase_response.png'.format(self.logs_path, 
+                    self._testMethodName)
                 caption = ('Actual vs Expected Unwrapped Correlation Phase [Fringe Rate].\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD accumulation.')
@@ -5185,7 +5196,8 @@ class test_CBF(unittest.TestCase):
 
                         aqf_plot_phase_results(
                             no_chans, actual_phases_i, expected_phases_i,
-                            plot_filename='{}_{}_phase_resp.png'.format(self._testMethodName, i),
+                            plot_filename='{}_{}_phase_resp.png'.format(self.logs_path, 
+                                self._testMethodName, i),
                             plot_title='Fringe Rate: Actual vs Expected Phase Response',
                             plot_units=plot_units, caption=caption, )
 
@@ -5232,7 +5244,8 @@ class test_CBF(unittest.TestCase):
                 plot_units = 'rads'
                 plot_title = 'Randomly generated fringe offset {:.3f} {1}'.format(
                     fringe_offset, plot_units)
-                plot_filename = '{}_phase_response.png'.format(self._testMethodName)
+                plot_filename = '{}/{}_phase_response.png'.format(self.logs_path, 
+                    self._testMethodName)
                 caption = ('Actual vs Expected Unwrapped Correlation Phase [Fringe Offset].\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD accumulation. '
@@ -5291,7 +5304,8 @@ class test_CBF(unittest.TestCase):
                             expected_phases_i = (delta_expected, expected_phases[i])
                         aqf_plot_phase_results(
                             no_chans, actual_phases_i, expected_phases_i,
-                            plot_filename='{}_{}_phase_resp.png'.format(self._testMethodName, i),
+                            plot_filename='{}/{}_{}_phase_resp.png'.format(self.logs_path, 
+                                self._testMethodName, i),
                             plot_title=('Fringe Offset:\nActual vs Expected Phase Response'),
                             plot_units=plot_units, caption=caption, )
 
@@ -5353,7 +5367,8 @@ class test_CBF(unittest.TestCase):
                 plot_title = ('Randomly generated \n delay offset: {}, delay rate: {}, '
                               '\nfringe rate: {}, fringe offset: {}rads'.format(
                     delay_value, delay_rate, fringe_offset, fringe_rate))
-                plot_filename = '{}_phase_response.png'.format(self._testMethodName)
+                plot_filename = '{}/{}_phase_response.png'.format(self.logs_path, 
+                    self._testMethodName)
                 caption = ('Actual vs Expected Unwrapped Correlation Phase.\n'
                            'Note: Dashed line indicates expected value and solid line '
                            'indicates actual values received from SPEAD accumulation.')
@@ -5805,7 +5820,8 @@ class test_CBF(unittest.TestCase):
                 legends = ['SPEAD accumulations per Baseline #{}'.format(x)
                            for x in xrange(len(chan_response))]
                 aqf_plot_channels(zip(chan_response, legends),
-                                  plot_filename='{}_chan_resp.png'.format(self._testMethodName),
+                                  plot_filename='{}/{}_chan_resp.png'.format(self.logs_path, 
+                                        self._testMethodName),
                                   plot_title='Channel Response Phase Offsets Found',
                                   log_dynamic_range=90, log_normalise_to=1,
                                   caption='Delay applied to the correct input')
@@ -5860,7 +5876,7 @@ class test_CBF(unittest.TestCase):
             if response.shape[0] == no_channels:
                 Aqf.passed('Confirm that imaging data product set has been '
                            'implemented for instrument: {}.'.format(instrument))
-                plot_filename = '{}.png'.format(self._testMethodName)
+                plot_filename = '{}/{}.png'.format(self.logs_path, self._testMethodName)
 
                 caption = ('An overall frequency response at {} baseline, '
                            'when digitiser simulator is configured to generate Gaussian noise, '
@@ -5948,7 +5964,8 @@ class test_CBF(unittest.TestCase):
                 # power data
                 aqf_plot_channels(
                     np.square(cap_avg),
-                    plot_filename='{}_beam_resp_{}.png'.format(self._testMethodName, beam),
+                    plot_filename='{}/{}_beam_resp_{}.png'.format(self.logs_path, 
+                        self._testMethodName, beam),
                     plot_title=('Beam = {}, Passband = {} MHz\nCentre Frequency = {} MHz'
                                 '\nIntegrated over {} captures'.format(beam, pb / 1e6, cf / 1e6, nc)),
                     log_dynamic_range=90, log_normalise_to=1,
@@ -6045,10 +6062,10 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
 
+            #test_input = get_input_labels(self)[0]
             test_input = [input_source[0]
                           for input_source in initial_dump['input_labelling'].value][source]
             Aqf.step('Randomly selected input {}'.format(test_input))
-
             # Get auto correlation index of the selected input
             bls_order = initial_dump['bls_ordering'].value
             for idx, val in enumerate(bls_order):
@@ -6131,8 +6148,9 @@ class test_CBF(unittest.TestCase):
             if chan_resp != []:
                 zipped_data = zip(chan_resp, legends)
                 zipped_data.reverse()
+                print self.logs_path
                 aqf_plot_channels(zipped_data,
-                                  plot_filename='{}_chan_resp.png'.format(
+                                  plot_filename='{}/{}_chan_resp.png'.format(self.logs_path, 
                                       self._testMethodName),
                                   plot_title='Channel Response Gain Correction for channel {}'.format(
                                       rand_ch),
@@ -6482,7 +6500,8 @@ class test_CBF(unittest.TestCase):
             # Square the voltage data. This is a hack as aqf_plot expects squared
             # power data
             aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                              plot_filename='{}_chan_resp_{}.png'.format(self._testMethodName, beam),
+                              plot_filename='{}/{}_chan_resp_{}.png'.format(self.logs_path, 
+                                self._testMethodName, beam),
                               plot_title=('Beam = {}, Passband = {} MHz\nCenter Frequency = {} MHz'
                                           '\nIntegrated over {} captures'.format(beam, pb / 1e6,
                                                                                  cf / 1e6, nc)),
@@ -6513,7 +6532,8 @@ class test_CBF(unittest.TestCase):
             # Square the voltage data. This is a hack as aqf_plot expects squared
             # power data
             aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                              plot_filename='{}_level_adjust_after_bf_{}.png'.format(self._testMethodName, beam),
+                              plot_filename='{}/{}_level_adjust_after_bf_{}.png'.format(self.logs_path, 
+                                self._testMethodName, beam),
                               plot_title=('Beam = {}, Passband = {} MHz\nCentre Frequency = {} MHz'
                                           '\nIntegrated over {} captures'.format(beam, pb / 1e6,
                                                                                  cf / 1e6, nc)),
@@ -6790,7 +6810,8 @@ class test_CBF(unittest.TestCase):
         p_std = np.std(adc_data)
         p_levels = p_std * 512
         aqf_plot_histogram(adc_data,
-                           plot_filename='{}_adc_hist_{}.png'.format(self._testMethodName, inp),
+                           plot_filename='{}/{}_adc_hist_{}.png'.format(self.logs_path, 
+                                self._testMethodName, inp),
                            plot_title=(
                                'ADC Histogram for input {}\nNoise Profile: '
                                'Std Dev: {:.3f} equates to {:.1f} levels '
@@ -6802,7 +6823,8 @@ class test_CBF(unittest.TestCase):
                            bins=256, ranges=(-1, 1))
         p_std = np.std(quant_snap)
         aqf_plot_histogram(np.abs(quant_snap),
-                           plot_filename='{}_quant_hist_{}.png'.format(self._testMethodName, inp),
+                           plot_filename='{}/{}_quant_hist_{}.png'.format(self.logs_path, 
+                                self._testMethodName, inp),
                            plot_title=('Quantiser Histogram for input {}\n '
                                        'Standard Deviation: {:.3f}'.format(inp, p_std)),
                            caption='Quantiser histogram for beamformer efficiency test, '
@@ -6823,8 +6845,8 @@ class test_CBF(unittest.TestCase):
         beam_dict = self._populate_beam_dict(1, weight, beam_dict)
         try:
             bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
-                                                                             beam_dict, 
-                                                                             target_pb, 
+                                                                             beam_dict,
+                                                                             target_pb,
                                                                              target_cfreq,
                                                                              capture_time=0.3)
         except TypeError, e:
@@ -6856,7 +6878,8 @@ class test_CBF(unittest.TestCase):
         eff = 1 / ((ch_std / ch_mean) * sqrt_bw_at)
         Aqf.step('Beamformer mean efficiency for {} channels = {:.2f}%'
                  ''.format(nr_ch, 100 * eff.mean()))
-        plt_filename = '{}_beamformer_efficiency.png'.format(self._testMethodName)
+        plt_filename = '{}/{}_beamformer_efficiency.png'.format(self.logs_path, 
+            self._testMethodName)
         plt_title = ('Beamformer Efficiency per Channel\n '
                      'Mean Efficiency = {:.2f}%'.format(100 * eff.mean()))
         caption = ('Beamformer efficiency per channel calculated over {} samples '
@@ -7371,7 +7394,7 @@ class test_CBF(unittest.TestCase):
                     found = True
             Aqf.step('Digitiser simulator CW scale set to {:.3f}.'.format(scale))
             aqf_plot_histogram(adc_data,
-                               plot_filename='adc_hist_{}.png'.format(inp),
+                               plot_filename='{}/adc_hist_{}.png'.format(self.logs_path, inp),
                                plot_title=(
                                    'ADC Histogram for input {}\nAdded Noise Profile: '
                                    'Std Dev: {:.3f} equates to {:.1f} bits '
@@ -7381,7 +7404,7 @@ class test_CBF(unittest.TestCase):
 
         else:
             aqf_plot_histogram(adc_data,
-                               plot_filename='adc_hist_{}.png'.format(inp),
+                               plot_filename='{}/adc_hist_{}.png'.format(self.logs_path, inp),
                                plot_title=(
                                    'ADC Histogram for input {}\n Standard Deviation: {:.3f} equates '
                                    'to {:.1f} bits toggling'.format(inp, p_std, p_bits)),
@@ -7514,7 +7537,7 @@ class test_CBF(unittest.TestCase):
             plt.xlabel('Quantiser Gain')
             plt.legend(loc='upper left')
             caption = 'CW Channel Response for Quantiser Gain'
-            plot_filename = 'cw_ch_response_{}.png'.format(inp)
+            plot_filename = '{}/cw_ch_response_{}.png'.format(self.logs_path, inp)
             Aqf.matplotlib_fig(plot_filename, caption=caption)
         else:
             # Set quantiser gain for selected input to produces required
@@ -7602,7 +7625,7 @@ class test_CBF(unittest.TestCase):
             else:
                 dval = dump['xeng_raw'].value
                 auto_corr = dval[:, inp_autocorr_idx, :]
-                plot_filename = 'spectrum_plot_{}.png'.format(key)
+                plot_filename = '{}/spectrum_plot_{}.png'.format(self.logs_path, key)
                 plot_title = ('Spectrum for Input {}\n'
                               'Quantiser Gain: {}'.format(key, gain_str))
                 caption = 'Spectrum for CW input'
@@ -7611,7 +7634,8 @@ class test_CBF(unittest.TestCase):
                                   plot_title=plot_title, caption=caption, show=True)
         else:
             p_std = np.std(data)
-            aqf_plot_histogram(np.abs(data), plot_filename='quant_hist_{}.png'.format(key),
+            aqf_plot_histogram(np.abs(data), 
+                               plot_filename='{}/quant_hist_{}.png'.format(self.logs_path, key),
                                plot_title=('Quantiser Histogram for input {}\n '
                                            'Standard Deviation: {:.3f},'
                                            'Quantiser Gain: {}'.format(key, p_std, gain_str)),
@@ -7686,7 +7710,8 @@ class test_CBF(unittest.TestCase):
         p_std = np.std(adc_data)
         p_levels = p_std * 512
         aqf_plot_histogram(adc_data,
-                           plot_filename='{}_adc_hist_{}.png'.format(self._testMethodName, inp),
+                           plot_filename='{}/{}_adc_hist_{}.png'.format(self.logs_path, 
+                                self._testMethodName, inp),
                            plot_title=('ADC Histogram for input {}\nNoise Profile: '
                                        'Std Dev: {:.3f} equates to {:.1f} levels '
                                        'toggling.'.format(inp, p_std, p_levels)),
@@ -7698,7 +7723,8 @@ class test_CBF(unittest.TestCase):
                            bins=256, ranges=(-1, 1))
         p_std = np.std(quant_snap)
         aqf_plot_histogram(np.abs(quant_snap),
-                           plot_filename='{}_quant_hist_{}.png'.format(self._testMethodName, inp),
+                           plot_filename='{}/{}_quant_hist_{}.png'.format(self.logs_path, 
+                                self._testMethodName, inp),
                            plot_title=('Quantiser Histogram for input {}\n '
                                        'Standard Deviation: {:.3f}'.format(inp, p_std)),
                            caption=('Quantiser histogram for correlator efficiency test, '
@@ -7770,7 +7796,8 @@ class test_CBF(unittest.TestCase):
         Aqf.more(eff.mean(), expected_eff, 'Mean channel efficiency is {:.2f}%'.format(
             100 * eff.mean()))
 
-        plt_filename = '{}_correlator_efficiency.png'.format(self._testMethodName)
+        plt_filename = '{}/{}_correlator_efficiency.png'.format(self.logs_path, 
+            self._testMethodName)
         plt_title = ('Correlator Efficiency per Channel\n '
                      'Mean Efficiency is {:.2f}%'.format(100 * eff.mean()))
         caption = ('Correlator efficiency per channel calculated over {} samples '
@@ -7848,9 +7875,10 @@ class test_CBF(unittest.TestCase):
             cw_freq_found, cw_freq, ch_bw))
         Aqf.almost_equals(cw_freq_found, cw_freq, ch_bw, msg)
         aqf_plot_channels(np.log10(fft_pos),
-                          plot_filename='{}_fft_{}.png'.format(self._testMethodName, label),
+                          plot_filename='{}/{}_fft_{}.png'.format(self.logs_path, 
+                                self._testMethodName, label),
                           plot_title=('Input Frequency = {} Hz\nMeasured Frequency at FFT bin {} '
-                                      '= {}Hz'.format(cw_freq, cw_chan, cw_freq_found)), 
+                                      '= {}Hz'.format(cw_freq, cw_chan, cw_freq_found)),
                           log_dynamic_range=None,
                           caption=('FFT of captured small voltage buffer. {} voltage points captured '
                                    'on input {}. Input bandwidth = {}Hz'.format(fft_len, label, bw)),
