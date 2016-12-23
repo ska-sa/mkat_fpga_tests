@@ -36,7 +36,7 @@ from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 from mkat_fpga_tests import correlator_fixture
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
-from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
+from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results, aqf_plot_xy
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
 from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style, get_hosts_status
 from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip
@@ -50,6 +50,7 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 from mkat_fpga_tests.utils import get_local_src_names, get_input_labels, get_sync_epoch
+from mkat_fpga_tests.utils import magnetise
 from nosekatreport import Aqf, aqf_vr
 from nose.plugins.attrib import attr
 from power_logger import PowerLogger
@@ -7646,8 +7647,10 @@ class test_CBF(unittest.TestCase):
         if self.set_instrument(instrument):
             Aqf.step('Setting and checking Digitiser simulator input levels: {}\n'.format(
                 self.corr_fix.get_running_instrument()))
-            self._set_input_levels_and_gain(profile='noise', cw_freq=100000, cw_margin=0.3,
-                                            trgt_bits=4, trgt_q_std=0.30, fft_shift=511)
+
+            ch_list = self.corr_freqs.chan_freqs
+            self._set_input_levels_and_gain(profile='noise', cw_freq=ch_list[1000], cw_margin=0.4,
+                                            trgt_bits=0.5, trgt_q_std=0.30, fft_shift=8191)
 
     def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,
                                    cw_margin=0.05, trgt_bits=3.5,
@@ -8050,9 +8053,9 @@ class test_CBF(unittest.TestCase):
                 plot_title = ('Spectrum for Input {}\n'
                               'Quantiser Gain: {}'.format(key, gain_str))
                 caption = 'Spectrum for CW input'
-                aqf_plot_channels(10 * np.log10(auto_corr[:, 0]),
+                aqf_plot_channels(auto_corr[:, 0],
                                   plot_filename=plot_filename,
-                                  plot_title=plot_title, caption=caption, show=True)
+                                  plot_title=plot_title, caption=caption)
         else:
             p_std = np.std(data)
             aqf_plot_histogram(np.abs(data), plot_filename='quant_hist_{}.png'.format(key),
@@ -8298,3 +8301,235 @@ class test_CBF(unittest.TestCase):
                           caption=('FFT of captured small voltage buffer. {} voltage points captured '
                                    'on input {}. Input bandwidth = {}Hz'.format(fft_len, label, bw)),
                           xlabel='FFT bins')
+
+
+    def _test_bc8n856M4k_linearity(self, instrument='bc8n856M4k'):
+        """Linearity Test (bc8n856M4k)
+        Step noise dithered CW and plot output power
+        """
+        if self.set_instrument(instrument, acc_time=0.2):
+            Aqf.step('Determining CBF linearity: {}\n'.format(
+                self.corr_fix.get_running_instrument()))
+            nr_ch = self.corr_freqs.n_chans
+            self._linearity(test_channel=100, 
+                            cw_start_scale = 1,
+                            noise_scale = 0.001,
+                            gain = '10+j', 
+                            fft_shift = 8191,
+                            max_steps = 20)
+
+    def _linearity(self, test_channel, cw_start_scale, noise_scale, gain, fft_shift, max_steps):
+        
+        ch_list = self.corr_freqs.chan_freqs
+        def get_cw_val(cw_scale,noise_scale,gain,fft_shift,test_channel,inp):
+            Aqf.step('Digitiser simulator configured to generate a continuous wave, '
+                     'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
+                                                                                            noise_scale,
+                                                                                            gain,
+                                                                                            fft_shift))
+            dsim_set_success = set_input_levels(self, awgn_scale=noise_scale, cw_scale=cw_scale,
+                                                freq=ch_list[test_channel]+50000, fft_shift=fft_shift, gain=gain)
+            if not dsim_set_success:
+                Aqf.failed('Failed to configure digitise simulator levels')
+                return False
+
+            try:
+                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+            except Queue.Empty:
+                errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+            try:
+                baseline_lookup = get_baselines_lookup(dump)
+                # Choose baseline for phase comparison
+                baseline_index = baseline_lookup[(inp, inp)]
+            except KeyError:
+                Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
+                           'ordering format.')
+                return False
+            data = dump['xeng_raw'].value
+            freq_response = complexise(data[:, baseline_index, :])
+            return 10*np.log10(np.abs(freq_response[test_channel]))
+
+        Aqf.hop('Requesting input labels.')
+        try:
+            # Build dictionary with inputs and
+            # which fhosts they are associated with.
+            reply, informs = self.corr_fix.katcp_rct.req.input_labels()
+            if reply.reply_ok():
+                inp = reply.arguments[1:][0]
+        except Exception as ex:
+            print ex
+            Aqf.failed('Failed to get input lables. KATCP Reply: {}'.format(reply))
+            return False
+        Aqf.hop('Sampling input {}'.format(inp))
+        cw_scale = cw_start_scale
+        cw_delta = 0.1
+        threshold = 10*np.log10(pow(2,30))
+        curr_val = threshold
+        Aqf.hop('Finding starting cw input scale...')
+        max_cnt = max_steps
+        while (curr_val >= threshold) and max_cnt:
+            prev_val = curr_val
+            curr_val = get_cw_val(cw_scale,noise_scale,gain,fft_shift,test_channel,inp)
+            cw_scale -= cw_delta
+            if cw_scale < 0:
+                max_cnt = 0
+                cw_scale = 0
+            else:
+                max_cnt -= 1
+        cw_start_scale = cw_scale + cw_delta
+        Aqf.hop('Starting cw input scale set to {}'.format(cw_start_scale))
+        cw_scale = cw_start_scale
+        output_power = []
+        x_val_array = []
+        # Find closes point to this power to place linear expected line.
+        exp_step = 6
+        exp_y_lvl = 70
+        exp_y_dlt = exp_step/2
+        exp_y_lvl_lwr = exp_y_lvl-exp_y_dlt
+        exp_y_lvl_upr = exp_y_lvl+exp_y_dlt
+        exp_y_val = 0
+        exp_x_val = 0
+        min_cnt_val = 3
+        min_cnt = min_cnt_val
+        max_cnt = max_steps
+        while min_cnt and max_cnt:
+            curr_val = get_cw_val(cw_scale,noise_scale,gain,fft_shift,test_channel,inp)
+            if exp_y_lvl_lwr < curr_val < exp_y_lvl_upr:
+                exp_y_val = curr_val
+                exp_x_val = 20*np.log10(cw_scale)
+            step = curr_val-prev_val
+            if np.abs(step) < 0.2 or curr_val < 0:
+                min_cnt -= 1
+            else:
+                min_cnt = min_cnt_val
+            x_val_array.append(20*np.log10(cw_scale))
+            Aqf.step('CW power = {}dB, Step = {}dB, channel = {}'.format(curr_val, step, test_channel))
+            prev_val=curr_val
+            output_power.append(curr_val)
+            cw_scale = cw_scale/2
+            max_cnt -= 1
+
+        plt_filename = '{}_cbf_response_{}_{}_{}.png'.format(self._testMethodName,gain,noise_scale,cw_start_scale)
+        plt_title = 'CBF Response (Linearity Test)'
+        caption = ('Digitiser Simulator start scale: {}, end scale: {}. Scale '
+                   'halved for every step. FFT Shift: {}, Quantiser Gain: {}, '
+                   'Noise scale: {}'.format(cw_start_scale, cw_scale*2, fft_shift, 
+                                            gain, noise_scale))
+        m = 1
+        c = exp_y_val - m*exp_x_val
+        y_exp = []
+        for x in x_val_array:
+            y_exp.append(m*x + c)
+        aqf_plot_xy(zip(([x_val_array,output_power],[x_val_array,y_exp]),['Response','Expected']), 
+                     plt_filename, plt_title, caption, 
+                     xlabel='Input Power [dB]',
+                     ylabel='Integrated Output Power [dB]')
+        Aqf.end(passed=True, message='TBD')
+
+    def _test_bc8n856M4k_dsim_linearity(self, instrument='bc8n856M4k'):
+        """DSIM Linearity Test (bc8n856M4k)
+        Step noise dithered CW and plot power obtained from ADC snapblocks
+        """
+        if self.set_instrument(instrument, acc_time=0.2):
+            Aqf.step('Determining DSIM linearity: {}\n'.format(
+                self.corr_fix.get_running_instrument()))
+            nr_ch = self.corr_freqs.n_chans
+            self._dsim_linearity(test_channel=100,
+                                 adc_snaps = 1,
+                                 num_samples = 16,
+                                 cw_start_scale = 1,
+                                 noise_scale = 0.001)
+
+    def _dsim_linearity(self, test_channel, adc_snaps, num_samples, cw_start_scale, noise_scale):
+        Aqf.hop('Requesting input labels.')
+        try:
+            # Build dictionary with inputs and
+            # which fhosts they are associated with.
+            reply, informs = self.corr_fix.katcp_rct.req.input_labels()
+            if reply.reply_ok():
+                inp = reply.arguments[1:][0]
+        except Exception as ex:
+            print ex
+            Aqf.failed('Failed to get input lables. KATCP Reply: {}'.format(reply))
+            return False
+        Aqf.hop('Sampling input {}'.format(inp))
+        ch_list = self.corr_freqs.chan_freqs
+
+        gain = '14+0j'
+        fft_shift = 8191
+
+        cw_scale = cw_start_scale
+        prev_val=0
+        output_power = []
+        x_val_array = []
+        # Find closes point to this power to place linear expected line.
+        exp_y_lvl = 60
+        exp_y_dlt = 6/2
+        exp_y_lvl_lwr = exp_y_lvl-exp_y_dlt
+        exp_y_lvl_upr = exp_y_lvl+exp_y_dlt
+        exp_y_val = 0
+        exp_x_val = 0
+
+        for i in range(0,num_samples):
+
+            Aqf.step('Digitiser simulator configured to generate a continuous wave, '
+                     'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
+                                                                                            noise_scale,
+                                                                                            gain,
+                                                                                            fft_shift))
+            dsim_set_success = set_input_levels(self, awgn_scale=noise_scale, cw_scale=cw_scale,
+                                                freq=ch_list[test_channel], fft_shift=fft_shift, gain=gain)
+            if not dsim_set_success:
+                Aqf.failed('Failed to configure digitise simulator levels')
+                return False
+
+            fft_data_array = []
+            for i in range(0,adc_snaps):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct.req.adc_snapshot(inp)
+                except Exception as ex:
+                    Aqf.failed('Failed to grab adc snapshot: {}'.format(ex))
+                    return False
+                if reply.reply_ok():
+                    msg = informs[0]
+                    adc_data = msg.arguments[1]
+                    adc_data = adc_data[1:-1]
+                    adc_data = map(float,adc_data.split(','))
+                    chans = len(adc_data)/2
+                    fft_data = np.asarray(20*np.log10(np.abs(np.fft.fft(adc_data)))[0:chans])
+                    fft_data_array.append(fft_data)
+                    Aqf.step('ADC Snapshot cpatured, CW power = {}dB'.format(np.max(fft_data)))
+                else:
+                    Aqf.failed('Could not get adc snapshot, error message: {}'.format(reply))
+                    return False
+
+            fft_data = np.sum(fft_data_array, axis=0)
+            fft_data = fft_data/adc_snaps
+            curr_val = np.max(fft_data)
+            if exp_y_lvl_lwr < curr_val < exp_y_lvl_upr:
+                exp_y_val = curr_val
+                exp_x_val = 20*np.log10(cw_scale)
+            x_val_array.append(20*np.log10(cw_scale))
+            Aqf.step('CW power = {}dB, Step = {}dB, channel = {}'.format(curr_val, curr_val-prev_val, np.argmax(fft_data)))
+            prev_val=curr_val
+            output_power.append(curr_val)
+            cw_scale = cw_scale/2
+
+        plt_filename = '{}_cbf_response.png'.format(self._testMethodName)
+        plt_title = 'DSIM Response (Linearity Test)'
+        caption = ('Digitiser Simulator start scale: {}, end scale: {}. Scale '
+                   'halved for every step. Noise scale: {}. Number of ADC '
+                   'snapshots captured for each measurement: {}'
+                   .format(cw_start_scale, cw_scale*2, noise_scale, adc_snaps))
+        m = 1
+        c = exp_y_val - m*exp_x_val
+        y_exp = []
+        for x in x_val_array:
+            y_exp.append(m*x + c)
+        aqf_plot_xy(zip(([x_val_array,output_power],[x_val_array,y_exp]),['Response','Expected']), 
+                     plt_filename, plt_title, caption, 
+                     xlabel='Input Power [dB]',
+                     ylabel='Integrated Output Power [dB]')
+        Aqf.end(passed=True, message='TBD')

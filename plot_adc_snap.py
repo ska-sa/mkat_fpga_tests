@@ -3,9 +3,11 @@ from mkat_fpga_tests import correlator_fixture
 from optparse import OptionParser
 import matplotlib.pyplot as plt
 import numpy as np
-import logging, os
+import logging, os, sys
 from corr2 import utils
+import mkat_fpga_tests
 
+logging.basicConfig(filename='plot_adc_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)-7s - %(module)-8s - %(message)s')
 LOGGER = logging.getLogger(__name__)
 
 if __name__ == "__main__":
@@ -31,12 +33,22 @@ if __name__ == "__main__":
     else:
         config = os.environ['CORR2INI']
 
-    instrument = config[config.find('bc'):]
+    idx = config.find('bc')
+    if idx != -1:
+        instrument = config[idx:]
+    else:
+        print ('Config file specified incorrect: {}'.format(config))
+        quit()
     corr_fix = correlator_fixture
     conf_file = corr_fix.test_config
+    if not conf_file:
+        print ('corr_fix.test_config returned False')
+        quit()
     conf = conf_file['inst_param']
+    corr_fix.instrument = instrument
     corr_fix.array_name = conf['subarray']
     corr_fix.resource_clt = conf['katcp_client']
+    print('Checking that instrument {} is active.'.format(instrument)) 
     instrument_state = corr_fix.ensure_instrument(instrument)
     if not instrument_state:
         errmsg = ('Could not initialise instrument or ensure running instrument: {}'.format(
@@ -55,6 +67,7 @@ if __name__ == "__main__":
             parser.error('Specify an input polarisation (x or y)')
     else:
         print ('Could not get input labels, error message: {}'.format(reply))
+        mkat_fpga_tests.teardown_package()
         quit()
     reply,informs = corr_fix.katcp_rct.req.adc_snapshot(inp)
     if reply.reply_ok():
@@ -62,17 +75,19 @@ if __name__ == "__main__":
         adc_data = msg.arguments[1]
         adc_data = adc_data[1:-1]
         adc_data = map(float,adc_data.split(','))
-    if opts.raw:
-        plt.figure()
-        plt.plot(adc_data)
-    if opts.hist:
-        plt.figure()
-        plt.hist(adc_data, bins=256, range=(-1,1))
-    if opts.fft:
-        plt.figure()
-        chans = len(adc_data)/2
-        plt.plot(np.log10(np.abs(np.fft.fft(adc_data)))[0:chans])
-    plt.show()
+        if opts.raw:
+            plt.figure()
+            plt.plot(adc_data)
+        if opts.hist:
+            plt.figure()
+            plt.hist(adc_data, bins=256, range=(-1,1))
+        if opts.fft:
+            plt.figure()
+            chans = len(adc_data)/2
+            plt.plot(np.log10(np.abs(np.fft.fft(adc_data)))[0:chans])
+        plt.show()
+    mkat_fpga_tests.teardown_package()
+    #corr_fix.katcp_rct.stop()
 
 
 

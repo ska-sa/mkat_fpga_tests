@@ -42,12 +42,14 @@ Stored as a tuples of (callable, args, kwargs)
 timeout = 30
 
 def add_cleanup(_fn, *args, **kwargs):
+    print ('Adding function to cleanup_list: {}'.format(_fn))
     _cleanups.append((_fn, args, kwargs))
 
 def teardown_package():
     while _cleanups:
         _fn, args, kwargs = _cleanups.pop()
         try:
+            print ('function: {}'.format(_fn))
             _fn(*args, **kwargs)
         except:
             LOGGER.exception('Exception calling cleanup fn')
@@ -97,7 +99,7 @@ class CorrelatorFixture(object):
             LOGGER.info('Cleanup function \'self._rct\': File: %s line: %s' % (
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
-            add_cleanup(self._rct.stop)
+            #add_cleanup(self._rct.stop)
             try:
                 self._rct.until_synced(timeout=timeout)
             except TimeoutError:
@@ -263,7 +265,7 @@ class CorrelatorFixture(object):
             LOGGER.info('Cleanup function \'self._katcp_rct\': File: %s line: %s' % (
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
-            # add_cleanup(self._katcp_rct.stop)
+            #add_cleanup(self._katcp_rct.stop)
         else:
             self._katcp_rct.start()
             try:
@@ -571,8 +573,9 @@ class CorrelatorFixture(object):
         Configuration file containing information such as dsim, pdu and dataswitch ip's
         return: Dict
         """
-        path, _none = os.path.split(__file__)
-        path, _none = os.path.split(path)
+        from os.path import dirname
+        abspath = os.path.abspath(__file__)
+        path = dirname(dirname(abspath))
         try:
             assert os.uname()[1].startswith('dbelab')
         except AssertionError:

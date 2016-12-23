@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from mkat_fpga_tests import correlator_fixture
+from mkat_fpga_tests import correlator_fixture, teardown_package
 from optparse import OptionParser
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,8 +40,12 @@ if __name__ == "__main__":
         errmsg = ('Could not initialise instrument or ensure running instrument: {}'.format(
                                                                                     instrument))
         print errmsg
+        teardown_package()
         quit()
-    reply, informs = corr_fix.katcp_rct.req.input_labels()
+    try:
+        reply, informs = corr_fix.katcp_rct.req.input_labels()
+    except Exception as ex:
+        print('Failed to get input labels: {}'.format(ex))
     if reply.reply_ok():
         inputs = reply.arguments[1:]
         found = False
@@ -53,20 +57,25 @@ if __name__ == "__main__":
             parser.error('Specify an input polarisation (x or y)')
     else:
         print ('Could not get input labels, error message: {}'.format(reply))
+        teardown_package()
         quit()
 
     try:
         reply, informs = corr_fix.katcp_rct.req.quantiser_snapshot(inp)
-    except Exception:
-        Aqf.failed('Failed to grab quantiser snapshot.')
-    quant_snap = [eval(v) for v in (reply.arguments[2:])]
-    if opts.raw:
-        plt.figure()
-        plt.plot(quant_snap)
-    if opts.hist:
-        plt.figure()
-        plt.hist(quant_snap, bins=64, range=(0,1.5))
-    plt.show()
+    except Exception as ex:
+        print('Failed to grab quantiser snapshot: {}'.format(ex))
+    if reply.reply_ok():
+        quant_snap = [eval(v) for v in (reply.arguments[2:])]
+        if opts.raw:
+            plt.figure()
+            plt.plot(quant_snap)
+        if opts.hist:
+            plt.figure()
+            plt.hist(quant_snap, bins=64, range=(0,1.5))
+        plt.show()
+    else:
+        print ('Could not get quantiser snapshot, error message: {}'.format(reply))
+    teardown_package()
 
 
 
