@@ -681,7 +681,7 @@ class CorrelatorFixture(object):
         parse_address = StreamAddress._parse_address_string
         if self.config_filename is None:
             return
-
+        # TODO add multicast subscription also for beamforming
         config = self.corr_config
         if config is None:
             LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')

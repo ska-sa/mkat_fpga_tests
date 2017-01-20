@@ -39,6 +39,7 @@ from corr2.corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 from mkat_fpga_tests import correlator_fixture
+
 from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
 from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
@@ -104,6 +105,7 @@ class test_CBF(unittest.TestCase):
     def setUp(self):
         global have_subscribed, set_dsim_epoch
         self.corr_fix = correlator_fixture
+        global have_subscribed
         try:
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_clt = self.conf_file['inst_param']['katcp_client']
@@ -143,8 +145,6 @@ class test_CBF(unittest.TestCase):
                 LOGGER.error(self.errmsg)
             else:
                 set_dsim_epoch = True
-
-
 
     def set_instrument(self, instrument, acc_time=0.5, queue_size=3):
         acc_timeout = 60
@@ -2298,6 +2298,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = instrument
         return _running_inst
 
+    #@DetectMemLeaks
     def _systems_tests(self):
         """Checking system stability before and after use"""
         with ignored(Exception):
@@ -2367,7 +2368,6 @@ class test_CBF(unittest.TestCase):
                 dump3 = self.receiver.data_queue.get(DUMP_TIMEOUT)
                 return (dump1, dump2, dump3)
 
-
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
         if self.corr_freqs.n_chans == 4096:
@@ -2422,6 +2422,13 @@ class test_CBF(unittest.TestCase):
             self.addCleanup(clear_all_delays, self)
             Aqf.step('Retrieving initial SPEAD accumulation.')
             try:
+                sync_time = float(get_sync_epoch(self))
+            except Exception:
+                errmsg = ('Could not retrieve sync time via correlator object.')
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+            try:
                 initial_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
             except Exception:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
@@ -2475,6 +2482,7 @@ class test_CBF(unittest.TestCase):
                         'test_source_ind': test_source_idx
                     }
 
+    #@DetectMemLeaks
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=30):
         Aqf.step('Time apply to set delays: {}'.format(setup_data['t_apply']))
         cam_max_load_time = 1
@@ -2577,7 +2585,7 @@ class test_CBF(unittest.TestCase):
             # amp = np.mean(np.abs(data)) / setup_data['n_accs']
 
         return zip(phases, chan_resp), actual_delay_coef
-
+    #@DetectMemLeaks
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
 
         def calc_actual_delay(setup_data):
@@ -2670,7 +2678,7 @@ class test_CBF(unittest.TestCase):
             delay_phase = [np.abs((np.min(phase) - np.max(phase)) / 2.)
                            for phase in delay_data]
             return zip(delay_phase, wrapped_results)
-
+    #@DetectMemLeaks
     def _process_power_log(self, start_timestamp, power_log_file):
         max_power_per_rack = 6.25
         max_power_diff_per_rack = 33
@@ -3124,7 +3132,7 @@ class test_CBF(unittest.TestCase):
                     '{co_high_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                     'relative to channel centre response.'.format(**locals()))
 
-
+    #@DetectMemLeaks
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53,
                          log_power=True):
         """Test channel spacing and out-of-channel response
@@ -3422,6 +3430,7 @@ class test_CBF(unittest.TestCase):
             plot_baseline_inds = tuple((baselines_lookup[bl] if bl in baselines_lookup
                                         else baselines_lookup[bl[::-1]])
                                        for bl in plot_baselines)
+
             plot_baseline_legends = tuple(
                 '{bl[0]}, {bl[1]}: {ind}'.format(bl=bl, ind=ind)
                 for bl, ind in zip(plot_baselines, plot_baseline_inds))
@@ -3463,6 +3472,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     msg = 'Confirm that all the inputs equalisations have been set to \'Zero\'.'
                     Aqf.equals(eq_values, '0j', msg)
+
 
             Aqf.step('Set all inputs gains to \'Zero\', and confirm that output product '
                      'is all-zero')
@@ -6045,7 +6055,6 @@ class test_CBF(unittest.TestCase):
         Aqf.less(ntp_offset, req_sync_time, msg)
 
 
-    # #@DetectMemLeaks
     def _test_gain_correction(self):
         """CBF Gain Correction"""
         if self.corr_freqs.n_chans == 4096:
@@ -6183,7 +6192,6 @@ class test_CBF(unittest.TestCase):
                                                                                         complex(base_gain)))
             else:
                 Aqf.failed('Could not retrieve channel response with gain/eq corrections.')
-
 
 
     #@DetectMemLeaks
@@ -6361,6 +6369,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
             return 0
         return actual_beam_gain
+
 
     #@DetectMemLeaks
     def _test_beamforming(self):
@@ -6564,6 +6573,7 @@ class test_CBF(unittest.TestCase):
                               caption='Captured beamformer data with level adjust after beam-forming gain set.',
                               hlines=exp1, plot_type='bf', hline_strt_idx=1)
 
+
     def _test_cap_beam(self, instrument='bc8n856M4k'):
         """Testing timestamp accuracy (bc8n856M4k)
         Confirm that the CBF subsystem do not modify and correctly interprets
@@ -6762,6 +6772,7 @@ class test_CBF(unittest.TestCase):
         plt.plot(np.log10(np.abs(np.fft.fft(cap_half[:, max_ch]))))
         plt.show()
 
+
     #@DetectMemLeaks
     def _bf_efficiency(self):
 
@@ -6911,6 +6922,7 @@ class test_CBF(unittest.TestCase):
             cap_idx, ch_bw, acc_time * 1000000.))
         aqf_plot_channels(eff * 100, plt_filename, plt_title, caption=caption,
                           log_dynamic_range=None, hlines=95, ylimits=(90, 105), plot_type='eff')
+
 
     #@DetectMemLeaks
     def _timestamp_accuracy(self, manual=False, manual_offset=0,
