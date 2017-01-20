@@ -460,7 +460,8 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
         return False
     if fftoverflow_qdrstatus is not False:
         curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
-
+    else:
+        curr_pfb_counts = False
     if curr_pfb_counts is not False:
         for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
                 last_pfb_counts.items(), curr_pfb_counts.items()):
@@ -469,14 +470,14 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
                     if status:
                         Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
-    for hosts_status in fftoverflow_qdrstatus.values():
-        for host, _hosts_status in hosts_status.items():
-            if _hosts_status['QDR_okay'] is False:
-                if status:
-                    Aqf.failed('QDR status on {} not Okay.'.format(host))
-                qdr_error_roaches.add(host)
+        for hosts_status in fftoverflow_qdrstatus.values():
+            for host, _hosts_status in hosts_status.items():
+                if _hosts_status['QDR_okay'] is False:
+                    if status:
+                        Aqf.failed('QDR status on {} not Okay.'.format(host))
+                    qdr_error_roaches.add(host)
 
-    return list(qdr_error_roaches)
+        return list(qdr_error_roaches)
 
 def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
             LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
@@ -698,7 +699,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
 
     sources = get_input_labels(self)
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
-    try: 
+    try:
         eq_level = list(set(source_gain_dict.values()))
         if len(eq_level) is not 1:
             for i, v in source_gain_dict.items():
