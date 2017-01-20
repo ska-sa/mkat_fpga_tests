@@ -31,6 +31,11 @@ try:
 except ImportError:
     from chainmap import ChainMap
 
+from casperfpga.utils import threaded_fpga_function
+from casperfpga.utils import threaded_fpga_operation
+from inspect import currentframe, getframeinfo
+from corr2.data_stream import StreamAddress
+
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
 
@@ -949,6 +954,17 @@ def confirm_out_dest_ip(self):
     except Exception:
         LOGGER.exception('Failed to retrieve correlator ip address.')
         return False
+    else:
+        try:
+            int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
+            xhost_ip = inet_ntoa(pack(">L", int_ip))
+            dest_ip =  list(parse_address(self.correlator.configd['xengine']['output_destinations']))[0]
+            assert dest_ip == xhost_ip
+            return True
+        except Exception:
+            LOGGER.exception('Failed to retrieve correlator ip address.')
+            return False
+
 
 class TestTimeout:
     """

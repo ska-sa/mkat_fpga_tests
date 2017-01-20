@@ -16,6 +16,7 @@ from corr2.dsimhost_fpga import FpgaDsimHost
 from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
+from corr2.data_stream import StreamAddress
 from katcp import KatcpClientError
 from katcp import KatcpDeviceError
 from katcp import KatcpSyntaxError
@@ -218,7 +219,7 @@ class CorrelatorFixture(object):
                 assert reply.reply_ok()
         except AssertionError:
             msg = 'Failed to halt array: %s, STOPPING resource client' %self.array_name
-            LOGGER.exception(msg)       
+            LOGGER.exception(msg)
         if self.rct.is_active():
             self.rct.stop()
         self._rct = None
@@ -338,7 +339,7 @@ class CorrelatorFixture(object):
             assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper)
             reply, informs = self.katcp_rct.req.capture_list(timeout=timeout)
             assert reply.reply_ok()
-            self.output_product = [i.arguments[0] for i in informs 
+            self.output_product = [i.arguments[0] for i in informs
                                    if self.corr_config['xengine']['output_products'] in i.arguments][0]
             assert self.output_product is not None
             LOGGER.info('Capturing %s product' %self.output_product)
