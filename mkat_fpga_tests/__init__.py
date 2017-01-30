@@ -689,7 +689,7 @@ class CorrelatorFixture(object):
 
         outputIPs = {}
         for i in ['beam0', 'beam1', 'xengine']:
-            _IP, _num, _Port = list(parse_address(config[i]['output_destinations']))
+            _IP, _num, _Port = list(parse_address(config[i]['output_destinations_base']))
             outputIPs[i] = [tengbe.IpAddress(_IP), int(_Port)]
 
         for prodct, data_output in outputIPs.iteritems():
