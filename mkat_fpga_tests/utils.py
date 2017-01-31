@@ -5,22 +5,22 @@ import corr2
 import logging
 import numpy as np
 import os
+import random
 import signal
 import time
 import warnings
 
-from collections import Mapping
-from collections import defaultdict
-from getpass import getuser as getusername
-from random import randrange
-from socket import inet_ntoa
-from struct import pack
 from Crypto.Cipher import AES
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
+from collections import Mapping
+from collections import defaultdict
 from corr2.data_stream import StreamAddress
+from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
+from socket import inet_ntoa
+from struct import pack
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 from memory_profiler import profile as DetectMemLeaks
@@ -33,8 +33,8 @@ except ImportError:
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
-from inspect import currentframe, getframeinfo
 from corr2.data_stream import StreamAddress
+
 
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
@@ -620,7 +620,7 @@ def set_default_eq(self):
             LOGGER.exception('Failed to retrieve default ant_inputs and eq levels from config file')
             return False
 
-    ant_inputs = get_input_labels(self)
+    ant_inputs = spead_param(self)['input_labels']
     eq_levels = list(set(get_eqs_levels(self)))[0]
     if ant_inputs or eq_levels:
         try:
@@ -678,7 +678,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
-    sources = get_input_labels(self)
+    sources = spead_param(self)['input_labels']
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
         eq_level = list(set(source_gain_dict.values()))
@@ -754,38 +754,6 @@ def get_delay_bounds(correlator):
         'max_positive_delta_phase': max_positive_delta_phase,
         'max_negative_delta_phase': max_negative_delta_phase
     }
-
-
-def get_figure_numbering(self):
-    """
-    Gets figure numbering from tests that are ran in alphabetical order.
-    Param:
-        self: Object
-    Return: Dict
-    """
-    _test_name = 'test_{}'.format(self.corr_fix.instrument)
-    fig_numbering = {y: str(x)
-                     for x, y in enumerate([i
-                                            for i in dir(self) if i.startswith(_test_name)], start=1)}
-
-    def get_fig_prefix(version=None, _dict=fig_numbering):
-        """
-        Update the current figure numbering with a suffix depending on running
-        instrument
-        Param:
-            version: int/float
-            _dict: dict
-        Return: dict
-        """
-        for key, value in _dict.items():
-            _dict[key] = '{}.{}'.format(value, version)
-        return _dict
-
-    try:
-        assert self.corr_freqs.n_chans == 4096
-        return get_fig_prefix(1)
-    except AssertionError:
-        return get_fig_prefix(2)
 
 
 def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True, np_warn=True,
@@ -925,16 +893,15 @@ def blindwrite(host):
     :param: host object
     :rtype: Boolean
     """
-    junk_msg = ('0x' + ''.join(x.encode('hex')
-                               for x in 'oidhsdvwsfvbgrfbsdceijfp3ioejfg'))
+    junk_msg = ('0x' + ''.join(x.encode('hex') for x in 'oidhsdvwsfvbgrfbsdceijfp3ioejfg'))
     try:
         for i in xrange(1000):
             host.blindwrite('qdr0_memory', junk_msg)
             host.blindwrite('qdr1_memory', junk_msg)
-        LOGGER.info('Wrote junk chars to QDR\'s memory.')
+        LOGGER.info('Wrote junk chars to QDR\'s memory on host: %s.'% host.host)
         return True
     except:
-        LOGGER.error('Failed to write junk chars to QDR\'s memory.')
+        LOGGER.error('Failed to write junk chars to QDR\'s memory on host: %s.'% host.host)
         return False
 
 
@@ -950,7 +917,7 @@ def confirm_out_dest_ip(self):
     """
     parse_address = StreamAddress._parse_address_string
     try:
-        xhost = self.correlator.xhosts[randrange(len(self.correlator.xhosts))]
+        xhost = self.correlator.xhosts[random.randrange(len(self.correlator.xhosts))]
         int_ip = int(xhost.registers.gbe_iptx.read()['data']['reg'])
         xhost_ip = inet_ntoa(pack(">L", int_ip))
         dest_ip =  list(parse_address(
@@ -960,17 +927,6 @@ def confirm_out_dest_ip(self):
     except Exception:
         LOGGER.exception('Failed to retrieve correlator ip address.')
         return False
-    else:
-        try:
-            int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
-            xhost_ip = inet_ntoa(pack(">L", int_ip))
-            dest_ip =  list(parse_address(
-                self.correlator.configd['xengine']['output_destinations_base']))[0]
-            assert dest_ip == xhost_ip
-            return True
-        except Exception:
-            LOGGER.exception('Failed to retrieve correlator ip address.')
-            return False
 
 
 class TestTimeout:
@@ -999,6 +955,7 @@ class TestTimeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
+
 @contextlib.contextmanager
 def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
     """
@@ -1015,22 +972,14 @@ def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
         Aqf.failed(errmsg)
         Aqf.end(traceback=True)
 
+
 def get_local_src_names(self):
     """
     Calculate the number of inputs depending on correlators objects number of antennas
     :param: Object
     :rtype: List"""
-    try:
-        self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
-    except AssertionError, e:
-        errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
-        LOGGER.error(errmsg)
-        Aqf.failed(errmsg)
-        return
-    else:
-        return ['inp0{:02d}_{}'.format(x, i)
-                for x in xrange(self.correlator.n_antennas)
-                for i in 'xy']
+    no_ants = 2 * int(self.corr_fix.katcp_rct.sensor.n_ants.get_value())
+    return ['inp0{:02d}_{}'.format(x, i) for x in xrange(no_ants) for i in 'xy']
 
 
 def who_ran_test():
@@ -1110,7 +1059,7 @@ def create_logs_directory(self):
                 os.path.realpath(__file__)))
     path = test_dir + '/logs_' + self.corr_fix.instrument
     if not os.path.exists(path):
-        LOGGER.info('Created %s for storing images.'%path)
+        LOGGER.info('Created %s for storing images.'% path)
         os.makedirs(path)
     return path
 
@@ -1238,6 +1187,13 @@ def spead_param(self):
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         adc_sample_rate = None
 
+    try:
+        n_ants = 2* int(katcp_rct.n_ants.get_value())
+        LOGGER.info('n_ants: %s via CAM int'% n_ants)
+    except Exception:
+        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
+        n_ants = None
+
     return {
         'int_time' : int_time,
         'scale_factor_timestamp' : scale_factor_timestamp,
@@ -1254,5 +1210,6 @@ def spead_param(self):
         'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         'no_fengines': no_fengines,
         'no_xengines': no_xengines,
-        'adc_sample_rate': adc_sample_rate
+        'adc_sample_rate': adc_sample_rate,
+        'n_ants': n_ants
         }
