@@ -978,7 +978,7 @@ def get_local_src_names(self):
     Calculate the number of inputs depending on correlators objects number of antennas
     :param: Object
     :rtype: List"""
-    no_ants = 2 * int(self.corr_fix.katcp_rct.sensor.n_ants.get_value())
+    no_ants = int(self.corr_fix.katcp_rct.sensor.n_ants.get_value())
     return ['inp0{:02d}_{}'.format(x, i) for x in xrange(no_ants) for i in 'xy']
 
 
@@ -1188,7 +1188,7 @@ def spead_param(self):
         adc_sample_rate = None
 
     try:
-        n_ants = 2* int(katcp_rct.n_ants.get_value())
+        n_ants = int(katcp_rct.n_ants.get_value())
         LOGGER.info('n_ants: %s via CAM int'% n_ants)
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
