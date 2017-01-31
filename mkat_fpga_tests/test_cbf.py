@@ -54,7 +54,7 @@ from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
-from mkat_fpga_tests.utils import get_local_src_names, get_input_labels, spead_param, Style
+from mkat_fpga_tests.utils import get_local_src_names, spead_param, Style
 
 from datetime import datetime
 from inspect import currentframe
@@ -4814,7 +4814,7 @@ class test_CBF(unittest.TestCase):
         MAX_VACC_SYNCH_ATTEMPTS = corr2.fxcorrelator_xengops.MAX_VACC_SYNCH_ATTEMPTS
         # Choose a test frequency around the centre of the band.
         test_freq = self.corr_freqs.bandwidth / 2.
-        test_input = get_input_labels(self)[0]
+        test_input = self.test_params(self)[0]
         #test_input = sorted([i.name for i in self.correlator.fops.fengines])[0]
         #test_input = sorted(self.correlator.fengine_sources.keys())[0]
         eq_scaling = 30
@@ -6672,7 +6672,7 @@ class test_CBF(unittest.TestCase):
             cap_avg = cap_mag.sum(axis=0) / cap_idx
             cap_db = 20 * np.log10(cap_avg)
             cap_db_mean = np.mean(cap_db)
-            lbls = get_input_labels(self)
+            lbls = self.test_params(self)
             # NOT WORKING
             # labels = ''
             # for lbl in lbls:
@@ -7997,7 +7997,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            inp = get_input_labels(self)
+            inp = self.test_params(self)
             assert inp != False
         except AssertionError:
             Aqf.failed('Failed to retrieve input labels via CAM interface')
@@ -8169,7 +8169,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            labels = get_input_labels(self)
+            labels = self.test_params(self)
             assert labels != False
         except AssertionError:
             Aqf.failed('Failed to retrieve input labels via CAM interface')
