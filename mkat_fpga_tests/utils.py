@@ -31,6 +31,11 @@ try:
 except ImportError:
     from chainmap import ChainMap
 
+from casperfpga.utils import threaded_fpga_function
+from casperfpga.utils import threaded_fpga_operation
+from inspect import currentframe, getframeinfo
+from corr2.data_stream import StreamAddress
+
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
 
@@ -149,18 +154,6 @@ def init_dsim_sources(dhost):
             LOGGER.info('Digitiser simulator signal output %s selected.' %output.name)
     except Exception:
         LOGGER.error('Failed to select output dhost.')
-        pass
-
-    try:
-        dhost.registers.cwg0_en.write(en=1)
-        dhost.registers.cwg1_en.write(en=1)
-        cwg0_en = dhost.registers.cwg0_en.read()['data']['en']
-        cwg1_en = dhost.registers.cwg1_en.read()['data']['en']
-        assert cwg0_en == cwg1_en
-        LOGGER.info('Digitiser simulator cwg0 is enabled: %s' %cwg0_en)
-        LOGGER.info('Digitiser simulator cwg1 is enabled: %s' %cwg1_en)
-    except Exception:
-        LOGGER.exception('Failed to enable dhost cwg0 and cwg1 registers.')
         pass
 
 
@@ -328,11 +321,10 @@ def get_quant_snapshot(self, input_name, timeout=5):
     return quantiser_spectrum
 
 
-def get_baselines_lookup(self, spead, test_input=None, auto_corr_index=False):
+def get_baselines_lookup(self, test_input=None, auto_corr_index=False):
     """Get list of all the baselines present in the correlator output.
     Param:
         self: object
-        spead: spead_dump
     Return: dict:
         baseline lookup with tuple of input label strings keys
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
@@ -342,8 +334,9 @@ def get_baselines_lookup(self, spead, test_input=None, auto_corr_index=False):
         bls_ordering = eval(self.corr_fix.katcp_rct.sensor.c856m4k_bls_ordering.get_value())
         LOGGER.info('Retrieved bls ordering via CAM Interface')
     except Exception:
-        bls_ordering = spead['bls_ordering'].value
-        LOGGER.info('Retrieved bls ordering from spead accumulation.')
+        bls_ordering = None
+        LOGGER.exception('Failed to retrieve bls ordering from CAM int.')
+        return
 
     baseline_lookup = {tuple(bl): ind for ind, bl in enumerate(bls_ordering)}
     if auto_corr_index:
@@ -354,21 +347,6 @@ def get_baselines_lookup(self, spead, test_input=None, auto_corr_index=False):
         return [baseline_lookup, auto_corr_idx]
     else:
         return baseline_lookup
-
-def get_sync_epoch(self):
-    """ Get digitiser synch epoch
-    :Param: object
-    :rtype: float or boolean
-    """
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch()
-        assert reply.reply_ok()
-        return float(reply.arguments[-1])
-    except Exception:
-        errmsg = ('Could not retrieve sync time via correlator object.')
-        LOGGER.exception(errmsg)
-        Aqf.failed(errmsg)
-        return False
 
 
 def clear_all_delays(self, roundtrip=0.003, timeout=10):
@@ -408,7 +386,8 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.delays(time.time()+50, *delay_coefficients)
+        reply, informs = self.corr_fix.katcp_rct.req.delays(time.time()+50, *delay_coefficients,
+            timeout=timeout)
         assert reply.reply_ok()
         LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % str(reply))
         return True
@@ -460,7 +439,8 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
         return False
     if fftoverflow_qdrstatus is not False:
         curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
-
+    else:
+        curr_pfb_counts = False
     if curr_pfb_counts is not False:
         for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
                 last_pfb_counts.items(), curr_pfb_counts.items()):
@@ -469,14 +449,14 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
                     if status:
                         Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
-    for hosts_status in fftoverflow_qdrstatus.values():
-        for host, _hosts_status in hosts_status.items():
-            if _hosts_status['QDR_okay'] is False:
-                if status:
-                    Aqf.failed('QDR status on {} not Okay.'.format(host))
-                qdr_error_roaches.add(host)
+        for hosts_status in fftoverflow_qdrstatus.values():
+            for host, _hosts_status in hosts_status.items():
+                if _hosts_status['QDR_okay'] is False:
+                    if status:
+                        Aqf.failed('QDR status on {} not Okay.'.format(host))
+                    qdr_error_roaches.add(host)
 
-    return list(qdr_error_roaches)
+        return list(qdr_error_roaches)
 
 def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
             LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
@@ -551,13 +531,30 @@ def get_vacc_offset(xeng_raw):
         return False
 
 
-def get_and_restore_initial_eqs(test_instance, correlator):
-    initial_equalisations = correlator.fops.eq_get()
+def get_and_restore_initial_eqs(self):
+    """ Retrieve input gains/eq and added cleanup to restore eq's incase their altered
+    :param: self
+    :rtype: dict
+    """
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.gain_all()
+        reply_, informs_ = self.corr_fix.katcp_rct.req.input_labels()
+        assert reply_.reply_ok()
+        assert reply.reply_ok()
+    except Exception:
+        LOGGER.exception('Failed to retrieve gains via CAM int.')
+        return
+    else:
+        input_labels = reply_.arguments[1:]
+        gain = reply.arguments[-1]
+        initial_equalisations = {}
+        for label in input_labels:
+            initial_equalisations[label] = gain
 
     def restore_initial_equalisations():
         try:
-            init_eq = list(set([i for i in initial_equalisations.values()[0]]))[0]
-            reply, informs = test_instance.corr_fix.katcp_rct.req.gain_all(init_eq, timeout=cam_timeout)
+            init_eq = ''.join(list(set(initial_equalisations.values())))
+            reply, informs = self.corr_fix.katcp_rct.req.gain_all(init_eq, timeout=cam_timeout)
             assert reply.reply_ok()
             return True
         except Exception:
@@ -565,7 +562,7 @@ def get_and_restore_initial_eqs(test_instance, correlator):
             LOGGER.exception(msg)
             return False
 
-    test_instance.addCleanup(restore_initial_equalisations)
+    self.addCleanup(restore_initial_equalisations)
     return initial_equalisations
 
 
@@ -607,21 +604,6 @@ def get_adc_snapshot(fpga):
             rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
     return rv
 
-def get_input_labels(self):
-    """
-    :param: Obj: self
-    :rtype: list: input labels
-    """
-    try:
-        reply, _informs = self.corr_fix.katcp_rct.req.input_labels()
-        assert reply.reply_ok()
-    except Exception:
-        errmsg = ('Failed to retrieve input lables via Cam interface with a reply: %s' % (str(reply)))
-        LOGGER.error(errmsg)
-        Aqf.failed(errmsg)
-        return []
-    else:
-        return reply.arguments[1:]
 
 def set_default_eq(self):
     """ Iterate through config sources and set eq's as per config file
@@ -698,7 +680,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
 
     sources = get_input_labels(self)
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
-    try: 
+    try:
         eq_level = list(set(source_gain_dict.values()))
         if len(eq_level) is not 1:
             for i, v in source_gain_dict.items():
@@ -852,10 +834,20 @@ class Text_Style(object):
         self.BOLD = '\033[1m'
         self.UNDERLINE = '\033[4m'
         self.END = '\033[0m'
+        self.GREEN = '\033[92m'
+        self.YELLOW = '\033[93m'
+        self.RED = '\033[91m'
 
     def Bold(self, msg=None):
         return (self.BOLD + msg + self.END)
-
+    def Red(self, msg=None):
+        return (self.RED + msg + self.END)
+    def Green(self, msg=None):
+        return (self.GREEN + msg + self.END)
+    def Yellow(self, msg=None):
+        return (self.YELLOW + msg + self.END)
+    def Bold(self, msg=None):
+        return (self.BOLD + msg + self.END)
     def Underline(self, msg=None):
         return (self.UNDERLINE + msg + self.END)
 
@@ -927,6 +919,25 @@ def deprogram_hosts(self, timeout=60):
         LOGGER.error('Failed to deprogram all connected hosts.')
         return False
 
+
+def blindwrite(host):
+    """Writes junk to host memory
+    :param: host object
+    :rtype: Boolean
+    """
+    junk_msg = ('0x' + ''.join(x.encode('hex')
+                               for x in 'oidhsdvwsfvbgrfbsdceijfp3ioejfg'))
+    try:
+        for i in xrange(1000):
+            host.blindwrite('qdr0_memory', junk_msg)
+            host.blindwrite('qdr1_memory', junk_msg)
+        LOGGER.info('Wrote junk chars to QDR\'s memory.')
+        return True
+    except:
+        LOGGER.error('Failed to write junk chars to QDR\'s memory.')
+        return False
+
+
 def human_readable_ip(hex_ip):
     hex_ip = hex_ip[2:]
     return '.'.join([str(int(x + y, 16)) for x, y in zip(hex_ip[::2], hex_ip[1::2])])
@@ -942,12 +953,25 @@ def confirm_out_dest_ip(self):
         xhost = self.correlator.xhosts[randrange(len(self.correlator.xhosts))]
         int_ip = int(xhost.registers.gbe_iptx.read()['data']['reg'])
         xhost_ip = inet_ntoa(pack(">L", int_ip))
-        dest_ip =  list(parse_address(self.correlator.configd['xengine']['output_destinations']))[0]
+        dest_ip =  list(parse_address(
+            self.correlator.configd['xengine']['output_destinations_base']))[0]
         assert dest_ip == xhost_ip
         return True
     except Exception:
         LOGGER.exception('Failed to retrieve correlator ip address.')
         return False
+    else:
+        try:
+            int_ip = xhost.registers.gbe_iptx.read()['data']['reg']
+            xhost_ip = inet_ntoa(pack(">L", int_ip))
+            dest_ip =  list(parse_address(
+                self.correlator.configd['xengine']['output_destinations_base']))[0]
+            assert dest_ip == xhost_ip
+            return True
+        except Exception:
+            LOGGER.exception('Failed to retrieve correlator ip address.')
+            return False
+
 
 class TestTimeout:
     """
@@ -1090,32 +1114,145 @@ def create_logs_directory(self):
         os.makedirs(path)
     return path
 
-def dump_timestamp_param(self, xeng_raw):
+def spead_param(self):
     """
-    Get all parameters you need to calculate dump time stamp.
+    Get all parameters you need to calculate dump time stamp or related.
     param: self: object
     param: spead: xeng_raw
-    rtype: list :- int time, scale factor timestand and sync epoch
+    rtype: dict : int time, scale factor timestamp, sync time, n accs, and etc
     """
+    katcp_rct = self.corr_fix.katcp_rct.sensor
+
     try:
-        int_time = self.corr_fix.katcp_rct.sensor.corr_c856m4k_int_time.get_value()
+        int_time = katcp_rct.c856m4k_int_time.get_value()
         LOGGER.info('Intergration time: %s via CAM int.'% int_time)
     except Exception:
-        int_time =  xeng_raw['int_time'].value
-        LOGGER.info('Intergration time: %s from spead dump'% int_time)
+        LOGGER.exception('Failed to retrieve intergration time via CAM int')
+        int_time = None
 
     try:
-        scale_factor_timestamp = self.corr_fix.katcp_rct.sensor.corr_scale_factor_timestamp.get_value()
+        scale_factor_timestamp = katcp_rct.scale_factor_timestamp.get_value()
         LOGGER.info('scale_factor_timestamp: %s via CAM int.'% scale_factor_timestamp)
     except Exception:
-        scale_factor_timestamp = xeng_raw['scale_factor_timestamp'].value
-        LOGGER.info('scale_factor_timestamp: %s from spead dump'% scale_factor_timestamp)
+        LOGGER.exception('Failed to retrieve scale_factor_timestamp via CAM int')
+        scale_factor_timestamp = None
 
     try:
-        synch_epoch = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
+        synch_epoch = katcp_rct.synchronisation_epoch.get_value()
         LOGGER.info('synch_epoch : %s via CAM int.'% synch_epoch)
     except Exception:
-        synch_epoch = self.correlator.synchronisation_epoch
-        LOGGER.info('synch_epoch : %s from corr object.'% synch_epoch)
+        LOGGER.exception('Failed to retrieve synch_epoch via CAM int')
+        synch_epoch = None
 
-    return [int_time, scale_factor_timestamp, synch_epoch]
+    try:
+        n_accs = katcp_rct.c856m4k_n_accs.get_value()
+        LOGGER.info('n_accs: %s via CAM int.'% n_accs)
+    except Exception:
+        LOGGER.exception('Failed to retrieve n_accs via CAM int')
+        n_accs = None
+
+    try:
+        bandwidth = katcp_rct.bandwidth.get_value()
+        LOGGER.info('bandwidth : %s via CAM int.'% bandwidth)
+    except Exception:
+        LOGGER.exception('Failed to retrieve bandwidth via CAM int.')
+        bandwidth = None
+
+    try:
+        bls_ordering = eval(katcp_rct.c856m4k_bls_ordering.get_value())
+        LOGGER.info('bls_ordering : %s via CAM int.'% bls_ordering)
+    except Exception:
+        LOGGER.exception('Failed to retrieve bls_ordering via CAM int.')
+        bls_ordering = None
+
+    try:
+        input_labelling = eval(katcp_rct.input_labelling.get_value())
+        input_labels = [x[0] for x in [list(i) for i in input_labelling]]
+        LOGGER.info('input labels: %s via CAM int.'% input_labels)
+    except Exception:
+        LOGGER.exception('Failed to retrieve input labels via CAM int.')
+        reply, informs = self.corr_fix.katcp_rct.req.input_labels()
+        if reply.reply_ok():
+            input_labels = reply.arguments[1:]
+
+    try:
+        clock_rate = katcp_rct.c856m4k_clock_rate.get_value()
+        LOGGER.info('clock_rate: %s via CAM int.'% clock_rate)
+    except Exception:
+        LOGGER.exception('Failed to retrieve clock_rate via CAM int.')
+        clock_rate = None
+
+    try:
+        destination = katcp_rct.c856m4k_destination.get_value()
+        LOGGER.info('destination: %s via CAM int.'% destination)
+    except Exception:
+        LOGGER.exception('Failed to retrieve destination via CAM int.')
+        destination = None
+
+    try:
+        n_bls = katcp_rct.c856m4k_n_bls.get_value()
+        LOGGER.info('n_bls: %s via CAM int.'% n_bls)
+    except Exception:
+        LOGGER.exception('Failed to retrieve n_bls via CAM int.')
+        n_bls = None
+
+    try:
+        n_chans = katcp_rct.c856m4k_n_chans.get_value()
+        LOGGER.info('n_chans: %s via CAM int.'% n_chans)
+    except Exception:
+        LOGGER.exception('Failed to retrieve n_chans via CAM int.')
+        n_chans = None
+
+    try:
+        xeng_acc_len = katcp_rct.c856m4k_xeng_acc_len.get_value()
+        LOGGER.info('xeng_acc_len: %s via CAM int.'% xeng_acc_len)
+    except Exception:
+        LOGGER.exception('Failed to retrieve xeng_acc_len via CAM int.')
+        xeng_acc_len = None
+
+    try:
+        xeng_out_bits_per_sample = katcp_rct.c856m4k_xeng_out_bits_per_sample.get_value()
+        LOGGER.info('xeng_out_bits_per_sample: %s via CAM int.'% xeng_out_bits_per_sample)
+    except Exception:
+        LOGGER.exception('Failed to retrieve xeng_out_bits_per_sample via CAM int.')
+        xeng_out_bits_per_sample = None
+
+    try:
+        no_fengines = katcp_rct.n_feng_hosts.get_value()
+        LOGGER.info('no of fengine: %s via CAM int'% no_fengines)
+    except Exception:
+        LOGGER.exception('Failed to retrieve no of fengines via CAM int.')
+        no_fengines = None
+
+    try:
+        no_xengines = katcp_rct.n_xeng_hosts.get_value()
+        LOGGER.info('no of xengine: %s via CAM int'% no_xengines)
+    except Exception:
+        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
+        no_xengines = None
+
+    try:
+        adc_sample_rate = katcp_rct.adc_sample_rate.get_value()
+        LOGGER.info('adc_sample_rate: %s via CAM int'% adc_sample_rate)
+    except Exception:
+        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
+        adc_sample_rate = None
+
+    return {
+        'int_time' : int_time,
+        'scale_factor_timestamp' : scale_factor_timestamp,
+        'synch_epoch' : synch_epoch,
+        'n_accs' : n_accs,
+        'bandwidth': bandwidth,
+        'input_labels': input_labels,
+        'bls_ordering' : bls_ordering,
+        'clock_rate' : clock_rate,
+        'destination' : destination,
+        'n_bls' : n_bls,
+        'n_chans' : n_chans,
+        'xeng_acc_len' : xeng_acc_len,
+        'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
+        'no_fengines': no_fengines,
+        'no_xengines': no_xengines,
+        'adc_sample_rate': adc_sample_rate
+        }
