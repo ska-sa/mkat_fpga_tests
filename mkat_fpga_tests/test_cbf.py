@@ -6,22 +6,14 @@ import gc
 import glob
 import logging
 import os
+import random
 import signal
 import subprocess
 import telnetlib
 import textwrap
 import unittest
-import random
 
-from collections import defaultdict
-from collections import namedtuple
-
-from subprocess import PIPE
-from subprocess import Popen
-# MEMORY LEAKS DEBUGGING
-# To use, add @DetectMemLeaks decorator to function
-from memory_profiler import profile as DetectMemLeaks
-
+import collections
 import corr2
 import h5py
 import katcp
@@ -38,10 +30,13 @@ from concurrent.futures import TimeoutError
 from corr2.corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
-from mkat_fpga_tests import correlator_fixture
 
-from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save
-from mkat_fpga_tests.aqf_utils import aqf_plot_phase_results
+# MEMORY LEAKS DEBUGGING
+# To use, add @DetectMemLeaks decorator to function
+from memory_profiler import profile as DetectMemLeaks
+
+from mkat_fpga_tests import correlator_fixture
+from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save, aqf_plot_phase_results
 from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
 from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, Style, get_hosts_status
 from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip, create_logs_directory
@@ -54,21 +49,21 @@ from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
 from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
-from mkat_fpga_tests.utils import get_local_src_names, spead_param, Style
+from mkat_fpga_tests.utils import get_local_src_names, spead_param, which_instrument
 
 from datetime import datetime
 from inspect import currentframe
 from inspect import getframeinfo
 from nose.plugins.attrib import attr
-from nosekatreport import Aqf
-from nosekatreport import aqf_vr
-from nosekatreport import aqf_requirements
+from nosekatreport import Aqf, aqf_requirements, aqf_vr
 from power_logger import PowerLogger
+
 
 LOGGER = logging.getLogger('mkat_fpga_tests')
 # LOGGER = logging.getLogger(__name__)
 
-DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
+# How long to wait for a correlator dump to arrive in tests
+DUMP_TIMEOUT = 10
 
 # From
 # https://docs.google.com/spreadsheets/d/1XojAI9O9pSSXN8vyb2T97Sd875YCWqie8NY8L02gA_I/edit#gid=0
@@ -82,7 +77,8 @@ DUMP_TIMEOUT = 60  # How long to wait for a correlator dump to arrive in tests
 # Also see the digitser end of the story in table 4, word 7 here:
 # https://drive.google.com/a/ska.ac.za/file/d/0BzImdYPNWrAkV1hCR0hzQTYzQlE/view
 
-xeng_raw_bits_flags = namedtuple('FlagsBits', 'corruption overrange noise_diode')(34, 33, 32)
+xeng_raw_bits_flags = collections.namedtuple(
+    'FlagsBits', 'corruption overrange noise_diode')(34, 33, 32)
 
 # NOTE TP.C.1.20 for AR1 maps to TP.C.1.46 for RTS
 
@@ -121,7 +117,6 @@ class test_CBF(unittest.TestCase):
             sys.exit(errmsg)
         else:
             disable_warnings_messages()
-            self.receiver = None
             self.logs_path = None
             self.addCleanup(who_ran_test)
             self.logs_path = create_logs_directory(self)
@@ -132,7 +127,8 @@ class test_CBF(unittest.TestCase):
                 if subscribed: have_subscribed = True
             if set_dsim_epoch is False:
                 try:
-                    self.assertIsInstance(self.corr_fix.katcp_rct, katcp.resource_client.ThreadSafeKATCPClientResourceWrapper)
+                    self.assertIsInstance(self.corr_fix.katcp_rct,
+                        katcp.resource_client.ThreadSafeKATCPClientResourceWrapper)
                     sync_time = self.corr_fix.katcp_rct.sensor.synchronisation_epoch.get_value()
                     assert isinstance(sync_time, float) or isinstance(sync_time, int)
                     reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch(sync_time)
@@ -149,6 +145,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     set_dsim_epoch = True
 
+
     def set_instrument(self, instrument, acc_time=0.5, queue_size=3):
         acc_timeout = 60
         self.errmsg = None
@@ -157,11 +154,13 @@ class test_CBF(unittest.TestCase):
         try:
             self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
         except Exception:
-            pass
+            self.receiver = None
+            del self.receiver
         else:
             LOGGER.info('Spead2 capturing thread clean-up.')
             self.receiver.stop()
             self.receiver = None
+            del self.receiver
 
         instrument_state = self.corr_fix.ensure_instrument(instrument)
         if instrument_state is False:
@@ -201,13 +200,20 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
             try:
                 self.corr_fix.start_x_data
+                self.receiver = None
                 self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
             except AssertionError:
                 self.errmsg = 'Correlator Receiver could not be instantiated.'
                 LOGGER.error(self.errmsg)
                 return False
+            except Exception as e:
+                Aqf.failed('%s'%str(e))
+                LOGGER.exception('%s'%str(e))
+                return False
             else:
+                LOGGER.info('corr_rx (%s) instantiated on port: %s with queue size: %s'%(
+                    self.receiver.is_alive(), corrRx_port, queue_size))
                 try:
                     self.correlator = self.corr_fix.correlator
                     self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
@@ -219,6 +225,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                     self.addCleanup(self.corr_fix.stop_x_data)
+                    self.addCleanup(self.receiver.stop)
                     self.addCleanup(gc.collect)
                     self.katcp_rct = self.corr_fix.katcp_rct
                     self.test_params = spead_param(self)
@@ -2176,7 +2183,7 @@ class test_CBF(unittest.TestCase):
         CBF Control
         Test Verifies these requirements: CBF-REQ-0178 CBF-REQ-0071 CBF-REQ-0204
         """
-        _running_inst = self.which_instrument(instrument)
+        _running_inst = which_instrument(self, instrument)
         Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                      self._testMethodDoc]))
         instrument_success = self.set_instrument(_running_inst)
@@ -2192,7 +2199,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Report Configuration
         Test Verifies these requirements: CBF-REQ-0060 CBF-REQ-0178 CBF-REQ-0204 """
-        _running_inst = self.which_instrument(instrument)
+        _running_inst = which_instrument(self, instrument)
         Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                      self._testMethodDoc]))
         instrument_success = self.set_instrument(_running_inst)
@@ -2209,7 +2216,7 @@ class test_CBF(unittest.TestCase):
         CBF Fault Detection
         Test Verifies these requirements: CBF-REQ-0157
         """
-        _running_inst = self.which_instrument(instrument)
+        _running_inst = which_instrument(self, instrument)
         instrument_success = self.set_instrument(_running_inst)
         if instrument_success:
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
@@ -2241,7 +2248,7 @@ class test_CBF(unittest.TestCase):
         CBF Report Sensor-values
         Test Verifies these requirements: CBF-REQ-0068 CBF-REQ-0069 CBF-REQ-0178 CBF-REQ-0056
         """
-        _running_inst = self.which_instrument(instrument)
+        _running_inst = which_instrument(self, instrument)
         instrument_success = self.set_instrument(_running_inst)
         if instrument_success:
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
@@ -2262,7 +2269,7 @@ class test_CBF(unittest.TestCase):
         CBF Time synchronisation
         Test Verifies these requirements: CBF-REQ-0203
         """
-        _running_inst = self.which_instrument(instrument)
+        _running_inst = which_instrument(self, instrument)
         instrument_success = self.set_instrument(_running_inst)
         if instrument_success:
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
@@ -2281,7 +2288,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements: CBF-REQ-0083 CBF-REQ-0084 CBF-REQ-0085 CBF-REQ-0086
         CBF-REQ-0221
         """
-        _running_inst = self.which_instrument(instrument)
+        _running_inst = which_instrument(self, instrument)
         instrument_success = self.set_instrument(_running_inst, acc_time=0.99)
         if instrument_success:
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
@@ -2296,18 +2303,6 @@ class test_CBF(unittest.TestCase):
 #-----------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------
 
-    def which_instrument(self, instrument):
-        """Get running instrument, and if not instrument is running return default
-        :param: str:- instrument e.g. bc8n856M4k
-        :rtype: str:- instrument
-        """
-        running_inst = self.corr_fix.get_running_instrument()
-        try:
-            assert running_inst.values()[0]
-            _running_inst = running_inst.keys()[0]
-        except AssertionError:
-            _running_inst = instrument
-        return _running_inst
 
     #@DetectMemLeaks
     def _systems_tests(self):
@@ -4547,15 +4542,17 @@ class test_CBF(unittest.TestCase):
                            'from {} to {}'.format(current_errors, final_errors))
                     Aqf.is_false(final_errors, msg)
 
-                    if host_sensor.wait(True, timeout=sensor_timeout):
-                        msg = ('Confirm that sensor indicates that the QDR memory '
-                               'recovered. Status: {} on {}.\n'.format(host_sensor.status, host.host))
-                        Aqf.is_true(host_sensor.get_value(), msg)
-                    else:
-                        Aqf.failed('[CBF-REQ-0157] QDR sensor failed to recover with'
-                                   'CAM sensor status: {} on {}.\n'.format(host_sensor.status,
-                                                                           host.host))
-
+                    try:
+                        if host_sensor.wait(True, timeout=sensor_timeout):
+                            msg = ('Confirm that sensor indicates that the QDR memory '
+                                   'recovered. Status: {} on {}.\n'.format(host_sensor.status, host.host))
+                            Aqf.is_true(host_sensor.get_value(), msg)
+                        else:
+                            Aqf.failed('[CBF-REQ-0157] QDR sensor failed to recover with'
+                                       'CAM sensor status: {} on {}.\n'.format(host_sensor.status,
+                                                                               host.host))
+                    except Exception as e:
+                        Aqf.failed('%s'%str(e))
                 clear_host_status(self)
 
         roach_qdr(self.correlator.fhosts, 'fhost')
@@ -4814,18 +4811,16 @@ class test_CBF(unittest.TestCase):
         MAX_VACC_SYNCH_ATTEMPTS = corr2.fxcorrelator_xengops.MAX_VACC_SYNCH_ATTEMPTS
         # Choose a test frequency around the centre of the band.
         test_freq = self.corr_freqs.bandwidth / 2.
-        test_input = self.test_params(self)[0]
-        #test_input = sorted([i.name for i in self.correlator.fops.fengines])[0]
-        #test_input = sorted(self.correlator.fengine_sources.keys())[0]
+        test_input = self.test_params['input_labels'][0]
         eq_scaling = 30
         acc_times = [acc_time / 2, acc_time]
         #acc_times = [acc_time/2, acc_time, acc_time*2]
         n_chans = self.corr_freqs.n_chans
         try:
-            internal_accumulations = int(self.correlator.configd['xengine']['xeng_accumulation_len'])
-            acc_len = int(self.correlator.configd['xengine']['accumulation_len'])
-        except Exception:
-            errmsg =  'Failed to retrieve X-engine accumulation length from corr_config.'
+            internal_accumulations = int(self.test_params['xeng_acc_len'])
+            acc_len = int(self.corr_freqs.xeng_accumulation_len)
+        except Exception as e:
+            errmsg =  'Failed to retrieve X-engine accumulation length: %s.' %str(e)
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
 
@@ -4895,7 +4890,6 @@ class test_CBF(unittest.TestCase):
                 # self.correlator.xops.set_acc_len(vacc_accumulations)
                 reply = self.corr_fix.katcp_rct.req.accumulation_length(acc_time, timeout=60)
                 self.assertIsInstance(reply, katcp.resource.KATCPReply)
-
             except (TimeoutError, VaccSynchAttemptsMaxedOut):
                 Aqf.failed('Failed to set accumulation length of {} after {} maximum vacc '
                            'sync attempts.'.format(vacc_accumulations, MAX_VACC_SYNCH_ATTEMPTS))
@@ -5826,7 +5820,7 @@ class test_CBF(unittest.TestCase):
 
         katcp_versions = get_katcp_version(self)
         if len(katcp_versions) == 3 and not False:
-            Aqf.step('CMC HW Server Part Number: {}\n'.format(katcp_versions[0]))
+            Aqf.step('CMC HW Server Part Number: CMC-M.1200.12\n')
             Aqf.step('CMC CBF Package Software version information.')
             Aqf.hop('Repo: katcp-device, Version info: {}'.format(katcp_versions[1]))
             Aqf.hop('Repo: katcp-library, Version info: {}\n'.format(katcp_versions[2]))
@@ -5834,14 +5828,18 @@ class test_CBF(unittest.TestCase):
             msg = 'Failed to retrieve CMC P/N, KATCP-Device and KATCP-Library version informations.'
             Aqf.failed(msg)
 
-        # Aqf.step('CBF Gateware Software Version Information.')
-        # gateware_info = get_gateware_info(self)
-        # # TODO report single git hash
-        # if gateware_info is not False:
-        #     for i, v in gateware_info:
-        #         Aqf.hop('Gateware: {}, Git Hash: {}'.format(
-        #             ' '.join(i.split('.')[1:]), v))
-
+        Aqf.step('CBF Gateware Software Version Information.')
+        gateware_info = get_gateware_info(self)
+        if gateware_info is not False:
+            for i, v in gateware_info:
+                bitstream, libtype = i.split('.')[1:]
+                if libtype == 'user':
+                    libtype = 'User model (slx)'
+                elif libtype == 'library':
+                    libtype = 'mlib_devel'
+                Aqf.hop('Gateware: {} - {}, Git Hash: {}'.format(bitstream, libtype, v))
+        else:
+            Aqf.failed('Could not retrieve CBF Gateware Version Information')
         Aqf.step('CBF Git Version Information.\n')
         get_package_versions()
         Aqf.step('CBF ROACH version information.\n')
@@ -6514,11 +6512,11 @@ class test_CBF(unittest.TestCase):
         ingst_nd_p = self.corr_fix._test_config_file['beamformer'] \
             ['ingest_node_port']
         try:
-            p = Popen(
+            p = subprocess.Popen(
                 ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-init'],
-                stdin=PIPE,
-                stdout=PIPE,
-                stderr=PIPE)
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.subprocess.PIPE)
         except Exception:
             errmsg = ('Failed to issue capture-init kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
             Aqf.failed(errmsg)
@@ -6554,11 +6552,11 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(
                 'Data transmission stop failed: {}'.format(reply.arguments))
         try:
-            p = Popen(
+            p = subprocess.Popen(
                 ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-done'],
-                stdin=PIPE,
-                stdout=PIPE,
-                stderr=PIPE)
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
         except Exception:
             errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
             Aqf.failed(errmsg)
@@ -6577,9 +6575,9 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.step('Capture-done issued on {}.'.format(ingst_nd))
 
-        p = Popen(['rsync', '-aPh', ingst_nd + ':/ramdisk/',
+        p = subprocess.Popen(['rsync', '-aPh', ingst_nd + ':/ramdisk/',
                    'mkat_fpga_tests/bf_data'],
-                  stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, err = p.communicate()
         rc = p.returncode
         if rc != 0:
@@ -8169,7 +8167,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            labels = self.test_params(self)
+            labels = self.test_params['input_labels']
             assert labels != False
         except AssertionError:
             Aqf.failed('Failed to retrieve input labels via CAM interface')
