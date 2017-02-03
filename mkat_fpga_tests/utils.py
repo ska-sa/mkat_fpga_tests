@@ -1058,6 +1058,19 @@ def create_logs_directory(self):
         os.makedirs(path)
     return path
 
+def which_instrument(self, instrument):
+    """Get running instrument, and if not instrument is running return default
+    :param: str:- instrument e.g. bc8n856M4k
+    :rtype: str:- instrument
+    """
+    running_inst = self.corr_fix.get_running_instrument()
+    try:
+        assert running_inst.values()[0]
+        _running_inst = running_inst.keys()[0]
+    except AssertionError:
+        _running_inst = instrument
+    return _running_inst
+
 def spead_param(self):
     """
     Get all parameters you need to calculate dump time stamp or related.
