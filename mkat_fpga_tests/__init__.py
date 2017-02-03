@@ -49,7 +49,7 @@ _cleanups = []
 """Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
 args, kwargs)
 """
-timeout = 60
+timeout = 10
 
 def add_cleanup(_fn, *args, **kwargs):
     _cleanups.append((_fn, args, kwargs))
@@ -211,19 +211,35 @@ class CorrelatorFixture(object):
         """
         LOGGER.info('Halting primary array: %s.' % self.array_name)
         try:
+            reply, informs = self.katcp_rct.req.halt(timeout=timeout)
+            assert reply.reply_ok()
+            assert self._katcp_rct.is_active()
+        except AssertionError:
+            msg = 'Failed to halt katcp connection'
+            LOGGER.exception(msg)
+        else:
+            self._katcp_rct.stop()
+            self._katcp_rct = None
+
+        try:
             reply, informs = self.rct.req.array_list()
             assert reply.reply_ok()
-            informs = informs[0]
-            if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
-                reply, informs = self.rct.req.array_halt(self.array_name)
-                assert reply.reply_ok()
+            if informs:
+                informs = informs[0]
+                if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
+                    reply, informs = self.rct.req.array_halt(self.array_name)
+                    assert reply.reply_ok()
         except AssertionError:
             msg = 'Failed to halt array: %s, STOPPING resource client' %self.array_name
             LOGGER.exception(msg)
-        if self.rct.is_active():
-            self.rct.stop()
-        self._rct = None
-        self._katcp_rct = None
+        except IndexError:
+            pass
+        # if self.rct.is_active():
+        #     self.rct.stop()
+        #     self._rct.stop()
+        #     self._rct = None
+        #     self.rct = None
+
         self._correlator_started = False
         self._correlator = None
         LOGGER.info('Array %s halted and teared-down' % (self.array_name))
@@ -377,91 +393,6 @@ class CorrelatorFixture(object):
             return False
 
 
-    def deprogram_fpgas(self, instrument):
-        """
-        Deprogram CASPER devices listed on config file
-        :param: object
-        :param: str instrument
-        """
-        hostclass = katcp_fpga.KatcpFpga
-
-        def get_hosts(self):
-            LOGGER.info('Deprogram CASPER devices listed on config file.')
-            try:
-                get_running_instrument = self.get_running_instrument()
-                assert get_running_instrument.values()[0]
-                _running_instrument = get_running_instrument.keys()[0]
-                LOGGER.info('Retrieved instrument %s from CAM Sensors' %_running_instrument)
-            except AssertionError:
-                _running_instrument = self.instrument
-                LOGGER.info('Instrument %s to deprogram' %_running_instrument)
-
-            try:
-                assert isinstance (self.corr_config, dict)
-                fengines = self.corr_config['fengine']['hosts'].split(',')
-                xengines = self.corr_config['xengine']['hosts'].split(',')
-                hosts = fengines + xengines
-                return hosts
-            except AssertionError:
-                if len(_running_instrument) > 4:
-                    config_file = '/etc/corr/{}-{}'.format(self.array_name,
-                                                           _running_instrument)
-                else:
-                    config_file = '/etc/corr/{}-{}'.format(self.array_name,
-                                                           self.instrument)
-                if os.path.exists(config_file) or os.path.isfile(config_file):
-                    LOGGER.info('Retrieving running hosts from running config: %s' % config_file)
-                    fhosts = corr2.utils.parse_hosts(config_file, section='fengine')
-                    xhosts = corr2.utils.parse_hosts(config_file, section='xengine')
-                    hosts = fhosts + xhosts
-                    return hosts
-                else:
-                    LOGGER.info('Could not get instrument from sensors and config file does '
-                             'not exist: %s, Resorting to plan B - retrieving roach list from'
-                             ' CORR2INI, In order to deprogram: File:%s Line:%s' % (config_file,
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                    with ignored(Exception):
-                        if self.corr2ini_path is not None:
-                            fhosts = corr2.utils.parse_hosts(self.corr2ini_path, section='fengine')
-                            xhosts = corr2.utils.parse_hosts(self.corr2ini_path, section='xengine')
-                            hosts = fhosts + xhosts
-                            return hosts
-                        else:
-                            LOGGER.error('Failed to retrieve hosts from CORR2INI \n\t '
-                                         'File:%s Line:%s' % (
-                                             getframeinfo(currentframe()).filename.split('/')[-1],
-                                             getframeinfo(currentframe()).lineno))
-
-
-        try:
-            hosts = list(set(get_hosts(self)))
-        except TypeError:
-            LOGGER.exception('Failed to deprogram all hosts, might be they\'ve been deprogrammed.')
-            return
-
-        if hosts:
-            try:
-                with ignored(Exception):
-                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(hostclass, hosts,
-                                                                             timeout=timeout)
-                    hosts = [host.host for host in connected_fpgas if host.ping() is True]
-                    LOGGER.info('Confirm that all hosts are up and running: %s' %hosts)
-                    connected_fpgas = fpgautils.threaded_create_fpgas_from_hosts(hostclass, hosts)
-                    fpgautils.threaded_fpga_function(connected_fpgas, 120, 'deprogram')
-                LOGGER.info('%s Deprogrammed successfully.' % hosts)
-                return True
-            except Exception:
-                errmsg = 'Failed to connect to roaches and deprogram, reboot devices to fix.'
-                LOGGER.exception(errmsg)
-                return False
-        else:
-            LOGGER.error('Failed to deprogram FPGAs no hosts available'
-                         '\n\t File:%s Line:%s' % (
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
-            return False
-
     def get_running_instrument(self):
         """
         Returns currently running instrument listed on the sensor(s)
@@ -499,19 +430,22 @@ class CorrelatorFixture(object):
         success = False
         retries = 5
         while retries and not success:
-            retries -= 1
             check_ins = self.check_instrument(self.instrument)
+            msg = 'Retries left to check instrument: %s'%retries
+            LOGGER.info(msg)
             if check_ins is True:
                 success = True
                 LOGGER.info('Return true if named instrument is enabled on correlator array after '
                         '%s retries' %retries)
                 return success
+            retries -= 1
 
         if self.check_instrument(self.instrument) is False:
             LOGGER.info('Correlator not running requested instrument, will restart.')
-            deprogram_status = self.deprogram_fpgas(self.instrument)
-            if not deprogram_status:
-                LOGGER.info('Could not deprogram the hosts')
+            try:
+                self.halt_array()
+            except Exception as e:
+                print 'The was an exception: %s '%str(e)
             corr_success = self.start_correlator(self.instrument, **kwargs)
             if corr_success is True:
                 return True
@@ -813,12 +747,12 @@ class CorrelatorFixture(object):
                     assert success
                     LOGGER.info('Instrument %s started succesfully' % (self.instrument))
                 except AssertionError:
-                    LOGGER.warn('Failed to start correlator, %s attempts left. '
+                    LOGGER.error('Failed to start correlator, %s attempts left. '
                                 'Restarting Correlator. Reply:%s' % (retries, reply))
-                    self.deprogram_fpgas(self.instrument)
                     self.halt_array
                     success = False
-                    LOGGER.info('Katcp teardown and restarting correlator.')
+                    LOGGER.error('Failed to activate the instrument, will now teardown katcp client'
+                                ' and restart the CBF.')
 
             except Exception:
                 try:
@@ -861,7 +795,7 @@ class CorrelatorFixture(object):
                 self._katcp_rct = None
                 self._correlator = None
             except:
-                self.deprogram_fpgas(self.instrument)
+                self.halt_array
                 LOGGER.critical('Could not successfully start correlator within %s retries' % (
                     retries_requested))
                 return False
