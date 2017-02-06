@@ -188,6 +188,8 @@ class CorrelatorFrequencyInfo(object):
             self.sample_period = 1 / self.sample_freq
             self.fft_period = self.sample_period * 2 * self.n_chans
             """Time length of a single FFT"""
+            self.xeng_accumulation_len = int(corr_config['xengine']['accumulation_len'])
+            self.corr_rx_port = int(corr_config['xengine']['output_destination_port'])
         except Exception:
             LOGGER.error('Failed to retrieve various bits of corr freq from corr config')
 
@@ -538,14 +540,12 @@ def get_and_restore_initial_eqs(self):
     """
     try:
         reply, informs = self.corr_fix.katcp_rct.req.gain_all()
-        reply_, informs_ = self.corr_fix.katcp_rct.req.input_labels()
-        assert reply_.reply_ok()
         assert reply.reply_ok()
     except Exception:
         LOGGER.exception('Failed to retrieve gains via CAM int.')
         return
     else:
-        input_labels = reply_.arguments[1:]
+        input_labels = spead_param(self)['input_labels']
         gain = reply.arguments[-1]
         initial_equalisations = {}
         for label in input_labels:
@@ -620,19 +620,15 @@ def set_default_eq(self):
             LOGGER.exception('Failed to retrieve default ant_inputs and eq levels from config file')
             return False
 
-    ant_inputs = spead_param(self)['input_labels']
     eq_levels = list(set(get_eqs_levels(self)))[0]
-    if ant_inputs or eq_levels:
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_levels, timeout=cam_timeout)
-            assert reply.reply_ok()
-            LOGGER.info('Reset gains to default values from config file.\n')
-            return True
-        except Exception:
-            LOGGER.exception('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
-            return False
-    else:
-        LOGGER.error('Failed to retrieve %s or %s' %(ant_inputs, eq_levels))
+    try:
+        assert isinstance (eq_levels, complex)
+        reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_levels, timeout=cam_timeout)
+        assert reply.reply_ok()
+        LOGGER.info('Reset gains to default values from config file.\n')
+        return True
+    except Exception:
+        LOGGER.exception('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
         return False
 
 
@@ -985,9 +981,8 @@ def get_local_src_names(self):
 def who_ran_test():
     """Get who ran the test."""
     try:
-        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(getusername(),
-                                                            os.uname()[1].upper(),
-                                                            time.strftime("%Y-%m-%d %H:%M:%S")))
+        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(getusername(), os.uname()[1].upper(),
+                                                               time.strftime("%Y-%m-%d %H:%M:%S")))
     except OSError:
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
@@ -1062,6 +1057,19 @@ def create_logs_directory(self):
         LOGGER.info('Created %s for storing images.'% path)
         os.makedirs(path)
     return path
+
+def which_instrument(self, instrument):
+    """Get running instrument, and if not instrument is running return default
+    :param: str:- instrument e.g. bc8n856M4k
+    :rtype: str:- instrument
+    """
+    running_inst = self.corr_fix.get_running_instrument()
+    try:
+        assert running_inst.values()[0]
+        _running_inst = running_inst.keys()[0]
+    except AssertionError:
+        _running_inst = instrument
+    return _running_inst
 
 def spead_param(self):
     """
