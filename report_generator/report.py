@@ -968,6 +968,7 @@ class Report(object):
             inc_files.append(filename)
             with open(os.path.join(self.base_dir, filename), 'w') as fh:
                 for line in self.docproducer.output:
+                    line = line.encode('ascii', 'ignore').decode('ascii')
                     fh.write(line + '\n')
 
         # Create the doc.

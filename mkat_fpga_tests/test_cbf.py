@@ -12,7 +12,6 @@ import subprocess
 import telnetlib
 import textwrap
 import unittest
-
 import collections
 import corr2
 import h5py
@@ -20,6 +19,7 @@ import katcp
 import operator
 import sys
 import time
+import threading
 
 import matplotlib.pyplot as plt
 import ntplib
@@ -94,6 +94,7 @@ set_dsim_epoch = False
 class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
 
+    receiver = None
     def setUp(self):
         global have_subscribed, set_dsim_epoch
         self.corr_fix = correlator_fixture
@@ -145,7 +146,6 @@ class test_CBF(unittest.TestCase):
                 else:
                     set_dsim_epoch = True
 
-
     def set_instrument(self, instrument, acc_time=0.5, queue_size=3):
         acc_timeout = 60
         self.errmsg = None
@@ -154,10 +154,9 @@ class test_CBF(unittest.TestCase):
         try:
             self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
         except Exception:
-            self.receiver = None
-            del self.receiver
+            pass
         else:
-            LOGGER.info('Spead2 capturing thread clean-up.')
+            LOGGER.info('Spead2 capturing thread clean-up: %s' %self.receiver._active)
             self.receiver.stop()
             self.receiver = None
             del self.receiver
@@ -200,8 +199,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
             try:
                 self.corr_fix.start_x_data
-                self.receiver = None
                 self.receiver = CorrRx(port=corrRx_port, queue_size=queue_size)
+                self.receiver.setName('CorrRx thread')
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
             except AssertionError:
                 self.errmsg = 'Correlator Receiver could not be instantiated.'
@@ -212,8 +211,8 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception('%s'%str(e))
                 return False
             else:
-                LOGGER.info('corr_rx (%s) instantiated on port: %s with queue size: %s'%(
-                    self.receiver.is_alive(), corrRx_port, queue_size))
+                LOGGER.info('corr_rx instantiated on port: %s with queue size: %s'%(corrRx_port,
+                    queue_size))
                 try:
                     self.correlator = self.corr_fix.correlator
                     self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
@@ -225,7 +224,6 @@ class test_CBF(unittest.TestCase):
                 else:
                     self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                     self.addCleanup(self.corr_fix.stop_x_data)
-                    self.addCleanup(self.receiver.stop)
                     self.addCleanup(gc.collect)
                     self.katcp_rct = self.corr_fix.katcp_rct
                     self.test_params = spead_param(self)
@@ -2288,6 +2286,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements: CBF-REQ-0083 CBF-REQ-0084 CBF-REQ-0085 CBF-REQ-0086
         CBF-REQ-0221
         """
+        LOGGER.info('Active Threads: %s'% threading._active)
         _running_inst = which_instrument(self, instrument)
         instrument_success = self.set_instrument(_running_inst, acc_time=0.99)
         if instrument_success:
@@ -3213,6 +3212,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.hop('Logging power usage.')
                 power_logger = PowerLogger(self.corr_fix._test_config_file)
                 power_logger.start()
+                power_logger.setName('CBF Power Consumption')
+                self.addCleanup(power_logger.stop)
             except Exception:
                 errmsg = 'Failed to start power usage logging.'
                 Aqf.failed(errmsg)
@@ -4948,24 +4949,18 @@ class test_CBF(unittest.TestCase):
 
     #@DetectMemLeaks
     def _test_product_switch(self, instrument, no_channels):
-        dump_timeout = 6
-        self.have_subscribed = False
         Aqf.step('Confirm that SPEAD accumulations are being produced when Digitiser simulator is '
                  'configured to output correlated noise')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         with ignored(Queue.Empty):
-            self.receiver.get_clean_dump(dump_timeout, discard=0)
+            self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
 
+        Aqf.step('[CBF-REQ-0064] Capture stopped, deprogramming hosts by halting the katcp connection.')
         self.corr_fix.stop_x_data()
-        Aqf.step('[CBF-REQ-0064] Deprogramming xhosts first then fhosts avoid '
-                 'reorder time-out errors')
-        with ignored(Exception):
-            deprogram_hosts(self)
+        self.corr_fix.halt_array
         Aqf.step('Check that SPEAD accumulations are no-longer being produced.')
         with ignored(Queue.Empty):
-            self.receiver.get_clean_dump(dump_timeout, discard=0)
-            self.receiver.stop()
-            del self.receiver
+            self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
             self.corr_fix.halt_array
             Aqf.failed('SPEAD accumulations are still being produced.')
 

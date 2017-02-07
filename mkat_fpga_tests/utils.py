@@ -752,8 +752,8 @@ def get_delay_bounds(correlator):
     }
 
 
-def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True, np_warn=True,
-                              deprecated_warn=True, katcp_warn=True):
+def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug=True,
+                              plt_warn=True, np_warn=True, deprecated_warn=True, katcp_warn=True):
     """This function disables all error warning messages
     :param:
         spead2 : Boolean
@@ -765,20 +765,20 @@ def disable_warnings_messages(spead2_warn=True, corr_rx_warn=True, plt_warn=True
     """
     if spead2_warn:
         # set the SPEAD2 logger to x only
-        spead_logger = logging.getLogger('spead2')
-        spead_logger.setLevel(logging.ERROR)
-    if corr_rx_warn:
+        logging.getLogger('spead2').setLevel(logging.ERROR)
+    if corr_warn:
         # set the corr_rx logger to x only
-        corr_rx_logger = logging.getLogger("corr2.corr_rx")
-        corr_rx_logger.setLevel(logging.ERROR)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.ERROR)
+        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
+        logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
+        logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
+    if casperfpga_debug:
+        # set the corr_rx logger to x only
+        logging.getLogger("casperfpga").setLevel(logging.ERROR)
     if katcp_warn:
         # Set katcp.inspect_client logger to x messages
-        import katcp
-        import tornado
-        katcp_logger = logging.getLogger('katcp.inspect_client')
-        katcp_logger.setLevel(logging.FATAL)
-        tornado_logger = logging.getLogger('tornado.application')
-        tornado_logger.setLevel(logging.FATAL)
+        logging.getLogger('katcp').setLevel(logging.FATAL)
+        logging.getLogger('tornado.application').setLevel(logging.FATAL)
     if plt_warn:
         # This function disable matplotlibs deprecation warnings
         import matplotlib

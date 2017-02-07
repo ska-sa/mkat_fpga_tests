@@ -260,7 +260,11 @@ class CorrelatorFixture(object):
             return
 
         if self._katcp_rct is None:
-            reply, informs = self.rct.req.array_list(self.array_name)
+            try:
+                reply, informs = self.rct.req.array_list(self.array_name)
+            except TypeError:
+                msg = 'Failed to list all arrays with name: %s' %self.array_name
+                LOGGER.exception(msg)
             # If no sub-array present create one, but this could cause problems
             # if more than one sub-array is present. Update this to check for
             # required sub-array.
