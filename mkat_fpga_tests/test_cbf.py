@@ -156,7 +156,7 @@ class test_CBF(unittest.TestCase):
         except Exception:
             pass
         else:
-            LOGGER.info('Spead2 capturing thread clean-up: %s' %self.receiver._active)
+            LOGGER.info('Spead2 capturing thread clean-up: %s' %threading._active)
             self.receiver.stop()
             self.receiver = None
             del self.receiver
@@ -225,6 +225,7 @@ class test_CBF(unittest.TestCase):
                     self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                     self.addCleanup(self.corr_fix.stop_x_data)
                     self.addCleanup(gc.collect)
+                    self.addCleanup(self.receiver.stop)
                     self.katcp_rct = self.corr_fix.katcp_rct
                     self.test_params = spead_param(self)
                     # Run system tests before each test is ran
@@ -5000,7 +5001,7 @@ class test_CBF(unittest.TestCase):
 
             try:
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
-                re_dump = self.receiver.get_clean_dump(dump_timeout, discard=0)
+                re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
                 assert re_dump['xeng_raw'].value.shape[0] == self.test_params['n_chans']
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
