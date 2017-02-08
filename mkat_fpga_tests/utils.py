@@ -1078,10 +1078,21 @@ def spead_param(self):
     param: spead: xeng_raw
     rtype: dict : int time, scale factor timestamp, sync time, n accs, and etc
     """
-    katcp_rct = self.corr_fix.katcp_rct.sensor
 
     try:
-        int_time = katcp_rct.c856m4k_int_time.get_value()
+        reply, informs = self.corr_fix.katcp_rct.req.capture_list()
+        assert reply.reply_ok()
+        output_product = [i.arguments[0] for i in informs if
+            self.correlator.configd['xengine']['output_products'] in i.arguments][0]
+        output_product = output_product.lower()
+    except Exception:
+        msg = 'Failed to retrieve xengine output product'
+        LOGGER.exception(msg)
+        return
+
+    katcp_rct = self.corr_fix.katcp_rct.sensor
+    try:
+        int_time = getattr(katcp_rct, '{}_int_time'.format(output_product)).get_value()
         LOGGER.info('Intergration time: %s via CAM int.'% int_time)
     except Exception:
         LOGGER.exception('Failed to retrieve intergration time via CAM int')
@@ -1102,7 +1113,7 @@ def spead_param(self):
         synch_epoch = None
 
     try:
-        n_accs = katcp_rct.c856m4k_n_accs.get_value()
+        n_accs = getattr(katcp_rct, '{}_n_accs'.format(output_product)).get_value()
         LOGGER.info('n_accs: %s via CAM int.'% n_accs)
     except Exception:
         LOGGER.exception('Failed to retrieve n_accs via CAM int')
@@ -1116,7 +1127,7 @@ def spead_param(self):
         bandwidth = None
 
     try:
-        bls_ordering = eval(katcp_rct.c856m4k_bls_ordering.get_value())
+        bls_ordering = eval(getattr(katcp_rct, '{}_bls_ordering'.format(output_product)).get_value())
         LOGGER.info('bls_ordering : %s via CAM int.'% bls_ordering)
     except Exception:
         LOGGER.exception('Failed to retrieve bls_ordering via CAM int.')
@@ -1133,42 +1144,43 @@ def spead_param(self):
             input_labels = reply.arguments[1:]
 
     try:
-        clock_rate = katcp_rct.c856m4k_clock_rate.get_value()
+        clock_rate = getattr(katcp_rct, '{}_clock_rate'.format(output_product)).get_value()
         LOGGER.info('clock_rate: %s via CAM int.'% clock_rate)
     except Exception:
         LOGGER.exception('Failed to retrieve clock_rate via CAM int.')
         clock_rate = None
 
     try:
-        destination = katcp_rct.c856m4k_destination.get_value()
+        destination = getattr(katcp_rct, '{}_destination'.format(output_product)).get_value()
         LOGGER.info('destination: %s via CAM int.'% destination)
     except Exception:
         LOGGER.exception('Failed to retrieve destination via CAM int.')
         destination = None
 
     try:
-        n_bls = katcp_rct.c856m4k_n_bls.get_value()
+        n_bls = getattr(katcp_rct, '{}_n_bls'.format(output_product)).get_value()
         LOGGER.info('n_bls: %s via CAM int.'% n_bls)
     except Exception:
         LOGGER.exception('Failed to retrieve n_bls via CAM int.')
         n_bls = None
 
     try:
-        n_chans = katcp_rct.c856m4k_n_chans.get_value()
+        n_chans = getattr(katcp_rct, '{}_n_chans'.format(output_product)).get_value()
         LOGGER.info('n_chans: %s via CAM int.'% n_chans)
     except Exception:
         LOGGER.exception('Failed to retrieve n_chans via CAM int.')
         n_chans = None
 
     try:
-        xeng_acc_len = katcp_rct.c856m4k_xeng_acc_len.get_value()
+        xeng_acc_len = getattr(katcp_rct, '{}_xeng_acc_len'.format(output_product)).get_value()
         LOGGER.info('xeng_acc_len: %s via CAM int.'% xeng_acc_len)
     except Exception:
         LOGGER.exception('Failed to retrieve xeng_acc_len via CAM int.')
         xeng_acc_len = None
 
     try:
-        xeng_out_bits_per_sample = katcp_rct.c856m4k_xeng_out_bits_per_sample.get_value()
+        xeng_out_bits_per_sample = getattr(
+            katcp_rct, '{}_xeng_out_bits_per_sample'.format(output_product)).get_value()
         LOGGER.info('xeng_out_bits_per_sample: %s via CAM int.'% xeng_out_bits_per_sample)
     except Exception:
         LOGGER.exception('Failed to retrieve xeng_out_bits_per_sample via CAM int.')

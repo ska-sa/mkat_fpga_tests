@@ -625,7 +625,7 @@ class CorrelatorFixture(object):
             return False
 
         outputIPs = {}
-        for i in ['beam0', 'beam1', 'xengine']:
+        for i in [key for key, value in config.items() if 'output_destinations_base' in value]:
             _IP, _num, _Port = list(parse_address(config[i]['output_destinations_base']))
             outputIPs[i] = [tengbe.IpAddress(_IP), int(_Port)]
 
@@ -686,7 +686,7 @@ class CorrelatorFixture(object):
             LOGGER.exception('Resource client timed-out after %s s' % timeout)
             return False
         except AssertionError:
-            LOGGER.exception('Failed to get array list,'
+            LOGGER.exception('Failed to get array list, might not have been activated.'
                              '\n\t File:%s Line:%s' % (
                                                    getframeinfo(currentframe()).filename.split('/')[-1],
                                                    getframeinfo(currentframe()).lineno))

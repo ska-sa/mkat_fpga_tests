@@ -265,7 +265,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc]))
-            test_chan = randrange(self.corr_freqs.n_chans)
+            test_chan = random.randrange(self.corr_freqs.n_chans)
             self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
         else:
             Aqf.failed(self.errmsg)
@@ -304,7 +304,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc]))
-            test_chan = randrange(self.corr_freqs.n_chans)
+            test_chan = random.randrange(self.corr_freqs.n_chans)
             self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
         else:
             Aqf.failed(self.errmsg)
@@ -344,7 +344,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc]))
-            test_chan = randrange(self.corr_freqs.n_chans)
+            test_chan = random.randrange(self.corr_freqs.n_chans)
             self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
         else:
             Aqf.failed(self.errmsg)
@@ -904,7 +904,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc]))
-            test_chan = randrange(self.corr_freqs.n_chans)
+            test_chan = random.randrange(self.corr_freqs.n_chans)
             test_timeout = 300
             with RunTestWithTimeout(test_timeout):
                 self._test_vacc(test_chan)
@@ -4994,12 +4994,12 @@ class test_CBF(unittest.TestCase):
             host = xhosts[random.randrange(len(xhosts))]
             Aqf.is_true(host.is_running(), 'Confirm that the instrument is initialised by checking if '
                                            '{} is programmed.'.format(host.host))
-            Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
-                    'that the instrument activated is valid.')
             self.set_instrument(instrument)
             self.dhost.noise_sources.noise_corr.set(scale=0.25)
 
             try:
+                Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
+                    'that the instrument activated is valid.')
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 re_dump = self.receiver.get_clean_dump(DUMP_TIMEOUT, discard=0)
                 assert re_dump['xeng_raw'].value.shape[0] == self.test_params['n_chans']
