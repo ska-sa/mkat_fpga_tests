@@ -1,0 +1,34 @@
+#!/bin/bash
+# Automated instrument activation
+# Mpho Mphego
+
+if [ -z "$*" ];
+    then printf "Usage: $0 bc8n856M4k\n";
+    exit 1;
+fi
+sudo service cmc --full-restart;
+instrument=$1;
+printf 'Initialising instrument: %s\n\n' $1;
+while true;
+    do export CORR2INI=/etc/corr/templates/${instrument};
+    if corr2_deprogram.py --hosts $CORR2INI >> /dev/null 2>&1;
+        then printf 'Deprogrammed ok\n';
+    else
+        printf 'Failed to deprogram\n';
+    fi
+    stop-pseudo-dmc;
+    sleep 5;
+    Dsim=$(cat /etc/corr/templates/${instrument} | grep ^host | tail -1 | cut -d ' ' -f 3);
+    start-pseudo-dmc $Dsim;
+    printf '';
+    sleep 2;
+    corr2_dsim_control.py --program --start --status;
+    sleep 2;
+    kcpcmd -s localhost:7147 resource-list;
+    kcpcmd -t 30 -s localhost:7147 subordinate-halt array0;
+    ARRAY=$(kcpcmd -t 30 -s localhost:7147 subordinate-create array0 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 | grep -a '!subordinate-create' | cut -d ' ' -f 3);
+    sleep 1;
+    printf "port number seems to be $ARRAY\n";
+    kcpcmd -t 500 -s localhost:$ARRAY instrument-activate ${instrument} 1 0 0 0 && break
+    done
+
