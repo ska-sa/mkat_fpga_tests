@@ -5,15 +5,15 @@ set -e
 
 if [ $# -lt 1 ] ; then
   echo "need a roach pretending to be a digitiser, possible options: "
-  ike -s dsimengine -k host -o  /etc/corr/* | sort -u
+  ike -s dsimengine -k host -o  /etc/corr/templates/* | sort -u | tail -1
   exit 1
 fi
 
 kcs -d -p 9010 -l /dev/null
-sleep 1 
+sleep 1
 export KATCP_SERVER=localhost:9010
 kcpcmd -i listener-create default 9011
 export KATCP_SERVER=localhost:9011
 kcpcmd -i client-exec pseudo-dmc-child default pseudo-dmc-child $1
 
-echo "running a pretend dmc on ${KATCP_SERVER}"
+echo "running a pretend dmc on ${KATCP_SERVER}/$1"
