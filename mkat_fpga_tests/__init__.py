@@ -5,6 +5,7 @@ import os
 import socket
 import struct
 import sys
+import subprocess
 
 from casperfpga import katcp_fpga
 from casperfpga import tengbe
@@ -78,7 +79,7 @@ def teardown_package():
 
 
 class CorrelatorFixture(object):
-    def __init__(self, katcp_clt=None):
+    def __init__(self, katcp_clt=None, product_name=None):
         self.katcp_clt = katcp_clt
         self.corr_config = None
         self.corr2ini_path = None
@@ -87,6 +88,7 @@ class CorrelatorFixture(object):
         self._katcp_rct = None
         self._rct = None
         self.katcp_array_port = None
+        self.product_name = product_name
         # Assume the correlator is already started if start_correlator is False
         nose_test_config = {}
         self._correlator_started = not int(
@@ -222,12 +224,12 @@ class CorrelatorFixture(object):
             self._katcp_rct = None
 
         try:
-            reply, informs = self.rct.req.array_list()
+            reply, informs = self.rct.req.subordinate_list()
             assert reply.reply_ok()
             if informs:
                 informs = informs[0]
                 if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
-                    reply, informs = self.rct.req.array_halt(self.array_name)
+                    reply, informs = self.rct.req.subordinate_halt(self.array_name)
                     assert reply.reply_ok()
         except AssertionError:
             msg = 'Failed to halt array: %s, STOPPING resource client' %self.array_name
@@ -261,7 +263,7 @@ class CorrelatorFixture(object):
 
         if self._katcp_rct is None:
             try:
-                reply, informs = self.rct.req.array_list(self.array_name)
+                reply, informs = self.rct.req.subordinate_list(self.array_name)
             except TypeError:
                 msg = 'Failed to list all arrays with name: %s' %self.array_name
                 LOGGER.exception(msg)
@@ -276,12 +278,12 @@ class CorrelatorFixture(object):
                                 getframeinfo(currentframe()).filename.split('/')[-1],
                                 getframeinfo(currentframe()).lineno))
                 try:
-                    reply, _informs = self.rct.req.array_assign(self.array_name,
+                    reply, _informs = self.rct.req.subordinate_create(self.array_name,
                                                                 *multicast_ip)
                     assert reply.reply_ok()
                 except (ValueError, TypeError, AssertionError):
                     try:
-                        reply, informs = self.rct.req.array_list()
+                        reply, informs = self.rct.req.subordinate_list()
                         assert reply.reply_ok()
                         informs = informs[0]
                         if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
@@ -289,7 +291,7 @@ class CorrelatorFixture(object):
                             LOGGER.info(msg)
                         else:
                             LOGGER.error('Halting array.')
-                            reply, informs = self.rct.req.array_halt(self.array_name)
+                            reply, informs = self.rct.req.subordinate_halt(self.array_name)
                             assert reply.reply_ok()
                     except AssertionError:
                         LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
@@ -300,11 +302,11 @@ class CorrelatorFixture(object):
                             self.katcp_array_port = int(reply.arguments[-1])
                             LOGGER.info('Array %s assigned successfully' % (self.katcp_array_port))
                         except ValueError:
-                            # self.rct.req.array_halt(self.array_name)
+                            # self.rct.req.subordinate_halt(self.array_name)
                             # self.rct.stop()
                             # self.rct.start()
                             # self.rct.until_synced(timeout=timeout)
-                            # reply, informs = self.rct.req.array_assign(self.array_name,
+                            # reply, informs = self.rct.req.subordinate_create(self.array_name,
                             # *multicast_ip)
                             errmsg = 'Investigate as to why this thing failed.'
                             LOGGER.exception(errmsg)
@@ -340,12 +342,12 @@ class CorrelatorFixture(object):
     def issue_metadata(self):
         """Issue Spead metadata"""
         try:
-            reply, informs = self.katcp_rct.req.capture_meta(self.output_product, timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_meta(self.product_name, timeout=timeout)
             assert reply.reply_ok()
         except Exception:
             LOGGER.exception('Failed to issue new metadata: File:%s Line:%s' % (
-                                            getframeinfo(currentframe()).filename.split('/')[-1],
-                                            getframeinfo(currentframe()).lineno))
+                getframeinfo(currentframe()).filename.split('/')[-1],
+                getframeinfo(currentframe()).lineno))
             return False
         else:
             return True
@@ -359,18 +361,18 @@ class CorrelatorFixture(object):
             assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper)
             reply, informs = self.katcp_rct.req.capture_list(timeout=timeout)
             assert reply.reply_ok()
-            self.output_product = [i.arguments[0] for i in informs
+            self.product_name = [i.arguments[0] for i in informs
                                    if self.corr_config['xengine']['output_products'] in i.arguments][0]
-            assert self.output_product is not None
-            LOGGER.info('Capturing %s product' %self.output_product)
+            assert self.product_name is not None
+            LOGGER.info('Capturing %s product' %self.product_name)
         except Exception:
-            self.output_product = self.corr_config['xengine']['output_products']
+            self.product_name = self.corr_config['xengine']['output_products']
             LOGGER.exception('Failed to retrieve capture list via CAM interface, got it from config file.'
                              '\nFile:%s Line:%s' % (getframeinfo(currentframe()).filename.split('/')[-1],
                                 getframeinfo(currentframe()).lineno))
 
         try:
-            reply, informs = self.katcp_rct.req.capture_start(self.output_product)
+            reply, informs = self.katcp_rct.req.capture_start(self.product_name)
             assert reply.reply_ok()
             LOGGER.info('%s' % str(reply))
             return True
@@ -383,9 +385,10 @@ class CorrelatorFixture(object):
         Disable/Stop output product capture
         """
         try:
+            assert self.product_name is not None
             assert isinstance(self.katcp_rct,
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply, informs = self.katcp_rct.req.capture_stop(self.output_product, timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_stop(self.product_name, timeout=timeout)
             assert reply.reply_ok()
             LOGGER.info('%s' %str(reply))
             return True
@@ -401,27 +404,30 @@ class CorrelatorFixture(object):
         """
         Returns currently running instrument listed on the sensor(s)
         """
-        try:
-            reply = self.katcp_rct.sensor.instrument_state.get_reading()
-            if reply.istatus:
-                return {reply.value: True}
-        except AttributeError:
-            LOGGER.exception('KATCP Request does not contain attributes '
-                         '\n\t File:%s Line:%s' % (
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
-            return False
+        return {self.instrument: True}
+        # TODO (MM) 23/02/2017
+        # get instrument state sensor
+        # try:
+        #     reply = self.katcp_rct.sensor.instrument_state.get_reading()
+        #     if reply.istatus:
+        #         return {reply.value: True}
+        # except AttributeError:
+        #     LOGGER.exception('KATCP Request does not contain attributes '
+        #                  '\n\t File:%s Line:%s' % (
+        #                      getframeinfo(currentframe()).filename.split('/')[-1],
+        #                      getframeinfo(currentframe()).lineno))
+        #     return False
 
-        except KATCPSensorError:
-            LOGGER.exception('KATCP Error polling sensor\n\t File:%s Line:%s' % (
-                getframeinfo(currentframe()).filename.split('/')[-1],
-                getframeinfo(currentframe()).lineno))
-            return False
-        else:
-            LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (reply,
-                getframeinfo(currentframe()).filename.split('/')[-1],
-                getframeinfo(currentframe()).lineno))
-            return {reply.value: False}
+        # except KATCPSensorError:
+        #     LOGGER.exception('KATCP Error polling sensor\n\t File:%s Line:%s' % (
+        #         getframeinfo(currentframe()).filename.split('/')[-1],
+        #         getframeinfo(currentframe()).lineno))
+        #     return False
+        # else:
+        #     LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (reply,
+        #         getframeinfo(currentframe()).filename.split('/')[-1],
+        #         getframeinfo(currentframe()).lineno))
+        #     return {reply.value: False}
 
     def ensure_instrument(self, instrument, **kwargs):
         """Ensure that named instrument is active on the correlator array
@@ -467,6 +473,7 @@ class CorrelatorFixture(object):
         try:
             assert isinstance(self.katcp_rct,
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
+            assert self.katcp_rct.state == 'synced'
         except AssertionError:
             # This probably means that no array has been defined yet and therefore the
             # katcp_rct client cannot be created. IOW, the desired instrument would
@@ -477,24 +484,20 @@ class CorrelatorFixture(object):
                              getframeinfo(currentframe()).lineno))
             return False
         else:
-            if self.katcp_rct.state == 'synced':
-                try:
-                    reply = self.katcp_rct.req.instrument_list(instrument, timeout=timeout)
-                except Exception:
-                    LOGGER.error('Array request failed might have timedout\n\tFile:%s Line:%s' % (
-                        getframeinfo(currentframe()).filename.split('/')[-1],
-                        getframeinfo(currentframe()).lineno))
-                else:
-                    if not reply.succeeded:
-                        LOGGER.error('Array request failed: %s\n\tFile:%s Line:%s' % (
-                            str(reply), getframeinfo(currentframe()).filename.split('/')[-1],
-                            getframeinfo(currentframe()).lineno))
-                        return False
-            else:
+            try:
+                reply, informs = self.katcp_rct.req.instrument_list()
+                assert reply.reply_ok()
+            except Exception:
+                LOGGER.exception('Array request failed might have timedout\n\tFile:%s Line:%s' % (
+                    getframeinfo(currentframe()).filename.split('/')[-1],
+                    getframeinfo(currentframe()).lineno))
+            except AssertionError:
+                LOGGER.exception('Array request failed: %s\n\tFile:%s Line:%s' % (
+                    str(reply), getframeinfo(currentframe()).filename.split('/')[-1],
+                    getframeinfo(currentframe()).lineno))
                 return False
 
-            instruments_available = [instrument_avail.arguments[0]
-                                     for instrument_avail in reply.informs]
+            instruments_available = [instrument_avail.arguments[0] for instrument_avail in informs]
             # Test to see if requested instrument is available on the instrument list
             if instrument not in instruments_available:
                 LOGGER.error('Instrument: %s is not in instrument list: %s'
@@ -503,29 +506,31 @@ class CorrelatorFixture(object):
                                getframeinfo(currentframe()).lineno))
                 return False
 
+            # TODO (MM) 23/02/2017
             # Get currently running instrument listed on the sensor(s)
-            try:
-                reply = self.katcp_rct.sensor.instrument_state.get_reading()
-            except AttributeError:
-                LOGGER.error('Instrument state could not be retrieved from the '
-                             'sensors\n\t File:%s Line:%s' % (
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                return False
-            else:
-                if not reply.istatus:
-                    LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (
-                        reply, getframeinfo(currentframe()).filename.split('/')[-1],
-                        getframeinfo(currentframe()).lineno))
-                    return False
-                running_intrument = reply.value
+            # try:
+            #     reply = self.katcp_rct.sensor.instrument_state.get_reading()
+            # except AttributeError:
+            #     LOGGER.error('Instrument state could not be retrieved from the '
+            #                  'sensors\n\t File:%s Line:%s' % (
+            #                      getframeinfo(currentframe()).filename.split('/')[-1],
+            #                      getframeinfo(currentframe()).lineno))
+            #     return False
+            # else:
+            #     if not reply.istatus:
+            #         LOGGER.error('Sensor request failed: %s \n\t File:%s Line:%s' % (
+            #             reply, getframeinfo(currentframe()).filename.split('/')[-1],
+            #             getframeinfo(currentframe()).lineno))
+            #         return False
+            #     running_intrument = reply.value
 
-                instrument_present = instrument == running_intrument
-                if instrument_present:
-                    self.instrument = instrument
-                    LOGGER.info('Confirmed that the named instrument %s is enabled on '
-                                'correlator %s.' % (self.instrument, self.array_name))
-                return instrument_present
+            #     instrument_present = instrument == running_intrument
+            #     if instrument_present:
+            #         self.instrument = instrument
+            #         LOGGER.info('Confirmed that the named instrument %s is enabled on '
+            #                     'correlator %s.' % (self.instrument, self.array_name))
+            #     return instrument_present
+            return True
 
     @property
     def _get_instrument(self):
@@ -535,8 +540,9 @@ class CorrelatorFixture(object):
         """
         try:
             running_instr = max(glob.iglob('/etc/corr/*'), key=os.path.getctime).split('/')[-1]
-            array, instrument = running_instr.split('-')
-            if (instrument.startswith('bc') or instrument.startswith('c')) and array.startswith('array'):
+            self.array_name, self.instrument = running_instr.split('-')
+            if (self.instrument.startswith('bc') or self.instrument.startswith('c')) and \
+                self.array_name.startswith('array'):
                 LOGGER.info('Currenly running instrument %s as per /etc/corr' %running_instr)
                 return running_instr.split('-')
         except Exception:
@@ -613,6 +619,7 @@ class CorrelatorFixture(object):
                         LOGGER.error('Could not calculate multicast ips from config file')
                         return False
 
+
     @property
     def subscribe_multicast(self):
         """Automated multicasting subscription"""
@@ -623,6 +630,14 @@ class CorrelatorFixture(object):
         if config is None:
             LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')
             return False
+
+        def confirm_multicast_subs(mul_ip='239.100.0.10' ,interface='eth2'):
+            """"""
+            list_inets = subprocess.check_output(['ip','maddr','show', interface])
+            if mul_ip in list_inets:
+                return True
+            else:
+                return False
 
         outputIPs = {}
         for i in [key for key, value in config.items() if 'output_destinations_base' in value]:
@@ -658,7 +673,7 @@ class CorrelatorFixture(object):
                 mcast_sock = None
                 LOGGER.info('%s :Source is not multicast: %s:%s' % (prodct, str(multicastIP), DataPort))
                 return False
-        return True
+        return confirm_multicast_subs()
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.info('Will now try to start the correlator')
@@ -679,7 +694,7 @@ class CorrelatorFixture(object):
         self.rct.start()
         try:
             self.rct.until_synced(timeout=timeout)
-            reply, informs = self.rct.req.array_list(self.array_name)
+            reply, informs = self.rct.req.subordinate_list(self.array_name)
             assert reply.reply_ok()
         except TimeoutError:
             self.rct.stop()
@@ -697,7 +712,7 @@ class CorrelatorFixture(object):
                     [i for i in informs.arguments if len(i) == 5][0])
             except ValueError:
                 LOGGER.exception('Failed to assign katcp port: Reply: %s' % (reply))
-                reply = self.rct.req.array_halt(self.array_name)
+                reply = self.rct.req.subordinate_halt(self.array_name)
                 if not reply.succeeded:
                     LOGGER.error('Unable to halt array %s: %s \n\t File:%s Line:%s' % (
                         self.array_name, reply,
@@ -712,7 +727,7 @@ class CorrelatorFixture(object):
                     # self.rct.start()
                     # self.rct.until_synced(timeout=timeout)
                     try:
-                        reply, _informs = self.rct.req.array_assign(self.array_name,
+                        reply, _informs = self.rct.req.subordinate_create(self.array_name,
                                                                     *multicast_ip, timeout=timeout)
                         assert reply.reply_ok()
                     except Exception:
@@ -751,7 +766,7 @@ class CorrelatorFixture(object):
                     assert success
                     LOGGER.info('Instrument %s started succesfully' % (self.instrument))
                 except AssertionError:
-                    LOGGER.error('Failed to start correlator, %s attempts left. '
+                    LOGGER.exception('Failed to start correlator, %s attempts left. '
                                 'Restarting Correlator. Reply:%s' % (retries, reply))
                     self.halt_array
                     success = False
@@ -760,7 +775,7 @@ class CorrelatorFixture(object):
 
             except Exception:
                 try:
-                    self.rct.req.array_halt(self.array_name)
+                    self.rct.req.subordinate_halt(self.array_name)
                 except Exception:
                     LOGGER.exception('Unable to halt array: Empty Array number: '
                                  'File:%s Line:%s' % (
@@ -775,10 +790,9 @@ class CorrelatorFixture(object):
                     try:
                         self.katcp_rct.stop()
                     except AttributeError:
-                        LOGGER.error('KATCP request does not contain attributes: '
-                                     'File:%s Line:%s' % (
-                                         getframeinfo(currentframe()).filename.split('/')[-1],
-                                         getframeinfo(currentframe()).lineno))
+                        LOGGER.error('KATCP request does not contain attributes: File:%s Line:%s' % (
+                            getframeinfo(currentframe()).filename.split('/')[-1],
+                            getframeinfo(currentframe()).lineno))
                         return False
                     else:
                         retries -= 1
