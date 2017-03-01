@@ -24,6 +24,7 @@ while true;
     sleep 2;
     corr2_dsim_control.py --program --start --status;
     sleep 2;
+    corr2_dsim_control.py --zeros-sine --zeros-noise;
     kcpcmd -s localhost:7147 resource-list;
     kcpcmd -t 30 -s localhost:7147 subordinate-halt array0;
     ARRAY=$(kcpcmd -t 30 -s localhost:7147 subordinate-create array0 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 239.0.1.68+1:8888 239.0.1.70+1:8888 | grep -a '!subordinate-create' | cut -d ' ' -f 3);
