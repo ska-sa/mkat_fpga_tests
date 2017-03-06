@@ -361,35 +361,12 @@ def clear_all_delays(self, roundtrip=0.003, timeout=10):
     Param: object
     Return: Boolean
     """
-    # try:
-    #     dump = self.receiver.get_clean_dump(timeout, discard=0)
-    # except Queue.Empty:
-    #     LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty. '
-    #                      'Therefore Delays not cleared')
-    #     return False
-    # else:
-    #     sync_time = get_sync_epoch(self)
-    #     if not sync_time:
-    #         LOGGER.error('Digitiser sync epoch cannot be null')
-    #         return
-    #     try:
-    #         int_time = self.corr_fix.katcp_rct.sensor.corr_c856m4k_int_time.get_value()
-    #     except Exception:
-    #         int_time = dump['int_time'].value
-    #     try:
-    #         scale_factor_timestamp = self.corr_fix.katcp_rct.sensor.corr_scale_factor_timestamp.get_value()
-    #     except Exception:
-    #         scale_factor_timestamp = dump['scale_factor_timestamp'].value
     try:
         no_fengines = self.test_params['no_fengines']
         LOGGER.info('Retrieving number of fengines via CAM Interface: %s' %no_fengines)
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
-
-#     dump_1_timestamp = (sync_time + roundtrip +
-#                         dump['timestamp'].value / scale_factor_timestamp)
-#     t_apply = dump_1_timestamp + 10 * int_time
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
     try:
@@ -526,13 +503,13 @@ def check_host_okay(self, engine=None, sensor=None):
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0,
        figure out if VACC is rooted by 1"""
-    input0 = np.abs(complexise(xeng_raw.value[:, 0]))
-    input1 = np.abs(complexise(xeng_raw.value[:, 1]))
-    if np.max(input0) > 0 and np.max(input1) == 0:
+    input0 = np.abs(complexise(xeng_raw[:, 0]))
+    input1 = np.abs(complexise(xeng_raw[:, 1]))
+    if np.max(input0) > float(0) and np.max(input1) == float(0):
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
         return 0
-    elif np.max(input1) > 0 and np.max(input0) == 0:
+    elif np.max(input1) > float(0) and np.max(input0) == float(0):
         return 1
     else:
         return False
@@ -1067,7 +1044,7 @@ def which_instrument(self, instrument):
         _running_inst = instrument
     return _running_inst
 
-def spead_param(self, prefix='corr'):
+def spead_param(self):
     """
     Get all parameters you need to calculate dump time stamp or related.
     param: self: object
@@ -1079,7 +1056,7 @@ def spead_param(self, prefix='corr'):
         assert reply.reply_ok()
         output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['xengine']['output_products'] in i.arguments][0]
-        output_product_ = '_'.join([prefix, output_product.lower().replace('-', '_')])
+        output_product_ = output_product.lower().replace('-', '_')
     except Exception:
         msg = 'Failed to retrieve xengine output product'
         LOGGER.exception(msg)
@@ -1093,13 +1070,13 @@ def spead_param(self, prefix='corr'):
         int_time = None
 
     try:
-        scale_factor_timestamp = getattr(katcp_rct, '{}_scale_factor_timestamp'.format(prefix)).get_value()
+        scale_factor_timestamp = katcp_rct.scale_factor_timestamp.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve scale_factor_timestamp via CAM int')
         scale_factor_timestamp = None
 
     try:
-        synch_epoch = getattr(katcp_rct, '{}_sync_time'.format(prefix)).get_value()
+        synch_epoch = katcp_rct.sync_time.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve synch_epoch via CAM int')
         synch_epoch = None
@@ -1113,7 +1090,7 @@ def spead_param(self, prefix='corr'):
         n_accs = None
 
     try:
-        bandwidth = getattr(katcp_rct, '{}_bandwidth'.format(prefix)).get_value()
+        bandwidth = katcp_rct.bandwidth.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve bandwidth via CAM int.')
         bandwidth = None
@@ -1125,7 +1102,7 @@ def spead_param(self, prefix='corr'):
         bls_ordering = None
 
     try:
-        input_labelling = eval(getattr(katcp_rct, '{}_input_labelling'.format(prefix)).get_value())
+        input_labelling = eval(katcp_rct.input_labelling.get_value())
         input_labels = [x[0] for x in [list(i) for i in input_labelling]]
     except Exception:
         LOGGER.exception('Failed to retrieve input labels via CAM int.')
@@ -1171,48 +1148,50 @@ def spead_param(self, prefix='corr'):
         xeng_out_bits_per_sample = None
 
     try:
-        no_fengines = getattr(katcp_rct, '{}_n_fengs'.format(prefix)).get_value()
+        no_fengines = katcp_rct.n_fengs.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve no of fengines via CAM int.')
         no_fengines = None
 
     try:
-        no_xengines = getattr(katcp_rct, '{}_n_xengs'.format(prefix)).get_value()
+        no_xengines = katcp_rct.n_xengs.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         no_xengines = None
 
     try:
-        adc_sample_rate = getattr(katcp_rct, '{}_adc_sample_rate'.format(prefix)).get_value()
+        adc_sample_rate = katcp_rct.adc_sample_rate.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         adc_sample_rate = None
 
     try:
-        n_ants = int(getattr(katcp_rct, '{}_n_ants'.format(prefix)).get_value())
-        new_src_names = ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
+        n_ants = int(katcp_rct.n_ants.get_value())
+        custom_src_names = ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         n_ants = None
+        custom_src_names = None
 
     return {
-        'int_time' : int_time,
-        'scale_factor_timestamp' : scale_factor_timestamp,
-        'synch_epoch' : synch_epoch,
-        'n_accs' : n_accs,
+        'adc_sample_rate': adc_sample_rate,
         'bandwidth': bandwidth,
-        'input_labels': input_labels,
         'bls_ordering' : bls_ordering,
         'clock_rate' : clock_rate,
+        'custom_src_names': custom_src_names,
         'destination' : destination,
+        'input_labelling': input_labelling,
+        'input_labels': input_labels,
+        'int_time' : int_time,
+        'n_accs' : n_accs,
+        'n_ants': n_ants,
         'n_bls' : n_bls,
         'n_chans' : n_chans,
-        'xeng_acc_len' : xeng_acc_len,
-        'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         'no_fengines': no_fengines,
         'no_xengines': no_xengines,
-        'adc_sample_rate': adc_sample_rate,
-        'n_ants': n_ants,
         'output_product': output_product,
-        'new_src_names': new_src_names,
+        'scale_factor_timestamp' : scale_factor_timestamp,
+        'synch_epoch' : synch_epoch,
+        'xeng_acc_len' : xeng_acc_len,
+        'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         }
