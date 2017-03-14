@@ -2178,9 +2178,12 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             Aqf.stepBold(''.join(['\n\tRunning instrument: {}\n\t'.format(_running_inst),
                                          self._testMethodDoc]))
+            # CW FFT shift
             fft_shift = pow(2, 15) - 1
-            self._set_input_levels_and_gain(profile='cw', cw_freq=200000000, cw_margin=0.6,
-                                            trgt_bits=5, trgt_q_std=0.30, fft_shift=fft_shift)
+            # Noise FFT shift
+            #fft_shift = pow(2, 12) - 1
+            self._set_input_levels_and_gain(profile='cw', cw_freq=200000000, cw_margin=0.8,
+                                            trgt_bits=3, trgt_q_std=0.30, fft_shift=fft_shift)
         else:
             Aqf.failed(self.errmsg)
 
@@ -7570,41 +7573,80 @@ class test_CBF(unittest.TestCase):
                                               scale=round(scale, 3))
             return self.dhost.sine_sources.sin_1.frequency
 
+        def adc_snapshot(source):
+            try:
+                reply,informs = self.corr_fix.katcp_rct.req.adc_snapshot(source)
+                assert reply.reply_ok()
+                adc_data = eval(informs[0].arguments[1])
+                assert len(adc_data)==8192
+                return adc_data
+            except AssertionError as e:
+                errmsg = 'Failed to get adc snapshot for input {}, reply = {}. {}'.format(source,reply,str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+            except Exception as e:
+                errmsg = 'Exception: {}'.format(str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
+        def quant_snapshot(source):
+            try:
+                reply,informs = self.corr_fix.katcp_rct.req.quantiser_snapshot(source)
+                assert reply.reply_ok()
+                quant_data = eval(informs[0].arguments[1])
+                assert len(quant_data)==4096
+                return quant_data
+            except AssertionError as e:
+                errmsg = 'Failed to get quantiser snapshot for input {}, reply = {}. {}'.format(source,reply,str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+            except Exception as e:
+                errmsg = 'Exception: {}'.format(str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
+        def set_gain(source,gain_str):        
+            try:
+                reply, informs = self.corr_fix.katcp_rct.req.gain(source, gain_str)
+                assert reply.reply_ok()
+                assert reply.arguments[1:][0] == gain_str
+            except AssertionError as e:
+                errmsg = 'Failed to set gain for input {}, reply = {}. {}'.format(source,reply,str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+            except Exception as e:
+                errmsg = 'Exception: {}'.format(str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
         # main code
-        sources = {}
         Aqf.step('Requesting input labels.')
-        # Build dictionary with inputs and
-        # which fhosts they are associated with.
-        dump = self.receiver.get_clean_dump()
-        inp_labelling = self.test_params['input_labelling']
-        for inp_lables in inp_labelling:
-            inp = inp_lables[0]
-            pol = inp_lables[3]
-            fpga_name = inp_lables[2]
-            for fpga in self.correlator.fhosts:
-                if fpga_name == fpga.host:
-                    sources[inp] = ('p' + pol, fpga)
-        # try:
-        #    # Build dictionary with inputs and
-        #    # which fhosts they are associated with.
-        #    reply, informs = self.corr_fix.katcp_rct.req.input_labels()
-        #    if not reply.reply_ok():
-        #        raise Exception
-        #    for key in reply.arguments[1:]:
-        #        for fpga in self.correlator.fhosts:
-        #            for pol in [0,1]:
-        #                if str(fpga.data_sources[pol]).find(key) != -1:
-        #                    sources[key] = ('p'+str(pol), fpga)
-        # except:
-        #    Aqf.failed('Failed to get input lables. KATCP Reply: {}'.format(reply))
-        #    return False
+        try:
+            katcp_rct = self.corr_fix.katcp_rct.sensors
+            input_labels = eval(katcp_rct.input_labelling.get_value())
+            assert isinstance(input_labels,list)
+            inp_labels = [x[0] for x in input_labels]
+        except AssertionError as e:
+            errmsg = 'Failed to get input labels. {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
 
         # Set digitiser input level of one random input,
         # store values from other inputs for checking
-        ret_dict = {}
-        for key in sources.keys():
-            ret_dict[key] = {}
-        inp = sources.keys()[0]
+        inp = random.choice(inp_labels)
+        ret_dict = dict.fromkeys(inp_labels,{})
         scale = 0.1
         margin = 0.005
         self.dhost.noise_sources.noise_corr.set(scale=round(scale, 3))
@@ -7612,18 +7654,15 @@ class test_CBF(unittest.TestCase):
         # signed fixed point.
         target_std = pow(2.0, trgt_bits) / 512
         found = False
-        count = 0
-        pol = sources[inp][0]
-        fpga = sources[inp][1]
+        count = 1
         Aqf.step('Setting input noise level to toggle {} bits at ' \
                  'standard deviation.'.format(trgt_bits))
-        Aqf.step('Capturing ADC Snapshots.')
         while not found:
-            for i in range(5):
-                adc_data = fpga.get_adc_snapshots()[pol].data
+            Aqf.step('Capturing ADC Snapshot {} for input {}.'.format(count,inp))
+            adc_data = adc_snapshot(inp)
             cur_std = np.std(adc_data)
             cur_diff = target_std - cur_std
-            if (abs(cur_diff) < margin) or count > 5:
+            if (abs(cur_diff) < margin) or count > 6:
                 found = True
             else:
                 count += 1
@@ -7661,19 +7700,20 @@ class test_CBF(unittest.TestCase):
             freq_ch = int(round(cw_freq / ch_bw))
             scale = 1.0
             step = 0.005
-            count = 0
+            count = 1
             found = False
             while not found:
+                Aqf.step('Capturing ADC Snapshot {} for input {}.'.format(count,inp))
                 set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
-                adc_data = fpga.get_adc_snapshots()[pol].data
-                if (count < 4) and (np.abs(np.max(adc_data) or
+                adc_data = adc_snapshot(inp)
+                if (count < 5) and (np.abs(np.max(adc_data) or
                                                np.min(adc_data)) >= 0b111111111 / 512.0):
                     scale -= step
                     count += 1
                 else:
                     scale -= (step + cw_margin)
                     freq = set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
-                    adc_data = fpga.get_adc_snapshots()[pol].data
+                    adc_data = adc_snapshot(inp)
                     found = True
             Aqf.step('Digitiser simulator CW scale set to {:.3f}.'.format(scale))
             aqf_plot_histogram(adc_data,
@@ -7694,10 +7734,9 @@ class test_CBF(unittest.TestCase):
                                caption='ADC Input Histogram',
                                bins=256, ranges=(-1, 1))
 
-        for key in sources.keys():
-            pol = sources[key][0]
-            fpga = sources[key][1]
-            adc_data = fpga.get_adc_snapshots()[pol].data
+        for key in ret_dict.keys():
+            Aqf.step('Capturing ADC Snapshot for input {}.'.format(key))
+            #adc_data = adc_snapshot(key)
             if profile != 'cw':  # use standard deviation of noise before CW
                 p_std = np.std(adc_data)
                 p_bits = np.log2(p_std * 512)
@@ -7717,26 +7756,24 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Setting FFT Shift to {}.'.format(fft_shift))
         try:
             reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
-            if not reply.reply_ok():
-                raise Exception
-            for key in sources.keys():
+            assert reply.reply_ok()
+            for key in ret_dict.keys():
                 ret_dict[key]['fft_shift'] = reply.arguments[1:][0]
-        except:
-            Aqf.failed('Failed to set FFT shift. KATCP Reply: {}'.format(reply))
-            return False
+        except AssertionError as e:
+            errmsg = 'Failed to set FFT shift, reply = {}. {}'.format(reply,str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
 
         if profile == 'cw':
             Aqf.step('Setting quantiser gain for CW input.')
             gain = 1
             gain_str = '{}'.format(int(gain)) + '+0j'
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.gain(inp, gain_str)
-                if not reply.arguments[1:] != gain_str:
-                    raise Exception
-            except:
-                Aqf.failed(
-                    'Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
-                return False
+            set_gain(inp, gain_str)
+
             try:
                 dump = self.receiver.get_clean_dump()
                 assert dump['xeng_raw'].shape[0] == self.test_params['n_chans']
@@ -7765,19 +7802,14 @@ class test_CBF(unittest.TestCase):
                 prev_ch_val_diff = 0
                 found = False
                 max_count = 100
+                two_found=False
                 while count < max_count:
                     count += 1
                     ch_val = next_ch_val
                     gain += 1
                     gain_str = '{}'.format(int(gain)) + '+0j'
-                    try:
-                        reply, informs = self.corr_fix.katcp_rct.req.gain(inp, gain_str)
-                        if not reply.arguments[1:] != gain_str:
-                            raise Exception
-                    except:
-                        Aqf.failed(
-                            'Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
-                        return False
+                    Aqf.step('Setting quantiser gain of {} for input {}.'.format(gain_str,inp))
+                    set_gain(inp, gain_str)
                     try:
                         dump = self.receiver.get_clean_dump()
                         assert dump['xeng_raw'].shape[0] == self.test_params['n_chans']
@@ -7791,7 +7823,7 @@ class test_CBF(unittest.TestCase):
                                     self.test_params['n_chans']))
                         Aqf.failed(errmsg)
                         LOGGER.error(errmsg)
-                        return
+                        return False
                     else:
                         dval = dump['xeng_raw']
                         auto_corr = dval[:, inp_autocorr_idx, :]
@@ -7799,22 +7831,29 @@ class test_CBF(unittest.TestCase):
                         ch_val_diff = next_ch_val - ch_val
                         # When the gradient start decreasing the center of the linear
                         # section has been found. Grab the same number of points from
-                        # this point.
+                        # this point. Find 2 decreasing differences in a row
                         if (not found) and (ch_val_diff < prev_ch_val_diff):
-                            found = True
-                            count = max_count - count - 1
+                            if two_found:
+                                found = True
+                                count = max_count - count - 1
+                            else:
+                                two_found = True
+                        else:
+                            two_found = False
                         ch_val_array.append([next_ch_val, gain])
                         prev_ch_val_diff = ch_val_diff
 
             y = [x[0] for x in ch_val_array]
             x = [x[1] for x in ch_val_array]
             grad = np.gradient(y)
-            grad_delta = []
-            for i in range(len(grad) - 1):
-                grad_delta.append(grad[i + 1] / grad[i])
-            # The setpoint is where grad_delta is closest to 1
-            grad_delta = np.asarray(grad_delta)
-            set_point = np.argmax(grad_delta - 1.0 < 0) + 1
+            # This does not work relibably
+            #grad_delta = []
+            #for i in range(len(grad) - 1):
+            #    grad_delta.append(grad[i + 1] / grad[i])
+            ## The setpoint is where grad_delta is closest to 1
+            #grad_delta = np.asarray(grad_delta)
+            #set_point = np.argmax(grad_delta - 1.0 < 0) + 1
+            set_point = np.argmax(grad)
             gain_str = '{}'.format(int(x[set_point])) + '+0j'
             plt.plot(x, y, label='Channel Response')
             plt.plot(x[set_point], y[set_point], 'ro', label='Gain Set Point = ' \
@@ -7837,18 +7876,10 @@ class test_CBF(unittest.TestCase):
             margin = 0.01
             gain = 300
             gain_str = '{}'.format(int(gain)) + '+0j'
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.gain(inp, gain_str)
-                if not reply.arguments[1:] != gain_str:
-                    raise Exception
-            except:
-                Aqf.failed('Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
-                return False
+            set_gain(inp, gain_str)
             while (not found):
                 Aqf.step('Capturing quantiser snapshot for gain of ' + gain_str)
-                reply, informs = self.corr_fix.katcp_rct. \
-                    req.quantiser_snapshot(inp)
-                data = [eval(v) for v in (reply.arguments[1:][1:])]
+                data = quant_snapshot(inp)
                 cur_std = np.std(data)
                 cur_diff = trgt_q_std - cur_std
                 if (abs(cur_diff) < margin) or count > 20:
@@ -7858,30 +7889,14 @@ class test_CBF(unittest.TestCase):
                     perc_change = trgt_q_std / cur_std
                     gain = gain * perc_change
                     gain_str = '{}'.format(int(gain)) + '+0j'
-                    try:
-                        reply, informs = self.corr_fix.katcp_rct.req.gain(inp, gain_str)
-                        if not reply.arguments[1:] != gain_str:
-                            raise Exception
-                    except:
-                        Aqf.failed(
-                            'Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
-                        return False
+                    set_gain(inp, gain_str)
 
         # Set calculated gain for remaining inputs
-        for key in sources.keys():
+        for key in ret_dict.keys():
             if profile == 'cw':
                 ret_dict[key]['cw_freq'] = freq
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.gain(key, gain_str)
-                if not reply.arguments[1:] != gain_str:
-                    raise Exception
-            except:
-                Aqf.failed('Failed to set quantiser gain. KATCP Reply: {}'.format(reply))
-                return False
-            pol = sources[key][0]
-            fpga = sources[key][1]
-            reply, informs = self.corr_fix.katcp_rct.req.quantiser_snapshot(key)
-            data = [eval(v) for v in (reply.arguments[1:][1:])]
+            set_gain(key, gain_str)
+            data = quant_snapshot(key)
             p_std = np.std(data)
             ret_dict[key]['q_gain'] = gain_str
             ret_dict[key]['q_std_dev'] = p_std
@@ -7912,7 +7927,7 @@ class test_CBF(unittest.TestCase):
                             self.test_params['n_chans']))
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
-                return
+                return False
             else:
                 dval = dump['xeng_raw']
                 auto_corr = dval[:, inp_autocorr_idx, :]
@@ -7931,14 +7946,14 @@ class test_CBF(unittest.TestCase):
                                            'Standard Deviation: {:.3f},'
                                            'Quantiser Gain: {}'.format(key, p_std, gain_str)),
                                caption='Quantiser Histogram',
-                               bins=64, range=(0, 1.5))
+                               bins=64, ranges=(0, 1.5))
 
         key = ret_dict.keys()[0]
         if profile == 'cw':
             Aqf.step('Digitiser simulator Sine Wave scaled at {:0.3f}'.format(ret_dict[key]['scale']))
         Aqf.step('Digitiser simulator Noise scaled at {:0.3f}'.format(ret_dict[key]['noise_scale']))
         Aqf.step('FFT Shift set to {}'.format(ret_dict[key]['fft_shift']))
-        for key in sources.keys():
+        for key in ret_dict.keys():
             Aqf.step('{} ADC standard deviation: {:0.3f} toggling {:0.2f} bits'.format(
                 key, ret_dict[key]['std_dev'], ret_dict[key]['bits_t']))
             Aqf.step('{} quantiser standard deviation: {:0.3f} at a gain of {}'.format(
