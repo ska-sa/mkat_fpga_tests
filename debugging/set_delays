@@ -1,0 +1,7 @@
+#!/bin/bash 
+
+epoch=$(($(date '+%s') + 30)); 
+echo $epoch 'vs' $(date '+%s'); 
+#kcpcmd -t 500 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) delays $epoch '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'
+kcpcmd -t 500 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) delays $epoch '0,0:0,0', '0,0:0,0', '5.83331194452e-10,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'
+
