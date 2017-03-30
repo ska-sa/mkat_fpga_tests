@@ -1,30 +1,33 @@
-import Queue
 import base64
 import contextlib
 import corr2
+import io
 import logging
 import numpy as np
+import operator
 import os
+import Queue
 import random
 import signal
+import threading
 import time
 import warnings
 
-from Crypto.Cipher import AES
+# MEMORY LEAKS DEBUGGING
+# To use, add @DetectMemLeaks decorator to function
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
-from collections import Mapping
 from collections import defaultdict
+from collections import Mapping
 from corr2.data_stream import StreamAddress
+from Crypto.Cipher import AES
 from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
-from socket import inet_ntoa
-from struct import pack
-# MEMORY LEAKS DEBUGGING
-# To use, add @DetectMemLeaks decorator to function
 from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
+from socket import inet_ntoa
+from struct import pack
 
 try:
     from collections import ChainMap
@@ -115,9 +118,9 @@ def all_nonzero_baselines(xeng_raw):
 
 
 def init_dsim_sources(dhost):
-    """Select dsim signal output, zero all sources, output scalings to 1
+    """Select dsim signal output, zero all sources, output scaling to 1
 
-    Also clear noise diode and adc overrange flags
+    Also clear noise diode and adc over-range flags
     """
     # Reset flags
     LOGGER.info('Reset digitiser simulator to all Zeros')
@@ -130,10 +133,12 @@ def init_dsim_sources(dhost):
     try:
         for sin_source in dhost.sine_sources:
             sin_source.set(frequency=0, scale=0)
+            assert sin_source.frequency == sin_source.scale == 0
             try:
-                sin_source.set(repeatN=0)
+                if sin_source.name != 'corr':
+                    sin_source.set(repeat_n=0)
             except NotImplementedError:
-                pass
+                    LOGGER.exception('Failed to reset repeat on sin_%s' %sin_source.name)
             LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
     except Exception:
         LOGGER.error('Failed to reset sine sources on dhost.')
@@ -142,6 +147,7 @@ def init_dsim_sources(dhost):
     try:
         for noise_source in dhost.noise_sources:
             noise_source.set(scale=0)
+            assert noise_source.scale == 0
             LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' %noise_source.name)
     except Exception:
         LOGGER.error('Failed to reset noise sources on dhost.')
@@ -189,9 +195,10 @@ class CorrelatorFrequencyInfo(object):
             self.fft_period = self.sample_period * 2 * self.n_chans
             """Time length of a single FFT"""
             self.xeng_accumulation_len = int(corr_config['xengine']['accumulation_len'])
-            self.corr_rx_port = int(corr_config['xengine']['output_destination_port'])
+            self.corr_destination, self.corr_rx_port = corr_config['xengine']['output_destinations_base'].split(':')
+            self.corr_rx_port = int(self.corr_rx_port)
         except Exception:
-            LOGGER.error('Failed to retrieve various bits of corr freq from corr config')
+            LOGGER.exception('Failed to retrieve various bits of corr freq from corr config')
 
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
@@ -323,7 +330,7 @@ def get_quant_snapshot(self, input_name, timeout=5):
     return quantiser_spectrum
 
 
-def get_baselines_lookup(self, test_input=None, auto_corr_index=False):
+def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lookup=False):
     """Get list of all the baselines present in the correlator output.
     Param:
         self: object
@@ -333,7 +340,7 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False):
         correlator dump's baselines
     """
     try:
-        bls_ordering = eval(self.corr_fix.katcp_rct.sensor.c856m4k_bls_ordering.get_value())
+        bls_ordering = test_params(self)['bls_ordering']
         LOGGER.info('Retrieved bls ordering via CAM Interface')
     except Exception:
         bls_ordering = None
@@ -345,56 +352,46 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False):
         for idx, val in enumerate(baseline_lookup):
             if val[0] == test_input and val[1] == test_input:
                 auto_corr_idx = idx
-
         return [baseline_lookup, auto_corr_idx]
+    elif sorted_lookup:
+        return sorted(baseline_lookup.items(), key=operator.itemgetter(1))
     else:
         return baseline_lookup
 
 
-def clear_all_delays(self, roundtrip=0.003, timeout=10):
+def clear_all_delays(self, roundtrip=0.003, time_hack=0):
     """Clears all delays on all fhosts.
     Param: object
     Return: Boolean
     """
-    # try:
-    #     dump = self.receiver.get_clean_dump(timeout, discard=0)
-    # except Queue.Empty:
-    #     LOGGER.exception('Could not retrieve clean SPEAD dump, as Queue is Empty. '
-    #                      'Therefore Delays not cleared')
-    #     return False
-    # else:
-    #     sync_time = get_sync_epoch(self)
-    #     if not sync_time:
-    #         LOGGER.error('Digitiser sync epoch cannot be null')
-    #         return
-    #     try:
-    #         int_time = self.corr_fix.katcp_rct.sensor.corr_c856m4k_int_time.get_value()
-    #     except Exception:
-    #         int_time = dump['int_time'].value
-    #     try:
-    #         scale_factor_timestamp = self.corr_fix.katcp_rct.sensor.corr_scale_factor_timestamp.get_value()
-    #     except Exception:
-    #         scale_factor_timestamp = dump['scale_factor_timestamp'].value
     try:
-        no_fengines = self.corr_fix.katcp_rct.sensor.n_fengs.get_value()
-        LOGGER.info('Retrieving number of fengines via CAM Interface: %s' %no_fengines)
+        _test_params = test_params(self)
+        no_fengines = _test_params['no_fengines']
+        int_time = _test_params['int_time']
+        LOGGER.info('Retrieving test params via CAM Interface')
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
-#     dump_1_timestamp = (sync_time + roundtrip +
-#                         dump['timestamp'].value / scale_factor_timestamp)
-#     t_apply = dump_1_timestamp + 10 * int_time
-
     delay_coefficients = ['0,0:0,0'] * no_fengines
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.delays(time.time()+50, *delay_coefficients,
-            timeout=timeout)
+        dump = self.receiver.get_clean_dump()
+        dump_timestamp = dump['dump_timestamp']
+        t_apply = dump_timestamp + 10 * int_time
+        reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply + time_hack,
+                                                            *delay_coefficients)
         assert reply.reply_ok()
-        LOGGER.info('[CBF-REQ-0110] Cleared delays: %s' % str(reply))
+        LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
+        dump = self.receiver.get_clean_dump(discard=time_hack)
+        assert np.max(np.angle(dump['xeng_raw'])) == np.min(np.angle(dump['xeng_raw'])) == 0
+        LOGGER.info('Delays cleared successfully.')
         return True
+    except AssertionError:
+        LOGGER.exception('Failed to clear delays as some baselines have not been cleared\n'
+                         'Max/Min delays found: %s/%s'%(np.max(np.angle(dump['xeng_raw'])),
+                                                        np.min(np.angle(dump['xeng_raw']))))
     except Exception:
-        LOGGER.exception('Reply: %s:-> Could not clear delays' % str(reply))
+        LOGGER.exception('Failed to clear delays')
         return False
 
 
@@ -521,20 +518,20 @@ def check_host_okay(self, engine=None, sensor=None):
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0,
        figure out if VACC is rooted by 1"""
-    input0 = np.abs(complexise(xeng_raw.value[:, 0]))
-    input1 = np.abs(complexise(xeng_raw.value[:, 1]))
-    if np.max(input0) > 0 and np.max(input1) == 0:
+    input0 = np.abs(complexise(xeng_raw[:, 0]))
+    input1 = np.abs(complexise(xeng_raw[:, 1]))
+    if np.max(input0) > float(0) and np.max(input1) == float(0):
         # We expect autocorr in baseline 0 to be nonzero if the vacc is
         # properly aligned, hence no offset
         return 0
-    elif np.max(input1) > 0 and np.max(input0) == 0:
+    elif np.max(input1) > float(0) and np.max(input0) == float(0):
         return 1
     else:
         return False
 
 
 def get_and_restore_initial_eqs(self):
-    """ Retrieve input gains/eq and added cleanup to restore eq's incase their altered
+    """ Retrieve input gains/eq and added clean-up to restore eq's in case their altered
     :param: self
     :rtype: dict
     """
@@ -545,7 +542,7 @@ def get_and_restore_initial_eqs(self):
         LOGGER.exception('Failed to retrieve gains via CAM int.')
         return
     else:
-        input_labels = spead_param(self)['input_labels']
+        input_labels = test_params(self)['input_labels']
         gain = reply.arguments[-1]
         initial_equalisations = {}
         for label in input_labels:
@@ -641,11 +638,11 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
         self: Object
             correlator_fixture object
         awgn_scale : Float
-            gaussian noise digitiser output scale.
+            Gaussian noise digitiser output scale.
         cw_scale: Float
             constant wave digitiser output scale.
         freq: Float
-            abitrary frequency to set with the digitiser simulator
+            arbitrary frequency to set with the digitiser simulator
         fft_shift: Int
             current FFT shift value
         gain: Complex/Str
@@ -674,7 +671,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
-    sources = spead_param(self)['input_labels']
+    sources = test_params(self)['input_labels']
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
         eq_level = list(set(source_gain_dict.values()))
@@ -765,16 +762,18 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     """
     if spead2_warn:
         # set the SPEAD2 logger to x only
-        logging.getLogger('spead2').setLevel(logging.ERROR)
+        logging.getLogger('spead2').setLevel(logging.FATAL)
     if corr_warn:
         # set the corr_rx logger to x only
-        logging.getLogger("corr2.corr_rx").setLevel(logging.ERROR)
-        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
-        logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
+        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.FATAL)
+        logging.getLogger('corr2.xhost_fpga').setLevel(logging.FATAL)
+        logging.getLogger('corr2.fhost_fpga').setLevel(logging.FATAL)
+        logging.getLogger('fxcorrelator_fengops').setLevel(logging.FATAL)
+        logging.getLogger('fhost_fpga').setLevel(logging.FATAL)
     if casperfpga_debug:
         # set the corr_rx logger to x only
-        logging.getLogger("casperfpga").setLevel(logging.ERROR)
+        logging.getLogger("casperfpga").setLevel(logging.FATAL)
     if katcp_warn:
         # Set katcp.inspect_client logger to x messages
         logging.getLogger('katcp').setLevel(logging.FATAL)
@@ -822,7 +821,7 @@ Style = Text_Style()
 @contextlib.contextmanager
 def ignored(*exceptions):
     """
-    Context manager to ignore specifed exceptions
+    Context manager to ignore specified exceptions
     :param: Exception
     :rtype: None
     """
@@ -870,7 +869,7 @@ def restore_src_names(self):
 
 
 def deprogram_hosts(self, timeout=60):
-    """Function that deprograms F and X Engines
+    """Function that de-programs F and X Engines
     :param: Object
     :rtype: None
     """
@@ -880,7 +879,7 @@ def deprogram_hosts(self, timeout=60):
         LOGGER.info('F/X-engines deprogrammed successfully .')
         return True
     except Exception:
-        LOGGER.error('Failed to deprogram all connected hosts.')
+        LOGGER.error('Failed to de-program all connected hosts.')
         return False
 
 
@@ -969,15 +968,6 @@ def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
         Aqf.end(traceback=True)
 
 
-def get_local_src_names(self):
-    """
-    Calculate the number of inputs depending on correlators objects number of antennas
-    :param: Object
-    :rtype: List"""
-    no_ants = int(self.corr_fix.katcp_rct.sensor.n_ants.get_value())
-    return ['inp0{:02d}_{}'.format(x, i) for x in xrange(no_ants) for i in 'xy']
-
-
 def who_ran_test():
     """Get who ran the test."""
     try:
@@ -986,6 +976,16 @@ def who_ran_test():
     except OSError:
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
+
+def cbf_title_report(instrument):
+    """Automagiccaly edit Sphinx index.rst file with title + instrument"""
+    with io.open("index.rst", "r+") as file: # Use file to refer to the file object
+        data = file.read()
+    title = data[data.find('yellow')+len('yellow'):data.find('==')]
+    data = data.replace(title, '\n\n\nCBF Qualification and Acceptance Reports (%s)\n'%instrument)
+    new_data = data
+    with io.open("index.rst", "w+") as file:
+        file.write(new_data)
 
 def encode_passwd(pw_encrypt, key=None):
     """This function encrypts a string with base64 algorithm
@@ -1071,20 +1071,33 @@ def which_instrument(self, instrument):
         _running_inst = instrument
     return _running_inst
 
-def spead_param(self):
+def test_params(self):
     """
     Get all parameters you need to calculate dump time stamp or related.
     param: self: object
     param: spead: xeng_raw
     rtype: dict : int time, scale factor timestamp, sync time, n accs, and etc
     """
-
     try:
         reply, informs = self.corr_fix.katcp_rct.req.capture_list()
         assert reply.reply_ok()
         output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['xengine']['output_products'] in i.arguments][0]
-        output_product = output_product.lower()
+        output_product_ = output_product.lower().replace('-', '_')
+        beam0_output_product = [i.arguments[0] for i in informs if
+            self.correlator.configd['beam0']['output_products'] in i.arguments][0]
+        beam1_output_product = [i.arguments[0] for i in informs if
+            self.correlator.configd['beam1']['output_products'] in i.arguments][0]
+    except (TypeError, KeyError):
+            beam0_output_product = beam1_output_product = None
+            msg = 'Instrument: %s does not contain beams' %self.corr_fix.instrument
+            LOGGER.error(msg)
+
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.capture_list()
+        assert reply.reply_ok()
+        beam_output_product = [i.arguments[0] for i in informs if
+            self.correlator.configd['xengine']['output_products'] in i.arguments][0]
     except Exception:
         msg = 'Failed to retrieve xengine output product'
         LOGGER.exception(msg)
@@ -1092,43 +1105,39 @@ def spead_param(self):
 
     katcp_rct = self.corr_fix.katcp_rct.sensor
     try:
-        int_time = getattr(katcp_rct, '{}_int_time'.format(output_product)).get_value()
-        LOGGER.info('Intergration time: %s via CAM int.'% int_time)
+        int_time = getattr(katcp_rct, '{}_int_time'.format(output_product_)).get_value()
     except Exception:
-        LOGGER.exception('Failed to retrieve intergration time via CAM int')
+        LOGGER.exception('Failed to retrieve integration time via CAM int')
         int_time = None
 
     try:
         scale_factor_timestamp = katcp_rct.scale_factor_timestamp.get_value()
-        LOGGER.info('scale_factor_timestamp: %s via CAM int.'% scale_factor_timestamp)
     except Exception:
         LOGGER.exception('Failed to retrieve scale_factor_timestamp via CAM int')
         scale_factor_timestamp = None
 
     try:
-        synch_epoch = katcp_rct.synchronisation_epoch.get_value()
-        LOGGER.info('synch_epoch : %s via CAM int.'% synch_epoch)
+        synch_epoch = katcp_rct.sync_time.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve synch_epoch via CAM int')
         synch_epoch = None
 
     try:
-        n_accs = getattr(katcp_rct, '{}_n_accs'.format(output_product)).get_value()
-        LOGGER.info('n_accs: %s via CAM int.'% n_accs)
+        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+        n_accs = [i.arguments[2::2] for i in informs if 'accs' in i.arguments[2]][0][-1]
+        n_accs = float(n_accs)
     except Exception:
         LOGGER.exception('Failed to retrieve n_accs via CAM int')
         n_accs = None
 
     try:
         bandwidth = katcp_rct.bandwidth.get_value()
-        LOGGER.info('bandwidth : %s via CAM int.'% bandwidth)
     except Exception:
         LOGGER.exception('Failed to retrieve bandwidth via CAM int.')
         bandwidth = None
 
     try:
-        bls_ordering = eval(getattr(katcp_rct, '{}_bls_ordering'.format(output_product)).get_value())
-        LOGGER.info('bls_ordering : %s via CAM int.'% bls_ordering)
+        bls_ordering = eval(getattr(katcp_rct, '{}_bls_ordering'.format(output_product_)).get_value())
     except Exception:
         LOGGER.exception('Failed to retrieve bls_ordering via CAM int.')
         bls_ordering = None
@@ -1136,7 +1145,6 @@ def spead_param(self):
     try:
         input_labelling = eval(katcp_rct.input_labelling.get_value())
         input_labels = [x[0] for x in [list(i) for i in input_labelling]]
-        LOGGER.info('input labels: %s via CAM int.'% input_labels)
     except Exception:
         LOGGER.exception('Failed to retrieve input labels via CAM int.')
         reply, informs = self.corr_fix.katcp_rct.req.input_labels()
@@ -1144,92 +1152,102 @@ def spead_param(self):
             input_labels = reply.arguments[1:]
 
     try:
-        clock_rate = getattr(katcp_rct, '{}_clock_rate'.format(output_product)).get_value()
-        LOGGER.info('clock_rate: %s via CAM int.'% clock_rate)
+        clock_rate = getattr(katcp_rct, '{}_clock_rate'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve clock_rate via CAM int.')
         clock_rate = None
 
     try:
-        destination = getattr(katcp_rct, '{}_destination'.format(output_product)).get_value()
-        LOGGER.info('destination: %s via CAM int.'% destination)
+        destination = getattr(katcp_rct, '{}_destination'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve destination via CAM int.')
         destination = None
 
     try:
-        n_bls = getattr(katcp_rct, '{}_n_bls'.format(output_product)).get_value()
-        LOGGER.info('n_bls: %s via CAM int.'% n_bls)
+        n_bls = getattr(katcp_rct, '{}_n_bls'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve n_bls via CAM int.')
         n_bls = None
 
     try:
-        n_chans = getattr(katcp_rct, '{}_n_chans'.format(output_product)).get_value()
-        LOGGER.info('n_chans: %s via CAM int.'% n_chans)
+        n_chans = getattr(katcp_rct, '{}_n_chans'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve n_chans via CAM int.')
         n_chans = None
 
     try:
-        xeng_acc_len = getattr(katcp_rct, '{}_xeng_acc_len'.format(output_product)).get_value()
-        LOGGER.info('xeng_acc_len: %s via CAM int.'% xeng_acc_len)
+        xeng_acc_len = getattr(katcp_rct, '{}_xeng_acc_len'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve xeng_acc_len via CAM int.')
         xeng_acc_len = None
 
     try:
         xeng_out_bits_per_sample = getattr(
-            katcp_rct, '{}_xeng_out_bits_per_sample'.format(output_product)).get_value()
-        LOGGER.info('xeng_out_bits_per_sample: %s via CAM int.'% xeng_out_bits_per_sample)
+            katcp_rct, '{}_xeng_out_bits_per_sample'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve xeng_out_bits_per_sample via CAM int.')
         xeng_out_bits_per_sample = None
 
     try:
-        no_fengines = katcp_rct.n_feng_hosts.get_value()
-        LOGGER.info('no of fengine: %s via CAM int'% no_fengines)
+        no_fengines = katcp_rct.n_fengs.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve no of fengines via CAM int.')
         no_fengines = None
 
     try:
-        no_xengines = katcp_rct.n_xeng_hosts.get_value()
-        LOGGER.info('no of xengine: %s via CAM int'% no_xengines)
+        no_xengines = katcp_rct.n_xengs.get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         no_xengines = None
 
     try:
         adc_sample_rate = katcp_rct.adc_sample_rate.get_value()
-        LOGGER.info('adc_sample_rate: %s via CAM int'% adc_sample_rate)
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         adc_sample_rate = None
 
     try:
         n_ants = int(katcp_rct.n_ants.get_value())
-        LOGGER.info('n_ants: %s via CAM int'% n_ants)
+        custom_src_names = ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
     except Exception:
         LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
         n_ants = None
+        custom_src_names = None
+    try:
+        network_latency = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
+    except Exception:
+        LOGGER.exception('Failed to retrieve network latency')
+        network_latency = None
+    try:
+        katcp_host, katcp_port = self.corr_fix.katcp_rct.address
+    except Exception:
+        LOGGER.exception('Failed not connected to katcp')
+        katcp_host, katcp_port = [0]*2
 
     return {
-        'int_time' : int_time,
-        'scale_factor_timestamp' : scale_factor_timestamp,
-        'synch_epoch' : synch_epoch,
-        'n_accs' : n_accs,
+        'adc_sample_rate': adc_sample_rate,
         'bandwidth': bandwidth,
-        'input_labels': input_labels,
+        'beam0_output_product': beam0_output_product,
+        'beam1_output_product': beam1_output_product,
         'bls_ordering' : bls_ordering,
         'clock_rate' : clock_rate,
+        'custom_src_names': custom_src_names,
         'destination' : destination,
+        'input_labelling': input_labelling,
+        'input_labels': input_labels,
+        'int_time' : int_time,
+        'katcp_host': katcp_host,
+        'katcp_port': katcp_port,
+        'n_accs' : n_accs,
+        'n_ants': n_ants,
         'n_bls' : n_bls,
         'n_chans' : n_chans,
-        'xeng_acc_len' : xeng_acc_len,
-        'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
+        'network_latency': network_latency,
         'no_fengines': no_fengines,
         'no_xengines': no_xengines,
-        'adc_sample_rate': adc_sample_rate,
-        'n_ants': n_ants
+        'output_product': output_product,
+        'scale_factor_timestamp' : scale_factor_timestamp,
+        'synch_epoch' : synch_epoch,
+        'xeng_acc_len' : xeng_acc_len,
+        'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         }

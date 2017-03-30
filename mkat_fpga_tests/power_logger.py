@@ -167,8 +167,8 @@ class PowerLogger(threading.Thread):
                     telnet_handles.append(self.open_telnet_conn(host, self._pdu_port))
                     rem_hosts.remove(host)
                 except Exception as e:
-                    self.logger.error('Exception occured while connecting to PDU {}.'.format(host))
-                    self.logger.error('Exception: {}'.format(e))
+                    self.logger.error('Exception ({}) occured while connecting to PDU {}.'.format(
+                        host, str(e)))
             hosts = rem_hosts[:]
             if not hosts:
                 retry = 0

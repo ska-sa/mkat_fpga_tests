@@ -204,7 +204,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     else:
         plt.xlabel('Channel number')
         if cutoff:
-            msg = ('CBF Freq. resolution: {:.3f}dB'.format(cutoff))
+            msg = ('CBF channel isolation: {:.3f}dB'.format(cutoff))
             plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1.5)
             plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
                         textcoords='offset points', ha='center', va='bottom',

@@ -16,8 +16,8 @@ CBF Qualification and Acceptance Reports
 
 .. include:: katreport/doc_list.inc
 
-AQF output for CBF Qualification Document
----------------------------------------------------
+.. AQF output for CBF Qualification Document
+.. ---------------------------------------------------
 
 .. * :ref:`aqf_qual_proc`
 .. * :ref:`aqf_qual_results`
