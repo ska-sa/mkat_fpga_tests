@@ -671,7 +671,11 @@ class Aqf(object):
         :param message: String. Message describe what the step will test.
 
         """
-        message = '\033[1m %s \033[0m' %message
+        try:
+            assert isinstance(message, list)
+        except AssertionError:
+            message = [message]
+        message = '\033[1m %s \033[0m' %(''.join(message))
         _state.store.add_step(message)
         cls.log_step(message)
 
@@ -1139,14 +1143,22 @@ class Aqf(object):
             raise nose.plugins.skip.SkipTest
         elif _state.store.test_failed:
             _state.store.test_failed = False
-            raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                _state.store.test_name, _state.store.error_msg))
+            fail_message = ("\n\nNot all test steps passed\n\t"
+                                "Test Name: %s\n\t"
+                                "Failure Message: %s\n"%(_state.store.test_name,
+                                    _state.store.error_msg))
+            fail_message = '\033[91m\033[1m %s \033[0m' %(fail_message)
+            raise TestFailed(fail_message)
         else:
             try:
                 assert _state.store.test_passed
             except AssertionError:
-                raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                    _state.store.test_name, _state.store.error_msg))
+                fail_message = ("\n\nNot all test steps passed\n\t"
+                                "Test Name: %s\n\t"
+                                "Failure Message: %s\n"%(_state.store.test_name,
+                                    _state.store.error_msg))
+                fail_message = '\033[91m\033[1m %s \033[0m' %(fail_message)
+                raise TestFailed(fail_message)
 
                 # assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
                 # (_state.store.test_name, _state.store.error_msg))
