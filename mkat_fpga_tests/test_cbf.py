@@ -780,7 +780,7 @@ class test_CBF(unittest.TestCase):
         Test Verifies these requirements: CBF-REQ-0187 CBF-REQ-0188 CBF-REQ-0110 CBF-REQ-0112
             CBF-REQ-0128 CBF-REQ-0077 CBF-REQ-0072 CBF-REQ-0066
         """
-        instrument_success = self.set_instrument(instrument, acc_time=2)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         if instrument_success:
             _running_inst = self.corr_fix.get_running_instrument().keys()[0]
             msg = ['\n\tRunning instrument: %s\n\t'%(_running_inst), self._testMethodDoc]
@@ -2392,21 +2392,13 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.0645
             gain = '113+0j'
             fft_shift = 511
-
-            # TODO (MM)
-            # Need to add an additional 20seconds on time apply, for the delays to be set
-            # else, it complains about time given is in the past, This can only be seen on 4K
-            extra_time_hack = 17
+            extra_time_hack = 1
         else:
             # 32K
             awgn_scale = 0.063
             gain = '344+0j'
             fft_shift = 4095
-
-            # TODO (MM)
-            # Need to add an additional 20seconds on time apply, for the delays to be set
-            # else, it complains about time given is in the past, This can only be seen on 4K
-            extra_time_hack = 10
+            extra_time_hack = 1
 
         Aqf.step('Digitiser simulator configured to generate Gaussian noise with scale: {}, '
                  'gain: {} and fft shift: {}.'.format(awgn_scale, gain, fft_shift))
@@ -2443,19 +2435,20 @@ class test_CBF(unittest.TestCase):
             test_source = source_names[test_source_idx]
             ref_source = source_names[0]
             num_inputs = len(source_names)
-            # Number of intergrations
+            # Number of integrations
             num_int = 10
             Aqf.step('[CBF-REQ-0110, 0066] Clearing all coarse and fine delays for all inputs.')
             delays_cleared = clear_all_delays(self, time_hack=extra_time_hack)
             if not delays_cleared:
                 Aqf.failed('Delays were not completely cleared, data might be corrupted.')
             else:
-                Aqf.passed('Successfully cleared all delays and confirmed.')
+                Aqf.passed('Cleared all previously applied delays prior to test.')
+
             self.addCleanup(clear_all_delays, self, time_hack=extra_time_hack)
             Aqf.step('Retrieving initial SPEAD accumulation, in-order to calculate all '
                      'relevant parameters.')
             try:
-                initial_dump = self.receiver.get_clean_dump()
+                initial_dump = self.receiver.get_clean_dump(discard=2)
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
                 Aqf.failed(errmsg)
@@ -2469,11 +2462,13 @@ class test_CBF(unittest.TestCase):
                 # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
                 # int_time_ticks = n_accs * ticks_between_spectra
                 t_apply = (initial_dump['dump_timestamp'] + num_int * int_time) + extra_time_hack
-                Aqf.hop('Get list of all the baselines present in the correlator output')
+                Aqf.step('Time to apply delays (%s) is set to %s integrations/accumulations in '
+                         'the future.'%(t_apply, num_int))
                 try:
                     baseline_lookup = get_baselines_lookup(self)
                     # Choose baseline for phase comparison
                     baseline_index = baseline_lookup[(ref_source, test_source)]
+                    Aqf.passed('Get list of all the baselines present in the correlator output')
                 except KeyError:
                     Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
                                'ordering format.')
@@ -2497,7 +2492,6 @@ class test_CBF(unittest.TestCase):
 
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=30):
-        Aqf.step('Time apply to set delays: {}'.format(setup_data['t_apply']))
         cam_max_load_time = 1
         try:
             # Max time it takes to resync katcp (client connection)
@@ -2546,7 +2540,7 @@ class test_CBF(unittest.TestCase):
                                                           setup_data['int_time']))
             Aqf.less(final_cmd_time, cam_max_load_time, msg)
             # Aqf.passed(msg)
-            msg = ('[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}'.format(
+            msg = ('[CBF-REQ-0066, 0072]: Delays set via CAM interface reply : {}\n'.format(
                 reply.arguments[1]))
             Aqf.is_true(reply.reply_ok(), msg)
 
@@ -2562,20 +2556,20 @@ class test_CBF(unittest.TestCase):
         while True:
             num_discards += 1
             try:
-                # dump = self.receiver.get_clean_dump()
                 dump = self.receiver.data_queue.get()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                dump_timestamp = dump['dump_timestamp']
-                Aqf.hop('Dump timestamp in ticks: {:20d}'.format(dump['timestamp']))
+                # print np.max(
+                #     np.angle(complexise(dump['xeng_raw'][:, setup_data['baseline_index'], :])))
+                #Aqf.hop('Dump timestamp in ticks: {:20d}'.format(dump['timestamp']))
 
-                if (np.abs(dump_timestamp - last_discard) < 0.1 * setup_data['int_time']):
+                if (np.abs(dump['dump_timestamp'] - last_discard) < 0.1 * setup_data['int_time']):
                     Aqf.step('[CBF-REQ-0077]: Received final accumulation before fringe '
                              'application with dump timestamp: %s, relevant to time apply: %s'%(
-                                dump_timestamp, setup_data['t_apply']))
+                                dump['dump_timestamp'], setup_data['t_apply']))
                     fringe_dumps.append(dump)
                     break
 
@@ -2584,10 +2578,13 @@ class test_CBF(unittest.TestCase):
                                'accumulation periods.'%max_wait_dumps)
                     break
                 else:
-                    difference = setup_data['t_apply'] - dump_timestamp
-                    Aqf.step('Discarding (%s) accumulation with dump timestamp: %s, relevant to '
-                             'time apply: %s (Difference %.2f), Current epoch time: %s.'%(num_discards,
-                                dump_timestamp, setup_data['t_apply'], difference, time.time()))
+                    difference = setup_data['t_apply'] - dump['dump_timestamp']
+                    msg = ("""Discarding (#%d) Spead accumulation with dump timestamp: %s
+                           (and timestamp in ticks: %s), relevant to time to apply: %s
+                           (Difference %.2f), Current epoch time: %s.\n"""%(num_discards,
+                                dump['dump_timestamp'], dump['timestamp'], setup_data['t_apply'],
+                                difference, time.time()))
+                    Aqf.step(msg)
 
         for i in xrange(dump_counts - 1):
             Aqf.step('Getting subsequent SPEAD accumulation {}.'.format(i + 1))
@@ -4066,8 +4063,8 @@ class test_CBF(unittest.TestCase):
                 # chan_responses = []
                 int_time = _test_params['int_time']
                 katcp_port = _test_params['katcp_port']
-                future_time = setup_data['extra_time_hack'] -10 #HACK
-                discards = 15
+                future_time = setup_data['extra_time_hack'] #-10 #HACK
+                discards = 10
                 for delay in test_delays:
                     delays[setup_data['test_source_ind']] = delay
                     delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
@@ -4082,7 +4079,8 @@ class test_CBF(unittest.TestCase):
                         final_cmd_time = (time.time() - cmd_start_time - roundtrip)
                         formated_reply = str(reply).replace('\_', ' ')
                         assert reply.reply_ok()
-                        Aqf.step('Setting delay of %ss to be applied at %s' % (delay, t_apply))
+                        Aqf.step('Setting delay of %ss to be applied at %s, relevant to '
+                                 'current time: %s' % (delay, t_apply, time.time()))
                     except Queue.Empty:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                         Aqf.failed(errmsg)
@@ -4104,11 +4102,11 @@ class test_CBF(unittest.TestCase):
                         Aqf.less(final_cmd_time, cam_max_load_time, msg)
                         msg = ('Settling time in order to set delay in the SPEAD data:'
                                ' {} ns.'.format(delay * 1e9))
-                        Aqf.wait(settling_time, msg)
+                        Aqf.wait(future_time+20, msg)
                     try:
                         Aqf.step('Getting SPEAD accumulation(discarding #%s dumps) containing '
-                                 'the change in delay(s) on input: %s.\n'%(discards,
-                                    setup_data['test_source']))
+                                 'the change in delay(s) on input: %s baseline: %s.\n'%(discards,
+                                    setup_data['test_source'], setup_data['baseline_index']))
                         dump = self.receiver.get_clean_dump(discard=discards)
                     except Queue.Empty:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'

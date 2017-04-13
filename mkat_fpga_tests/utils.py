@@ -378,7 +378,7 @@ def clear_all_delays(self, roundtrip=0.003, time_hack=0):
         dump = self.receiver.get_clean_dump()
         dump_timestamp = dump['dump_timestamp']
         t_apply = dump_timestamp + 10 * int_time
-        reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply + time_hack,
+        reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
                                                             *delay_coefficients)
         assert reply.reply_ok()
         LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
