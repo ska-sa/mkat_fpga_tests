@@ -23,7 +23,7 @@ fi
 
 OLD_PATH="$PATH"
 export PATH=/home/paulp/opt/gcc4.9.3/bin:"${PATH}"
-pip install -e . --force-reinstall
+pip install -q -e . --force-reinstall
 export PATH="${OLD_PATH}"
 # end hacksauce
 ##

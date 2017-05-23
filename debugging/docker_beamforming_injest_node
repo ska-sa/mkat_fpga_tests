@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ $EUID -ne 0 ]; then
+    echo "$0 is not running as root. Run as root."
+    exit 2
+fi
+
+docker run -d --net=host -v /ramdisk:/ramdisk sdp-docker-registry.kat.ac.za:5000/katsdpingest:latest bf_ingest.py --cbf-channels=4096 --file-base=/ramdisk --cbf-spead 239.100.1.1:8890

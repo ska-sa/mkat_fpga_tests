@@ -1,0 +1,10 @@
+#!/bin/bash
+if [ -z "$*" ];
+    then printf "Usage: $0 x y, where x=freq hz, y=corr noise scale\n";
+    exit 1;
+fi
+
+freq=$1
+noise=$2
+corr2_dsim_control.py --status --loglevel INFO --sine-source 0 0.7 ${freq} --sine-source 1 0.7 ${freq} --output-type 0 signal --output-scale 0 1 --output-scale 1 1 --output-type 1 signal --noise-source corr ${noise}
+

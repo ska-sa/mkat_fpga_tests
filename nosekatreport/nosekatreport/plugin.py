@@ -385,8 +385,7 @@ class StoreTestRun(object):
             self.test_run_data[test_name] = {}
         if 'success' in data:
             data['success'] = all([data['success'],
-                                   self.test_run_data[test_name].get('success',
-                                                                     True)])
+                                   self.test_run_data[test_name].get('success', True)])
             self.test_passed = data['success']
         if 'status' in data:
             data['status'] = self._comp_status(
@@ -630,14 +629,17 @@ class Aqf(object):
     def progress(cls, message):
         """Add progress messages to the step."""
         # _state.store.add_progress(message)
+        _state.store.add_progress(message)
         cls.log_progress(message)
+        test_logger.info(message)
+
 
     @classmethod
     def hop(cls, message=None):
         """A internal step in a test section.
 
         Hop is like a step but hop is used for internal setup of the test
-        invironment.
+        environment.
         eg. Aqf.hop("Test that the antenna is stowed when X is set to Y")
 
         :param message: String. Message describe what the hop will test.
@@ -663,7 +665,41 @@ class Aqf(object):
         test_logger.info(message)
 
     @classmethod
-    def addLine(cls, linetype, count):
+    def stepBold(cls, message):
+        """A step bolded in a test section.
+
+        eg. Aqf.stepBold("Test that the antenna is stowed when X is set to Y")
+
+        :param message: String. Message describe what the step will test.
+
+        """
+        try:
+            assert isinstance(message, list)
+        except AssertionError:
+            message = [message]
+        message = colors.bold('{:10s}'.format(''.join(message)))
+        _state.store.add_step(message)
+        cls.log_step(message)
+
+    @classmethod
+    def stepline(cls, message):
+        """A step underlined in a test section.
+
+        eg. Aqf.stepline("Test that the antenna is stowed when X is set to Y")
+
+        :param message: String. Message describe what the step will test.
+
+        """
+        try:
+            assert isinstance(message, list)
+        except AssertionError:
+            message = [message]
+        message = colors.underline(''.join(message))
+        _state.store.add_step(message)
+        cls.log_step(message)
+
+    @classmethod
+    def addLine(cls, linetype, count=80):
         """A step in a test section with lines
 
         eg. Aqf.step("Test that the antenna is stowed when X is set to Y")
@@ -673,8 +709,9 @@ class Aqf(object):
 
         """
         message = linetype * count
-        _state.store.add_step(message)
+        _state.store.add_step(message, hop=True)
         cls.log_step(message)
+        test_logger.info(message)
 
     @classmethod
     def image(cls, filename, caption='', alt=''):
@@ -697,17 +734,17 @@ class Aqf(object):
         """
         _state.store.add_matplotlib_fig(filename, caption, alt, autoscale)
 
-    # @classmethod
-    # def substep(cls, message):
-    #    """A sub step of a step in a test section.
+    @classmethod
+    def substep(cls, message):
+        """A sub step of a step in a test section.
 
-    #    eg. Aqf.substep("Test that the antenna no 3 is stowed")
+        eg. Aqf.substep("Test that the antenna no 3 is stowed")
 
-    #    :param message: String. Message describe what the sub step will test.
+        :param message: String. Message describe what the sub step will test.
 
-    #    """
-    #    _state.store.add_step(message)
-    #    cls.log_substep(message)
+        """
+        _state.store.add_step(message)
+        cls.log_substep(message)
 
     @classmethod
     def passed(cls, message=None):
@@ -775,8 +812,8 @@ class Aqf(object):
         :param message: String. Reason for skipping the test step.
 
         """
-        # _state.store.add_step_waived(message)
-        _state.store.set_step_state(WAIVED, message)
+        _state.store.add_step_waived(message)
+        #_state.store.set_step_state(WAIVED, message)
 
     @classmethod
     def equals(cls, result, expected, description):
@@ -1126,14 +1163,22 @@ class Aqf(object):
             raise nose.plugins.skip.SkipTest
         elif _state.store.test_failed:
             _state.store.test_failed = False
-            raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                _state.store.test_name, _state.store.error_msg))
+            fail_message = ("\n\nNot all test steps passed\n\t"
+                                "Test Name: %s\n\t"
+                                "Failure Message: %s\n"%(_state.store.test_name,
+                                    _state.store.error_msg))
+            fail_message = '\033[91m\033[1m %s \033[0m' %(fail_message)
+            raise TestFailed(fail_message)
         else:
             try:
                 assert _state.store.test_passed
             except AssertionError:
-                raise TestFailed("Not all test steps passed\n\tTest Name: {0:s}\n\tFail: {1:s}\n".format(
-                    _state.store.test_name, _state.store.error_msg))
+                fail_message = ("\n\nNot all test steps passed\n\t"
+                                "Test Name: %s\n\t"
+                                "Failure Message: %s\n"%(_state.store.test_name,
+                                    _state.store.error_msg))
+                fail_message = '\033[91m\033[1m %s \033[0m' %(fail_message)
+                raise TestFailed(fail_message)
 
                 # assert _state.store.test_passed, ("Test failed because not all steps passed\n\t\t%s\n\t\t%s" %
                 # (_state.store.test_name, _state.store.error_msg))

@@ -82,9 +82,9 @@ fhost = correlator.fhosts[0]
 
 xhost = correlator.xhosts[0]
 x = correlator.xhosts[0]
-try:
-    receiver = CorrRx(port=8888, queue_size=100)
-except:
-    print 'Could not instantiate receiver'
-else:
-    receiver.start()
+
+def get_dsim_clk():
+    feng_mcount = f.get_local_time()
+    return (time.time() - feng_mcount/float(correlator.sample_rate_hz))
+
+import IPython;IPython.embed()

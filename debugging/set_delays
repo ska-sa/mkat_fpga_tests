@@ -1,0 +1,16 @@
+#!/bin/bash 
+# Manual delays application
+
+if [ -z "$*" ];
+    then printf "Usage: $0 x ,where x is in seconds\n";
+    exit 1;
+fi
+tapply=$1
+epoch=$(($(date '+%s') + $tapply))
+printf 'Delays to be applied at epoch + %s seconds\n' $1
+printf 'We expect a phase change of 1/2 pi \n'
+printf 'Now time: %s\n' $(date '+%s')
+printf 'Trying to load at: %s \n' $epoch 
+#kcpcmd -t 500 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) delays $epoch '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'
+kcpcmd -t 500 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) delays $epoch '0,0:0,0', '0,0:0,0', '5.83331194452e-10,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'
+

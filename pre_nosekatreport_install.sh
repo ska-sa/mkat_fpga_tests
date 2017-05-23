@@ -7,6 +7,6 @@ set -e # Abort on any errors
 nosepath=$(pwd)
 echo 'Installing nosekatreport: ' "$nosepath"/nosekatreport
 cd "$nosepath"/nosekatreport
-pip install --force-reinstall -e .
+pip install -q --force-reinstall -e .
 
 set -u # Throw error on uninitialized variables
