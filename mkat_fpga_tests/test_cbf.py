@@ -1801,7 +1801,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.48')
     @aqf_requirements("CBF-REQ-0124")
-    def test_bc8n856M4k_bf_efficiency(self, instrument='bc8n856M4k'):
+    def __test_bc8n856M4k_bf_efficiency(self, instrument='bc8n856M4k'):
         """
         CBF Beamformer Efficiency
         """
@@ -1816,7 +1816,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.48')
     @aqf_requirements("CBF-REQ-0124")
-    def test_bc16n856M4k_bf_efficiency(self, instrument='bc16n856M4k'):
+    def __test_bc16n856M4k_bf_efficiency(self, instrument='bc16n856M4k'):
         """
         CBF Beamformer Efficiency
         """
@@ -1831,7 +1831,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.48')
     @aqf_requirements("CBF-REQ-0124")
-    def test_bc32n856M4k_bf_efficiency(self, instrument='bc32n856M4k'):
+    def __test_bc32n856M4k_bf_efficiency(self, instrument='bc32n856M4k'):
         """
         CBF Beamformer Efficiency
 
@@ -1847,7 +1847,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.23')
     @aqf_requirements("CBF-REQ-0127")
-    def _test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
+    def __test_bc8n856M4k_corr_efficiency(self, instrument='bc8n856M4k'):
         """
         CBF L-Band Correlator Efficiency
 
@@ -1863,7 +1863,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.23')
     @aqf_requirements("CBF-REQ-0127")
-    def _test_bc16n856M4k_corr_efficiency(self, instrument='bc16n856M4k'):
+    def __test_bc16n856M4k_corr_efficiency(self, instrument='bc16n856M4k'):
         """
         CBF L-Band Correlator Efficiency
         """
@@ -1878,7 +1878,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.23')
     @aqf_requirements("CBF-REQ-0127")
-    def _test_bc32n856M4k_corr_efficiency(self, instrument='bc32n856M4k'):
+    def __test_bc32n856M4k_corr_efficiency(self, instrument='bc32n856M4k'):
         """
         CBF L-Band Correlator Efficiency
         """
@@ -1893,7 +1893,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.23')
     @aqf_requirements("CBF-REQ-0127")
-    def _test_bc8n856M32k_corr_efficiency(self, instrument='bc8n856M32k'):
+    def __test_bc8n856M32k_corr_efficiency(self, instrument='bc8n856M32k'):
         """
         CBF L-Band Correlator Efficiency
         """
@@ -1908,7 +1908,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.23')
     @aqf_requirements("CBF-REQ-0127")
-    def _test_bc16n856M32k_corr_efficiency(self, instrument='bc16n856M32k'):
+    def __test_bc16n856M32k_corr_efficiency(self, instrument='bc16n856M32k'):
         """
         CBF L-Band Correlator Efficiency
         """
@@ -1923,7 +1923,7 @@ class test_CBF(unittest.TestCase):
 
     @aqf_vr('TP.C.1.23')
     @aqf_requirements("CBF-REQ-0127")
-    def _test_bc32n856M32k_corr_efficiency(self, instrument='bc32n856M32k'):
+    def __test_bc32n856M32k_corr_efficiency(self, instrument='bc32n856M32k'):
         """
         CBF L-Band Correlator Efficiency
         """
