@@ -2708,12 +2708,12 @@ class test_CBF(unittest.TestCase):
 
         for i, freq in enumerate(requested_test_freqs):
             if i < print_counts:
-                Aqf.progress('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
+                Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     i + 1, len(requested_test_freqs), freq / 1e6))
             elif i == print_counts:
                 Aqf.progress('.' * print_counts)
             elif i >= (len(requested_test_freqs) - print_counts):
-                Aqf.progress('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
+                Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     i + 1, len(requested_test_freqs), freq / 1e6))
             else:
                 LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (
@@ -3066,12 +3066,12 @@ class test_CBF(unittest.TestCase):
                 channel *= stepsize
 
             if channel < print_counts:
-                Aqf.progress('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
+                Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             elif channel == print_counts:
                 Aqf.progress('.' * 3)
             elif channel > (n_chans - print_counts):
-                Aqf.progress('Getting channel response for freq {0} @ {1}: {2:.3f} MHz.'.format(
+                Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             else:
                 LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (channel,
@@ -3509,8 +3509,8 @@ class test_CBF(unittest.TestCase):
                 # Maximum difference between the initial max frequency and the last max freq
                 dumps_comp = np.max(dumps_data[-1]) - initial_max_freq
                 # msg = (
-                # 'Check that back-to-back accumulations({0:.3f}/{1:.3f}dB) with the '
-                # 'same frequency input differ by no more than {2} dB threshold.'.format(
+                # 'Check that back-to-back accumulations({:.3f}/{:.3f}dB) with the '
+                # 'same frequency input differ by no more than {} dB threshold.'.format(
                 # dumps_comp, 10 * np.log10(dumps_comp), 10 * np.log10(threshold)))
 
                 msg = ('Check that the maximum difference between the subsequent SPEAD accumulations'
@@ -4936,22 +4936,22 @@ class test_CBF(unittest.TestCase):
                     delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
                     # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
                     abs_diff = np.abs(delta_expected - delta_actual)
-                    msg = ('[CBF-REQ-0187] Check if difference (radians) between expected({0:.3f}) '
-                            'phases and actual({1:.3f}) phases are \'Almost Equal\' '
-                            'within {2} degree when delay rate of {3} is applied.'.format(
+                    msg = ('[CBF-REQ-0187] Check if difference (radians) between expected({:.3f}) '
+                            'phases and actual({:.3f}) phases are \'Almost Equal\' '
+                            'within {} degree when delay rate of {} is applied.'.format(
                                 delta_expected, delta_actual, degree, delay_rate))
                     Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
 
-                    msg = ('[CBF-REQ-0187] Check that the maximum difference ({0:.3f} '
-                           'degree/{1:.3f} rad) between expected phase and actual phase '
-                           'between integrations is less than {2} degree.'.format(
+                    msg = ('[CBF-REQ-0187] Check that the maximum difference ({:.3f} '
+                           'degree/{:.3f} rad) between expected phase and actual phase '
+                           'between integrations is less than {} degree.'.format(
                                 np.rad2deg(abs_diff), abs_diff, degree))
                     Aqf.less(abs_diff, radians, msg)
 
                     abs_error = np.max(actual_phases_[i] - expected_phases_[i])
-                    msg = ('[CBF-REQ-0187] Check that the absolute maximum difference ({0:.3f} '
-                           'degree/{1:.3f} rad) between expected phase and actual phase '
-                           'is less than {2} degree.'.format(
+                    msg = ('[CBF-REQ-0187] Check that the absolute maximum difference ({:.3f} '
+                           'degree/{:.3f} rad) between expected phase and actual phase '
+                           'is less than {} degree.'.format(
                                 np.rad2deg(abs_error), abs_error, degree))
                     Aqf.less(abs_error, radians, msg)
 
@@ -4962,13 +4962,13 @@ class test_CBF(unittest.TestCase):
                                                        decimal=decimal)
 
                     except AssertionError:
-                        Aqf.step('[CBF-REQ-0187] Difference  between expected({0:.3f}) '
-                                 'phases and actual({1:.3f}) phases are '
-                                 '\'Not almost equal\' within {2} degree when delay rate '
-                                 'of {3} is applied.'.format(delta_expected, delta_actual,
+                        Aqf.step('[CBF-REQ-0187] Difference  between expected({:.3f}) '
+                                 'phases and actual({:.3f}) phases are '
+                                 '\'Not almost equal\' within {} degree when delay rate '
+                                 'of {} is applied.'.format(delta_expected, delta_actual,
                                                         degree, delay_rate))
-                        caption = ('[CBF-REQ-0128] Difference  expected({0:.3f}) and actual({1:.3f})'
-                                   ' phases are not equal within {2} degree when delay rate of {3} '
+                        caption = ('[CBF-REQ-0128] Difference  expected({:.3f}) and actual({:.3f})'
+                                   ' phases are not equal within {} degree when delay rate of {} '
                                    'is applied.'.format(delta_expected, delta_actual, degree,
                                                         delay_rate))
 
@@ -5897,7 +5897,8 @@ class test_CBF(unittest.TestCase):
             gain = complex(344)
             fft_shift = 4095
 
-        Aqf.step('Digitiser simulator configured to generate Gaussian noise, '
+        Aqf.step('Configure a digitiser simulator to generate correlated noise.')
+        Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(
             awgn_scale, gain, fft_shift))
         dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
@@ -6041,7 +6042,7 @@ class test_CBF(unittest.TestCase):
         if reply.reply_ok():
             pb = float(reply.arguments[2]) * dsim_clk_factor
             cf = float(reply.arguments[3]) * dsim_clk_factor
-            #Aqf.step('Beam {0} passband set to {1} at center frequency {2}'.format(
+            #Aqf.step('Beam {} passband set to {} at center frequency {}'.format(
             #        reply.arguments[1], pb, cf))
         else:
             Aqf.failed('Beam passband not successfully set (requested cf = {}, pb = {}): {}'.format(
@@ -6056,16 +6057,15 @@ class test_CBF(unittest.TestCase):
         for key in in_wgts:
             reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
                 beam, key, in_wgts[key])
+            Aqf.step('Confirm that the Input {} weight has been set to the desired weight.'.format(key))
             if reply.reply_ok():
-                Aqf.step('Input {0} weight set to {1}'
-                         ''.format(key, reply.arguments[1]))
+                Aqf.passed('Input {} weight set to {}\n'.format(key, reply.arguments[1]))
             else:
                 Aqf.failed('Beam weights not successfully set: {}'
                            ''.format(reply.arguments))
 
         ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
-        ingst_nd_p = self.corr_fix._test_config_file['beamformer'] \
-            ['ingest_node_port']
+        ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
         try:
             p = subprocess.Popen(
                 ['kcpcmd', '-s', ingst_nd + ':' + ingst_nd_p, 'capture-init'],
@@ -6219,8 +6219,8 @@ class test_CBF(unittest.TestCase):
             # Partitions to process and index to start TODO: read values from sensors
             partitions = 2
             part_idx = 0
-            channels_per_heap=256 
-            spectra_per_heap=256
+            channels_per_heap = 256
+            spectra_per_heap = 256
             # Determine slice of valid data in bf_raw
             bf_raw_str = part_idx*channels_per_heap
             bf_raw_end = bf_raw_str + partitions*channels_per_heap
@@ -6232,10 +6232,12 @@ class test_CBF(unittest.TestCase):
             # Cut selected partitions out of bf_flags
             flags = bf_flags[part_idx:part_idx+partitions]
             idx = part_idx
+            Aqf.step('Confirm that they were no heaps missed for the different partitions.')
             for part in flags:
                 missed_heaps = np.where(part>0)[0]
                 if missed_heaps.size > 0:
-                    Aqf.step('Missed heaps for partition {} at heap indexes {}'.format(idx, missed_heaps))
+                    Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
+                        missed_heaps))
                 idx += 1
             # flags for all missed heaps
             flags = np.sum(flags,axis=0)
@@ -6260,10 +6262,10 @@ class test_CBF(unittest.TestCase):
                 errmsg = 'Failed to capture beam data due to error: %s' % str(e)
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
-            Aqf.equals(data_type, 'int8',
-                       '[CBF-REQ-0118] Beamformer data type is {}, '
-                       'example value for one channel: {}'.format(
-                           data_type, cap[0][0]))
+            Aqf.step('Confirm the data type of the beamforming data for one channel.')
+            msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
+                data_type, cap[0][0]))
+            Aqf.equals(data_type, 'int8', msg)
             cap_mag = np.abs(cap)
             cap_avg = cap_mag.sum(axis=0) / cap_idx
             cap_db = 20 * np.log10(cap_avg)
@@ -6279,36 +6281,37 @@ class test_CBF(unittest.TestCase):
             #        labels += (lbl+"={} ").format(wght)
             labels = ''
             for key in in_wgts:
-                labels += (key + "={}\n").format(in_wgts[key])
-            labels += 'Mean={0:0.2f}dB\n'.format(cap_db_mean)
+                labels += (key + "= {}\n").format(in_wgts[key])
+            labels += 'Mean = {:0.2f}dB\n'.format(cap_db_mean)
 
             if inp_ref_lvl == 0:
                 # Get the voltage level for one antenna. Gain for one input
                 # should be set to 1, the rest should be 0
                 inp_ref_lvl = np.mean(cap_avg)
-                Aqf.step('Reference level measured by setting the ' 
+                Aqf.step('Reference level measured by setting the '
                          'gain for one antenna to 1 and the rest to 0. '
                          'Reference level = {:.3f}dB'.format(20*np.log10(inp_ref_lvl)))
                 Aqf.step('Reference level averaged over {} channels. '
                          'Channel averages determined over {} '
                          'samples.'.format(partitions*channels_per_heap, cap_idx))
                 expected = 0
-            else:                          
+            else:
                 delta = 0.2
                 expected = np.sum([inp_ref_lvl * in_wgts[key] for key in in_wgts]) * beam_quant_gain
                 expected = 20 * np.log10(expected)
-                msg = ('Check that the expected voltage level ({:.3f}dB) is within '
-                       '{}dB of the measured mean value ({:.3f}dB)'.format(expected,
-                                                                           delta, cap_db_mean))
-                Aqf.almost_equals(cap_db_mean, expected, delta, msg)
-                Aqf.step('Expected value is calculated by taking the referenc input level '
+
+                Aqf.step('Expected value is calculated by taking the reference input level '
                          'and multiplying by the channel weights and quantiser gain.')
-                labels += 'Expected={:.2f}dB'.format(expected)
+                labels += 'Expected = {:.2f}dB'.format(expected)
+                msg = ('Confirm that the expected voltage level ({:.3f}dB) is within '
+                    '{}dB of the measured mean value ({:.3f}dB)'.format(expected,delta, cap_db_mean))
+                Aqf.almost_equals(cap_db_mean, expected, delta, msg)
+
 
             return cap_avg, labels, inp_ref_lvl, pb, cf, expected, cap_idx
 
         # Main test code
-        Aqf.step('Getting instrument parameters.')
+        Aqf.step('Getting current instrument parameters.')
         try:
             katcp_rct = self.corr_fix.katcp_rct.sensors
             ants = katcp_rct.n_ants.get_value()
@@ -6330,9 +6333,9 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return False
-        Aqf.step('Bandwidth = {}Hz'.format(bw))
-        Aqf.step('Number of channels = {}'.format(nr_ch))
-        Aqf.step('Channel spacing = {}Hz'.format(ch_freq))
+        Aqf.progress('Bandwidth = {}Hz'.format(bw))
+        Aqf.progress('Number of channels = {}'.format(nr_ch))
+        Aqf.progress('Channel spacing = {}Hz'.format(ch_freq))
         # Setting required partitions and center frequency
         #target_cf = bw + bw * 0.5
         part_size = bw / 16
@@ -6346,7 +6349,8 @@ class test_CBF(unittest.TestCase):
         beam = beam_y
 
         # Set source names and stop all streams
-        local_src_names = self.test_params['custom_src_names']
+        _test_params = test_params(self)
+        local_src_names = _test_params['custom_src_names']
         try:
             reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam_x)
             assert reply.reply_ok()
@@ -6386,7 +6390,8 @@ class test_CBF(unittest.TestCase):
             gain = '344+0j'
             fft_shift = 4095
 
-        Aqf.step('Digitiser simulator configured to generate Gaussian noise, '
+        Aqf.step('Configure a digitiser simulator to generate correlated noise.')
+        Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(
             awgn_scale, gain, fft_shift))
         dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
@@ -6429,7 +6434,13 @@ class test_CBF(unittest.TestCase):
 
             weight = 1.0 / ants
             beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
-            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            try:
+                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             beam_lbls.append(l)
 
@@ -7267,7 +7278,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 return False
 
-        def set_gain(source,gain_str):        
+        def set_gain(source,gain_str):
             try:
                 reply, informs = self.corr_fix.katcp_rct.req.gain(source, gain_str)
                 assert reply.reply_ok()
