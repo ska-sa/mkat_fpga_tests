@@ -314,7 +314,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Channelisation Wideband Fine L-band
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5, force_reinit=True)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
