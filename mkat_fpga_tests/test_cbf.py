@@ -4455,7 +4455,7 @@ class test_CBF(unittest.TestCase):
                     msg = ('[CBF-REQ-0068, 0178] Roach: {}, Sensor: {}, Status: {}'.format(
                             roach.host.upper(), sensor_name, sensor_status))
                     Aqf.failed(msg)
-        Aqf.step('Confirm is Xhosts/Fhosts contain any errors/faults via CAM int.')
+        Aqf.step('Confirm if x-hosts/f-hosts contain(s) any errors/faults via CAM interface.')
         try:
             reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
             assert reply.reply_ok()
