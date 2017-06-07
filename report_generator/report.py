@@ -20,9 +20,10 @@ class Report(object):
 
     def __init__(self, data=None, system_data=None, acceptance_report=None):
         # See update_status_strings method.
-        self.UNKNOWN = 'unknown'
+        self.UNKNOWN = 'untested'
         self.WAIVED = 'waived'
         self.PASS = 'passed'
+        self.PROGRESS = 'progress'
         self.SKIP = 'skipped'
         self.TBD = 'tbd'
         self.FAIL = 'failed'
@@ -86,12 +87,13 @@ class Report(object):
         :return: List. Sorted list of timescales.
 
         """
+        timescales = sorted(set([self.requirements[r]['timescale']
+                           for r in self.requirements
+                           if self.requirements[r].get('timescale')]))
+        timescales = [i.replace(i[-1], 'AR{}'.format(count)) for count, i in enumerate(timescales)] +\
+                     ['Timescale Unlinked']
 
-        # return sorted(set([self.requirements[r]['timescale']
-        #                    for r in self.requirements
-        #                    if self.requirements[r].get('timescale')] +
-        #               ['Timescale Unlinked']))
-        # Uncomment above to have tests separated out by timescale
+        # return timescales
         return ['Timescale Unlinked']
 
     def write_rst_cbf_files(self, base_dir, build_dir, katreport_dir, prefix):
@@ -102,18 +104,20 @@ class Report(object):
         for test_req in self._requirements_from_tests():
             if test_req not in self.requirements:
                 # Create a fake Core entry.
-                self.requirements[test_req] = \
-                    {'definition': 'VerificationRequirement',
-                     'category-list': ["1200 CBF"],
-                     'method': 'test'}
+                self.requirements[test_req] = {'definition': 'VerificationRequirement',
+                                               'category-list': ["1200 CBF"],
+                                               'method': 'test'
+                                              }
         self.generate_include_documents(base_dir)
         timescales = self.get_timescales()
 
         scheme = 'acceptance' if self.acceptance_report else 'qualification'
         demo = False
         number = 0
-        documents = ['CBF %s Summary' % scheme.capitalize(),
-                     'System Information']
+        documents = ['CBF %s Summary' % scheme.capitalize()]
+        # documents = ['CBF %s Summary' % scheme.capitalize(),
+        #              'System Information']
+
         for timescale in nsort(timescales):
             for demo in [False, True]: # for Testing and Demonstration
                 for procedure in [True, False]: # For Procedure and Results
@@ -144,22 +148,34 @@ class Report(object):
                 fh.write(" * Test results:  :download:`katreport.json <{0}/katreport.json>`\n".format(
                         self.katreport_dir))
                 fh.write(" * Test output log:  :download:`output.log <{0}/output.log>`\n".format(
-                        self.katreport_dir))
-                fh.write(" * CORE export:  `katreport_core.html <{0}/katreport_core.html>`\n".format(
-                        self.katreport_dir))
+                       self.katreport_dir))
+                # fh.write(" * CORE export:  `katreport_core.html <{0}/katreport_core.html>`\n".format(
+                #         self.katreport_dir))
 
         self.clear()
         dp = self.docproducer
         filename = os.path.join(base_dir, "summary_info.inc")
         start = self.test_data.get("Meta", {}).get("start", "Unknown")
         end = self.test_data.get("Meta", {}).get("end", "Unknown")
-        site_type = self.test_data.get("Meta", {}).get("sitename", "Unknown")
+        try:
+            sitename = os.uname()[1]
+            test_executed = os.getlogin()
+        except:
+            sitename = 'Lab'
+            test_executed = 'Automated'
 
-        dp.add_line(":Test run: from %s until %s" % (start, end))
+        site_type = self.test_data.get("Meta", {}).get("Sitename", sitename)
+        who_ran = self.test_data.get("Meta", {}).get("User: ", test_executed)
+
         dp.add_line(':Build directory: %s' % dp.add_link(build_dir))
-        dp.add_line(":Site Type: '%s'" % site_type)
-        dp.add_line(':CORE Exported on: %s' % (self.core_meta.get(
-            'export', {}).get('time-stamp', '')))
+        dp.add_line(":Test Ran on: %s" % site_type)
+        dp.add_line(":Test Executed by: %s" % who_ran)
+        dp.add_line(":Test run: From %s Until %s" % (start, end))
+        dp.add_line(':CORE Model Exported on: %s' % (str(self.core_meta.get(
+            'export', {}).get('time-stamp', ''))))
+        dp.add_line(':CORE Model Exported by: %s' % (str(self.core_meta.get(
+            'export').get('exported-by', 'Unknown').capitalize())))
+        dp.add_line('')
 
         with open(filename, 'w') as fh:
             for line in self.docproducer.output:
@@ -182,25 +198,24 @@ class Report(object):
             All auto_tests + demo_tests + site_tests
             (demo and site is required to generate the full demonstration procedure)
         """
-        return True
-        # requirements = self._requirements_from_tests()
-        # ver_requirement = requirements.get(ver_req_id, {})
-        # tests = ver_requirement.get('tests', [])
-        # for test in tests:
-        #     # ver_req_id == 'auto' is default for tests
-        #     # not tagged with VR.xx.AUTO.nn or VR.xx.DEMO.nn or VR.xx.SITE.nn
-        #     auto_test = self.test_data[test].get('aqf_auto_test', ver_req_id == 'auto')
-        #     demo_test = self.test_data[test].get('aqf_demo_test', False)
-        #     site_test = self.test_data[test].get('aqf_site_test', False)
-        #     site_acceptance = self.test_data[test].get('aqf_site_acceptance', False)
-        #     if acceptance_report:
-        #         # For Acceptance Testing:
-        #         in_test_doc = site_test or site_acceptance
-        #     else:
-        #         # For Qualification Testing:
-        #         in_test_doc = not site_test
-        #     if in_test_doc:
-        #         return True
+        requirements = self._requirements_from_tests()
+        ver_requirement = requirements.get(ver_req_id, {})
+        tests = ver_requirement.get('tests', [])
+        for test in tests:
+            # ver_req_id == 'auto' is default for tests
+            # not tagged with VR.xx.AUTO.nn or VR.xx.DEMO.nn or VR.xx.SITE.nn
+            auto_test = self.test_data[test].get('aqf_auto_test', ver_req_id == 'auto')
+            demo_test = self.test_data[test].get('aqf_demo_test', False)
+            site_test = self.test_data[test].get('aqf_site_test', False)
+            site_acceptance = self.test_data[test].get('aqf_site_acceptance', False)
+            if acceptance_report:
+                # For Acceptance Testing:
+                in_test_doc = site_test or site_acceptance
+            else:
+                # For Qualification Testing:
+                in_test_doc = not site_test
+            if in_test_doc:
+                return True
 
     def _include_in_demo_doc(self, ver_req_id, acceptance_report):
         """
@@ -641,10 +656,9 @@ class Report(object):
                                     item.startswith('R.C.')):
                                 continue
 
-                            items[item] = \
-                                self.status_of_requirements(item, is_demo)
+                            items[item] = self.status_of_requirements(item, is_demo)
                             if result == 'Results' and items[item] == 'Exists':
-                                items[item] = 'PASSED / FAILED'
+                                items[item] = 'Implemented'
 
                         title = "CBF %s %s %s %s Summary" % \
                                 (timescale, scheme, demo, result)
@@ -801,7 +815,6 @@ class Report(object):
         The test procedure document will explain how each VR was tested.
 
         """
-
         test_requirements = self._requirements_from_tests()
         if verification_requirement:
             docproducer.add_heading('chapter', "AQF Test Procedure")
@@ -881,7 +894,7 @@ class Report(object):
                 if action.get('type') == 'checkbox':
                     demo_script.append(('checkbox',
                                         {'msg': action.get('msg')}))
-                    dp.add_line('  + %s: %s \n      **PASSED / FAILED** ' %
+                    dp.add_line('  + %s: %s \n      **Implemented** ' %
                                 (action.get('type', '').title(),
                                  action.get('msg')))
                 else:
@@ -1180,7 +1193,7 @@ class Report(object):
                     if action_type != 'CONTROL':
                         docproducer.add_line("  ".join([l for l in line if l]))
                     if action_type == 'CHECKBOX':
-                        docproducer.add_line('        **PASSED / FAILED** ')
+                        docproducer.add_line('        **Implemented** ')
                     #if action.get('stack'):
                         #docproducer.add_sourcecode(''.join(action['stack']))
                     if action_type == 'IMAGE':

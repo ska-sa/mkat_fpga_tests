@@ -1,0 +1,12 @@
+#!/bin/bash
+# Jenkins git hook build trigger
+# Mpho Mphego
+# mmphego@ska.ac.za
+if [ "$(whoami)" == "mmphego" ]; then 
+    machine=$(uname -n)
+    GitBranch=$(git symbolic-ref --short HEAD)
+    apikey='cdcff24405c489ccac76b8ff0e2e0004'
+    user='mmphego'
+    curl -X POST http://$user:$apikey@$machine:8080/job/Debug_4k_tests/buildWithParameters?GITBRANCH=origin/$GitBranch
+    echo 'Executing jenkins build'
+fi

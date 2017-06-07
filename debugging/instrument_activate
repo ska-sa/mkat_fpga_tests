@@ -6,7 +6,11 @@ if [ -z "$*" ];
     then printf "Usage: $0 bc8n856M4k\n";
     exit 1;
 fi
-sudo service cmc --full-restart;
+sudo /etc/init.d/cmc stop
+sleep 2
+echo ''
+sudo /etc/init.d/cmc start
+
 instrument=$1;
 export CORR2INI=/etc/corr/templates/${instrument};
 if corr2_deprogram.py --hosts $CORR2INI >> /dev/null 2>&1;

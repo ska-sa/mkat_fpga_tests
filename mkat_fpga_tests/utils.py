@@ -6,6 +6,7 @@ import logging
 import numpy as np
 import operator
 import os
+import pwd
 import Queue
 import random
 import signal
@@ -682,13 +683,13 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
                 assert reply.reply_ok()
         else:
             eq_level = eq_level[0]
-            LOGGER.info('Inputs gain set to %s' % (eq_level))
+            LOGGER.info('Setting gain levels to all inputs to %s' % (eq_level))
             reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
             assert reply.reply_ok()
         LOGGER.info('Gains set successfully: Reply:- %s' %str(reply))
         return True
     except Exception:
-        LOGGER.exception('Failed to set gain for input: %s with gain of: %s' %(i, v))
+        LOGGER.exception('Failed to set gain for input')
         return False
 
 
@@ -761,25 +762,21 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     :rtype: None
     """
     if spead2_warn:
-        # set the SPEAD2 logger to x only
-        logging.getLogger('spead2').setLevel(logging.FATAL)
+        logging.getLogger('spead2').setLevel(logging.ERROR)
     if corr_warn:
-        # set the corr_rx logger to x only
         logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
-        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.FATAL)
-        logging.getLogger('corr2.xhost_fpga').setLevel(logging.FATAL)
-        logging.getLogger('corr2.fhost_fpga').setLevel(logging.FATAL)
-        logging.getLogger('fxcorrelator_fengops').setLevel(logging.FATAL)
-        logging.getLogger('fhost_fpga').setLevel(logging.FATAL)
+        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
+        logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
+        logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
+        logging.getLogger('fxcorrelator_fengops').setLevel(logging.ERROR)
+        logging.getLogger('fhost_fpga').setLevel(logging.ERROR)
     if casperfpga_debug:
-        # set the corr_rx logger to x only
         logging.getLogger("casperfpga").setLevel(logging.FATAL)
+        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.FATAL)
     if katcp_warn:
-        # Set katcp.inspect_client logger to x messages
-        logging.getLogger('katcp').setLevel(logging.FATAL)
+        logging.getLogger('katcp').setLevel(logging.ERROR)
         logging.getLogger('tornado.application').setLevel(logging.FATAL)
     if plt_warn:
-        # This function disable matplotlibs deprecation warnings
         import matplotlib
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
     if np_warn:
@@ -971,7 +968,10 @@ def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
 def who_ran_test():
     """Get who ran the test."""
     try:
-        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(getusername(), os.uname()[1].upper(),
+        user = pwd.getpwuid(os.getuid()).pw_name
+        if user == 'root':
+            raise OSError
+        Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(user, os.uname()[1].upper(),
                                                                time.strftime("%Y-%m-%d %H:%M:%S")))
     except OSError:
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
@@ -1065,9 +1065,13 @@ def which_instrument(self, instrument):
     """
     running_inst = self.corr_fix.get_running_instrument()
     try:
-        assert running_inst.values()[0]
-        _running_inst = running_inst.keys()[0]
+        assert running_inst is not False
+        _running_inst = running_inst
     except AssertionError:
+        _running_inst = instrument
+    except AttributeError:
+        LOGGER.exception('Something horribly went wrong, Failed to retrieve running instrument. '
+                         'Returning default instrument %s'%instrument)
         _running_inst = instrument
     return _running_inst
 

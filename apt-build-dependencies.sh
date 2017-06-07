@@ -8,6 +8,7 @@ if [ "$EUID" -ne 0 ]
 fi
 
 list_packages=$"autoconf \
+smcroute\
 automake \
 bison \
 flex \
