@@ -154,8 +154,13 @@ def process_core_data(settings, log_func):
     """Process the CORE XML file if JSON file is not there or old."""
 
     # Setup.
+    if settings.has_key('me_dir'):
+        temp_core_export = '/'.join([settings['me_dir'], 'tmp', 'CORE_EXPORT'])
+        if not os.path.exists(temp_core_export):
+            os.makedirs(temp_core_export)
+
     if 'tmp_core_dir' not in settings:
-        settings['tmp_core_dir'] = "/tmp/CORE_EXPORT"
+        settings['tmp_core_dir'] = temp_core_export
     if 'xml_file' not in settings:
         settings['xml_file'] = os.path.join(settings['tmp_core_dir'],
                                             "svn/MeerKAT.xml")

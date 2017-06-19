@@ -35,3 +35,5 @@ mkat_fpga_tests/bf_data/
 supplemental/MeerKAT-20042017.xml
 supplemental/MeerKAT_20160512.xml
 venv/
+tmp/
+

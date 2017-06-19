@@ -8,32 +8,31 @@ if [ "$EUID" -ne 0 ]
 fi
 
 list_packages=$"autoconf \
-smcroute\
 automake \
 bison \
+build-essential \
+dialog \
 flex \
+gfortran \
+libatlas-base-dev \
 libboost-all-dev \
+libffi-dev \
 libfreetype6-dev \
 libglib2.0-dev \
 libgtk2.0-dev \
 libhdf5-dev \
+libopenblas-dev \
 libpcap-dev \
 libpcap0.8-dev \
 libpng12-dev \
+libssl-dev \
 pkg-config \
 python-dev \
-tk-dev \
-wireshark-dev \
-gfortran \
+python-scipy \
+smcroute\
 swig \
-dialog \
-libopenblas-dev \
-libssl-dev \
-libffi-dev \
-build-essential \
-gfortran \
-libatlas-base-dev \
-python-scipy"
+tk-dev \
+wireshark-dev"
 
 apt-get update -qq
 for pkg in $list_packages;
