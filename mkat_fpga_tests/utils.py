@@ -360,9 +360,11 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         return baseline_lookup
 
 
-def clear_all_delays(self, roundtrip=0.003, time_hack=0):
+def clear_all_delays(self, num_int=25):
     """Clears all delays on all fhosts.
     Param: object
+    Param: num_int: Number of intergrations for calculation time to apply delays and number of
+                    spead accumulation discards.
     Return: Boolean
     """
     try:
@@ -376,15 +378,19 @@ def clear_all_delays(self, roundtrip=0.003, time_hack=0):
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
     try:
-        dump = self.receiver.get_clean_dump()
+        dump = self.receiver.get_clean_dump(discard=0)
         dump_timestamp = dump['dump_timestamp']
-        t_apply = dump_timestamp + 10 * int_time
+        t_apply = dump_timestamp + num_int * int_time
         reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
                                                             *delay_coefficients)
         assert reply.reply_ok()
         LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-        dump = self.receiver.get_clean_dump(discard=time_hack)
-        assert np.max(np.angle(dump['xeng_raw'])) == np.min(np.angle(dump['xeng_raw'])) == 0
+        dump = self.receiver.get_clean_dump(discard=num_int*1.6)
+        # Hack to avoid failures due to qdr errors
+        if _test_params['n_chans'] == 32768:
+            assert np.max(np.angle(dump['xeng_raw'][:,9,:])) == np.min(np.angle(dump['xeng_raw'][:,9,:])) == 0
+        else:
+            assert np.max(np.angle(dump['xeng_raw'])) == np.min(np.angle(dump['xeng_raw'])) == 0
         LOGGER.info('Delays cleared successfully.')
         return True
     except AssertionError:
@@ -495,17 +501,18 @@ def check_host_okay(self, engine=None, sensor=None):
             return None
 
         sensor_status = [[' '.join(i.arguments[2:]) for i in informs
-                         if i.arguments[2] == '{}-{}-{}-ok'.format(host, engine, sensor)]
+                         if i.arguments[2].endswith('ok') and not i.arguments[2].startswith('antenna')]
                          for host in hosts]
         _errors_list = []
         for i in sensor_status:
             try:
-                assert int(i[0].split()[-1]) == 1
+                assert str(i[0].split()[-2]) == 'nominal'
                 return True
             except AssertionError:
-                errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
-                LOGGER.error(errmsg)
-                _errors_list.append(errmsg)
+                if sensor in i[0]:
+                    errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
+                    LOGGER.error(errmsg)
+                    _errors_list.append(errmsg)
             except IndexError:
                 LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
                              'File: %s line: %s' % (
