@@ -662,7 +662,7 @@ class Aqf(object):
         """
         _state.store.add_step(message)
         cls.log_step(message)
-        test_logger.info(message)
+        # test_logger.info(message)
 
     @classmethod
     def stepBold(cls, message):

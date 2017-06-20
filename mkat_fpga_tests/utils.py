@@ -1,6 +1,8 @@
 import base64
 import contextlib
 import corr2
+import glob
+import h5py
 import io
 import logging
 import numpy as np
@@ -14,8 +16,6 @@ import threading
 import time
 import warnings
 
-# MEMORY LEAKS DEBUGGING
-# To use, add @DetectMemLeaks decorator to function
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
 from collections import defaultdict
@@ -25,6 +25,8 @@ from Crypto.Cipher import AES
 from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
+# MEMORY LEAKS DEBUGGING
+# To use, add @DetectMemLeaks decorator to function
 from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
 from socket import inet_ntoa
@@ -1262,3 +1264,180 @@ def test_params(self):
         'xeng_acc_len' : xeng_acc_len,
         'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         }
+
+def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.1):
+    """ Capture beamformer data
+
+    Parameters
+    ----------
+    beam (beam_0x, beam_0y):
+        Polarisation to capture beam data
+    beam_dict:
+        Dictionary containing input:weight key pairs e.g.
+        beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
+    target_pb:
+        Target passband in Hz
+    target_cfreq:
+        Target center frequency in Hz
+    capture_time:
+        Number of seconds to capture beam data
+
+    Returns
+    -------
+        bf_raw:
+            Raw beamformer data for the selected beam
+        cap_ts:
+            Captured timestamps, dropped packet timestamps will not be
+            present
+        bf_ts:
+            Expected timestamps
+
+    """
+    beamdata_dir = '/ramdisk'
+    _timeout = 10
+    ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+    ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+
+    dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
+    Aqf.step('Configure beam %s passband and set to desired center frequency(%s).'%(beam,
+        target_cfreq))
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.beam_passband(beam, target_pb, target_cfreq)
+        assert reply.reply_ok()
+    except AssertionError:
+        Aqf.failed('Beam passband not successfully set (requested cf = {}, pb = {}): {}'.format(
+            target_cfreq, target_pb, reply.arguments))
+        return
+    else:
+        pb = float(reply.arguments[2]) * dsim_clk_factor
+        cf = float(reply.arguments[3]) * dsim_clk_factor
+        Aqf.progress('Beam {} passband set to {} at center frequency {}'.format(
+            reply.arguments[1], pb, cf))
+
+    # Build new dictionary with only the requested beam keys:value pairs
+    in_wgts = {}
+    beam_pol = beam[-1]
+    for key in beam_dict:
+        if key.find(beam_pol) != -1:
+            in_wgts[key] = beam_dict[key]
+
+    for key in in_wgts:
+        Aqf.step('Confirm that the Input {} weight has been set to the desired weight.'.format(
+            key))
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
+            assert reply.reply_ok()
+        except AssertionError:
+            Aqf.failed('Beam weights not successfully set')
+        else:
+            Aqf.passed('Antennae input {} weight set to {}\n'.format(key, reply.arguments[1]))
+
+    try:
+        import katcp
+        kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
+        kcp_client.setDaemon(True)
+        kcp_client.start()
+        self.addCleanup(kcp_client.stop)
+        is_connected = kcp_client.wait_connected(_timeout)
+        if not is_connected:
+            kcp_client.stop()
+            raise RuntimeError('Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p))
+        Aqf.step('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
+        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
+            timeout=_timeout)
+        errmsg = 'Failed to issues capture-init on %s:%s'%(ingst_nd, ingst_nd_p)
+        assert reply.reply_ok(), errmsg
+    except Exception:
+        LOGGER.exception(errmsg)
+        Aqf.failed(errmsg)
+
+
+    try:
+        for i in xrange(2): reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
+        errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
+        reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+    except AssertionError:
+        errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
+        Aqf.failed(errmsg)
+    else:
+        Aqf.progress('Capture-init successfully issued on %s and Data transmission for '
+                     'beam %s started'%(ingst_nd, beam))
+    Aqf.wait(capture_time, 'Wait such that the neccessary amount of data is captured.')
+    try:
+        Aqf.step('Issue data capture stop via CAM int')
+        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+        assert reply.reply_ok()
+    except AssertionError:
+        errmsg = 'Failed to stop Data transmission.'
+        Aqf.failed(errmsg)
+        LOGGER.exception(errmsg)
+
+    try:
+        if not is_connected:
+            kcp_client.stop()
+            raise RuntimeError('Could not connect to corr2_servlet, timed out.')
+
+        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-done'),
+            timeout=_timeout)
+        assert reply.reply_ok()
+    except Exception:
+        errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
+        Aqf.failed(errmsg)
+        LOGGER.error(errmsg)
+        return
+    else:
+        Aqf.progress('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
+            ingst_nd, beam))
+
+    try:
+        Aqf.step('Getting latest beam data captured in %s'%beamdata_dir)
+        newest_f = max(glob.iglob('%s/*.h5'%beamdata_dir), key=os.path.getctime)
+        _timestamp = int(newest_f.split('/')[-1].split('.')[0])
+        newest_f_timestamp = time.strftime("%H:%M:%S", time.localtime(_timestamp))
+    except ValueError as e:
+        Aqf.failed('Failed to get the latest beamformer data: %s'%str(e))
+        return
+    else:
+        Aqf.progress('Reading h5py data file(%s)[%s] and extracting the beam data.\n'%(newest_f,
+            newest_f_timestamp))
+        with h5py.File(newest_f, 'r') as fin:
+            data = fin['Data'].values()
+            for element in data:
+                if element.name.find('captured_timestamps') > -1:
+                    cap_ts = np.array(element.value)
+                elif element.name.find('bf_raw') > -1:
+                    bf_raw = np.array(element.value)
+                elif element.name.find('timestamps') > -1:
+                    bf_ts = np.array(element.value)
+                elif element.name.find('flags') > -1:
+                    bf_flags = np.array(element.value)
+        return bf_raw, bf_flags, bf_ts, in_wgts, pb, cf
+
+def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
+    """
+        If num_wgts_to_set = -1 all inputs will be set
+    """
+    ctr = 0
+    for key in beam_dict:
+        if ctr < num_wgts_to_set or num_wgts_to_set == -1:
+            beam_dict[key] = value
+            ctr += 1
+    return beam_dict
+
+def set_beam_quant_gain(self, beam, gain):
+    try:
+        reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(beam, gain)
+        if reply.reply_ok():
+            actual_beam_gain = float(reply.arguments[1])
+            msg = ('[CBF-REQ-0117] Requested beamformer level adjust gain of {:.2f}, '
+                   'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
+            Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
+        else:
+            raise Exception
+    except Exception, e:
+        Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
+        return 0
+    return actual_beam_gain
+
+
