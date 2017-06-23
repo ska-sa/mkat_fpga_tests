@@ -230,8 +230,16 @@ class test_CBF(unittest.TestCase):
                 output_product = test_params(self)['output_product']
                 Aqf.step('Initiate SPEAD receiver on port %s, and CBF output product %s'%(
                     corrRx_port, output_product))
-                self.receiver = CorrRx(product_name=output_product,
-                    port=corrRx_port, queue_size=queue_size)
+                if corrRx_port == 8888:
+                    self.receiver = CorrRx(product_name=output_product,
+                        port=corrRx_port, queue_size=queue_size)
+                    LOGGER.info('Running lab testing and listening to corr2_servlet on localhost')
+                else:
+                    servlet_ip = int(self.conf_file['inst_param']['corr2_servlet_ip'])
+                    LOGGER.info('Running site testing and listening to corr2_servlet on %s' %servlet_ip)
+                    self.receiver = CorrRx(product_name=output_product, servlet_ip=servlet_ip
+                        port=corrRx_port, queue_size=queue_size)
+
                 self.receiver.setName('CorrRx Thread')
                 self.errmsg = 'Failed to create SPEAD data receiver'
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)

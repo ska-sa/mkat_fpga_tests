@@ -569,11 +569,11 @@ class CorrelatorFixture(object):
         try:
             assert os.uname()[1].startswith('dbelab')
         except AssertionError:
-            conf_path = '/config/test_conf_site.ini'
+            conf_path = 'config/test_conf_site.ini'
         else:
-            conf_path = '/config/test_conf.ini'
+            conf_path = 'config/test_conf_lab.ini'
 
-        config_file = path + conf_path
+        config_file = os.path.join(path, conf_path)
         if os.path.isfile(config_file) or os.path.exists(config_file):
             try:
                 config = corr2.utils.parse_ini_file(config_file)
