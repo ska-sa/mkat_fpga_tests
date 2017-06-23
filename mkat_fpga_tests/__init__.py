@@ -4,10 +4,11 @@ import logging
 import os
 import socket
 import struct
-import sys
 import subprocess
+import sys
 import time
 
+#from testconfig import config as nose_test_config
 from casperfpga import katcp_fpga
 from casperfpga import tengbe
 from casperfpga import utils as fpgautils
@@ -18,15 +19,13 @@ from corr2.dsimhost_fpga import FpgaDsimHost
 from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
-from corr2.data_stream import StreamAddress
+from katcp import ioloop_manager
 from katcp import KatcpClientError
 from katcp import KatcpDeviceError
 from katcp import KatcpSyntaxError
-from katcp import ioloop_manager
 from katcp import resource_client
 from katcp.core import ProtocolFlags
 from katcp.resource_client import KATCPSensorError
-#from testconfig import config as nose_test_config
 from mkat_fpga_tests.utils import ignored
 from nosekatreport import Aqf
 
@@ -544,7 +543,7 @@ class CorrelatorFixture(object):
         return: List
         """
         try:
-            running_instr = max(glob.iglob('/etc/corr/*'), key=os.path.getctime).split('/')[-1]
+            running_instr = max(glob.iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]
             self.array_name, self.instrument = running_instr.split('-')
             if (self.instrument.startswith('bc') or self.instrument.startswith('c')) and \
                 self.array_name.startswith('array'):

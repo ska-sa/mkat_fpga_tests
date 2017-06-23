@@ -235,17 +235,19 @@ class test_CBF(unittest.TestCase):
                         port=corrRx_port, queue_size=queue_size)
                     LOGGER.info('Running lab testing and listening to corr2_servlet on localhost')
                 else:
-                    servlet_ip = int(self.conf_file['inst_param']['corr2_servlet_ip'])
+                    servlet_ip = str(self.conf_file['inst_param']['corr2_servlet_ip'])
+                    servlet_port = int(self.corr_fix.katcp_rct.port)
                     LOGGER.info('Running site testing and listening to corr2_servlet on %s' %servlet_ip)
-                    self.receiver = CorrRx(product_name=output_product, servlet_ip=servlet_ip
-                        port=corrRx_port, queue_size=queue_size)
+                    self.receiver = CorrRx(product_name=output_product, servlet_ip=servlet_ip,
+                        servlet_port=servlet_port, port=corrRx_port, queue_size=queue_size)
 
                 self.receiver.setName('CorrRx Thread')
                 self.errmsg = 'Failed to create SPEAD data receiver'
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                 start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
                 self.errmsg = 'Failed to subscribe to multicast IPs.'
-                assert self.receiver.confirm_multicast_subs() is 'Successful', self.errmsg
+                _IP, _PORT = self.corr_fix.corr_config['xengine']['output_destinations_base'].split(':')
+                assert self.receiver.confirm_multicast_subs(mul_ip=_IP) is 'Successful', self.errmsg
                 self.errmsg = 'Spead Receiver not Running, possible '
                 assert self.receiver.isAlive(), self.errmsg
             except AssertionError:
@@ -2094,7 +2096,7 @@ class test_CBF(unittest.TestCase):
             FNULL = open(os.devnull, 'w')
             subprocess.check_call(['pgrep', '-fol', 'corr2_sensor_servlet.py'], stdout=FNULL,
                 stderr=FNULL)
-        except CalledProcessError:
+        except subprocess.CalledProcessError:
             Aqf.failed('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
 
         if not confirm_out_dest_ip(self):
