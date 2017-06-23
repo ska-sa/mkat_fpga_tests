@@ -51,6 +51,7 @@ from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero
 from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 from mkat_fpga_tests.utils import test_params, which_instrument, cbf_title_report
+from mkat_fpga_tests.utils import capture_beam_data, populate_beam_dict, set_beam_quant_gain
 
 from datetime import datetime
 from inspect import currentframe
@@ -252,9 +253,8 @@ class test_CBF(unittest.TestCase):
                 self.addCleanup(self.corr_fix.stop_x_data)
                 self.addCleanup(gc.collect)
                 self.addCleanup(self.receiver.stop)
-                # self.addCleanup(clear_host_status, self)
                 # Run system tests before each test is ran
-                self._systems_tests()
+                self.addCleanup(self._systems_tests)
                 return True
 
 
@@ -2092,7 +2092,7 @@ class test_CBF(unittest.TestCase):
         if not confirm_out_dest_ip(self):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
                        'i.e. data is being spewed elsewhere.')
-        clear_host_status(self)
+        # clear_host_status(self)
         set_default_eq(self)
         # ---------------------------------------------------------------
         Aqf.step('Checking system stability(sensors OK status) before and after testing')
@@ -2113,6 +2113,7 @@ class test_CBF(unittest.TestCase):
                 get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
         except Exception:
             LOGGER.error('Failed to read correlator attribute, correlator might not be running.')
+
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
         Aqf.step('Setting  accumulation time to {}.'.format(accumulation_time))
@@ -2634,6 +2635,12 @@ class test_CBF(unittest.TestCase):
 
         print_counts = 3
         spead_failure_counter = 0
+
+        try:
+            self.last_pfb_counts = get_pfb_counts(
+                get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
+        except Exception:
+            LOGGER.error('Failed to read correlator attribute, correlator might not be running.')
 
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -5795,7 +5802,7 @@ class test_CBF(unittest.TestCase):
                 beam = beams[1]
 
                 # Set beamformer quantiser gain for selected beam to 1
-                self._set_beam_quant_gain(beam, 1)
+                set_beam_quant_gain(self, beam, 1)
 
                 beam_dict = {}
                 beam_pol = beam[-1]
@@ -5806,9 +5813,9 @@ class test_CBF(unittest.TestCase):
                 # Only one antenna gain is set to 1, this will be used as the reference
                 # input level
                 weight = 1.0
-                beam_dict = self._populate_beam_dict(1, weight, beam_dict)
+                beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
                 try:
-                    bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
+                    bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam,
                         beam_dict, target_pb, target_cfreq)
                 except TypeError, e:
                     errmsg = ('Failed to capture beam data: %s\n\n Confirm that Docker container is '
@@ -6024,181 +6031,6 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed('Could not retrieve channel response with gain/eq corrections.')
 
-    def _capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.1):
-        """ Capture beamformer data
-
-        Parameters
-        ----------
-        beam (beam_0x, beam_0y):
-            Polarisation to capture beam data
-        beam_dict:
-            Dictionary containing input:weight key pairs e.g.
-            beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
-        target_pb:
-            Target passband in Hz
-        target_cfreq:
-            Target center frequency in Hz
-        capture_time:
-            Number of seconds to capture beam data
-
-        Returns
-        -------
-            bf_raw:
-                Raw beamformer data for the selected beam
-            cap_ts:
-                Captured timestamps, dropped packet timestamps will not be
-                present
-            bf_ts:
-                Expected timestamps
-
-        """
-        beamdata_dir = '/ramdisk'
-        _timeout = 10
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
-        ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
-
-        dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
-        Aqf.step('Configure beam %s passband and set to desired center frequency(%s).'%(beam,
-            target_cfreq))
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.beam_passband(beam, target_pb, target_cfreq)
-            assert reply.reply_ok()
-        except AssertionError:
-            Aqf.failed('Beam passband not successfully set (requested cf = {}, pb = {}): {}'.format(
-                target_cfreq, target_pb, reply.arguments))
-            return
-        else:
-            pb = float(reply.arguments[2]) * dsim_clk_factor
-            cf = float(reply.arguments[3]) * dsim_clk_factor
-            Aqf.progress('Beam {} passband set to {} at center frequency {}'.format(
-                reply.arguments[1], pb, cf))
-
-        # Build new dictionary with only the requested beam keys:value pairs
-        in_wgts = {}
-        beam_pol = beam[-1]
-        for key in beam_dict:
-            if key.find(beam_pol) != -1:
-                in_wgts[key] = beam_dict[key]
-
-        for key in in_wgts:
-            Aqf.step('Confirm that the Input {} weight has been set to the desired weight.'.format(
-                key))
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
-                assert reply.reply_ok()
-            except AssertionError:
-                Aqf.failed('Beam weights not successfully set')
-            else:
-                Aqf.passed('Antennae input {} weight set to {}\n'.format(key, reply.arguments[1]))
-
-        try:
-            kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
-            kcp_client.setDaemon(True)
-            kcp_client.start()
-            self.addCleanup(kcp_client.stop)
-            is_connected = kcp_client.wait_connected(_timeout)
-            if not is_connected:
-                kcp_client.stop()
-                raise RuntimeError('Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p))
-            Aqf.step('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
-            reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
-                timeout=_timeout)
-            errmsg = 'Failed to issues capture-init on %s:%s'%(ingst_nd, ingst_nd_p)
-            assert reply.reply_ok(), errmsg
-        except Exception:
-            LOGGER.exception(errmsg)
-            Aqf.failed(errmsg)
-
-
-        try:
-            for i in xrange(2): reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
-            errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
-            assert reply.reply_ok(), errmsg
-            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
-        except AssertionError:
-            errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
-            Aqf.failed(errmsg)
-        else:
-            Aqf.progress('Capture-init successfully issued on %s and Data transmission for '
-                         'beam %s started'%(ingst_nd, beam))
-        Aqf.wait(capture_time, 'Wait such that the neccessary amount of data is captured.')
-        try:
-            Aqf.step('Issue data capture stop via CAM int')
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
-            assert reply.reply_ok()
-        except AssertionError:
-            errmsg = 'Failed to stop Data transmission.'
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-
-        try:
-            if not is_connected:
-                kcp_client.stop()
-                raise RuntimeError('Could not connect to corr2_servlet, timed out.')
-
-            reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-done'),
-                timeout=_timeout)
-            assert reply.reply_ok()
-        except Exception:
-            errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
-            Aqf.failed(errmsg)
-            LOGGER.error(errmsg)
-            return
-        else:
-            Aqf.progress('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
-                ingst_nd, beam))
-
-        try:
-            Aqf.step('Getting latest beam data captured in %s'%beamdata_dir)
-            newest_f = max(glob.iglob('%s/*.h5'%beamdata_dir), key=os.path.getctime)
-            _timestamp = int(newest_f.split('/')[-1].split('.')[0])
-            newest_f_timestamp = time.strftime("%H:%M:%S", time.localtime(_timestamp))
-        except ValueError as e:
-            Aqf.failed('Failed to get the latest beamformer data: %s'%str(e))
-            return
-        else:
-            Aqf.progress('Reading h5py data file(%s)[%s] and extracting the beam data.\n'%(newest_f,
-                newest_f_timestamp))
-            with h5py.File(newest_f, 'r') as fin:
-                data = fin['Data'].values()
-                for element in data:
-                    if element.name.find('captured_timestamps') > -1:
-                        cap_ts = np.array(element.value)
-                    elif element.name.find('bf_raw') > -1:
-                        bf_raw = np.array(element.value)
-                    elif element.name.find('timestamps') > -1:
-                        bf_ts = np.array(element.value)
-                    elif element.name.find('flags') > -1:
-                        bf_flags = np.array(element.value)
-            return bf_raw, bf_flags, bf_ts, in_wgts, pb, cf
-
-    def _populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
-        """
-            If num_wgts_to_set = -1 all inputs will be set
-        """
-        ctr = 0
-        for key in beam_dict:
-            if ctr < num_wgts_to_set or num_wgts_to_set == -1:
-                beam_dict[key] = value
-                ctr += 1
-        return beam_dict
-
-    def _set_beam_quant_gain(self, beam, gain):
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(beam, gain)
-            if reply.reply_ok():
-                actual_beam_gain = float(reply.arguments[1])
-                msg = ('[CBF-REQ-0117] Requested beamformer level adjust gain of {:.2f}, '
-                       'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
-                Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
-            else:
-                raise Exception
-        except Exception, e:
-            Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
-            return 0
-        return actual_beam_gain
-
-
     def _test_beamforming(self):
         """
         Apply weights and capture beamformer data, Verify that weights are correctly applied.
@@ -6207,9 +6039,8 @@ class test_CBF(unittest.TestCase):
         def get_beam_data(beam, beam_dict, target_pb, target_cfreq,
                           inp_ref_lvl=0, beam_quant_gain=1, num_caps=10000):
             try:
-                bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam, beam_dict,
-                                                                                 target_pb,
-                                                                                 target_cfreq)
+                bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
+                    target_pb, target_cfreq)
 
             except TypeError, e:
                 Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
@@ -6417,9 +6248,9 @@ class test_CBF(unittest.TestCase):
         # input level
         # Set beamformer quantiser gain for selected beam to 1
         Aqf.step('Testing individual beam weights.')
-        self._set_beam_quant_gain(beam, 1)
+        set_beam_quant_gain(self, beam, 1)
         weight = 1.0
-        beam_dict = self._populate_beam_dict(1, weight, beam_dict)
+        beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
         rl = 0
         try:
             d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
@@ -6434,7 +6265,7 @@ class test_CBF(unittest.TestCase):
             beam_lbls.append(l)
 
             weight = 1.0 / ants
-            beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
+            beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
                 d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
             except IndexError, e:
@@ -6446,7 +6277,7 @@ class test_CBF(unittest.TestCase):
             beam_lbls.append(l)
 
             weight = 2.0 / ants
-            beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
+            beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
             beam_data.append(d)
             beam_lbls.append(l)
@@ -6467,9 +6298,9 @@ class test_CBF(unittest.TestCase):
             beam_lbls = []
             # Set beamformer quantiser gain for selected beam to 1/number inputs
             gain = 1.0
-            gain = self._set_beam_quant_gain(beam, gain)
+            gain = set_beam_quant_gain(self, beam, gain)
             weight = 1.0 / ants
-            beam_dict = self._populate_beam_dict(-1, weight, beam_dict)
+            beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             rl = 0
             d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
             beam_data.append(d)
@@ -6477,7 +6308,7 @@ class test_CBF(unittest.TestCase):
             beam_lbls.append(l)
 
             gain = 0.5
-            gain = self._set_beam_quant_gain(beam, gain)
+            gain = set_beam_quant_gain(self, beam, gain)
             d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
@@ -6560,8 +6391,8 @@ class test_CBF(unittest.TestCase):
                 this_source_freq0 + bw, this_source_freq1 + bw))
 
             try:
-                bf_raw, cap_ts, bf_ts = self._capture_beam_data(beam,
-                                                                beamy_dict, target_pb, target_cfreq)
+                bf_raw, cap_ts, bf_ts = capture_beam_data(self, beam, beamy_dict, target_pb,
+                    target_cfreq)
             except TypeError, e:
                 errmsg = 'Failed to capture beam data: %s' % str(e)
                 Aqf.failed(errmsg)
@@ -6668,8 +6499,8 @@ class test_CBF(unittest.TestCase):
                           'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
 
         try:
-            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
-                                                                             beam_dict, target_pb, target_cfreq)
+            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
+                target_pb, target_cfreq)
         except TypeError, e:
             errmsg = 'Failed to capture beam data: %s' % str(e)
             Aqf.failed(errmsg)
@@ -6723,7 +6554,7 @@ class test_CBF(unittest.TestCase):
         beam = beams[1]
 
         # Set beamformer quantiser gain for selected beam to 1
-        self._set_beam_quant_gain(beam, 1)
+        set_beam_quant_gain(self, beam, 1)
 
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -6796,13 +6627,10 @@ class test_CBF(unittest.TestCase):
         # Only one antenna gain is set to 1, this will be used as the reference
         # input level
         weight = 1.0
-        beam_dict = self._populate_beam_dict(1, weight, beam_dict)
+        beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
         try:
-            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = self._capture_beam_data(beam,
-                                                                             beam_dict,
-                                                                             target_pb,
-                                                                             target_cfreq,
-                                                                             capture_time=0.3)
+            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam,  beam_dict,
+                target_pb, target_cfreq, capture_time=0.3)
         except TypeError, e:
             errmsg = 'Failed to capture beam data: %s' % str(e)
             Aqf.failed(errmsg)
@@ -7185,9 +7013,8 @@ class test_CBF(unittest.TestCase):
                                             trgt_bits=4, trgt_q_std=0.30, fft_shift=511)
 
 
-    def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,
-                                   cw_margin=0.05, trgt_bits=3.5,
-                                   trgt_q_std=0.30, fft_shift=511):
+    def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0,cw_margin=0.05,
+        trgt_bits=3.5,trgt_q_std=0.30, fft_shift=511):
         """ Set the digitiser simulator (dsim) output levels, FFT shift
             and quantiser gain to optimum levels. ADC and quantiser snapshot
             data is used to determine levels.
@@ -7771,7 +7598,6 @@ class test_CBF(unittest.TestCase):
                    'of {:.4f} seconds per sample.'.format(n_accs, ch_bw, acc_time))
         aqf_plot_channels(eff * 100, plt_filename, plt_title, caption=caption,
                           log_dynamic_range=None, hlines=98, plot_type='eff')
-
 
     def _small_voltage_buffer(self):
 
