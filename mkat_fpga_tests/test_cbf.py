@@ -134,8 +134,10 @@ class test_CBF(unittest.TestCase):
             # See: https://docs.python.org/2/library/functions.html#super
             super(test_CBF, self).setUp()
             if have_subscribed is False:
-                subscribed = True#self.corr_fix.subscribe_multicast
-                if subscribed: have_subscribed = True
+                subscribed = self.corr_fix.subscribe_multicast
+                if subscribed:
+                    LOGGER.info('Multicast subscription successful.')
+                    have_subscribed = True
             if set_dsim_epoch is False:
                 try:
                     assert isinstance(self.corr_fix.instrument, str)
@@ -162,7 +164,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     set_dsim_epoch = True
 
-    def set_instrument(self, instrument, acc_time=0.5, queue_size=1000, **kwargs):
+    def set_instrument(self, instrument, acc_time=0.5, queue_size=3, **kwargs):
         acc_timeout = 60
         self.errmsg = None
         # Reset digitiser simulator to all Zeros

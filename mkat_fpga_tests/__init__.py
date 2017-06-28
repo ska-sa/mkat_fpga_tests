@@ -630,6 +630,11 @@ class CorrelatorFixture(object):
     def subscribe_multicast(self):
         """Automated multicasting subscription"""
         parse_address = StreamAddress._parse_address_string
+        try:
+            n_xengs = self.katcp_rct.sensor.n_xengs.get_value()
+        except Exception:
+            n_xengs = len(self.get_multicast_ips) * 2
+
         if self.config_filename is None:
             return
         config = self.corr_config
@@ -647,11 +652,11 @@ class CorrelatorFixture(object):
         for i in [key for key, value in config.items() if 'output_destinations_base' in value]:
             _IP, _num, _Port = list(parse_address(config[i]['output_destinations_base']))
             outputIPs[i] = [tengbe.IpAddress(_IP), int(_Port)]
-
-        for prodct, data_output in outputIPs.iteritems():
-            multicastIP, DataPort = data_output
+        if outputIPs.get('xengine'):
+            LOGGER.info('Multicast subscription is only valid for xengines')
+            multicastIP, DataPort = outputIPs.get('xengine')
             if multicastIP.is_multicast():
-                LOGGER.info('%s: source is multicast %s.' % (prodct, multicastIP))
+                LOGGER.info('source is multicast %s.' % (multicastIP))
                 # look up multicast group address in name server and find out IP version
                 addrinfo = socket.getaddrinfo(str(multicastIP), None)[0]
                 # create a socket
@@ -664,20 +669,24 @@ class CorrelatorFixture(object):
                 # Join group
                 # mcast_sock.bind(('', DataPort))
                 add_cleanup(mcast_sock.close)
-                group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
-                if addrinfo[0] == socket.AF_INET:  # IPv4
-                    mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-                    mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-                    LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
-                else:
-                    mreq = group_bin + struct.pack('@I', 0)
-                    mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
-                    LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
+                def join_mcast_group(address):
+                    group_bin = socket.inet_pton(socket.AF_INET, address)
+                    if addrinfo[0] == socket.AF_INET:  # IPv4
+                        mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
+                        mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                        LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
+                    else:
+                        mreq = group_bin + struct.pack('@I', 0)
+                        mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+                        LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
+                for addcntr in range(n_xengs):
+                    _address = tengbe.IpAddress(multicastIP.ip_int + addcntr)
+                    join_mcast_group(str(_address))
             else:
                 mcast_sock = None
-                LOGGER.info('%s :Source is not multicast: %s:%s' % (prodct, str(multicastIP), DataPort))
+                LOGGER.info('Source is not multicast: %s:%s' % (str(multicastIP), DataPort))
                 return False
-        return confirm_multicast_subs()
+        return confirm_multicast_subs(mul_ip=str(_address))
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.debug('CBF instrument(%s) re-initialisation.'%instrument)
