@@ -1274,7 +1274,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         False if katsdpingest docer not started
         True if katsdpingest docker started
     """
-    stop_katsdpingest_docker()
+    stop_katsdpingest_docker(self)
     try:
         output = subprocess.check_output([
                      'docker',
@@ -1283,20 +1283,21 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
                      '--net=host',
                      '-v',
                      '/ramdisk:/ramdisk',
-                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
+                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing_new',
                      'bf_ingest.py',
+                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
                      '--channels={}'.format(channels),
                      '--ticks-between-spectra={}'.format(ticks_between_spectra),
                      '--channels-per-heap={}'.format(channels_per_heap),
-                     '--spectra-per-heap={}'.format(spectra-per-heap),
+                     '--spectra-per-heap={}'.format(spectra_per_heap),
                      '--file-base=/ramdisk',
-                     '--cbf-spead {}+{}:{}'.format(beam_ip, partitions-1,beam_port),
                      '--log-level=DEBUG'])
     except subprocess.CalledProcessError:
         errmsg = 'Could not start sdp-docker-registry container'
         Aqf.failed(errmsg)
         LOGGER.exception(errmsg)
         return False
+    time.sleep(5)
     try:
         output = subprocess.check_output(['docker','ps'])
     except subprocess.CalledProcessError:
