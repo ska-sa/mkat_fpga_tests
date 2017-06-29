@@ -15,6 +15,7 @@ import signal
 import threading
 import time
 import warnings
+import subprocess
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
@@ -1264,6 +1265,85 @@ def test_params(self):
         'xeng_acc_len' : xeng_acc_len,
         'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         }
+
+def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096, ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
+    """ Starts a katsdpingest docker containter. Kills any currently running instances. 
+
+    Returns
+    -------
+        False if katsdpingest docer not started
+        True if katsdpingest docker started
+    """
+    stop_katsdpingest_docker()
+    try:
+        output = subprocess.check_output([
+                     'docker',
+                     'run',
+                     '-d',
+                     '--net=host',
+                     '-v',
+                     '/ramdisk:/ramdisk',
+                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
+                     'bf_ingest.py',
+                     '--channels={}'.format(channels),
+                     '--ticks-between-spectra={}'.format(ticks_between_spectra),
+                     '--channels-per-heap={}'.format(channels_per_heap),
+                     '--spectra-per-heap={}'.format(spectra-per-heap),
+                     '--file-base=/ramdisk',
+                     '--cbf-spead {}+{}:{}'.format(beam_ip, partitions-1,beam_port),
+                     '--log-level=DEBUG'])
+    except subprocess.CalledProcessError:
+        errmsg = 'Could not start sdp-docker-registry container'
+        Aqf.failed(errmsg)
+        LOGGER.exception(errmsg)
+        return False
+    try:
+        output = subprocess.check_output(['docker','ps'])
+    except subprocess.CalledProcessError:
+        return False
+    output = output.split()
+    sdp_instance = [idx for idx,s in enumerate(output) if 'sdp-docker-registry.kat.ac.za' in s]
+    # If sdp-docker-registry not found it is not running, return false
+    if sdp_instance:
+        return True
+    else:
+        return False
+
+def stop_katsdpingest_docker(self):
+    """ Finds if a katsdpingest docker containter is running and kills it. 
+
+    Returns
+    -------
+        False if katsdpingest docker container not found or not running
+        True if katsdpingest docker container found and stopped
+    """
+    try:
+        output = subprocess.check_output(['docker','ps'])
+    except subprocess.CalledProcessError:
+        return False
+    output = output.split()
+    sdp_instance = [idx for idx,s in enumerate(output) if 'sdp-docker-registry.kat.ac.za' in s]
+    # If sdp-docker-registry not found it is not running, return false
+    # Kill all instances found
+    if sdp_instance:
+        for idx in sdp_instance:
+            try:
+                kill_output = subprocess.check_output(['docker','kill',output[idx-1]])
+            except subprocess.CalledProcessError:
+                errmsg = 'Could not kill sdp-docker-registry container'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+            killed_id = kill_output.split()[0]
+            if killed_id != output[idx-1]:
+                errmsg = 'Could not kill sdp-docker-registry container'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
+    else:
+        return False
+    return True
 
 def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.1):
     """ Capture beamformer data

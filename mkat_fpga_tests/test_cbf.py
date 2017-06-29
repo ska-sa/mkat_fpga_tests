@@ -6174,6 +6174,7 @@ class test_CBF(unittest.TestCase):
             assert isinstance(bw,float)
             nr_ch = katcp_rct.n_chans.get_value()
             assert isinstance(nr_ch,int)
+            import IPython;IPython.embed()
             ch_freq = bw/nr_ch
             f_start = 0.  # Center freq of the first bin
             ch_list = f_start + np.arange(nr_ch) * ch_freq
