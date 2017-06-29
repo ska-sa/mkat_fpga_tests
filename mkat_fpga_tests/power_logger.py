@@ -198,6 +198,8 @@ class PowerLogger(threading.Thread):
                                 telnet_handles[idx] = self.open_telnet_conn(host, th.host)
                                 th = telnet_handles[idx]
                                 con_err_dict[th.host] = 0
+                            except KeyError:
+                                break
                             except Exception as e:
                                 con_err_dict[th.host] += 1
                                 self.logger.error('Exception occured while connecting to PDU {}.'.format(th.host))

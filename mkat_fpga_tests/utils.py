@@ -1091,6 +1091,7 @@ def test_params(self):
     param: spead: xeng_raw
     rtype: dict : int time, scale factor timestamp, sync time, n accs, and etc
     """
+    LOGGER.info("Getting all parameters needed to calculate dump time stamp and etc via CAM int.")
     try:
         reply, informs = self.corr_fix.katcp_rct.req.capture_list()
         assert reply.reply_ok()

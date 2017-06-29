@@ -642,10 +642,10 @@ class CorrelatorFixture(object):
             LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')
             return False
 
-        def confirm_multicast_subs(mul_ip='239.100.0.10' ,interface='eth2'):
+        def confirm_multicast_subs(mul_ip='239.100.0.10'):
             """"""
             # or use [netstat -g | grep eth2]
-            list_inets = subprocess.check_output(['ip','maddr','show', interface])
+            list_inets = subprocess.check_output(['ip','maddr','show'])
             return True if mul_ip in list_inets else False
 
         outputIPs = {}

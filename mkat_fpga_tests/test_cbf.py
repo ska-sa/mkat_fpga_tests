@@ -2118,7 +2118,6 @@ class test_CBF(unittest.TestCase):
         except Exception:
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
- 	
         xeng_sensors.append('pfb')
         feng_sensors = xeng_sensors
         errmsg = ('Failed to retrieve F-Eng status: Timed-out after %s seconds.' % (test_timeout))
@@ -6117,8 +6116,15 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
             Aqf.step('Confirm the data type of the beamforming data for one channel.')
-            msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
-                data_type, cap[0][0]))
+            try:
+                msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
+                    data_type, cap[0][0]))
+            except Exception as e:
+                errmsg = "Failed with exception: %s" %str(e)
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return
+
             Aqf.equals(data_type, 'int8', msg)
             cap_mag = np.abs(cap)
             cap_avg = cap_mag.sum(axis=0) / cap_idx
