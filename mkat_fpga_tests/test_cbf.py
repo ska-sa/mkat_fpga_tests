@@ -2112,14 +2112,23 @@ class test_CBF(unittest.TestCase):
         xeng_sensors = ['phy', 'qdr', 'lru', 'reorder', 'network-tx', 'network-rx']
         test_timeout = 10
         errmsg = 'Failed to retrieve X-Eng status: Timed-out after %s seconds.' % (test_timeout)
-        with RunTestWithTimeout(test_timeout, errmsg):
-            get_hosts_status(self, check_host_okay, xeng_sensors, engine_type='xeng')
-
+        try:
+            with RunTestWithTimeout(test_timeout, errmsg):
+                get_hosts_status(self, check_host_okay, xeng_sensors, engine_type='xeng')
+        except Exception:
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+ 	
         xeng_sensors.append('pfb')
         feng_sensors = xeng_sensors
         errmsg = ('Failed to retrieve F-Eng status: Timed-out after %s seconds.' % (test_timeout))
-        with RunTestWithTimeout(test_timeout, errmsg):
-            get_hosts_status(self, check_host_okay, feng_sensors, engine_type='feng')
+        try:
+            with RunTestWithTimeout(test_timeout, errmsg):
+                get_hosts_status(self, check_host_okay, feng_sensors, engine_type='feng')
+        except Exception:
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+
     # ---------------------------------------------------------------
         try:
             self.last_pfb_counts = get_pfb_counts(
