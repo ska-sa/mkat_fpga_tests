@@ -134,8 +134,10 @@ class test_CBF(unittest.TestCase):
             # See: https://docs.python.org/2/library/functions.html#super
             super(test_CBF, self).setUp()
             if have_subscribed is False:
-                subscribed = True#self.corr_fix.subscribe_multicast
-                if subscribed: have_subscribed = True
+                subscribed = self.corr_fix.subscribe_multicast
+                if subscribed:
+                    LOGGER.info('Multicast subscription successful.')
+                    have_subscribed = True
             if set_dsim_epoch is False:
                 try:
                     assert isinstance(self.corr_fix.instrument, str)
@@ -162,7 +164,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     set_dsim_epoch = True
 
-    def set_instrument(self, instrument, acc_time=0.5, queue_size=1000, **kwargs):
+    def set_instrument(self, instrument, acc_time=0.5, queue_size=3, **kwargs):
         acc_timeout = 60
         self.errmsg = None
         # Reset digitiser simulator to all Zeros
@@ -2097,7 +2099,8 @@ class test_CBF(unittest.TestCase):
             subprocess.check_call(['pgrep', '-fol', 'corr2_sensor_servlet.py'], stdout=FNULL,
                 stderr=FNULL)
         except subprocess.CalledProcessError:
-            Aqf.failed('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
+            # Aqf.failed('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
+            LOGGER.error('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
 
         if not confirm_out_dest_ip(self):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
@@ -2109,14 +2112,23 @@ class test_CBF(unittest.TestCase):
         xeng_sensors = ['phy', 'qdr', 'lru', 'reorder', 'network-tx', 'network-rx']
         test_timeout = 10
         errmsg = 'Failed to retrieve X-Eng status: Timed-out after %s seconds.' % (test_timeout)
-        with RunTestWithTimeout(test_timeout, errmsg):
-            get_hosts_status(self, check_host_okay, xeng_sensors, engine_type='xeng')
+        try:
+            with RunTestWithTimeout(test_timeout, errmsg):
+                get_hosts_status(self, check_host_okay, xeng_sensors, engine_type='xeng')
+        except Exception:
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
 
         xeng_sensors.append('pfb')
         feng_sensors = xeng_sensors
         errmsg = ('Failed to retrieve F-Eng status: Timed-out after %s seconds.' % (test_timeout))
-        with RunTestWithTimeout(test_timeout, errmsg):
-            get_hosts_status(self, check_host_okay, feng_sensors, engine_type='feng')
+        try:
+            with RunTestWithTimeout(test_timeout, errmsg):
+                get_hosts_status(self, check_host_okay, feng_sensors, engine_type='feng')
+        except Exception:
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+
     # ---------------------------------------------------------------
         try:
             self.last_pfb_counts = get_pfb_counts(
@@ -6105,8 +6117,15 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
             Aqf.step('Confirm the data type of the beamforming data for one channel.')
-            msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
-                data_type, cap[0][0]))
+            try:
+                msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
+                    data_type, cap[0][0]))
+            except Exception as e:
+                errmsg = "Failed with exception: %s" %str(e)
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return
+
             Aqf.equals(data_type, 'int8', msg)
             cap_mag = np.abs(cap)
             cap_avg = cap_mag.sum(axis=0) / cap_idx
