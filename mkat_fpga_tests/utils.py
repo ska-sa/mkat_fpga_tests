@@ -494,7 +494,7 @@ def check_host_okay(self, engine=None, sensor=None):
     :rtype: Boolean or List
     """
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=cam_timeout)
         assert reply.reply_ok()
     except Exception:
         LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
@@ -645,8 +645,8 @@ def set_default_eq(self):
         return False
 
 
-def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
-                     fft_shift=None, gain=None, cw_src=0):
+def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None, gain=None,
+                     cw_src=0):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
@@ -680,16 +680,19 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             assert reply.reply_ok()
             LOGGER.info('F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
             return True
-        except (TypeError, AssertionError):
-            LOGGER.exception('Failed to set FFT shift via CAM interface.')
+        except Exception as e:
+            errmsg = 'Failed to set FFT shift via CAM interface due to %s' %str(e)
+            LOGGER.exception(errmsg)
             return False
 
+    LOGGER.info('Setting desired FFT-Shift via CAM interface.')
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
     sources = test_params(self)['input_labels']
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
+        LOGGER.info('Setting desired gain/eq via CAM interface.')
         eq_level = list(set(source_gain_dict.values()))
         if len(eq_level) is not 1:
             for i, v in source_gain_dict.items():
@@ -703,8 +706,9 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             assert reply.reply_ok()
         LOGGER.info('Gains set successfully: Reply:- %s' %str(reply))
         return True
-    except Exception:
-        LOGGER.exception('Failed to set gain for input')
+    except Exception as e:
+        errmsg = 'Failed to set gain for input due to %s' %str(e)
+        LOGGER.exception(errmsg)
         return False
 
 
@@ -1099,7 +1103,7 @@ def test_params(self):
     """
     LOGGER.info("Getting all parameters needed to calculate dump time stamp and etc via CAM int.")
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=60)
+        reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=cam_timeout)
         assert reply.reply_ok()
         output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['xengine']['output_products'] in i.arguments][0]
@@ -1108,10 +1112,10 @@ def test_params(self):
             self.correlator.configd['beam0']['output_products'] in i.arguments][0]
         beam1_output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['beam1']['output_products'] in i.arguments][0]
-    except (TypeError, KeyError):
+    except Exception as e:
             beam0_output_product = beam1_output_product = None
-            msg = 'Instrument: %s does not contain beams' %self.corr_fix.instrument
-            LOGGER.error(msg)
+            msg = 'Failed to retrieve designed output products due to %s'%str(e)
+            LOGGER.exceptionc(msg)
 
     katcp_rct = self.corr_fix.katcp_rct.sensor
     try:
