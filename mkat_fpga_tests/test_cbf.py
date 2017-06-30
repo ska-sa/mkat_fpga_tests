@@ -266,6 +266,7 @@ class test_CBF(unittest.TestCase):
                 self.addCleanup(self.corr_fix.stop_x_data)
                 self.addCleanup(gc.collect)
                 self.addCleanup(self.receiver.stop)
+                clear_host_status(self)
                 # Run system tests before each test is ran
                 self.addCleanup(self._systems_tests)
                 return True
