@@ -398,7 +398,7 @@ class test_CBF(unittest.TestCase):
         CBF Channelisation Spurious Free Dynamic Range
         CBF Power Consumption
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.3)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
