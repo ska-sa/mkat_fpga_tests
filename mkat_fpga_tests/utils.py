@@ -482,7 +482,7 @@ def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, 
                 except Exception as e:
                     errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
                     LOGGER.exception(errmsg)
-                    return
+
 
 
 def check_host_okay(self, engine=None, sensor=None):
