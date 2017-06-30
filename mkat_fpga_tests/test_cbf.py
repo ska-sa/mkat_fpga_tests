@@ -4474,6 +4474,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _test_roach_sensors_status(self):
+        clear_host_status(self)
         Aqf.step('This test confirms that each ROACH sensor (Temp, Voltage, Current, '
                  'Fan) has not %s.' %colors.red('\'Failed\''))
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
