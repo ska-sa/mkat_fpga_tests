@@ -1099,7 +1099,7 @@ def test_params(self):
     """
     LOGGER.info("Getting all parameters needed to calculate dump time stamp and etc via CAM int.")
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.capture_list()
+        reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=60)
         assert reply.reply_ok()
         output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['xengine']['output_products'] in i.arguments][0]
@@ -1112,16 +1112,6 @@ def test_params(self):
             beam0_output_product = beam1_output_product = None
             msg = 'Instrument: %s does not contain beams' %self.corr_fix.instrument
             LOGGER.error(msg)
-
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.capture_list()
-        assert reply.reply_ok()
-        beam_output_product = [i.arguments[0] for i in informs if
-            self.correlator.configd['xengine']['output_products'] in i.arguments][0]
-    except Exception:
-        msg = 'Failed to retrieve xengine output product'
-        LOGGER.exception(msg)
-        return
 
     katcp_rct = self.corr_fix.katcp_rct.sensor
     try:
