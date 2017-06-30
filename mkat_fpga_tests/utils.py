@@ -15,12 +15,14 @@ import signal
 import threading
 import time
 import warnings
+import subprocess
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
 from collections import defaultdict
 from collections import Mapping
 from corr2.data_stream import StreamAddress
+from concurrent.futures import TimeoutError
 from Crypto.Cipher import AES
 from getpass import getuser as getusername
 from inspect import currentframe
@@ -387,7 +389,7 @@ def clear_all_delays(self, num_int=25):
                                                             *delay_coefficients)
         assert reply.reply_ok()
         LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-        dump = self.receiver.get_clean_dump(discard=num_int*1.6)
+        dump = self.receiver.get_clean_dump(discard=num_int*2)
         # Hack to avoid failures due to qdr errors
         if _test_params['n_chans'] == 32768:
             assert np.max(np.angle(dump['xeng_raw'][:,9,:])) == np.min(np.angle(dump['xeng_raw'][:,9,:])) == 0
@@ -469,13 +471,17 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
 def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
             LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
             for _sensor in list_sensor:
-                _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
-                if _status_hosts is not (True or None):
-                    for _status in _status_hosts:
-                        Aqf.failed(_status)
-                        LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
+                try:
+                    _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
+                    if _status_hosts is not (True or None):
+                        for _status in _status_hosts:
+                            Aqf.failed(_status)
+                            LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
+                                 getframeinfo(currentframe()).filename.split('/')[-1],
+                                 getframeinfo(currentframe()).lineno))
+                except Exception as e:
+                    errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
+                    LOGGER.exception(errmsg)
 
 
 
@@ -488,7 +494,7 @@ def check_host_okay(self, engine=None, sensor=None):
     :rtype: Boolean or List
     """
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=cam_timeout)
         assert reply.reply_ok()
     except Exception:
         LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
@@ -639,8 +645,8 @@ def set_default_eq(self):
         return False
 
 
-def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
-                     fft_shift=None, gain=None, cw_src=0):
+def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None, gain=None,
+                     cw_src=0):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
@@ -674,16 +680,19 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             assert reply.reply_ok()
             LOGGER.info('F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
             return True
-        except (TypeError, AssertionError):
-            LOGGER.exception('Failed to set FFT shift via CAM interface.')
+        except Exception as e:
+            errmsg = 'Failed to set FFT shift via CAM interface due to %s' %str(e)
+            LOGGER.exception(errmsg)
             return False
 
+    LOGGER.info('Setting desired FFT-Shift via CAM interface.')
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
     sources = test_params(self)['input_labels']
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
+        LOGGER.info('Setting desired gain/eq via CAM interface.')
         eq_level = list(set(source_gain_dict.values()))
         if len(eq_level) is not 1:
             for i, v in source_gain_dict.items():
@@ -697,8 +706,9 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None,
             assert reply.reply_ok()
         LOGGER.info('Gains set successfully: Reply:- %s' %str(reply))
         return True
-    except Exception:
-        LOGGER.exception('Failed to set gain for input')
+    except Exception as e:
+        errmsg = 'Failed to set gain for input due to %s' %str(e)
+        LOGGER.exception(errmsg)
         return False
 
 
@@ -1093,7 +1103,7 @@ def test_params(self):
     """
     LOGGER.info("Getting all parameters needed to calculate dump time stamp and etc via CAM int.")
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.capture_list()
+        reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=cam_timeout)
         assert reply.reply_ok()
         output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['xengine']['output_products'] in i.arguments][0]
@@ -1102,20 +1112,10 @@ def test_params(self):
             self.correlator.configd['beam0']['output_products'] in i.arguments][0]
         beam1_output_product = [i.arguments[0] for i in informs if
             self.correlator.configd['beam1']['output_products'] in i.arguments][0]
-    except (TypeError, KeyError):
+    except Exception as e:
             beam0_output_product = beam1_output_product = None
-            msg = 'Instrument: %s does not contain beams' %self.corr_fix.instrument
-            LOGGER.error(msg)
-
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.capture_list()
-        assert reply.reply_ok()
-        beam_output_product = [i.arguments[0] for i in informs if
-            self.correlator.configd['xengine']['output_products'] in i.arguments][0]
-    except Exception:
-        msg = 'Failed to retrieve xengine output product'
-        LOGGER.exception(msg)
-        return
+            msg = 'Failed to retrieve designed output products due to %s'%str(e)
+            LOGGER.exceptionc(msg)
 
     katcp_rct = self.corr_fix.katcp_rct.sensor
     try:
@@ -1266,6 +1266,86 @@ def test_params(self):
         'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         }
 
+def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096, ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
+    """ Starts a katsdpingest docker containter. Kills any currently running instances.
+
+    Returns
+    -------
+        False if katsdpingest docer not started
+        True if katsdpingest docker started
+    """
+    stop_katsdpingest_docker(self)
+    try:
+        output = subprocess.check_output([
+                     'docker',
+                     'run',
+                     '-d',
+                     '--net=host',
+                     '-v',
+                     '/ramdisk:/ramdisk',
+                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing_new',
+                     'bf_ingest.py',
+                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
+                     '--channels={}'.format(channels),
+                     '--ticks-between-spectra={}'.format(ticks_between_spectra),
+                     '--channels-per-heap={}'.format(channels_per_heap),
+                     '--spectra-per-heap={}'.format(spectra_per_heap),
+                     '--file-base=/ramdisk',
+                     '--log-level=DEBUG'])
+    except subprocess.CalledProcessError:
+        errmsg = 'Could not start sdp-docker-registry container'
+        Aqf.failed(errmsg)
+        LOGGER.exception(errmsg)
+        return False
+    time.sleep(5)
+    try:
+        output = subprocess.check_output(['docker','ps'])
+    except subprocess.CalledProcessError:
+        return False
+    output = output.split()
+    sdp_instance = [idx for idx,s in enumerate(output) if 'sdp-docker-registry.kat.ac.za' in s]
+    # If sdp-docker-registry not found it is not running, return false
+    if sdp_instance:
+        return True
+    else:
+        return False
+
+def stop_katsdpingest_docker(self):
+    """ Finds if a katsdpingest docker containter is running and kills it.
+
+    Returns
+    -------
+        False if katsdpingest docker container not found or not running
+        True if katsdpingest docker container found and stopped
+    """
+    try:
+        output = subprocess.check_output(['docker','ps'])
+    except subprocess.CalledProcessError:
+        return False
+    output = output.split()
+    sdp_instance = [idx for idx,s in enumerate(output) if 'sdp-docker-registry.kat.ac.za' in s]
+    # If sdp-docker-registry not found it is not running, return false
+    # Kill all instances found
+    if sdp_instance:
+        for idx in sdp_instance:
+            try:
+                kill_output = subprocess.check_output(['docker','kill',output[idx-1]])
+            except subprocess.CalledProcessError:
+                errmsg = 'Could not kill sdp-docker-registry container'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+            killed_id = kill_output.split()[0]
+            if killed_id != output[idx-1]:
+                errmsg = 'Could not kill sdp-docker-registry container'
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
+    else:
+        return False
+    return True
+
 def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.1):
     """ Capture beamformer data
 
@@ -1330,6 +1410,10 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
             assert reply.reply_ok()
         except AssertionError:
             Aqf.failed('Beam weights not successfully set')
+        except Exception as e:
+            errmsg = 'Test failed due to %s'%str(e)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
         else:
             Aqf.passed('Antennae input {} weight set to {}\n'.format(key, reply.arguments[1]))
 

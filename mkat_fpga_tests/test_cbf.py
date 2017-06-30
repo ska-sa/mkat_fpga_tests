@@ -52,6 +52,7 @@ from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, h
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 from mkat_fpga_tests.utils import test_params, which_instrument, cbf_title_report
 from mkat_fpga_tests.utils import capture_beam_data, populate_beam_dict, set_beam_quant_gain
+from mkat_fpga_tests.utils import start_katsdpingest_docker, stop_katsdpingest_docker
 
 from datetime import datetime
 from inspect import currentframe
@@ -265,6 +266,7 @@ class test_CBF(unittest.TestCase):
                 self.addCleanup(self.corr_fix.stop_x_data)
                 self.addCleanup(gc.collect)
                 self.addCleanup(self.receiver.stop)
+                clear_host_status(self)
                 # Run system tests before each test is ran
                 self.addCleanup(self._systems_tests)
                 return True
@@ -396,7 +398,7 @@ class test_CBF(unittest.TestCase):
         CBF Channelisation Spurious Free Dynamic Range
         CBF Power Consumption
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.3)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -614,7 +616,7 @@ class test_CBF(unittest.TestCase):
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_product_baselines()
+            self._test_product_baselines(discards=20)
             Aqf.addLine('-')
             self._test_back2back_consistency()
             Aqf.addLine('-')
@@ -2110,7 +2112,7 @@ class test_CBF(unittest.TestCase):
         # ---------------------------------------------------------------
         Aqf.step('Checking system stability(sensors OK status) before and after testing')
         xeng_sensors = ['phy', 'qdr', 'lru', 'reorder', 'network-tx', 'network-rx']
-        test_timeout = 10
+        test_timeout = 30
         errmsg = 'Failed to retrieve X-Eng status: Timed-out after %s seconds.' % (test_timeout)
         try:
             with RunTestWithTimeout(test_timeout, errmsg):
@@ -3651,7 +3653,7 @@ class test_CBF(unittest.TestCase):
                     max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
 
                     msg = ('Confirm that identical frequency ({:.3f} MHz) scans between subsequent '
-                           'SPEAD accumulations produce equal results.\n'.format(freq_x / 1e6))
+                           'SPEAD accumulations produce equal results.'.format(freq_x / 1e6))
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
                         legends = ['Freq scan #{}'.format(x) for x in xrange(len(chan_responses))]
@@ -4473,6 +4475,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _test_roach_sensors_status(self):
+        clear_host_status(self)
         Aqf.step('This test confirms that each ROACH sensor (Temp, Voltage, Current, '
                  'Fan) has not %s.' %colors.red('\'Failed\''))
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
@@ -6056,12 +6059,126 @@ class test_CBF(unittest.TestCase):
         """
         Apply weights and capture beamformer data, Verify that weights are correctly applied.
         """
+        # Main test code
+        # TODO AR
+        # Neccessarry to compare output products with capture-list output products?
+        # Test both beams
+        beam_x = self.corr_fix.corr_config['beam0']['output_products']
+        beam_x_ip, beam_x_port = self.corr_fix.corr_config['beam0']['output_destinations_base'].split(':')
+        beam_y = self.corr_fix.corr_config['beam1']['output_products']
+        beam_y_ip, beam_y_port = self.corr_fix.corr_config['beam1']['output_destinations_base'].split(':')
+        beam = beam_y
+        beam_ip = beam_y_ip
+        beam_port = beam_y_port
+        beam_name = beam_y.replace('-','_').replace('.','_')
+        parts_to_process = 2
+        part_strt_idx = 0
 
-        def get_beam_data(beam, beam_dict, target_pb, target_cfreq,
-                          inp_ref_lvl=0, beam_quant_gain=1, num_caps=10000):
+        Aqf.step('Getting current instrument parameters.')
+        try:
+            katcp_rct = self.corr_fix.katcp_rct.sensors
+            ants = katcp_rct.n_ants.get_value()
+            assert isinstance(ants,int)
+            bw = katcp_rct.bandwidth.get_value()
+            assert isinstance(bw,float)
+            nr_ch = katcp_rct.n_chans.get_value()
+            assert isinstance(nr_ch,int)
+            ticks_between_spectra = katcp_rct.antenna_channelised_voltage_n_samples_between_spectra.get_value()
+            assert isinstance(ticks_between_spectra,int)
+            spectra_per_heap = getattr(katcp_rct, '{}_spectra_per_heap'.format(beam_name)).get_value()
+            assert isinstance(spectra_per_heap,int)
+            ch_per_heap = getattr(katcp_rct, '{}_n_chans_per_substream'.format(beam_name)).get_value()
+            assert isinstance(ch_per_heap,int)
+            ch_freq = bw/nr_ch
+            f_start = 0.  # Center freq of the first bin
+            ch_list = f_start + np.arange(nr_ch) * ch_freq
+            partitions = int(nr_ch/ch_per_heap)
+            part_size = bw/partitions
+            # Setting required partitions and center frequency
+            #target_cf = bw + bw * 0.5
+            # Partitions are no longer selected. The full bandwidth is always selected
+            # target_pb = partitions * part_size
+            target_pb = bw
+            target_cf = bw + target_pb/2
+        except AssertionError:
+            errmsg = 'Failed to get instrument parameters: {}'.format(reply)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+        Aqf.progress('Bandwidth = {}Hz'.format(bw))
+        Aqf.progress('Number of channels = {}'.format(nr_ch))
+        Aqf.progress('Channel spacing = {}Hz'.format(ch_freq))
+        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                  parts_to_process, nr_ch,
+                                                  ticks_between_spectra,
+                                                  ch_per_heap, spectra_per_heap)
+        if docker_status == True:
+            Aqf.progress('KAT SDP Ingest Node started')
+        else:
+            Aqf.failed('KAT SDP Ingest Node failed to start')
+
+        # Set source names and stop all streams
+        _test_params = test_params(self)
+        local_src_names = _test_params['custom_src_names']
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam_x)
+            assert reply.reply_ok()
+            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam_y)
+            assert reply.reply_ok()
+            #reply, informs = self.corr_fix.katcp_rct.req.capture_stop('c856M4k')
+            #assert reply.reply_ok()
+            reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            assert reply.reply_ok()
+            labels = reply.arguments[1:]
+        except AssertionError as e:
+            errmsg = 'KatCP request failed: {}'.format(reply)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+
+
+        # dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
+        # cw_scale=0.675, freq=target_cfreq-bw, fft_shift=8191, gain='11+0j')
+        # TODO: Get dsim sample frequency from config file
+        cw_freq = ch_list[int(nr_ch / 2)] + 400
+
+        if self.corr_freqs.n_chans == 4096:
+            # 4K
+            awgn_scale = 0.0645
+            gain = '113+0j'
+            fft_shift = 511
+        else:
+            # 32K
+            awgn_scale = 0.063
+            gain = '344+0j'
+            fft_shift = 4095
+
+        Aqf.step('Configure a digitiser simulator to generate correlated noise.')
+        Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
+                 'with scale: {}, eq gain: {}, fft shift: {}'.format(
+            awgn_scale, gain, fft_shift))
+        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+                                            cw_scale=0.0, freq=cw_freq, fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
+
+        def get_beam_data(beam, beam_dict, inp_ref_lvl=0, beam_quant_gain=1, num_caps=10000):
             try:
                 bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
-                    target_pb, target_cfreq)
+                    target_pb, target_cf)
 
             except TypeError, e:
                 Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
@@ -6069,22 +6186,17 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.info(errmsg)
                 return
-            # Partitions to process and index to start TODO: read values from sensors
-            partitions = 2
-            part_idx = 0
-            channels_per_heap = 256
-            spectra_per_heap = 256
             # Determine slice of valid data in bf_raw
-            bf_raw_str = part_idx*channels_per_heap
-            bf_raw_end = bf_raw_str + partitions*channels_per_heap
+            bf_raw_str = part_strt_idx*ch_per_heap
+            bf_raw_end = bf_raw_str + parts_to_process*ch_per_heap
 
             data_type = bf_raw.dtype.name
             #for heaps in bf_flags:
 
             # TODO: print all dropped heaps
             # Cut selected partitions out of bf_flags
-            flags = bf_flags[part_idx:part_idx+partitions]
-            idx = part_idx
+            flags = bf_flags[part_strt_idx:part_strt_idx+parts_to_process]
+            idx = part_strt_idx
             Aqf.step('Confirm that they were no heaps missed for the different partitions.')
             for part in flags:
                 missed_heaps = np.where(part>0)[0]
@@ -6153,7 +6265,7 @@ class test_CBF(unittest.TestCase):
                          'Reference level = {:.3f}dB'.format(20*np.log10(inp_ref_lvl)))
                 Aqf.step('Reference level averaged over {} channels. '
                          'Channel averages determined over {} '
-                         'samples.'.format(partitions*channels_per_heap, cap_idx))
+                         'samples.'.format(parts_to_process*ch_per_heap, cap_idx))
                 expected = 0
             else:
                 delta = 0.2
@@ -6169,96 +6281,6 @@ class test_CBF(unittest.TestCase):
 
 
             return cap_avg, labels, inp_ref_lvl, pb, cf, expected, cap_idx
-
-        # Main test code
-        Aqf.step('Getting current instrument parameters.')
-        try:
-            katcp_rct = self.corr_fix.katcp_rct.sensors
-            ants = katcp_rct.n_ants.get_value()
-            assert isinstance(ants,int)
-            bw = katcp_rct.bandwidth.get_value()
-            assert isinstance(bw,float)
-            nr_ch = katcp_rct.n_chans.get_value()
-            assert isinstance(nr_ch,int)
-            ch_freq = bw/nr_ch
-            f_start = 0.  # Center freq of the first bin
-            ch_list = f_start + np.arange(nr_ch) * ch_freq
-        except AssertionError:
-            errmsg = 'Failed to get instrument parameters: {}'.format(reply)
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-            return False
-        except Exception as e:
-            errmsg = 'Exception: {}'.format(str(e))
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-            return False
-        Aqf.progress('Bandwidth = {}Hz'.format(bw))
-        Aqf.progress('Number of channels = {}'.format(nr_ch))
-        Aqf.progress('Channel spacing = {}Hz'.format(ch_freq))
-        # Setting required partitions and center frequency
-        #target_cf = bw + bw * 0.5
-        part_size = bw / 16
-        partitions = 16
-        target_pb = partitions * part_size
-        target_cf = bw + target_pb/2
-        # TODO AR
-        # Neccessarry to compare output products with capture-list output products?
-        beam_x = self.corr_fix.corr_config['beam0']['output_products']
-        beam_y = self.corr_fix.corr_config['beam1']['output_products']
-        beam = beam_y
-
-        # Set source names and stop all streams
-        _test_params = test_params(self)
-        local_src_names = _test_params['custom_src_names']
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam_x)
-            assert reply.reply_ok()
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam_y)
-            assert reply.reply_ok()
-            #reply, informs = self.corr_fix.katcp_rct.req.capture_stop('c856M4k')
-            #assert reply.reply_ok()
-            reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-            assert reply.reply_ok()
-            labels = reply.arguments[1:]
-        except AssertionError as e:
-            errmsg = 'KatCP request failed: {}'.format(reply)
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-            return False
-        except Exception as e:
-            errmsg = 'Exception: {}'.format(str(e))
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-            return False
-
-
-
-        # dsim_set_success = set_input_levels(self.corr_fix, self.dhost, awgn_scale=0.05,
-        # cw_scale=0.675, freq=target_cfreq-bw, fft_shift=8191, gain='11+0j')
-        # TODO: Get dsim sample frequency from config file
-        cw_freq = ch_list[int(nr_ch / 2)] + 400
-
-        if self.corr_freqs.n_chans == 4096:
-            # 4K
-            awgn_scale = 0.0645
-            gain = '113+0j'
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = '344+0j'
-            fft_shift = 4095
-
-        Aqf.step('Configure a digitiser simulator to generate correlated noise.')
-        Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
-                 'with scale: {}, eq gain: {}, fft shift: {}'.format(
-            awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
-                                            cw_scale=0.0, freq=cw_freq, fft_shift=fft_shift, gain=gain)
-        if not dsim_set_success:
-            Aqf.failed('Failed to configure digitise simulator levels')
-            return False
 
         beam_data = []
         beam_lbls = []
@@ -6281,7 +6303,7 @@ class test_CBF(unittest.TestCase):
         beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
         rl = 0
         try:
-            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl)
         except TypeError, e:
             Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
             errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
@@ -6295,7 +6317,7 @@ class test_CBF(unittest.TestCase):
             weight = 1.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
-                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl)
             except IndexError, e:
                 errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
                 Aqf.failed(errmsg)
@@ -6306,7 +6328,7 @@ class test_CBF(unittest.TestCase):
 
             weight = 2.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl)
             beam_data.append(d)
             beam_lbls.append(l)
             # Square the voltage data. This is a hack as aqf_plot expects squared
@@ -6330,14 +6352,14 @@ class test_CBF(unittest.TestCase):
             weight = 1.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             rl = 0
-            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
+            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
             beam_lbls.append(l)
 
             gain = 0.5
             gain = set_beam_quant_gain(self, beam, gain)
-            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
+            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
             beam_lbls.append(l)
@@ -6353,6 +6375,9 @@ class test_CBF(unittest.TestCase):
                               log_dynamic_range=90, log_normalise_to=1,
                               caption='Captured beamformer data with level adjust after beam-forming gain set.',
                               hlines=exp1, plot_type='bf', hline_strt_idx=1)
+
+        # Close any KAT SDP ingest nodes
+        stop_katsdpingest_docker(self)
 
 
     def _test_cap_beam(self, instrument='bc8n856M4k'):
