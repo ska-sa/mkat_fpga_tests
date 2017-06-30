@@ -22,6 +22,7 @@ from casperfpga.utils import threaded_fpga_operation
 from collections import defaultdict
 from collections import Mapping
 from corr2.data_stream import StreamAddress
+from concurrent.futures import TimeoutError
 from Crypto.Cipher import AES
 from getpass import getuser as getusername
 from inspect import currentframe
@@ -388,7 +389,7 @@ def clear_all_delays(self, num_int=25):
                                                             *delay_coefficients)
         assert reply.reply_ok()
         LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-        dump = self.receiver.get_clean_dump(discard=num_int*1.6)
+        dump = self.receiver.get_clean_dump(discard=num_int*2)
         # Hack to avoid failures due to qdr errors
         if _test_params['n_chans'] == 32768:
             assert np.max(np.angle(dump['xeng_raw'][:,9,:])) == np.min(np.angle(dump['xeng_raw'][:,9,:])) == 0
@@ -470,14 +471,18 @@ def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
 def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
             LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
             for _sensor in list_sensor:
-                _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
-                if _status_hosts is not (True or None):
-                    for _status in _status_hosts:
-                        Aqf.failed(_status)
-                        LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
-                             getframeinfo(currentframe()).filename.split('/')[-1],
-                             getframeinfo(currentframe()).lineno))
-
+                try:
+                    _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
+                    if _status_hosts is not (True or None):
+                        for _status in _status_hosts:
+                            Aqf.failed(_status)
+                            LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
+                                 getframeinfo(currentframe()).filename.split('/')[-1],
+                                 getframeinfo(currentframe()).lineno))
+                except Exception as e:
+                    errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
+                    LOGGER.exception(errmsg)
+                    return
 
 
 def check_host_okay(self, engine=None, sensor=None):
@@ -1268,7 +1273,7 @@ def test_params(self):
         }
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096, ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
-    """ Starts a katsdpingest docker containter. Kills any currently running instances. 
+    """ Starts a katsdpingest docker containter. Kills any currently running instances.
 
     Returns
     -------
@@ -1312,7 +1317,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         return False
 
 def stop_katsdpingest_docker(self):
-    """ Finds if a katsdpingest docker containter is running and kills it. 
+    """ Finds if a katsdpingest docker containter is running and kills it.
 
     Returns
     -------
@@ -1411,6 +1416,10 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
             assert reply.reply_ok()
         except AssertionError:
             Aqf.failed('Beam weights not successfully set')
+        except Exception as e:
+            errmsg = 'Test failed due to %s'%str(e)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
         else:
             Aqf.passed('Antennae input {} weight set to {}\n'.format(key, reply.arguments[1]))
 

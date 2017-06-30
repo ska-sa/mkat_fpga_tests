@@ -52,7 +52,7 @@ from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, h
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 from mkat_fpga_tests.utils import test_params, which_instrument, cbf_title_report
 from mkat_fpga_tests.utils import capture_beam_data, populate_beam_dict, set_beam_quant_gain
-from mkat_fpga_tests.utils import start_katsdpingest_docker, stop_katsdpingest_docker 
+from mkat_fpga_tests.utils import start_katsdpingest_docker, stop_katsdpingest_docker
 
 from datetime import datetime
 from inspect import currentframe
@@ -615,7 +615,7 @@ class test_CBF(unittest.TestCase):
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_product_baselines()
+            self._test_product_baselines(discards=20)
             Aqf.addLine('-')
             self._test_back2back_consistency()
             Aqf.addLine('-')
@@ -2111,7 +2111,7 @@ class test_CBF(unittest.TestCase):
         # ---------------------------------------------------------------
         Aqf.step('Checking system stability(sensors OK status) before and after testing')
         xeng_sensors = ['phy', 'qdr', 'lru', 'reorder', 'network-tx', 'network-rx']
-        test_timeout = 10
+        test_timeout = 30
         errmsg = 'Failed to retrieve X-Eng status: Timed-out after %s seconds.' % (test_timeout)
         try:
             with RunTestWithTimeout(test_timeout, errmsg):
@@ -3652,7 +3652,7 @@ class test_CBF(unittest.TestCase):
                     max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
 
                     msg = ('Confirm that identical frequency ({:.3f} MHz) scans between subsequent '
-                           'SPEAD accumulations produce equal results.\n'.format(freq_x / 1e6))
+                           'SPEAD accumulations produce equal results.'.format(freq_x / 1e6))
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
                         legends = ['Freq scan #{}'.format(x) for x in xrange(len(chan_responses))]
@@ -6111,9 +6111,9 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Bandwidth = {}Hz'.format(bw))
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_freq))
-        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port, 
-                                                  parts_to_process, nr_ch, 
-                                                  ticks_between_spectra, 
+        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                  parts_to_process, nr_ch,
+                                                  ticks_between_spectra,
                                                   ch_per_heap, spectra_per_heap)
         if docker_status == True:
             Aqf.progress('KAT SDP Ingest Node started')
