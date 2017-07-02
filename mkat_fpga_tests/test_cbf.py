@@ -268,7 +268,7 @@ class test_CBF(unittest.TestCase):
                 self.addCleanup(self.receiver.stop)
                 clear_host_status(self)
                 # Run system tests before each test is ran
-                self.addCleanup(self._systems_tests)
+                # self.addCleanup(self._systems_tests)
                 return True
 
 
@@ -3174,7 +3174,7 @@ class test_CBF(unittest.TestCase):
                            'response to each frequency'.format(diff))
         else:
             msg = ('[VR.C.20] Check that the correct channels have the peak response to each frequency')
-            Aqf.array_abs_error(max_channels, channel_range, msg, 1)
+            Aqf.array_abs_error(max_channels[1:], channel_range[1:], msg, 1)
 
         msg = ("[CBF-REQ-0126] Check that no other channels response more than -%s dB.\n"% cutoff)
         if extra_peaks == [[]] * len(max_channels):
