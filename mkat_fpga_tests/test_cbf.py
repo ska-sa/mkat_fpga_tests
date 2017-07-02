@@ -616,7 +616,7 @@ class test_CBF(unittest.TestCase):
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_product_baselines(discards=20)
+            self._test_product_baselines()
             Aqf.addLine('-')
             self._test_back2back_consistency()
             Aqf.addLine('-')
@@ -3227,7 +3227,7 @@ class test_CBF(unittest.TestCase):
             init_dsim_sources(self.dhost)
 
 
-    def _test_product_baselines(self, discards=10):
+    def _test_product_baselines(self, discards=25):
         if self.corr_freqs.n_chans == 4096:
             # 4K
             awgn_scale = 0.0645
