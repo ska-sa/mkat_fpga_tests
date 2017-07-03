@@ -6175,35 +6175,40 @@ class test_CBF(unittest.TestCase):
             return False
 
 
-        def get_beam_data(beam, beam_dict, inp_ref_lvl=0, beam_quant_gain=1, num_caps=10000):
-            try:
-                bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
-                    target_pb, target_cf)
+        def get_beam_data(beam, beam_dict, inp_ref_lvl=0, beam_quant_gain=1, 
+                          num_caps=10000, max_cap_retries = 5):
 
-            except TypeError, e:
-                Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
-                errmsg = 'Failed to capture beam data due to error: %s' % str(e)
-                Aqf.failed(errmsg)
-                LOGGER.info(errmsg)
-                return
             # Determine slice of valid data in bf_raw
             bf_raw_str = part_strt_idx*ch_per_heap
             bf_raw_end = bf_raw_str + parts_to_process*ch_per_heap
 
-            data_type = bf_raw.dtype.name
-            #for heaps in bf_flags:
+            # Capture beam data, retry if more than 20% of heaps dropped
+            for retries in range(0,max_cap_retries):
+                try:
+                    bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
+                        target_pb, target_cf)
 
-            # TODO: print all dropped heaps
-            # Cut selected partitions out of bf_flags
-            flags = bf_flags[part_strt_idx:part_strt_idx+parts_to_process]
-            idx = part_strt_idx
-            Aqf.step('Confirm that they were no heaps missed for the different partitions.')
-            for part in flags:
-                missed_heaps = np.where(part>0)[0]
-                if missed_heaps.size > 0:
-                    Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
-                        missed_heaps))
-                idx += 1
+                except TypeError, e:
+                    Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
+                    errmsg = 'Failed to capture beam data due to error: %s' % str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.info(errmsg)
+                    return
+
+                data_type = bf_raw.dtype.name
+                #for heaps in bf_flags:
+
+                # Cut selected partitions out of bf_flags
+                flags = bf_flags[part_strt_idx:part_strt_idx+parts_to_process]
+                idx = part_strt_idx
+                #Aqf.step('Finding missed heaps for all partitions.')
+                import IPython;Ipython.embed()
+                for part in flags:
+                    missed_heaps = np.where(part>0)[0]
+                    if missed_heaps.size > 0:
+                        Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
+                            missed_heaps))
+                    idx += 1
             # flags for all missed heaps
             flags = np.sum(flags,axis=0)
             #cap = [0] * num_caps
