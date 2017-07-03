@@ -11,7 +11,7 @@
 .. role:: yellow
 
 
-CBF Qualification and Acceptance Reports (bc32n856M4k)
+CBF Qualification and Acceptance Reports (bc8n856M4k)
 ==========================================
 
 .. include:: katreport/doc_list.inc

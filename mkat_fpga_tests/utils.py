@@ -1276,16 +1276,19 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
     """
     stop_katsdpingest_docker(self)
     try:
+        user_id = pwd.getpwuid(os.getuid()).pw_uid
         output = subprocess.check_output([
                      'docker',
                      'run',
+                     '-u',
+                     '{}'.format(user_id),
                      '-d',
                      '--net=host',
                      '-v',
                      '/ramdisk:/ramdisk',
                      'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing_new',
                      'bf_ingest.py',
-                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
+                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1, beam_port),
                      '--channels={}'.format(channels),
                      '--ticks-between-spectra={}'.format(ticks_between_spectra),
                      '--channels-per-heap={}'.format(channels_per_heap),
@@ -1415,7 +1418,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
-            Aqf.passed('Antennae input {} weight set to {}\n'.format(key, reply.arguments[1]))
+            Aqf.passed('Antenna input {} weight set to {}\n'.format(key, reply.arguments[1]))
 
     try:
         import katcp
@@ -1427,7 +1430,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         if not is_connected:
             kcp_client.stop()
             raise RuntimeError('Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p))
-        Aqf.step('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
+        LOGGER.info('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
         reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
             timeout=_timeout)
         errmsg = 'Failed to issues capture-init on %s:%s'%(ingst_nd, ingst_nd_p)
@@ -1446,11 +1449,11 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
         Aqf.failed(errmsg)
     else:
-        Aqf.progress('Capture-init successfully issued on %s and Data transmission for '
-                     'beam %s started'%(ingst_nd, beam))
-    Aqf.wait(capture_time, 'Wait such that the neccessary amount of data is captured.')
+        LOGGER.info('Capture-init successfully issued on %s and Data transmission for '
+                    'beam %s started'%(ingst_nd, beam))
+    Aqf.wait(capture_time, 'Capturing beam data for ')
     try:
-        Aqf.step('Issue data capture stop via CAM int')
+        LOGGER.info('Issue data capture stop via CAM int')
         reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
         assert reply.reply_ok()
     except AssertionError:
@@ -1472,11 +1475,11 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         LOGGER.error(errmsg)
         return
     else:
-        Aqf.progress('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
+        LOGGER.info('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
             ingst_nd, beam))
 
     try:
-        Aqf.step('Getting latest beam data captured in %s'%beamdata_dir)
+        LOGGER.info('Getting latest beam data captured in %s'%beamdata_dir)
         newest_f = max(glob.iglob('%s/*.h5'%beamdata_dir), key=os.path.getctime)
         _timestamp = int(newest_f.split('/')[-1].split('.')[0])
         newest_f_timestamp = time.strftime("%H:%M:%S", time.localtime(_timestamp))
@@ -1497,6 +1500,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
                     bf_ts = np.array(element.value)
                 elif element.name.find('flags') > -1:
                     bf_flags = np.array(element.value)
+        os.remove(newest_f) 
         return bf_raw, bf_flags, bf_ts, in_wgts, pb, cf
 
 def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):

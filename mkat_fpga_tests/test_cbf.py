@@ -6182,8 +6182,13 @@ class test_CBF(unittest.TestCase):
             bf_raw_str = part_strt_idx*ch_per_heap
             bf_raw_end = bf_raw_str + parts_to_process*ch_per_heap
 
-            # Capture beam data, retry if more than 20% of heaps dropped
-            for retries in range(0,max_cap_retries):
+            # Capture beam data, retry if more than 20% of heaps dropped or empty data
+            retries = 0
+            while retries < max_cap_retries:
+                if retries == max_cap_retries-1:
+                    Aqf.failed('Error capturing beam data.')
+                    return False
+                retries += 1
                 try:
                     bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
                         target_pb, target_cf)
@@ -6192,8 +6197,8 @@ class test_CBF(unittest.TestCase):
                     Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
                     errmsg = 'Failed to capture beam data due to error: %s' % str(e)
                     Aqf.failed(errmsg)
-                    LOGGER.info(errmsg)
-                    return
+                    LOGGER.error(errmsg)
+                    return False
 
                 data_type = bf_raw.dtype.name
                 #for heaps in bf_flags:
@@ -6202,14 +6207,30 @@ class test_CBF(unittest.TestCase):
                 flags = bf_flags[part_strt_idx:part_strt_idx+parts_to_process]
                 idx = part_strt_idx
                 #Aqf.step('Finding missed heaps for all partitions.')
-                import IPython;Ipython.embed()
-                for part in flags:
-                    missed_heaps = np.where(part>0)[0]
-                    if missed_heaps.size > 0:
-                        Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
-                            missed_heaps))
-                    idx += 1
-            # flags for all missed heaps
+                if flags.size == 0:
+                    LOGGER.warning('Beam data empty. Capture failed. Retrying...')
+                else:
+                    missed_err = False
+                    for part in flags:
+                        missed_heaps = np.where(part>0)[0]
+                        missed_perc = missed_heaps.size/part.size
+                        if missed_perc > 0.2:
+                            LOGGER.warning('Beam captured missed more than 20% heaps. Retrying...')
+                            missed_err = True
+                            break
+                    # Good capture, break out of loop
+                    if not missed_err:
+                        break 
+
+            # Print missed heaps
+            idx = part_strt_idx
+            for part in flags:
+                missed_heaps = np.where(part>0)[0]
+                if missed_heaps.size > 0:
+                    Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
+                        missed_heaps))
+                idx += 1
+            # Combine all missed heap flags. These heaps will be discarded 
             flags = np.sum(flags,axis=0)
             #cap = [0] * num_caps
             #cap = [0] * len(bf_raw.shape[1])
@@ -6240,7 +6261,7 @@ class test_CBF(unittest.TestCase):
                 errmsg = "Failed with exception: %s" %str(e)
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
-                return
+                return False
 
             Aqf.equals(data_type, 'int8', msg)
             cap_mag = np.abs(cap)
@@ -6310,8 +6331,7 @@ class test_CBF(unittest.TestCase):
         try:
             d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl)
         except TypeError, e:
-            Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
-            errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
+            errmsg = 'Failed to retrieve beamformer data'
             Aqf.failed(errmsg)
             LOGGER.error(errmsg)
             return
@@ -6324,7 +6344,7 @@ class test_CBF(unittest.TestCase):
             try:
                 d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl)
             except IndexError, e:
-                errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
+                errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
                 return
@@ -6333,7 +6353,13 @@ class test_CBF(unittest.TestCase):
 
             weight = 2.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl)
+            try:
+                d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data'
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             beam_lbls.append(l)
             # Square the voltage data. This is a hack as aqf_plot expects squared
@@ -6357,14 +6383,26 @@ class test_CBF(unittest.TestCase):
             weight = 1.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             rl = 0
-            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
+            try:
+                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data'
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
             beam_lbls.append(l)
 
             gain = 0.5
             gain = set_beam_quant_gain(self, beam, gain)
-            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
+            try:
+                d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data'
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
             beam_lbls.append(l)
