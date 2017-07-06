@@ -52,6 +52,7 @@ from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, h
 from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
 from mkat_fpga_tests.utils import test_params, which_instrument, cbf_title_report
 from mkat_fpga_tests.utils import capture_beam_data, populate_beam_dict, set_beam_quant_gain
+from mkat_fpga_tests.utils import start_katsdpingest_docker, stop_katsdpingest_docker
 
 from datetime import datetime
 from inspect import currentframe
@@ -91,6 +92,8 @@ xeng_raw_bits_flags = collections.namedtuple(
 
 have_subscribed = False
 set_dsim_epoch = False
+dsim_timeout = 60
+
 
 @cls_end_aqf
 @system('mkat')
@@ -208,6 +211,11 @@ class test_CBF(unittest.TestCase):
             with ignored(Exception):
                 reply, informs = self.corr_fix.katcp_rct.req.accumulation_length(acc_time,
                 timeout=acc_timeout)
+        except Exception as e:
+            self.errmsg = ('Failed to set accumulation time due to :%s'%str(e))
+            self.corr_fix.halt_array
+            LOGGER.exception(self.errmsg)
+            return False
         else:
             acc_time = float(reply.arguments[-1])
             Aqf.step('[CBF-REQ-0071, 0096, 0089] Set and confirm accumulation period via CAM interface.')
@@ -265,8 +273,9 @@ class test_CBF(unittest.TestCase):
                 self.addCleanup(self.corr_fix.stop_x_data)
                 self.addCleanup(gc.collect)
                 self.addCleanup(self.receiver.stop)
+                clear_host_status(self)
                 # Run system tests before each test is ran
-                self.addCleanup(self._systems_tests)
+                # self.addCleanup(self._systems_tests)
                 return True
 
 
@@ -396,7 +405,7 @@ class test_CBF(unittest.TestCase):
         CBF Channelisation Spurious Free Dynamic Range
         CBF Power Consumption
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, acc_time=0.3)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -424,7 +433,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.20', 'TP.C.4.1')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
-    def test_bc8n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc8n856M32k'):
+    def test_bc8n856M32k_channelisation_sfdr_peaks(self, instrument='bc8n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range
         CBF Power Consumption
@@ -448,36 +457,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.20', 'TP.C.4.1')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
-    def test_bc8n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc8n856M32k'):
-        """
-        CBF Channelisation Spurious Free Dynamic Range
-        CBF Power Consumption
-        """
-        # Fast Test spurious free dynamic range for wideband fine
-
-        # Check that the correct channels have the peak response to each
-        # frequency and that no other channels have significant relative power.
-
-        # This is the faster version that sweeps through 32768 channels
-        # whilst stepping through `x`, where x is the step size given.
-
-        # _____________________________NOTE____________________________
-        # Usage: Run nosetests with -e
-        # Example: nosetests  -s -v --with-katreport --exclude=slow
-
-        instrument_success = self.set_instrument(instrument, acc_time=0.2)
-        _running_inst = self.corr_fix.get_running_instrument()
-        if instrument_success and _running_inst:
-            Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  # Hz
-        else:
-            Aqf.failed(self.errmsg)
-
-
-    @aqf_vr('TP.C.1.20', 'TP.C.4.1')
-    @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
-    @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
-    def test_bc16n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc16n856M32k'):
+    def test_bc16n856M32k_channelisation_sfdr_peaks(self, instrument='bc16n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range
         CBF Power Consumption
@@ -501,36 +481,7 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.20', 'TP.C.4.1')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
-    def test_bc16n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc16n856M32k'):
-        """
-        CBF Channelisation Spurious Free Dynamic Range
-        CBF Power Consumption
-        """
-        # Fast Test spurious free dynamic range for wideband fine
-
-        # Check that the correct channels have the peak response to each
-        # frequency and that no other channels have significant relative power.
-
-        # This is the faster version that sweeps through 32768 channels
-        # whilst stepping through `x`, where x is the step size given.
-
-        # _____________________________NOTE____________________________
-        # Usage: Run nosetests with -e
-        # Example: nosetests  -s -v --with-katreport --exclude=slow
-
-        instrument_success = self.set_instrument(instrument, acc_time=0.5)
-        _running_inst = self.corr_fix.get_running_instrument()
-        if instrument_success and _running_inst:
-            Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  # Hz
-        else:
-            Aqf.failed(self.errmsg)
-
-
-    @aqf_vr('TP.C.1.20', 'TP.C.4.1')
-    @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
-    @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
-    def test_bc32n856M32k_channelisation_sfdr_peaks_slow(self, instrument='bc32n856M32k'):
+    def test_bc32n856M32k_channelisation_sfdr_peaks(self, instrument='bc32n856M32k'):
         """
         CBF Channelisation Spurious Free Dynamic Range
 
@@ -547,36 +498,6 @@ class test_CBF(unittest.TestCase):
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
             self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)  # Hz
-        else:
-            Aqf.failed(self.errmsg)
-
-
-    @aqf_vr('TP.C.1.20', 'TP.C.4.1')
-    @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
-    @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
-    def test_bc32n856M32k_channelisation_sfdr_peaks_fast(self, instrument='bc32n856M32k'):
-        """
-        CBF Channelisation Spurious Free Dynamic Range
-
-        CBF Power Consumption
-        """
-        # Fast Test spurious free dynamic range for wideband fine
-
-        # Check that the correct channels have the peak response to each
-        # frequency and that no other channels have significant relative power.
-
-        # This is the faster version that sweeps through 32768 channels
-        # whilst stepping through `x`, where x is the step size given.
-
-        # _____________________________NOTE____________________________
-        # Usage: Run nosetests with -e
-        # Example: nosetests  -s -v --with-katreport --exclude=slow
-
-        instrument_success = self.set_instrument(instrument, acc_time=0.5)
-        _running_inst = self.corr_fix.get_running_instrument()
-        if instrument_success and _running_inst:
-            Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768, stepsize=8)  # Hz
         else:
             Aqf.failed(self.errmsg)
 
@@ -633,7 +554,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Baseline Correlation Products
         """
-        instrument_success = self.set_instrument(instrument, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -702,7 +623,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Baseline Correlation Products
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -758,7 +679,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.2, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -790,7 +711,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -806,7 +727,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1171,7 +1092,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1219,7 +1140,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial -- Delay Rate
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1235,7 +1156,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Offset
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1267,7 +1188,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Offset
         """
-        instrument_success = self.set_instrument(instrument, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1315,7 +1236,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Offset
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1331,7 +1252,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Rate
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1363,7 +1284,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Rate
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1412,7 +1333,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Rate
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1429,7 +1350,7 @@ class test_CBF(unittest.TestCase):
         CBF per-antenna phase error
         -- Delays, Delay Rate, Fringe Offset and Fringe Rate.
         """
-        instrument_success = self.set_instrument(instrument, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1528,7 +1449,7 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            Delay applied to the correct input
         """
-        instrument_success = self.set_instrument(instrument, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1544,7 +1465,7 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            Delay applied to the correct input
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.49, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1576,7 +1497,7 @@ class test_CBF(unittest.TestCase):
         """CBF Delay Compensation/LO Fringe stopping polynomial
            Delay applied to the correct input
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=1)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -2110,7 +2031,7 @@ class test_CBF(unittest.TestCase):
         # ---------------------------------------------------------------
         Aqf.step('Checking system stability(sensors OK status) before and after testing')
         xeng_sensors = ['phy', 'qdr', 'lru', 'reorder', 'network-tx', 'network-rx']
-        test_timeout = 10
+        test_timeout = 30
         errmsg = 'Failed to retrieve X-Eng status: Timed-out after %s seconds.' % (test_timeout)
         try:
             with RunTestWithTimeout(test_timeout, errmsg):
@@ -2118,7 +2039,6 @@ class test_CBF(unittest.TestCase):
         except Exception:
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
-
         xeng_sensors.append('pfb')
         feng_sensors = xeng_sensors
         errmsg = ('Failed to retrieve F-Eng status: Timed-out after %s seconds.' % (test_timeout))
@@ -2193,7 +2113,9 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Configure digitiser simulator to generate Gaussian noise.')
         Aqf.progress('Digitiser simulator configured to generate Gaussian noise with scale: {}, '
                  'gain: {} and fft shift: {}.'.format(awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, fft_shift=fft_shift,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, fft_shift=fft_shift,
                                             gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
@@ -2682,7 +2604,9 @@ class test_CBF(unittest.TestCase):
                                                                                         awgn_scale,
                                                                                         gain,
                                                                                         fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
                                             freq=expected_fc, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
@@ -3057,7 +2981,9 @@ class test_CBF(unittest.TestCase):
                                                                                         awgn_scale,
                                                                                         gain,
                                                                                         fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
                                             freq=self.corr_freqs.bandwidth / 2.0,
                                             fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
@@ -3173,7 +3099,7 @@ class test_CBF(unittest.TestCase):
                            'response to each frequency'.format(diff))
         else:
             msg = ('[VR.C.20] Check that the correct channels have the peak response to each frequency')
-            Aqf.array_abs_error(max_channels, channel_range, msg, 1)
+            Aqf.array_abs_error(max_channels[1:], channel_range[1:], msg, 1)
 
         msg = ("[CBF-REQ-0126] Check that no other channels response more than -%s dB.\n"% cutoff)
         if extra_peaks == [[]] * len(max_channels):
@@ -3226,7 +3152,7 @@ class test_CBF(unittest.TestCase):
             init_dsim_sources(self.dhost)
 
 
-    def _test_product_baselines(self, discards=10):
+    def _test_product_baselines(self, discards=25):
         if self.corr_freqs.n_chans == 4096:
             # 4K
             awgn_scale = 0.0645
@@ -3241,7 +3167,9 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(awgn_scale, gain,
                                                                           fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             freq=self.corr_freqs.chan_freqs[1500],
                                             fft_shift=fft_shift, gain=gain)
 
@@ -3652,7 +3580,7 @@ class test_CBF(unittest.TestCase):
                     max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
 
                     msg = ('Confirm that identical frequency ({:.3f} MHz) scans between subsequent '
-                           'SPEAD accumulations produce equal results.\n'.format(freq_x / 1e6))
+                           'SPEAD accumulations produce equal results.'.format(freq_x / 1e6))
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
                         legends = ['Freq scan #{}'.format(x) for x in xrange(len(chan_responses))]
@@ -3696,9 +3624,10 @@ class test_CBF(unittest.TestCase):
             fft_shift = 32767
 
         Aqf.step('Digitiser simulator configured to generate a continuous wave, '
-                 'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'
-                 .format(cw_scale, awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+                 'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale, awgn_scale, gain, fft_shift))
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             cw_scale=cw_scale, freq=expected_fc,
                                             fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
@@ -4280,7 +4209,9 @@ class test_CBF(unittest.TestCase):
             gain = '11+0j'
             fft_shift = 32767
 
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
                                             freq=self.corr_freqs.bandwidth / 2,
                                             fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
@@ -4474,6 +4405,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _test_roach_sensors_status(self):
+        clear_host_status(self)
         Aqf.step('This test confirms that each ROACH sensor (Temp, Voltage, Current, '
                  'Fan) has not %s.' %colors.red('\'Failed\''))
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
@@ -5749,7 +5681,9 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Configure a digitiser simulator to generate correlated noise.')
         Aqf.progress('Digitiser simulator configured to generate Gaussian noise with scale: {}, '
                  'gain: {} and fft shift: {}.'.format(awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
@@ -5946,7 +5880,9 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(
             awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             cw_scale=0.0, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitiser simulator levels')
@@ -6057,121 +5993,21 @@ class test_CBF(unittest.TestCase):
         """
         Apply weights and capture beamformer data, Verify that weights are correctly applied.
         """
-
-        def get_beam_data(beam, beam_dict, target_pb, target_cfreq,
-                          inp_ref_lvl=0, beam_quant_gain=1, num_caps=10000):
-            try:
-                bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
-                    target_pb, target_cfreq)
-
-            except TypeError, e:
-                Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
-                errmsg = 'Failed to capture beam data due to error: %s' % str(e)
-                Aqf.failed(errmsg)
-                LOGGER.info(errmsg)
-                return
-            # Partitions to process and index to start TODO: read values from sensors
-            partitions = 2
-            part_idx = 0
-            channels_per_heap = 256
-            spectra_per_heap = 256
-            # Determine slice of valid data in bf_raw
-            bf_raw_str = part_idx*channels_per_heap
-            bf_raw_end = bf_raw_str + partitions*channels_per_heap
-
-            data_type = bf_raw.dtype.name
-            #for heaps in bf_flags:
-
-            # TODO: print all dropped heaps
-            # Cut selected partitions out of bf_flags
-            flags = bf_flags[part_idx:part_idx+partitions]
-            idx = part_idx
-            Aqf.step('Confirm that they were no heaps missed for the different partitions.')
-            for part in flags:
-                missed_heaps = np.where(part>0)[0]
-                if missed_heaps.size > 0:
-                    Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
-                        missed_heaps))
-                idx += 1
-            # flags for all missed heaps
-            flags = np.sum(flags,axis=0)
-            #cap = [0] * num_caps
-            #cap = [0] * len(bf_raw.shape[1])
-            cap = []
-            cap_idx = 0
-            raw_idx = 0
-            try:
-                for heap_flag in flags:
-                    if heap_flag == 0:
-                        for raw_idx in range(raw_idx, raw_idx+spectra_per_heap):
-                            cap.append(np.array(complexise(bf_raw[bf_raw_str:bf_raw_end, raw_idx, :])))
-                            cap_idx += 1
-                        raw_idx += 1
-                    else:
-                        if raw_idx == 0:
-                            raw_idx = spectra_per_heap
-                        else:
-                            raw_idx = raw_idx + spectra_per_heap
-            except Exception, e:
-                errmsg = 'Failed to capture beam data due to error: %s' % str(e)
-                LOGGER.exception(errmsg)
-                Aqf.failed(errmsg)
-            Aqf.step('Confirm the data type of the beamforming data for one channel.')
-            try:
-                msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
-                    data_type, cap[0][0]))
-            except Exception as e:
-                errmsg = "Failed with exception: %s" %str(e)
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
-                return
-
-            Aqf.equals(data_type, 'int8', msg)
-            cap_mag = np.abs(cap)
-            cap_avg = cap_mag.sum(axis=0) / cap_idx
-            cap_db = 20 * np.log10(cap_avg)
-            cap_db_mean = np.mean(cap_db)
-            # NOT WORKING
-            # labels = ''
-            # lbls = self.test_params(self)
-            # for lbl in lbls:
-            #    bm = beam[-1]
-            #    if lbl.find(bm) != -1:
-            #        wght = self.correlator.bops.get_beam_weights(beam, lbl)
-            # print lbl, wght
-            #        labels += (lbl+"={} ").format(wght)
-            labels = ''
-            for key in in_wgts:
-                labels += (key + "= {}\n").format(in_wgts[key])
-            labels += 'Mean = {:0.2f}dB\n'.format(cap_db_mean)
-
-            if inp_ref_lvl == 0:
-                # Get the voltage level for one antenna. Gain for one input
-                # should be set to 1, the rest should be 0
-                inp_ref_lvl = np.mean(cap_avg)
-                Aqf.step('Reference level measured by setting the '
-                         'gain for one antenna to 1 and the rest to 0. '
-                         'Reference level = {:.3f}dB'.format(20*np.log10(inp_ref_lvl)))
-                Aqf.step('Reference level averaged over {} channels. '
-                         'Channel averages determined over {} '
-                         'samples.'.format(partitions*channels_per_heap, cap_idx))
-                expected = 0
-            else:
-                delta = 0.2
-                expected = np.sum([inp_ref_lvl * in_wgts[key] for key in in_wgts]) * beam_quant_gain
-                expected = 20 * np.log10(expected)
-
-                Aqf.step('Expected value is calculated by taking the reference input level '
-                         'and multiplying by the channel weights and quantiser gain.')
-                labels += 'Expected = {:.2f}dB'.format(expected)
-                msg = ('Confirm that the expected voltage level ({:.3f}dB) is within '
-                    '{}dB of the measured mean value ({:.3f}dB)'.format(expected,delta, cap_db_mean))
-                Aqf.almost_equals(cap_db_mean, expected, delta, msg)
-
-
-            return cap_avg, labels, inp_ref_lvl, pb, cf, expected, cap_idx
-
         # Main test code
+        # TODO AR
+        # Neccessarry to compare output products with capture-list output products?
+        # Test both beams
+        beam_x = self.corr_fix.corr_config['beam0']['output_products']
+        beam_x_ip, beam_x_port = self.corr_fix.corr_config['beam0']['output_destinations_base'].split(':')
+        beam_y = self.corr_fix.corr_config['beam1']['output_products']
+        beam_y_ip, beam_y_port = self.corr_fix.corr_config['beam1']['output_destinations_base'].split(':')
+        beam = beam_y
+        beam_ip = beam_y_ip
+        beam_port = beam_y_port
+        beam_name = beam_y.replace('-','_').replace('.','_')
+        parts_to_process = 2
+        part_strt_idx = 0
+
         Aqf.step('Getting current instrument parameters.')
         try:
             katcp_rct = self.corr_fix.katcp_rct.sensors
@@ -6181,9 +6017,23 @@ class test_CBF(unittest.TestCase):
             assert isinstance(bw,float)
             nr_ch = katcp_rct.n_chans.get_value()
             assert isinstance(nr_ch,int)
+            ticks_between_spectra = katcp_rct.antenna_channelised_voltage_n_samples_between_spectra.get_value()
+            assert isinstance(ticks_between_spectra,int)
+            spectra_per_heap = getattr(katcp_rct, '{}_spectra_per_heap'.format(beam_name)).get_value()
+            assert isinstance(spectra_per_heap,int)
+            ch_per_heap = getattr(katcp_rct, '{}_n_chans_per_substream'.format(beam_name)).get_value()
+            assert isinstance(ch_per_heap,int)
             ch_freq = bw/nr_ch
             f_start = 0.  # Center freq of the first bin
             ch_list = f_start + np.arange(nr_ch) * ch_freq
+            partitions = int(nr_ch/ch_per_heap)
+            part_size = bw/partitions
+            # Setting required partitions and center frequency
+            #target_cf = bw + bw * 0.5
+            # Partitions are no longer selected. The full bandwidth is always selected
+            # target_pb = partitions * part_size
+            target_pb = bw
+            target_cf = bw + target_pb/2
         except AssertionError:
             errmsg = 'Failed to get instrument parameters: {}'.format(reply)
             Aqf.failed(errmsg)
@@ -6197,17 +6047,14 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Bandwidth = {}Hz'.format(bw))
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_freq))
-        # Setting required partitions and center frequency
-        #target_cf = bw + bw * 0.5
-        part_size = bw / 16
-        partitions = 16
-        target_pb = partitions * part_size
-        target_cf = bw + target_pb/2
-        # TODO AR
-        # Neccessarry to compare output products with capture-list output products?
-        beam_x = self.corr_fix.corr_config['beam0']['output_products']
-        beam_y = self.corr_fix.corr_config['beam1']['output_products']
-        beam = beam_y
+        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                  parts_to_process, nr_ch,
+                                                  ticks_between_spectra,
+                                                  ch_per_heap, spectra_per_heap)
+        if docker_status == True:
+            Aqf.progress('KAT SDP Ingest Node started')
+        else:
+            Aqf.failed('KAT SDP Ingest Node failed to start')
 
         # Set source names and stop all streams
         _test_params = test_params(self)
@@ -6255,11 +6102,148 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(
             awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             cw_scale=0.0, freq=cw_freq, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
+
+
+        def get_beam_data(beam, beam_dict, inp_ref_lvl=0, beam_quant_gain=1,
+                          num_caps=10000, max_cap_retries = 5):
+
+            # Determine slice of valid data in bf_raw
+            bf_raw_str = part_strt_idx*ch_per_heap
+            bf_raw_end = bf_raw_str + parts_to_process*ch_per_heap
+
+            # Capture beam data, retry if more than 20% of heaps dropped or empty data
+            retries = 0
+            while retries < max_cap_retries:
+                if retries == max_cap_retries-1:
+                    Aqf.failed('Error capturing beam data.')
+                    return False
+                retries += 1
+                try:
+                    bf_raw, bf_flags, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
+                        target_pb, target_cf)
+
+                except TypeError, e:
+                    Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
+                    errmsg = 'Failed to capture beam data due to error: %s' % str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return False
+
+                data_type = bf_raw.dtype.name
+                #for heaps in bf_flags:
+
+                # Cut selected partitions out of bf_flags
+                flags = bf_flags[part_strt_idx:part_strt_idx+parts_to_process]
+                idx = part_strt_idx
+                #Aqf.step('Finding missed heaps for all partitions.')
+                if flags.size == 0:
+                    LOGGER.warning('Beam data empty. Capture failed. Retrying...')
+                else:
+                    missed_err = False
+                    for part in flags:
+                        missed_heaps = np.where(part>0)[0]
+                        missed_perc = missed_heaps.size/part.size
+                        perc = 0.5
+                        if missed_perc > perc:
+                            LOGGER.warning('Beam captured missed more than %s% heaps. Retrying...'%(perc*100))
+                            missed_err = True
+                            break
+                    # Good capture, break out of loop
+                    if not missed_err:
+                        break
+
+            # Print missed heaps
+            idx = part_strt_idx
+            for part in flags:
+                missed_heaps = np.where(part>0)[0]
+                if missed_heaps.size > 0:
+                    Aqf.progress('Missed heaps for partition {} at heap indexes {}'.format(idx,
+                        missed_heaps))
+                idx += 1
+            # Combine all missed heap flags. These heaps will be discarded
+            flags = np.sum(flags,axis=0)
+            #cap = [0] * num_caps
+            #cap = [0] * len(bf_raw.shape[1])
+            cap = []
+            cap_idx = 0
+            raw_idx = 0
+            try:
+                for heap_flag in flags:
+                    if heap_flag == 0:
+                        for raw_idx in range(raw_idx, raw_idx+spectra_per_heap):
+                            cap.append(np.array(complexise(bf_raw[bf_raw_str:bf_raw_end, raw_idx, :])))
+                            cap_idx += 1
+                        raw_idx += 1
+                    else:
+                        if raw_idx == 0:
+                            raw_idx = spectra_per_heap
+                        else:
+                            raw_idx = raw_idx + spectra_per_heap
+            except Exception, e:
+                errmsg = 'Failed to capture beam data due to error: %s' % str(e)
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
+            Aqf.step('Confirm the data type of the beamforming data for one channel.')
+            try:
+                msg = ('[CBF-REQ-0118] Beamformer data type is {}, example value for one channel: {}'.format(
+                    data_type, cap[0][0]))
+            except Exception as e:
+                errmsg = "Failed with exception: %s" %str(e)
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
+            Aqf.equals(data_type, 'int8', msg)
+            cap_mag = np.abs(cap)
+            cap_avg = cap_mag.sum(axis=0) / cap_idx
+            cap_db = 20 * np.log10(cap_avg)
+            cap_db_mean = np.mean(cap_db)
+            # NOT WORKING
+            # labels = ''
+            # lbls = self.test_params(self)
+            # for lbl in lbls:
+            #    bm = beam[-1]
+            #    if lbl.find(bm) != -1:
+            #        wght = self.correlator.bops.get_beam_weights(beam, lbl)
+            # print lbl, wght
+            #        labels += (lbl+"={} ").format(wght)
+            labels = ''
+            for key in in_wgts:
+                labels += (key + "= {}\n").format(in_wgts[key])
+            labels += 'Mean = {:0.2f}dB\n'.format(cap_db_mean)
+
+            if inp_ref_lvl == 0:
+                # Get the voltage level for one antenna. Gain for one input
+                # should be set to 1, the rest should be 0
+                inp_ref_lvl = np.mean(cap_avg)
+                Aqf.step('Reference level measured by setting the '
+                         'gain for one antenna to 1 and the rest to 0. '
+                         'Reference level = {:.3f}dB'.format(20*np.log10(inp_ref_lvl)))
+                Aqf.step('Reference level averaged over {} channels. '
+                         'Channel averages determined over {} '
+                         'samples.'.format(parts_to_process*ch_per_heap, cap_idx))
+                expected = 0
+            else:
+                delta = 0.2
+                expected = np.sum([inp_ref_lvl * in_wgts[key] for key in in_wgts]) * beam_quant_gain
+                expected = 20 * np.log10(expected)
+
+                Aqf.step('Expected value is calculated by taking the reference input level '
+                         'and multiplying by the channel weights and quantiser gain.')
+                labels += 'Expected = {:.2f}dB'.format(expected)
+                msg = ('Confirm that the expected voltage level ({:.3f}dB) is within '
+                    '{}dB of the measured mean value ({:.3f}dB)'.format(expected,delta, cap_db_mean))
+                Aqf.almost_equals(cap_db_mean, expected, delta, msg)
+
+
+            return cap_avg, labels, inp_ref_lvl, pb, cf, expected, cap_idx
 
         beam_data = []
         beam_lbls = []
@@ -6282,10 +6266,9 @@ class test_CBF(unittest.TestCase):
         beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
         rl = 0
         try:
-            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl)
         except TypeError, e:
-            Aqf.step('Confirm that Docker container is running and also confirm the igmp version = 2 ')
-            errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
+            errmsg = 'Failed to retrieve beamformer data'
             Aqf.failed(errmsg)
             LOGGER.error(errmsg)
             return
@@ -6296,9 +6279,9 @@ class test_CBF(unittest.TestCase):
             weight = 1.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
-                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl)
             except IndexError, e:
-                errmsg = 'Failed to retrieve beamformer data due to %s' % str(e)
+                errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
                 return
@@ -6307,7 +6290,13 @@ class test_CBF(unittest.TestCase):
 
             weight = 2.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl)
+            try:
+                d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data'
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             beam_lbls.append(l)
             # Square the voltage data. This is a hack as aqf_plot expects squared
@@ -6331,14 +6320,26 @@ class test_CBF(unittest.TestCase):
             weight = 1.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             rl = 0
-            d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
+            try:
+                d, l, rl, pb, cf, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data'
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
             beam_lbls.append(l)
 
             gain = 0.5
             gain = set_beam_quant_gain(self, beam, gain)
-            d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, target_pb, target_cf, rl, gain)
+            try:
+                d, l, rl, pb, cf, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
+            except IndexError, e:
+                errmsg = 'Failed to retrieve beamformer data'
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+                return
             beam_data.append(d)
             l += '\nLevel adjust gain={}'.format(gain)
             beam_lbls.append(l)
@@ -6354,6 +6355,9 @@ class test_CBF(unittest.TestCase):
                               log_dynamic_range=90, log_normalise_to=1,
                               caption='Captured beamformer data with level adjust after beam-forming gain set.',
                               hlines=exp1, plot_type='bf', hline_strt_idx=1)
+
+        # Close any KAT SDP ingest nodes
+        stop_katsdpingest_docker(self)
 
 
     def _test_cap_beam(self, instrument='bc8n856M4k'):
@@ -6506,7 +6510,9 @@ class test_CBF(unittest.TestCase):
                  'at {}Hz with cw scale: {}, awgn scale: {}, eq gain: {}, fft '
                  'shift: {}'.format(freq * dsim_clk_factor, cw_scale, awgn_scale, gain,
                                     fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             cw_scale=cw_scale, freq=freq,
                                             fft_shift=fft_shift, gain=gain, cw_src=1)
         self.dhost.registers.scale_cwg0_const.write(scale=0.0)
@@ -6599,7 +6605,9 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(
             awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
                                             cw_scale=0.0, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
@@ -6755,7 +6763,9 @@ class test_CBF(unittest.TestCase):
         #     Aqf.failed(errmsg)
         #     return False
 
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self.corr_fix, self.dhost,
                                             awgn_scale=0.0,
                                             cw_scale=0.0, freq=100000000,
                                             fft_shift=0, gain='32767+0j')
@@ -6960,7 +6970,9 @@ class test_CBF(unittest.TestCase):
             self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
             self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
 
-        dsim_set_success = set_input_levels(self.corr_fix, self.dhost,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self.corr_fix, self.dhost,
                                             awgn_scale=0.0,
                                             cw_scale=0.0, freq=100000000,
                                             fft_shift=0, gain='32767+0j')
@@ -7505,7 +7517,9 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Digitiser simulator configured to generate gaussian noise, '
                  'with scale: {}, eq gain: {}, fft shift: {}'.format(awgn_scale, gain,
                                                                           fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=0.0,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale, cw_scale=0.0,
                                             fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
@@ -7656,7 +7670,9 @@ class test_CBF(unittest.TestCase):
                  'at {} Hz (channel={}), with cw scale: {}, awgn scale: {}, '
                  'eq gain: {}, fft shift: {}'.format(cw_freq, cw_chan_set, cw_scale,
                                                      awgn_scale, gain, fft_shift))
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='Dsim configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
                                             freq=cw_freq, fft_shift=fft_shift, gain=gain, cw_src=0)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
@@ -7702,3 +7718,4 @@ class test_CBF(unittest.TestCase):
                           caption=('FFT of captured small voltage buffer. {} voltage points captured '
                                    'on input {}. Input bandwidth = {}Hz'.format(fft_len, label, bw)),
                           xlabel='FFT bins')
+

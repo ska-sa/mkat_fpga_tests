@@ -12,6 +12,7 @@ import time
 from casperfpga import katcp_fpga
 from casperfpga import tengbe
 from casperfpga import utils as fpgautils
+from casperfpga.katcp_fpga import KatcpRequestFail
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.data_stream import StreamAddress
@@ -53,7 +54,7 @@ _cleanups = []
 """Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
 args, kwargs)
 """
-timeout = 10
+timeout = 30
 
 def add_cleanup(_fn, *args, **kwargs):
     _cleanups.append((_fn, args, kwargs))
@@ -192,17 +193,29 @@ class CorrelatorFixture(object):
             # before running the test.
 
             self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+            _retries = 3
             if os.path.exists(self.config_filename):
                 LOGGER.info('Making new correlator instance')
-                try:
-                    self._correlator = fxcorrelator.FxCorrelator(
-                        'test correlator', config_source=self.config_filename)
-                    self.correlator.initialise(program=False)
-                    return self._correlator
-                except Exception:
-                    LOGGER.error('Failed to create new correlator instance, Will now try to '
-                                 'start correlator with config: %s-%s' % (self.array_name,
-                                                                          self.instrument))
+                # for _retry in xrange(_retries):
+                while True:
+                    _retries -= 1
+                    try:
+                        self._correlator = fxcorrelator.FxCorrelator(
+                            'test correlator', config_source=self.config_filename)
+                        time.sleep(1)
+                        self.correlator.initialise(program=False)
+                        return self._correlator
+                    except KatcpRequestFail as e:
+                        LOGGER.exception('Did not get a response from roach/host: %s'%str(e))
+                        continue
+                    except Exception as e:
+                        LOGGER.exception('Failed to create new correlator instance with error: %s, '
+                            'Will now try to start correlator with config: %s-%s' % (str(e),
+                                self.array_name, self.instrument))
+                        continue
+                    if _retries == 0:
+                        break
+                if _retries == 0:
                     self.start_correlator(instrument=self.instrument)
             else:
                 LOGGER.error('No Config file (/etc/corr/array*-instrument), '
@@ -332,8 +345,9 @@ class CorrelatorFixture(object):
             self._katcp_rct.start()
             try:
                 self._katcp_rct.until_synced(timeout=timeout)
-            except TimeoutError:
+            except Exception as e:
                 self._katcp_rct.stop()
+                LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
             LOGGER.info('Cleanup function \'self._katcp_rct\': File: %s line: %s' % (
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
@@ -341,9 +355,11 @@ class CorrelatorFixture(object):
         else:
             self._katcp_rct.start()
             try:
+                time.sleep(1)
                 self._katcp_rct.until_synced(timeout=timeout)
-            except TimeoutError:
+            except Exception as e:
                 self._katcp_rct.stop()
+                LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
         return self._katcp_rct
 
     @property
@@ -415,12 +431,13 @@ class CorrelatorFixture(object):
         Returns currently running instrument listed on the sensor(s)
         """
         try:
+            reply = None
             reply = self.katcp_rct.sensor.instrument_state.get_reading()
             assert reply.istatus
             return reply.value
-        except AttributeError:
-            LOGGER.exception('KATCP Request does not contain attributes '
-                         '\n\t File:%s Line:%s' % (
+        except Exception as e:
+            LOGGER.exception('KATCP Request failed due to error: %s/%s'
+                         '\n\t File:%s Line:%s' % (str(e), str(reply),
                              getframeinfo(currentframe()).filename.split('/')[-1],
                              getframeinfo(currentframe()).lineno))
             return False

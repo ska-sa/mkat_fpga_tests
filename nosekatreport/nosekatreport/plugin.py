@@ -631,7 +631,7 @@ class Aqf(object):
         # _state.store.add_progress(message)
         _state.store.add_progress(message)
         cls.log_progress(message)
-        test_logger.info(message)
+        # test_logger.info(message)
 
 
     @classmethod
