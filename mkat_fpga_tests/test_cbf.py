@@ -5892,7 +5892,7 @@ class test_CBF(unittest.TestCase):
         source = random.randrange(len(self.correlator.fops.fengines))
 
         try:
-            initial_dump = self.receiver.get_clean_dump(discard=0)
+            initial_dump = self.receiver.get_clean_dump(discard=3)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
