@@ -385,7 +385,7 @@ def clear_all_delays(self, num_int=25):
     for _retry in range(_retries):
         while True:
             try:
-                dump = self.receiver.get_clean_dump(discard=0)
+                dump = self.receiver.get_clean_dump()
                 dump_timestamp = dump['dump_timestamp']
                 t_apply = dump_timestamp + num_int * int_time
                 reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
@@ -1447,7 +1447,8 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         is_connected = kcp_client.wait_connected(_timeout)
         if not is_connected:
             kcp_client.stop()
-            raise RuntimeError('Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p))
+            errmsg = ('Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p))
+            raise RuntimeError(errmsg)
         LOGGER.info('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
         reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
             timeout=_timeout)

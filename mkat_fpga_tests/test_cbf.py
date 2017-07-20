@@ -2124,7 +2124,7 @@ class test_CBF(unittest.TestCase):
         try:
             Aqf.step('[CBF-REQ-0001, 0087, 0091, 0104]: Change CBF input labels and '
                      'confirm via CAM inteface.')
-            reply_, _informs = self.corr_fix.katcp_rct.req.input_labels()
+            reply_, _informs = self.corr_fix.katcp_rct.req.input_labels(timeout=60)
             assert reply_.reply_ok()
             Aqf.progress('Original source names changed from: {}'.format(
                 ', '.join(reply_.arguments[1:])))
@@ -2134,7 +2134,7 @@ class test_CBF(unittest.TestCase):
         local_src_names = _test_params['custom_src_names']
         self.addCleanup(restore_src_names, self)
         try:
-            reply, _informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            reply, _informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names, timeout=60)
             assert reply.reply_ok()
         except Exception:
             Aqf.failed(
@@ -3246,10 +3246,10 @@ class test_CBF(unittest.TestCase):
 
             def set_zero_gains():
                 try:
-                    reply, informs = self.corr_fix.katcp_rct.req.gain_all(0)
+                    reply, informs = self.corr_fix.katcp_rct.req.gain_all(0, timeout=60)
                     assert reply.reply_ok()
-                except Exception:
-                    Aqf.failed('Failed to set equalisations on all F-engines')
+                except Exception as e:
+                    Aqf.failed('Failed to set equalisations on all F-engines, due to %s'%str(e))
                 else:
                     Aqf.passed('%s: All the inputs equalisations have been set to Zero.'%str(reply))
 
@@ -5930,7 +5930,13 @@ class test_CBF(unittest.TestCase):
                 gain = gain + gain_inc
                 gain_vector[rand_ch] = gain
                 try:
-                    reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, *gain_vector)
+                    reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, *gain_vector,
+                        timeout=60)
+                    assert reply.reply_ok()
+                except Exception as e:
+                        Aqf.failed('Gain correction on {} could not be set to {}.: '
+                                   'KATCP Reply: {}'.format(test_input, gain, reply))
+                        return
                 except TimeoutError:
                     msg = ('Could not set gains/eqs {} on input {} :CAM interface Timed-out, '.format(
                         gain, test_input))
@@ -5938,39 +5944,35 @@ class test_CBF(unittest.TestCase):
                 else:
                     msg = ('[CBF-REQ-0119] Gain correction on input {}, channel {} set to {}.'.format(
                         test_input, rand_ch, complex(gain)))
-                    if reply.reply_ok():
-                        Aqf.passed(msg)
-                        try:
-                            dump = self.receiver.get_clean_dump()
-                        except Queue.Empty:
-                            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
-                            Aqf.failed(errmsg)
-                            LOGGER.exception(errmsg)
-                        else:
-                            response = np.abs(complexise(dump['xeng_raw'][:, auto_corr_idx, :]))
-                            response = 10 * np.log10(response)
-                            resp_diff = response[rand_ch] - initial_resp[rand_ch]
-                            if resp_diff < target:
-                                msg = ('[CBF-REQ-0119] Output power increased by less than 1 dB '
-                                       '(actual = {:.2f} dB) with a gain '
-                                       'increment of {}.'.format(resp_diff, complex(gain_inc)))
-                                Aqf.passed(msg)
-                                fnd_less_one = True
-                                chan_resp.append(response)
-                                legends.append('Gain set to {}'.format(complex(gain)))
-                            elif fnd_less_one and (resp_diff > target):
-                                msg = ('[CBF-REQ-0119] Output power increased by more than 6 dB '
-                                       '(actual = {:.2f} dB) with a gain '
-                                       'increment of {}.'.format(resp_diff, complex(gain_inc)))
-                                Aqf.passed(msg)
-                                found = True
-                                chan_resp.append(response)
-                                legends.append('Gain set to {}'.format(complex(gain)))
-                            else:
-                                pass
+                    Aqf.passed(msg)
+                    try:
+                        dump = self.receiver.get_clean_dump()
+                    except Queue.Empty:
+                        errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
                     else:
-                        Aqf.failed('Gain correction on {} could not be set to {}.: '
-                                   'KATCP Reply: {}'.format(test_input, gain, reply))
+                        response = np.abs(complexise(dump['xeng_raw'][:, auto_corr_idx, :]))
+                        response = 10 * np.log10(response)
+                        resp_diff = response[rand_ch] - initial_resp[rand_ch]
+                        if resp_diff < target:
+                            msg = ('[CBF-REQ-0119] Output power increased by less than 1 dB '
+                                   '(actual = {:.2f} dB) with a gain '
+                                   'increment of {}.'.format(resp_diff, complex(gain_inc)))
+                            Aqf.passed(msg)
+                            fnd_less_one = True
+                            chan_resp.append(response)
+                            legends.append('Gain set to {}'.format(complex(gain)))
+                        elif fnd_less_one and (resp_diff > target):
+                            msg = ('[CBF-REQ-0119] Output power increased by more than 6 dB '
+                                   '(actual = {:.2f} dB) with a gain '
+                                   'increment of {}.'.format(resp_diff, complex(gain_inc)))
+                            Aqf.passed(msg)
+                            found = True
+                            chan_resp.append(response)
+                            legends.append('Gain set to {}'.format(complex(gain)))
+                        else:
+                            pass
                 count += 1
                 if count == 7:
                     Aqf.failed('Gains to change output power by less than 1 and more than 6 dB '

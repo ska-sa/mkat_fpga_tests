@@ -54,7 +54,7 @@ _cleanups = []
 """Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
 args, kwargs)
 """
-timeout = 30
+timeout = 60
 
 def add_cleanup(_fn, *args, **kwargs):
     _cleanups.append((_fn, args, kwargs))
@@ -312,7 +312,8 @@ class CorrelatorFixture(object):
                             LOGGER.info(msg)
                         else:
                             LOGGER.error('Halting array.')
-                            reply, informs = self.rct.req.subordinate_halt(self.array_name)
+                            reply, informs = self.rct.req.subordinate_halt(self.array_name,
+                                timeout=timeout)
                             assert reply.reply_ok()
                     except AssertionError:
                         LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (

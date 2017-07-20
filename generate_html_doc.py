@@ -189,6 +189,10 @@ def process_core_data(settings, log_func):
                 key=os.path.getctime)
             log_func('INFO', 'CORE.xml file size %.2f Mb'%(os.path.getsize(latest_core_xml) / 1e6))
             settings['xml_file'] = latest_core_xml
+        else:
+            errmsg = 'CORE.xml file does not exist in %s dir'%core_backup
+            log_func('ERROR', errmsg)
+            raise RuntimeError(errmsg)
 
     if os.path.isfile(settings['xml_file']):
         settings['xml_mtime'] = os.path.getmtime(settings['xml_file'])
