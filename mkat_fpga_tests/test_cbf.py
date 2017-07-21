@@ -90,6 +90,8 @@ xeng_raw_bits_flags = collections.namedtuple(
 # the mode name from the function to make an all singing all dancing decorator that does
 # everything automagically?
 
+# ToDo MM (2017-07-21) Improve the logging for debugging
+
 have_subscribed = False
 set_dsim_epoch = False
 dsim_timeout = 60
@@ -508,11 +510,11 @@ class test_CBF(unittest.TestCase):
         """
         CBF Baseline Correlation Products
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.5, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
-            self._test_product_baselines()
+            self._test_product_baselines(discards=40)
             Aqf.addLine('-')
             self._test_back2back_consistency()
             Aqf.addLine('-')
@@ -531,7 +533,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Baseline Correlation Products
         """
-        instrument_success = self.set_instrument(instrument, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -577,7 +579,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Baseline Correlation Products
         """
-        instrument_success = self.set_instrument(instrument, acc_time=0.49, force_reinit=True)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1220,7 +1222,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Offset
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5, force_reinit=True)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1236,7 +1238,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Offset
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument, acc_time=0.5)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1284,7 +1286,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF per-antenna phase error -- Fringe Rate
         """
-        instrument_success = self.set_instrument(instrument, acc_time=1)
+        instrument_success = self.set_instrument(instrument)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1602,7 +1604,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Gain Correction
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, force_reinit=True)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -1631,7 +1633,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Gain Correction
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, force_reinit=True)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -2243,7 +2245,7 @@ class test_CBF(unittest.TestCase):
                 actual_delay_coef = None
 
             cmd_tot_time = katcp_conn_time + network_roundtrip
-            final_cmd_time = abs(cmd_end_time - cmd_tot_time)
+            final_cmd_time = abs(cmd_end_time - cmd_tot_time -0.5)
         except AssertionError:
             errmsg = str(reply).replace('\_', ' ')
             Aqf.failed(errmsg)
@@ -3088,15 +3090,6 @@ class test_CBF(unittest.TestCase):
         Aqf.step('[VR.C.20] Check that the correct channels have the peak response to each frequency')
         if max_channels == channel_range:
             Aqf.passed('Confirm that the correct channels have the peak response to each frequency')
-        elif stepsize is not None:
-            diff = list(set(
-                range(start_chan, self.corr_freqs.n_chans, stepsize)) - set(max_channels))
-            if diff == []:
-                Aqf.step('[VR.C.20] Check that the correct channels have the peak response to '
-                         'each frequency')
-            else:
-                Aqf.failed('Channel(s) {} does not have the correct peak '
-                           'response to each frequency'.format(diff))
         else:
             msg = ('[VR.C.20] Check that the correct channels have the peak response to each frequency')
             Aqf.array_abs_error(max_channels[1:], channel_range[1:], msg, 1)

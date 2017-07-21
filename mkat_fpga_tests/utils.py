@@ -479,7 +479,6 @@ def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, 
                     _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
                     if _status_hosts is not (True or None):
                         for _status in _status_hosts:
-                            Aqf.failed(_status)
                             LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
                                  getframeinfo(currentframe()).filename.split('/')[-1],
                                  getframeinfo(currentframe()).lineno))
