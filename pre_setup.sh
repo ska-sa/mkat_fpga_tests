@@ -13,5 +13,5 @@ set -u # Throw error on uninitialized variables
 for pkg in "${PYTHON_SRC_PACKAGES[@]}"
 do
     cd "${PYTHON_SRC_PACKAGES_DIR}"/"${pkg}"
-    pip install --force-reinstall -e .
+    pip install -q --force-reinstall -e .
 done

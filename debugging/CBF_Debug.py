@@ -87,10 +87,4 @@ def get_dsim_clk():
     feng_mcount = f.get_local_time()
     return (time.time() - feng_mcount/float(correlator.sample_rate_hz))
 
-try:
-    receiver = CorrRx(port=8888, queue_size=100)
-except:
-    print 'Could not instantiate receiver'
-else:
-    receiver.start(timeout=10)
-    print 'receiver started'
+import IPython;IPython.embed()

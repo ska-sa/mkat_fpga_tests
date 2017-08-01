@@ -8,5 +8,5 @@ AQF Reports
     :maxdepth: 2
 
     katreport/katreport*
-    katreport/cam*
+    katreport/cbf*
 

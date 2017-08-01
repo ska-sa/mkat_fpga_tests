@@ -22,19 +22,20 @@ nose
 nose-testconfig
 pexpect
 requests[security]
-paramiko
+# paramiko
 sphinx
 ntplib
 pandas
 pillow
 chainmap
-nose-parameterized
-nose-leak-detector
-nose-performance
-NoseXUnit
-nose-congestion
+# nose-parameterized
+# nose-leak-detector
+# nose-performance
+# NoseXUnit
+# nose-congestion
 ipynose
 memory_profiler
-psutils
 pycrypto
 crypto
+# Not sure why we need this package
+# opsutils

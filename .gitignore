@@ -24,3 +24,16 @@ nosetests.xml
 # Developer tools
 .ropeproject
 *~
+debugging/ipython_notebooks/
+debugging/katreport/
+debugging/logging
+debugging/os
+debugging/time
+logs_bc8n856M32k/
+logs_bc8n856M4k/
+mkat_fpga_tests/bf_data/
+supplemental/MeerKAT-20042017.xml
+supplemental/MeerKAT_20160512.xml
+venv/
+tmp/
+

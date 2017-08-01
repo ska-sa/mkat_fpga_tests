@@ -299,6 +299,7 @@ class ReStProducer(object):
                      'checkbox': 'lime',
                      'not implemented': 'orange',
                      'unknown': 'gray',
+                     'progress': 'orange',
                      }.get(style.lower())
             if style:
                 style_line = ".. role:: %s" % style
@@ -308,7 +309,7 @@ class ReStProducer(object):
                 return text
 
     def write(self, fh):
-        """Write the oupyt to a file."""
+        """Write the output to a file."""
         if isinstance(fh, file):
             for line in self.output:
                 fh.write(line + '\n')

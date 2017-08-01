@@ -11,13 +11,13 @@
 .. role:: yellow
 
 
-CBF Qualification and Acceptance Reports
+CBF Qualification and Acceptance Reports (bc32n856M32k)
 ==========================================
 
 .. include:: katreport/doc_list.inc
 
-AQF output for CBF Qualification Document
----------------------------------------------------
+.. AQF output for CBF Qualification Document
+.. ---------------------------------------------------
 
 .. * :ref:`aqf_qual_proc`
 .. * :ref:`aqf_qual_results`

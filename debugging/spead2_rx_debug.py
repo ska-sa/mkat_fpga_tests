@@ -4,7 +4,8 @@ import logging
 import time
 import casperfpga
 import corr2
-
+import atexit
+import fabric.api as fab
 from casperfpga import katcp_fpga
 from corr2 import fxcorrelator
 from corr2 import utils
@@ -15,6 +16,8 @@ from corr2.corr_rx import CorrRx
 dump_timeout = 10
 logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)-7s - %(module)-8s - %(message)s')
 logger = logging.getLogger(__name__)
+
+capture_start = True
 
 #config = os.environ['CORR2INI']
 #print 'Config file used = {}'.format(config)
@@ -55,6 +58,16 @@ logger = logging.getLogger(__name__)
 
 #xhost = correlator.xhosts[0]
 #x = correlator.xhosts[0]
+if capture_start:
+    print 'c856M4k Capture start'
+    fab.local("kcpcmd -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-start baseline-correlation-products")
+    print '\n\n'
+
+    @atexit.register
+    def Cleanup():
+        print 'c856M4k Capture stop'
+        fab.local("kcpcmd -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-stop baseline-correlation-products")
+        print '\n\n'
 try:
     receiver = CorrRx(port=8888, queue_size=5)
     corr_rx_logger = logging.getLogger("corr2.corr_rx")
@@ -79,25 +92,23 @@ else:
         raw_input('press to get clean dump')
         try:
             dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
-        except KeyboardInterrupt:
+        except Exception:
             raise
-        except:
-            raise
-        else:
-            prev_ts = dump['timestamp'].value
-            while True:
-                try:
-                    dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
-                except KeyboardInterrupt:
-                    raise
-                except:
-                    raise
-                else:
-                    ts = dump['timestamp'].value
-                    sf = dump['scale_factor_timestamp'].value
-                    ts_delta = ts-prev_ts
-                    prev_ts = ts
-                    print('Time delta between received dumps: {}'.format(ts_delta/sf))
+        # else:
+        #     prev_ts = dump['timestamp'].value
+        #     while True:
+        #         try:
+        #             dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
+        #         except KeyboardInterrupt:
+        #             raise
+        #         except:
+        #             raise
+        #         else:
+        #             ts = dump['timestamp'].value
+        #             sf = dump['scale_factor_timestamp'].value
+        #             ts_delta = ts-prev_ts
+        #             prev_ts = ts
+        #             print('Time delta between received dumps: {}'.format(ts_delta/sf))
     except KeyboardInterrupt:
         print '\nKeyboard interrupt detected... closing receiver.'
         pass
@@ -106,7 +117,7 @@ else:
         message = template.format(type(ex), ex.args)
         print message
         logger.error(message)
-    #import IPython;IPython.embed()
+    import IPython;IPython.embed()
     receiver.stop()
     receiver.join()
     print 'Receiver stopped.'

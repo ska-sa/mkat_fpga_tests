@@ -1,8 +1,9 @@
 #!/usr/bin/env python2.7
-import os
+import glob
 import json
-import subprocess
+import os
 import platform
+import subprocess
 import time
 
 from optparse import OptionParser
@@ -154,8 +155,13 @@ def process_core_data(settings, log_func):
     """Process the CORE XML file if JSON file is not there or old."""
 
     # Setup.
+    if settings.has_key('me_dir'):
+        temp_core_export = '/'.join([settings['me_dir'], 'tmp', 'CORE_EXPORT'])
+        if not os.path.exists(temp_core_export):
+            os.makedirs(temp_core_export)
+
     if 'tmp_core_dir' not in settings:
-        settings['tmp_core_dir'] = "/tmp/CORE_EXPORT"
+        settings['tmp_core_dir'] = temp_core_export
     if 'xml_file' not in settings:
         settings['xml_file'] = os.path.join(settings['tmp_core_dir'],
                                             "svn/MeerKAT.xml")
@@ -165,14 +171,29 @@ def process_core_data(settings, log_func):
     settings['xml_mtime'] = 0
     settings['json_mtime'] = 0
     settings['use_core_json'] = False
-    log_func('INFO', 'Process CORE Data')
+    log_func('INFO', 'Processing CORE Data')
     # Update SVN.
     if not os.path.isdir(settings['tmp_core_dir']):
         os.mkdir(settings['tmp_core_dir'])
     os.chdir(settings['tmp_core_dir'])
-    settings['xml_file'] = os.path.join(settings['me_dir'],
-                                        'supplemental',
-                                        "MeerKAT.xml")
+    try:
+        core_supplemental_dir = os.path.join(settings['me_dir'], 'supplemental', "MeerKAT.xml")
+        settings['xml_file'] = core_supplemental_dir
+        assert os.path.exists(core_supplemental_dir)
+    except AssertionError as e:
+        log_func('WARNING', 'CORE.xml does not exist in directory: %s' %core_supplemental_dir)
+        core_backup = '/usr/local/src/core_export/'
+        log_func('INFO', 'Retrieving CORE.xml from backup dir: %s'%core_backup)
+        if os.path.exists(core_backup):
+            latest_core_xml = max(glob.iglob(os.path.join(core_backup ,'*.[Xx][Mm][Ll]')),
+                key=os.path.getctime)
+            log_func('INFO', 'CORE.xml file size %.2f Mb'%(os.path.getsize(latest_core_xml) / 1e6))
+            settings['xml_file'] = latest_core_xml
+        else:
+            errmsg = 'CORE.xml file does not exist in %s dir'%core_backup
+            log_func('ERROR', errmsg)
+            raise RuntimeError(errmsg)
+
     if os.path.isfile(settings['xml_file']):
         settings['xml_mtime'] = os.path.getmtime(settings['xml_file'])
 
@@ -666,5 +687,4 @@ def run_report_gen():
 
 
 run_report_gen()
-print 'Generating html colors'
 subprocess.call(['/bin/bash','generate_color.sh'])
