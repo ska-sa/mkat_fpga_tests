@@ -1,0 +1,3 @@
+[submodule "nosekatreport"]
+	path = nosekatreport
+	url = git@github.com:ska-sa/nosekatreport.git

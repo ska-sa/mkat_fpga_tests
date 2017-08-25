@@ -1,0 +1,8 @@
+#!/bin/bash
+if [ -z "$*" ];
+    then printf "Usage: $0 start\n";
+    exit 1;
+fi
+
+$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' ) capture-$1 baseline-correlation-products
+

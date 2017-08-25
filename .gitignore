@@ -21,6 +21,7 @@ nosetests.xml
 /katreport
 /katreport.rst
 /index.rst
+index.rst
 # Developer tools
 .ropeproject
 *~
@@ -37,3 +38,4 @@ supplemental/MeerKAT_20160512.xml
 venv/
 tmp/
 
+nosekatreport

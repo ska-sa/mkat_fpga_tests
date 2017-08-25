@@ -12,6 +12,7 @@ import time
 from casperfpga import katcp_fpga
 from casperfpga import tengbe
 from casperfpga import utils as fpgautils
+from casperfpga.katcp_fpga import KatcpRequestFail
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.data_stream import StreamAddress
@@ -53,7 +54,9 @@ _cleanups = []
 """Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
 args, kwargs)
 """
-timeout = 10
+
+# Global katcp timeout
+_timeout = 60
 
 def add_cleanup(_fn, *args, **kwargs):
     _cleanups.append((_fn, args, kwargs))
@@ -112,7 +115,7 @@ class CorrelatorFixture(object):
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
             add_cleanup(self.io_manager.stop)
-            self.io_wrapper.default_timeout = timeout
+            self.io_wrapper.default_timeout = _timeout
             self.io_manager.start()
             self.rc = resource_client.KATCPClientResource(
                 dict(name='{}'.format(self.katcp_clt),
@@ -128,7 +131,7 @@ class CorrelatorFixture(object):
                 getframeinfo(currentframe()).lineno))
             add_cleanup(self._rct.stop)
             try:
-                self._rct.until_synced(timeout=timeout)
+                self._rct.until_synced(timeout=_timeout)
             except TimeoutError:
                 self._rct.stop()
         return self._rct
@@ -192,17 +195,29 @@ class CorrelatorFixture(object):
             # before running the test.
 
             self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+            _retries = 3
             if os.path.exists(self.config_filename):
                 LOGGER.info('Making new correlator instance')
-                try:
-                    self._correlator = fxcorrelator.FxCorrelator(
-                        'test correlator', config_source=self.config_filename)
-                    self.correlator.initialise(program=False)
-                    return self._correlator
-                except Exception:
-                    LOGGER.error('Failed to create new correlator instance, Will now try to '
-                                 'start correlator with config: %s-%s' % (self.array_name,
-                                                                          self.instrument))
+                # for _retry in xrange(_retries):
+                while True:
+                    _retries -= 1
+                    try:
+                        self._correlator = fxcorrelator.FxCorrelator(
+                            'test correlator', config_source=self.config_filename)
+                        time.sleep(1)
+                        self.correlator.initialise(program=False)
+                        return self._correlator
+                    except KatcpRequestFail as e:
+                        LOGGER.exception('Did not get a response from roach/host: %s'%str(e))
+                        continue
+                    except Exception as e:
+                        LOGGER.exception('Failed to create new correlator instance with error: %s, '
+                            'Will now try to start correlator with config: %s-%s' % (str(e),
+                                self.array_name, self.instrument))
+                        continue
+                    if _retries == 0:
+                        break
+                if _retries == 0:
                     self.start_correlator(instrument=self.instrument)
             else:
                 LOGGER.error('No Config file (/etc/corr/array*-instrument), '
@@ -217,7 +232,7 @@ class CorrelatorFixture(object):
         """
         LOGGER.info('Halting primary array: %s.' % self.array_name)
         try:
-            reply, informs = self.katcp_rct.req.halt(timeout=timeout)
+            reply, informs = self.katcp_rct.req.halt(timeout=_timeout)
             LOGGER.info(str(reply))
             assert reply.reply_ok()
             assert self._katcp_rct.is_active()
@@ -231,12 +246,12 @@ class CorrelatorFixture(object):
         self._katcp_rct = None
 
         try:
-            reply, informs = self.rct.req.subordinate_list()
+            reply, informs = self.rct.req.subordinate_list(timeout=_timeout)
             assert reply.reply_ok()
             if informs:
                 informs = informs[0]
                 if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
-                    reply, informs = self.rct.req.subordinate_halt(self.array_name)
+                    reply, informs = self.rct.req.subordinate_halt(self.array_name, timeout=_timeout)
                     assert reply.reply_ok()
         except AssertionError:
             msg = 'Failed to halt array: %s, STOPPING resource client' %self.array_name
@@ -299,7 +314,8 @@ class CorrelatorFixture(object):
                             LOGGER.info(msg)
                         else:
                             LOGGER.error('Halting array.')
-                            reply, informs = self.rct.req.subordinate_halt(self.array_name)
+                            reply, informs = self.rct.req.subordinate_halt(self.array_name,
+                                timeout=timeout)
                             assert reply.reply_ok()
                     except AssertionError:
                         LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
@@ -313,7 +329,7 @@ class CorrelatorFixture(object):
                             # self.rct.req.subordinate_halt(self.array_name)
                             # self.rct.stop()
                             # self.rct.start()
-                            # self.rct.until_synced(timeout=timeout)
+                            # self.rct.until_synced(timeout=_timeout)
                             # reply, informs = self.rct.req.subordinate_create(self.array_name,
                             # *multicast_ip)
                             errmsg = 'Investigate as to why this thing failed.'
@@ -331,9 +347,10 @@ class CorrelatorFixture(object):
                     katcp_rc, self.io_wrapper))
             self._katcp_rct.start()
             try:
-                self._katcp_rct.until_synced(timeout=timeout)
-            except TimeoutError:
+                self._katcp_rct.until_synced(timeout=_timeout)
+            except Exception as e:
                 self._katcp_rct.stop()
+                LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
             LOGGER.info('Cleanup function \'self._katcp_rct\': File: %s line: %s' % (
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
@@ -341,16 +358,18 @@ class CorrelatorFixture(object):
         else:
             self._katcp_rct.start()
             try:
-                self._katcp_rct.until_synced(timeout=timeout)
-            except TimeoutError:
+                time.sleep(1)
+                self._katcp_rct.until_synced(timeout=_timeout)
+            except Exception as e:
                 self._katcp_rct.stop()
+                LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
         return self._katcp_rct
 
     @property
     def issue_metadata(self):
         """Issue Spead metadata"""
         try:
-            reply, informs = self.katcp_rct.req.capture_meta(self.product_name, timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_meta(self.product_name, timeout=_timeout)
             assert reply.reply_ok()
         except Exception:
             LOGGER.exception('Failed to issue new metadata: File:%s Line:%s' % (
@@ -367,7 +386,7 @@ class CorrelatorFixture(object):
         """
         try:
             assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply, informs = self.katcp_rct.req.capture_list(timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_list(timeout=_timeout)
             assert reply.reply_ok()
             self.product_name = [i.arguments[0] for i in informs
                                    if self.corr_config['xengine']['output_products'] in i.arguments][0]
@@ -397,7 +416,7 @@ class CorrelatorFixture(object):
             assert self.product_name is not None
             assert isinstance(self.katcp_rct,
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply, informs = self.katcp_rct.req.capture_stop(self.product_name, timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_stop(self.product_name, timeout=_timeout)
             assert reply.reply_ok()
             LOGGER.info('%s' %str(reply))
             Aqf.progress(str(reply))
@@ -415,12 +434,13 @@ class CorrelatorFixture(object):
         Returns currently running instrument listed on the sensor(s)
         """
         try:
+            reply = None
             reply = self.katcp_rct.sensor.instrument_state.get_reading()
             assert reply.istatus
             return reply.value
-        except AttributeError:
-            LOGGER.exception('KATCP Request does not contain attributes '
-                         '\n\t File:%s Line:%s' % (
+        except Exception as e:
+            LOGGER.exception('KATCP Request failed due to error: %s/%s'
+                         '\n\t File:%s Line:%s' % (str(e), str(reply),
                              getframeinfo(currentframe()).filename.split('/')[-1],
                              getframeinfo(currentframe()).lineno))
             return False
@@ -630,6 +650,11 @@ class CorrelatorFixture(object):
     def subscribe_multicast(self):
         """Automated multicasting subscription"""
         parse_address = StreamAddress._parse_address_string
+        try:
+            n_xengs = self.katcp_rct.sensor.n_xengs.get_value()
+        except Exception:
+            n_xengs = len(self.get_multicast_ips) * 2
+
         if self.config_filename is None:
             return
         config = self.corr_config
@@ -637,21 +662,21 @@ class CorrelatorFixture(object):
             LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')
             return False
 
-        def confirm_multicast_subs(mul_ip='239.100.0.10' ,interface='eth2'):
+        def confirm_multicast_subs(mul_ip='239.100.0.10'):
             """"""
             # or use [netstat -g | grep eth2]
-            list_inets = subprocess.check_output(['ip','maddr','show', interface])
+            list_inets = subprocess.check_output(['ip','maddr','show'])
             return True if mul_ip in list_inets else False
 
         outputIPs = {}
         for i in [key for key, value in config.items() if 'output_destinations_base' in value]:
             _IP, _num, _Port = list(parse_address(config[i]['output_destinations_base']))
             outputIPs[i] = [tengbe.IpAddress(_IP), int(_Port)]
-
-        for prodct, data_output in outputIPs.iteritems():
-            multicastIP, DataPort = data_output
+        if outputIPs.get('xengine'):
+            LOGGER.info('Multicast subscription is only valid for xengines')
+            multicastIP, DataPort = outputIPs.get('xengine')
             if multicastIP.is_multicast():
-                LOGGER.info('%s: source is multicast %s.' % (prodct, multicastIP))
+                LOGGER.info('source is multicast %s.' % (multicastIP))
                 # look up multicast group address in name server and find out IP version
                 addrinfo = socket.getaddrinfo(str(multicastIP), None)[0]
                 # create a socket
@@ -664,20 +689,24 @@ class CorrelatorFixture(object):
                 # Join group
                 # mcast_sock.bind(('', DataPort))
                 add_cleanup(mcast_sock.close)
-                group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
-                if addrinfo[0] == socket.AF_INET:  # IPv4
-                    mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-                    mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-                    LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
-                else:
-                    mreq = group_bin + struct.pack('@I', 0)
-                    mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
-                    LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
+                def join_mcast_group(address):
+                    group_bin = socket.inet_pton(socket.AF_INET, address)
+                    if addrinfo[0] == socket.AF_INET:  # IPv4
+                        mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
+                        mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                        LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
+                    else:
+                        mreq = group_bin + struct.pack('@I', 0)
+                        mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+                        LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
+                for addcntr in range(n_xengs):
+                    _address = tengbe.IpAddress(multicastIP.ip_int + addcntr)
+                    join_mcast_group(str(_address))
             else:
                 mcast_sock = None
-                LOGGER.info('%s :Source is not multicast: %s:%s' % (prodct, str(multicastIP), DataPort))
+                LOGGER.info('Source is not multicast: %s:%s' % (str(multicastIP), DataPort))
                 return False
-        return confirm_multicast_subs()
+        return confirm_multicast_subs(mul_ip=str(_address))
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.debug('CBF instrument(%s) re-initialisation.'%instrument)
@@ -697,7 +726,7 @@ class CorrelatorFixture(object):
             self._katcp_rct = None
         self.rct.start()
         try:
-            self.rct.until_synced(timeout=timeout)
+            self.rct.until_synced(timeout=_timeout)
             reply, informs = self.rct.req.subordinate_list(self.array_name)
             assert reply.reply_ok()
         except TimeoutError:
@@ -729,10 +758,10 @@ class CorrelatorFixture(object):
                 if self.katcp_array_port is None:
                     LOGGER.info('Assigning array port number')
                     # self.rct.start()
-                    # self.rct.until_synced(timeout=timeout)
+                    # self.rct.until_synced(timeout=_timeout)
                     try:
                         reply, _informs = self.rct.req.subordinate_create(self.array_name,
-                                                                    *multicast_ip, timeout=timeout)
+                                                                    *multicast_ip, timeout=_timeout)
                         assert reply.reply_ok()
                     except Exception:
                         self.katcp_array_port = None

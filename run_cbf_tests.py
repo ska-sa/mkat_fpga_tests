@@ -1,84 +1,183 @@
 #!/usr/bin/env python2.7
+
+###############################################################################
+# SKA South Africa (http://ska.ac.za/)                                        #
+# Author: cbf@ska.ac.za                                                       #
+# Maintainer: mmphego@ska.ac.za, alec@ska.ac.za                               #
+# Copyright @ 2016 SKA SA. All rights reserved.                               #
+#                                                                             #
+# THIS SOFTWARE MAY NOT BE COPIED OR DISTRIBUTED IN ANY FORM WITHOUT THE      #
+# WRITTEN PERMISSION OF SKA SA.                                               #
+###############################################################################
+
 import glob
 import json
 import os
 import platform
+import re
+import report_generator
+import sh
 import subprocess
+import sys
 import time
 
 from optparse import OptionParser
 from process_core_xml import process_xml_to_json
-
-import report_generator
 from report_generator.report import Report
+from signal import SIGKILL
+
+# List all core test python module dependencies
+_core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp', 'nosekatreport', ]
+
 def option_parser():
-    usage = "usage: %prog [options] [tests]"
+    usage = """
+        Usage: %prog [options]
+        This script auto executes CBF Tests with selected arguments.
+        See Help for more information.
+        """
     parser = OptionParser(usage)
     parser.add_option("-v", "--verbose",
-                      action="store_true", dest="verbose",
+                      action="store_true",
+                      dest="verbose",
                       help="Be more verbose")
+
     parser.add_option("-q", "--quiet",
-                      action="store_false", dest="verbose",
+                      action="store_false",
+                      dest="verbose",
                       help="Be more quiet")
-    parser.add_option("--acceptance", dest="site_acceptance",
-                      action="store_true", default=False,
-                      help="Will only run test marked '@site_acceptance' or linked to .SITE. VRs,"
-                           " if in the Karoo then also @site_only tests")
-    parser.add_option("--dry_run", dest="dry_run",
-                      action="store_true", default=False,
+
+    parser.add_option("--nose",
+                      dest="nose_args",
+                      action="store",
+                      type="string",
+                      default=None,
+                      help="""Additional arguments to pass on to nosetests.
+                      eg: --nosetests \"-x -s -v\"""")
+
+    parser.add_option("--acceptance",
+                      dest="site_acceptance",
+                      action="store_true",
+                      default=False,
+                      help="Will only run test marked '@site_acceptance' or "
+                           " if in the Karoo(site) then also @site_only tests")
+
+    parser.add_option("--dry_run",
+                      dest="dry_run",
+                      action="store_true",
+                      default=False,
                       help="Do a dry run. Print commands that would be called")
-    parser.add_option("--no_html", dest="gen_html",
-                      action="store_false", default=True,
-                      help="Do not generate the html output")
-    parser.add_option("--demo", dest="demo",
-                      action="store_true", default=False,
-                      help="Run the tests linked to .DEMO. and .SITE. VRs in demo mode. Wait for user input "
-                           "at each Aqf.checkbox instance")
-    parser.add_option("--quick", dest="katreport_quick",
-                      action="store_true", default=False,
+
+    parser.add_option("--4A4k",
+                      action="store_const",
+                      const='bc8n856M4k',
+                      dest="mode",
+                      default=None,
+                      help="Run the tests decorated with @instrument_bc8n856M4k")
+
+    parser.add_option("--4A32k",
+                      action="store_const",
+                      const='bc8n856M32k',
+                      dest="mode",
+                      default=None,
+                      help="Run the tests decorated with @instrument_bc8n856M32k")
+
+    parser.add_option("--8A4k",
+                      action="store_const",
+                      const='bc16n856M4k',
+                      dest="mode",
+                      default=None,
+                      help="Run the tests decorated with @instrument_bc16n856M4")
+
+    parser.add_option("--8A32k",
+                      action="store_const",
+                      const='bc16n856M32k',
+                      dest="mode",
+                      default=None,
+                      help="Run the tests decorated with @instrument_bc16n856M32k")
+
+    parser.add_option("--16A4k",
+                      action="store_const",
+                      const='bc32n856M4k',
+                      dest="mode",
+                      default=None,
+                      help="Run the tests decorated with @instrument_bc32n856M4k")
+
+    parser.add_option("--16A32k",
+                      action="store_const",
+                      const='bc32n856M32k',
+                      dest="mode",
+                      default=None,
+                      help="Run the tests decorated with @instrument_bc32n856M32k")
+
+    parser.add_option("--quick",
+                      dest="katreport_quick",
+                      action="store_true",
+                      default=False,
                       help="Only generate a small subset of the reports")
-    parser.add_option("--no_slow", dest="slow_test",
-                      action="store_false", default=True,
-                      help="Exclude tests marked as @slow in this test run")
-    parser.add_option("--clean", dest="cleanup",
-                      action="store_true", default=False,
-                      help="Cleanup reports from previous test run. Reports "
-                      "are replaced by default without --clean. Clean is "
-                      "useful with --quick to only generate the html of the "
-                      "test run report")
-    parser.add_option("--dev_update", dest="dev_update",
-                      action="store_true", default=False,
-                      help="do an 'svn up' and install noseplugin katreport "
-                      "before running the tests")
-    parser.add_option("--report", dest="report",
-                      action="store", type="string", default='local_&_test',
+
+    parser.add_option("--no_html",
+                      dest="gen_html",
+                      action="store_false",
+                      default=True,
+                      help="Do not generate the html output")
+
+    parser.add_option("--no_slow",
+                      dest="slow_test",
+                      action="store_false",
+                      default=True,
+                      help="Exclude tests decorated with @slow in this test run")
+
+    parser.add_option("--report",
+                      dest="report",
+                      action="store",
+                      type="string",
+                      default='local_&_test',
                       help="Only generate the reports. No tests will be run.\n"
-                      "Valid options are: local, jenkins, skip and results. 'results' will print the katreport[_accept].json test results")
-    parser.add_option("--nose", dest="nose_args",
-                      action="store", type="string", default=None,
-                      help="Additional arguments to pass on to nosetests. "
-                      "eg --nose \"-x -s -v\"")
-    parser.add_option("--jenkins", dest="jenkins",
-                      action="store_true", default=False,
-                      help="Run this command with the correct flags for"
-                      "jenkins.")
-    parser.add_option("--manual_systype", dest="manual_systype",
-                      action="store", default=None,
-                      help="Overwrite the system systype used for report"
-                      "generation on jenkins.")
+                      "Valid options are: local, jenkins, skip and results. "
+                      "'results' will print the katreport[_accept].json test results")
+
+    parser.add_option("--clean",
+                      dest="cleanup",
+                      action="store_true",
+                      default=False,
+                      help="""Cleanup reports from previous test run. Reports
+                      are replaced by default without --clean. Clean is
+                      useful with --quick to only generate the html of the
+                      test run report""")
+
+    parser.add_option("--dev_update",
+                      dest="dev_update",
+                      action="store_true",
+                      default=False,
+                      help="Do pip install update and install latest packages")
+
+    # parser.add_option("--jenkins",
+    #                   dest="jenkins",
+    #                   action="store_true",
+    #                   default=False,
+    #                   help="Run this command with the correct flags for jenkins.")
+
+    # parser.add_option("--manual_systype",
+    #                   dest="manual_systype",
+    #                   action="store",
+    #                   default=None,
+    #                   help="Overwrite the system systype used for report generation on jenkins.")
 
     (cmd_options, cmd_args) = parser.parse_args()
+
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+        sys.exit(1)
     return cmd_options, cmd_args
 
 
-def run_command(settings, log_func, cmd,
-                log_filename=None, stdout=False, stderr=False, shell=False):
+def run_command(settings, log_func, cmd, log_filename=None, stdout=False, stderr=False, shell=False):
     if log_filename is False:
         log_filename = '/dev/null'
     if settings.get('dry_run') or shell:
         # Fundge the command to add " when the command is
         # printed or run as string in shell.
-        if '/usr/local/bin/nosetests' in cmd:
+        if sh.which('nosetests') in cmd:
             for item in range(len(cmd)):
                 if cmd[item].startswith("-A"):
                     break
@@ -95,13 +194,17 @@ def run_command(settings, log_func, cmd,
         else:
             log_func('DEBUG', 'Run command with stderr:', *cmd)
             kwargs_cmd = {'env': os.environ}
-            if shell:
-                kwargs_cmd['shell'] = True
-                str_cmd = " ".join(cmd)
-                log_func('DEBUG', 'Run command with shell', str_cmd)
-                return subprocess.call(str_cmd, **kwargs_cmd)
-            else:
-                return subprocess.call(cmd, **kwargs_cmd)
+            try:
+                if shell:
+                    kwargs_cmd['shell'] = True
+                    str_cmd = " ".join(cmd)
+                    log_func('DEBUG', 'Run command with shell', str_cmd)
+                    return subprocess.call(str_cmd, **kwargs_cmd)
+                else:
+                    return subprocess.call(cmd, **kwargs_cmd)
+            except KeyboardInterrupt as e:
+                kill_pid('nosetests')
+                log_func("ERROR", "Test closed prematurely, and process has since been killed")
 
 
 def run_command_output(settings, log_func, cmd):
@@ -120,33 +223,28 @@ def run_command_output(settings, log_func, cmd):
 
 def do_dev_update(settings, log_func):
     """Do a code update and install."""
-    log_func("INFO", "Will perform a SVN update and "
-             "pip install of nose plugin katreport")
-
+    log_func("INFO", "Will perform a Python package update")
     os.chdir(settings.get('me_dir'))
-    run_command(settings, log_func, ['svn', 'up'])
-    run_command(settings, log_func, ['sudo', 'pip', 'install',
-                                     '--upgrade', 'nosekatreport/.'])
+    _pip = sh.which('pip')
+    run_command(settings, log_func, [_pip, 'install', '-U', 'pip'])
+    run_command(settings, log_func, [_pip, 'install', '-r', 'pip-requirements.txt'])
 
 
 def get_system_info():
+    _system = os.uname()
     system = {'systype': '', 'site': '', 'nodetype': 'jenkins_build_slave'}
-    if os.path.isfile('/var/kat/node.conf'):
-        with open('/var/kat/node.conf', 'r') as fh:
-            system.update(json.loads(fh.read()))
-
-    if os.path.isfile('/var/kat/sitename'):
-        with open('/var/kat/sitename', 'r') as fh:
-            sys_name = fh.read().strip().split("_")
-        system['site'] = sys_name.pop(0)
-        system['systype'] = "_".join(sys_name)
-
-    if os.path.isfile('/var/kat/nodetype'):
-        with open('/var/kat/nodetype', 'r') as fh:
-            system['nodetype'] = fh.read().strip()
-
+    system['sysname'] = os.uname()[1]
     # Backwards compatability.
-    system['system_location'] = system.get('site')
+    if _system[1].startswith('cmc'):
+        system['site'] = True
+        system['system_location'] = 'Karoo'
+    elif _system[1].startswith('dbe'):
+        system['site'] = False
+        system['system_location'] = 'Lab'
+    else:
+        # Unknown system location, and assuming it is not on site
+        system['site'] = False
+        system['system_location'] = None
     system['system_type'] = system.get('systype')
     return system
 
@@ -189,6 +287,10 @@ def process_core_data(settings, log_func):
                 key=os.path.getctime)
             log_func('INFO', 'CORE.xml file size %.2f Mb'%(os.path.getsize(latest_core_xml) / 1e6))
             settings['xml_file'] = latest_core_xml
+        else:
+            errmsg = 'CORE.xml file does not exist in %s dir'%core_backup
+            log_func('ERROR', errmsg)
+            raise RuntimeError(errmsg)
 
     if os.path.isfile(settings['xml_file']):
         settings['xml_mtime'] = os.path.getmtime(settings['xml_file'])
@@ -229,7 +331,8 @@ def create_log_func(settings):
             level = 'DEBUG'
         # Todo(Martin): Filter verbosity on message level.
         if level in allowed_levels:  # Closure
-            print "++", level, "++", " ".join([str(s) for s in args])
+            print "%s"%(time.strftime("%H:%M:%S", time.localtime())), level, "++", " ".join(
+                [str(s) for s in args])
 
     log_levels = ['ERROR', 'WARNING', 'INFO', 'DEBUG']
     allowed_levels = ['ERROR', 'WARNING', 'INFO']
@@ -255,25 +358,24 @@ def generate_html_sphinx_docs(settings, log_func):
         build_dir = settings["build_dir"]
         katreport_dir = settings["katreport_dir"]
         # Make run_tests directory
-        log_func("INFO", "mkdir ../run_tests")
-        cmd = ['mkdir', '-p', '../run_tests']
+        dirName = 'CBF_tests_reports'
+        log_func("INFO", "mkdir ../%s"%dirName)
+        cmd = ['mkdir', '-p', '../%s'%dirName]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
-            log_func("ERROR", "there was an error n mkdir -p ../run_tests")
+            log_func("ERROR", "there was an error n mkdir -p ../%s"%dirName)
         # Copy build directory
-        log_func("INFO", "copy build to ../run_tests/%s" % build_dir)
-        cmd = ['cp', '-r', 'build', '../run_tests/%s' % build_dir]
+        log_func("INFO", "copy build to ../%s/%s" % (dirName, build_dir))
+        cmd = ['cp', '-r', 'build', '../%s/%s' % (dirName, build_dir)]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
-            log_func("ERROR", "there was an error on copying build to ../run_tests/%s" %
-                              build_dir)
+            log_func("ERROR", "there was an error on copying build to ../%s/%s" %(dirName, build_dir))
         # Copy katreport_dir directory
-        log_func("INFO", "copy ./{} to ../run_tests/{}".format(katreport_dir, build_dir))
-        cmd = ['cp', '-r', katreport_dir, "../run_tests/{}".format(build_dir)]
+        log_func("INFO", "copy ./%s to ../%s/%s"%(katreport_dir, dirName, build_dir))
+        cmd = ['cp', '-r', katreport_dir, "../%s/%s"%(dirName, build_dir)]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
-            log_func("ERROR", "there was an error on copying ./{} to {}"
-                              .format(katreport_dir, build_dir))
+            log_func("ERROR", "there was an error on copying ./%s to %s"%(katreport_dir, build_dir))
 
 def run_nose_test(settings, log_func):
     """
@@ -282,7 +384,7 @@ def run_nose_test(settings, log_func):
     result is captured in <katreport_dir>/katreport.json
     """
     os.chdir(settings['base_dir'])
-    cmd = ['/usr/local/bin/nosetests']
+    cmd = [sh.which('nosetests')]
     katreport_dir = settings.get('katreport_dir')
     # Note settings['verbose'] is a tri-state, where none is normal
     # verbosity level. True is more verbose and False is less.
@@ -296,37 +398,43 @@ def run_nose_test(settings, log_func):
         cmd.append("--katreport-requirements=%s" % settings['json_file'])
 
     # Build the nosetests filter.
-    condition = {'OR': ['aqf_system_all'], 'AND': []}
-    if settings.get('system_type'):
-        # Include tests for this system type.
-        condition['OR'].append("aqf_system_%s" % settings['system_type'])
+    condition = {'OR': ['aqf_system_all', 'aqf_generic_test'], 'AND': []}
+    # if settings.get('system_type'):
+    #     # Include tests for this system type.
+    #     condition['OR'].append("aqf_system_%s" % settings['system_type'])
 
-    if settings.get('system_location', '').startswith('karoo'):
+    _site_location = 'Karoo'
+    if settings.get('system_location', '').lower().startswith(_site_location.lower()):
         # Disable intrusive if in the Karoo.
         condition['AND'].append("(not aqf_intrusive)")
     else:
         # Disable site_only if not in karoo.
         condition['AND'].append("(not aqf_site_only)")
 
-    #if settings.get('site_acceptance'):
-    #    if settings.get('system_location', '').startswith('karoo'):
-    #        # Include site_only tests if in the Karoo
-    #        condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
-    #    else:
-    #        condition['AND'].append("aqf_site_acceptance")
+    if settings.get('site_acceptance'):
+       if settings.get('system_location', '').lower().startswith(_site_location.lower()):
+           # Include site_only tests if in the Karoo
+           condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
+       else:
+           condition['AND'].append("aqf_site_acceptance")
 
-    # Set the include/exclude criteria for Qualification/Acceptance Testing/Demonstration
-    if settings.get('demo'):
+    if settings.get('mode'):
+        _instrument = settings.get('mode')
+        _decorated_instrument = 'aqf_instrument_%s'%_instrument
         if settings.get('site_acceptance'):
-            # For Acceptance Demonstration:
-            # run aqf_demo_tests decorated with site_acceptance
+            # For Acceptance
+            # run tests decorated with aqf_instrument_MODE and site_acceptance
             # and aqf_site_tests
-            condition['AND'].append('(aqf_site_test or (aqf_demo_test and aqf_site_acceptance))')
+            condition['AND'].append('(aqf_site_test or (aqf_site_acceptance and %s))'%_decorated_instrument)
+        elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32')) and \
+            settings['system_location'].lower() == 'lab'):
+            log_func("ERROR", "Test can ONLY be ran on SITE!!!!!!!!")
+            sys.exit(1)
         else:
-            # For Qualification Demonstration:
-            # run aqf_demo_tests
-            condition['AND'].append('aqf_demo_test')
-    else: # Not demo mode - thus this is AUTO testing
+            # run only tests decorated with aqf_instrument_MODE
+            condition['AND'].append(_decorated_instrument)
+    else:
+        # Not demo mode - thus this is AUTO testing
         if settings.get('site_acceptance'):
             # For Acceptance Testing:
             # run aqf_auto_test decorated with site_acceptance
@@ -355,32 +463,37 @@ def run_nose_test(settings, log_func):
     katreport_control = []
     if settings.get('jenkins'):
         katreport_control.append('jenkins')
-    if settings.get('demo'):
-        katreport_control.append('demo')
+    # if settings.get('demo'):
+    #     katreport_control.append('demo')
     if settings.get('katreport_quick'):
         katreport_control.append('quick')
     if katreport_control:
         cmd.append("--katreport-control=%s" % ','.join(katreport_control))
 
-    if settings.get('site_acceptance'):
+    if settings.get('site_acceptance') or settings.get('site'):
         # Use different directory for acceptance results, so as not to overwrite qualification results
-        cmd.append("--katreport-name=katreport_accept") # Using default "katreport" for qualification
+        cmd.append("--katreport-name=katreport_acceptance") # Using default "katreport" for qualification
 
-    if settings.get('jenkins'):
-        cmd.append("--with-xunit")
-        cmd.append("--xunit-file=build/nosetests.xml")
-    cmd.extend(settings.get("tests") or ['./tests'])
+    # if settings.get('jenkins'):
+    #     cmd.append("--with-xunit")
+    #     cmd.append("--xunit-file=build/nosetests.xml")
+
+    if settings.get('tests'):
+        cmd.append(settings.get("tests"))
+    else:
+        log_func("ERROR", "File containing tests not found!")
 
     nose_args = settings.get('nose_args', '')
-    for arg in nose_args.split():
-        cmd.append(arg)
-    # Run with --logging-level WARN if logging-level not passed in with nose_args
-    if "logging-level" not in nose_args:
+    if nose_args:
+        for arg in nose_args.split():
+            cmd.append(arg)
+        # Run with --logging-level WARN if logging-level not passed in with nose_args
         cmd.append("--logging-level=WARN")
+    else:
+        cmd.append("--logging-level=INFO")
 
     # Let the output log be written into the katreport_dir
     cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
-
     run_command(settings, log_func, cmd, shell=True)
 
 
@@ -515,12 +628,16 @@ def do_cleanup(settings, log_func):
     katreport_dir = settings["katreport_dir"]
     log_func('INFO', 'Remove HTML files and results from previous tests from {}'.format(katreport_dir))
     os.chdir(settings.get('me_dir'))
-    run_command(settings, log_func, ['make', 'clean'])
-    run_command(settings, log_func, ['rm', '-rf', katreport_dir])
-    try:
-        os.makedirs(katreport_dir)
-    except os.error:
-        pass
+    var = raw_input("Are you sure you want to delete contents in %s: "%katreport_dir)
+    if var == ('y' or 'Y'):
+        run_command(settings, log_func, ['make', 'clean'])
+        run_command(settings, log_func, ['rm', '-rf', katreport_dir])
+        try:
+            os.makedirs(katreport_dir)
+        except os.error:
+            pass
+    else:
+        sys.exit(1)
 
 
 def gather_system_settings(settings, log_func):
@@ -550,11 +667,6 @@ def gather_system_settings(settings, log_func):
             line_segments = line.split()
             data['dpkg_version'][line_segments[1]] = line_segments[2]
 
-    cmd = ['kat-versioncontrol.py']
-    for line in str.splitlines(run_command_output(settings, log_func, cmd)):
-        segments = line.split(":")
-        if len(segments) > 1:
-            data['vcs_version'][segments[0]] = segments[1]
     data['dist'] = platform.dist()
     data['uname'] = os.uname()
     data['environment'] = os.environ
@@ -585,42 +697,55 @@ def gather_system_settings(settings, log_func):
     with open(filename, 'w') as fh:
         fh.write(json.dumps(data, indent=4))
 
-# MMphego 2016-05-20
-# Commented code below to disable argument parsing in order to generate report
+def verify_dependecies(module_name, log_func):
+    try:
+        _None, _module_loc, _None = __import__('imp').find_module(module_name)
+        log_func("DEBUG", "%s has been installed, and can be located in %s"%(module_name, _module_loc))
+    except ImportError:
+        log_func("ERROR", "Test dependency module missing, please reinstall %s."%module_name)
+        sys.exit(1)
 
-#if __name__ == "__main__":
-    #options, args = option_parser()
-    #settings = dict((k, getattr(options, k)) for k in dir(options)
-                    #if not callable(getattr(options, k))
-                    #and not k.startswith('_'))
+def kill_pid(proc_name):
+    """
+    Retrieve process pid and send kill signal
+    """
+    try:
+        os.kill(int(subprocess.check_output(["pgrep", proc_name])), SIGKILL)
+    except Exception:
+        pass
 
-def run_report_gen():
-    # Default dict
-    args = []
-    settings = { 'cleanup': False,
-                 'demo': False,
-                 'dev_update': False,
-                 'dry_run': False,
-                 'gen_html': True,
-                 'jenkins': False,
-                 'katreport_quick': False,
-                 'manual_systype': None,
-                 'nose_args': '',
-                 'report': 'local',
-                 'site_acceptance': False,
-                 'slow_test': True,
-                 'verbose': None}
 
+if __name__ == "__main__":
+    options, args = option_parser()
+    # Todo
+    # Update setup_virtualenv script
+    # Run new testing script on jenkins
+
+    kill_pid('nosetests')
+    settings = dict((k, getattr(options, k)) for k in dir(options)
+                    if not callable(getattr(options, k))
+                    and not k.startswith('_'))
     settings.update(get_system_info())
-    if settings['manual_systype']:
-        settings['systype'] = settings['manual_systype']
+    # if settings['manual_systype']:
+    #     settings['systype'] = settings['manual_systype']
     settings['process_core'] = True
     settings['gather_system_settings'] = True
     settings['tests'] = args
     settings['me'] = os.path.abspath(__file__)
     settings['me_dir'] = os.path.dirname(settings['me'])
+    settings['src_dir'], settings['test_dir'] = os.path.split(settings['me_dir'])
+    if not (settings['test_dir'] == 'mkat_fpga_tests'):
+        settings['test_dir'] = 'mkat_fpga_tests'
+
+    try:
+        test_file = max(glob.iglob(
+            os.path.join(settings['me_dir'], settings['test_dir'], '[Tt][est_cbf.py]') ),
+            key=os.path.getctime)
+        settings['tests'] = test_file
+    except Exception:
+        settings['tests'] = os.path.join(settings['me_dir'], settings['test_dir'], 'test_cbf.py')
     if settings["site_acceptance"]:
-        settings['katreport_dir'] = "katreport_accept"
+        settings['katreport_dir'] = "katreport_acceptance"
     else:
         settings['katreport_dir'] = "katreport"
     if 'base_dir' not in settings:
@@ -635,18 +760,21 @@ def run_report_gen():
         settings['process_core'] = False
         settings['slow_test'] = False
         settings['report'] = 'skip'
-    if settings.get('demo'):
-        settings['report'] = 'skip'
-        settings['gather_system_settings'] = False
+
+    # if settings.get('demo'):
+    #     settings['report'] = 'skip'
+    #     settings['gather_system_settings'] = False
     if settings.get('dry_run'):
         settings['report'] = 'skip'
-    if settings.get('jenkins'):
-        settings['dev_update'] = True
-        settings['cleanup'] = True
-        settings['slow_test'] = True
-        settings['report'] = 'skip'
+
+    # if settings.get('jenkins'):
+    #     settings['dev_update'] = True
+    #     settings['cleanup'] = True
+    #     settings['slow_test'] = True
+    #     settings['report'] = 'skip'
     if settings['report'] in ['jenkins']:
         settings['gather_system_settings'] = False
+
     if settings['report'] in ['skip']:
         settings['process_core'] = False
         settings['gen_html'] = False
@@ -655,32 +783,44 @@ def run_report_gen():
     log_func = create_log_func(settings)
     if settings.get('dev_update'):
         do_dev_update(settings, log_func)
+
     if settings.get('cleanup'):
         do_cleanup(settings, log_func)
+
     if settings['gather_system_settings']:
+        for module_name in _core_dependencies:
+            verify_dependecies(module_name, log_func)
         gather_system_settings(settings, log_func)
+
     if settings['process_core']:
         process_core_data(settings, log_func)
     now = time.localtime()
     start_time = ("%02d%02d%02d-%02dh%02d" %
                      (now.tm_year, now.tm_mon, now.tm_mday,
                       now.tm_hour, now.tm_min))
-    settings['build_dir'] = "build-"+start_time
+    if settings.get('mode'):
+        settings['build_dir'] = "%s-"%settings.get('mode') + start_time
+    else:
+        settings['build_dir'] = "build-" + start_time
+
     if settings['verbose']:
         print "=========settings========="
         for key in settings:
             print key,":",settings[key]
         print "=========================="
-    if (settings['report'] in ['local_&_test', 'skip']
-            or settings.get('dry_run')):
+
+    # if (settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run')):
+    if ((settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run')) \
+        and not settings.get('cleanup')):
         run_nose_test(settings, log_func)
     if settings['report'] in ['results']:
         show_test_results(settings, log_func)
     elif settings['report'] not in ['skip']:
-        generate_report(settings, log_func)
-        if settings['gen_html']:
-            generate_html_sphinx_docs(settings, log_func)
+        try:
+            generate_report(settings, log_func)
+            if settings['gen_html']:
+                generate_html_sphinx_docs(settings, log_func)
+        except Exception as e:
+            pass# log_func("ERROR", "Experienced some issues: %s" %str(e))
 
 
-run_report_gen()
-subprocess.call(['/bin/bash','generate_color.sh'])
