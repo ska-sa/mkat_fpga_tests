@@ -1,0 +1,79 @@
+#!/bin/bash
+# Automated instrument activation
+# Mpho Mphego
+
+if [ -z "$*" ];
+    then printf "Usage: $0 ? bc8n856M4k , where ? is localhost or IP\n";
+    exit 1;
+fi
+BLACK=$(tput setaf 0)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+LIME_YELLOW=$(tput setaf 190)
+POWDER_BLUE=$(tput setaf 153)
+BLUE=$(tput setaf 4)
+MAGENTA=$(tput setaf 5)
+CYAN=$(tput setaf 6)
+WHITE=$(tput setaf 7)
+BRIGHT=$(tput bold)
+NORMAL=$(tput sgr0)
+BLINK=$(tput blink)
+REVERSE=$(tput smso)
+UNDERLINE=$(tput smul)
+
+sudo /etc/init.d/cmc stop
+sleep 2
+echo ''
+sudo /etc/init.d/cmc start
+
+MACHINE=$(hostname)
+MACHINE_IP=${2:-localhost}
+instrument=$1;
+
+printf  "${GREEN}Initialisation ${instrument} on ${MACHINE_IP} ${NORMAL}\n"
+if [ $(echo ${instrument::3}) == 'bc8' ]; then
+    ARRAY_INPUTS="239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148"
+elif [ $(echo ${instrument::3}) == 'bc1' ]; then
+    ARRAY_INPUTS="239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148"
+else
+    ARRAY_INPUTS="239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148"
+fi
+
+export CORR2INI=/etc/corr/templates/${instrument};
+if corr2_deprogram.py --dnsmasq >> /dev/null 2>&1;
+    then printf "${GREEN}Hosts deprogrammed ok ${NORMAL}\n\n";
+else
+    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
+fi
+stop-pseudo-dmc;
+sleep 5;
+Dsim=$(cat /etc/corr/templates/${instrument} | grep ^host | tail -1 | cut -d ' ' -f 3);
+start-pseudo-dmc $Dsim;
+printf '';
+sleep 2;
+corr2_dsim_control.py --program --start --status;
+sleep 2;
+corr2_dsim_control.py --zeros-sine --zeros-noise;
+
+printf "${GREEN}Initialising instrument: ${instrument} ${NORMAL}\n\n";
+while true;
+    do printf '';
+    kcpcmd -t 30 -s ${MACHINE_IP}:7147 subordinate-halt array0;
+    sleep 5;
+    ARRAY=$(kcpcmd -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3);
+    sleep 2;
+    printf "${GREEN}\n\nPort number seems to be ${ARRAY} ${NORMAL}\n";
+    kcpcmd -s ${MACHINE_IP}:9011 var-show synchronisation-epoch;
+    sleep 5;
+    kcpcmd -t 500 -s ${MACHINE_IP}:${ARRAY} instrument-activate ${instrument} 1 0 1 1 && break;
+done
+
+sleep 1;
+if [ $(echo ${MACHINE::4}) == 'cmc1' ]; then
+    printf "${GREEN} Copying config file over to CMC2 and CMC3${NORMAL}"
+    scp /etc/corr/array0* ${USER}@10.103.254.3:/etc/corr
+    scp /etc/corr/array0* ${USER}@10.103.254.6:/etc/corr
+fi
+
+

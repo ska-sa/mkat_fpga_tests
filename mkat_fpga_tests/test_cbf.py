@@ -1680,7 +1680,7 @@ class test_CBF(unittest.TestCase):
         """
         CBF Gain Correction
         """
-        instrument_success = self.set_instrument(instrument)
+        instrument_success = self.set_instrument(instrument, force_reinit=True)
         _running_inst = self.corr_fix.get_running_instrument()
         if instrument_success and _running_inst:
             Aqf.step('%s: %s\n'%(self._testMethodDoc, _running_inst))
@@ -7798,3 +7798,4 @@ class test_CBF(unittest.TestCase):
                           caption=('FFT of captured small voltage buffer. {} voltage points captured '
                                    'on input {}. Input bandwidth = {}Hz'.format(fft_len, label, bw)),
                           xlabel='FFT bins')
+
