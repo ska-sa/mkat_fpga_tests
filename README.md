@@ -2,8 +2,6 @@
 
 A Correlator-beamforming unit-testing based framework for MeerKAT signal processing.
 
-[comment]: # (### [CBF Tests Documentation](http://http://mkat_fpga_tests.github.io))
-
 ## Installation
 
 ### Debian packages
