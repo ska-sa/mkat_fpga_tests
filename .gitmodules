@@ -1,0 +1,6 @@
+[submodule "nosekatreport"]
+	path = nosekatreport
+	url = git@github.com:ska-sa/nosekatreport.git
+[submodule "mkat_fpga_tests.wiki"]
+	path = mkat_fpga_tests.wiki
+	url = https://github.com/ska-sa/mkat_fpga_tests.wiki.git

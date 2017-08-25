@@ -849,6 +849,36 @@ def ignored(*exceptions):
     except exceptions:
         pass
 
+class RetryError(Exception):
+    pass
+
+def retryloop(attempts, timeout):
+    """
+    Usage:
+
+    for retry in retryloop(10, timeout=30):
+        try:
+            something
+        except SomeException:
+            retry()
+
+    for retry in retryloop(10, timeout=30):
+        something
+        if somecondition:
+            retry()
+
+    """
+    starttime = time.time()
+    success = set()
+    for i in range(attempts):
+        success.add(True)
+        yield success.clear
+        if success:
+            return
+        if starttime + timeout < time.time():
+            break
+    raise RetryError
+
 
 def clear_host_status(self, timeout=60):
     """Clear the status registers and counters on this host
@@ -1279,7 +1309,8 @@ def test_params(self):
         'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
         }
 
-def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096, ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
+def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
+                              ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
     """ Starts a katsdpingest docker containter. Kills any currently running instances.
 
     Returns
@@ -1299,9 +1330,9 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
                      '--net=host',
                      '-v',
                      '/ramdisk:/ramdisk',
-                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing_new',
+                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
                      'bf_ingest.py',
-                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1, beam_port),
+                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
                      '--channels={}'.format(channels),
                      '--ticks-between-spectra={}'.format(ticks_between_spectra),
                      '--channels-per-heap={}'.format(channels_per_heap),
@@ -1309,7 +1340,8 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
                      '--file-base=/ramdisk',
                      '--log-level=DEBUG'])
     except subprocess.CalledProcessError:
-        errmsg = 'Could not start sdp-docker-registry container'
+        errmsg = ('Could not start sdp-docker-registry container, '
+                  'ensure SDP Ingest image has been built successfully')
         Aqf.failed(errmsg)
         LOGGER.exception(errmsg)
         return False
@@ -1394,8 +1426,10 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
     _timeout = 60
     if os.uname()[1] == 'cmc2':
         ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
-    else:
+    elif os.uname()[1] == 'cmc3':
         ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
+    else:
+        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
 
     ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
 
@@ -1445,8 +1479,8 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         self.addCleanup(kcp_client.stop)
         is_connected = kcp_client.wait_connected(_timeout)
         if not is_connected:
+            errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
             kcp_client.stop()
-            errmsg = ('Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p))
             raise RuntimeError(errmsg)
         LOGGER.info('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
         reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
