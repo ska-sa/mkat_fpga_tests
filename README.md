@@ -17,13 +17,13 @@ Install dependencies to the system, by following their installation instructions
 * [_katcp-python_](https://github.com/ska-sa/katcp-python)
 * [_casperfpga_](https://github.com/ska-sa/casperfpga)
 * [_corr2_](https://github.com/ska-sa/corr2)
-* [_spead2_](https://github.com/ska-sa/spead2)  v1.1.1 
+* [_spead2_](https://github.com/ska-sa/spead2)  v1.1.1
  *   [_gcc4.9.3_](https://gcc.gnu.org/gcc-4.9/): spead2 dependency.
 
 ### Python testing dependencies packages
 
 It is highly advisable to install these dependencies on a [_Python virtual environment_](https://virtualenv.pypa.io/), below is step-by-step instructions.
-####Setup and Use Virtualenv
+#### Setup and Use Virtualenv
 ```
 # Install Python essentials and pip
 $ sudo apt-get install python-dev build-essential
