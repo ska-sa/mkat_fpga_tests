@@ -1,3 +1,5 @@
 [flake8]
 ignore = E303, E265
 max-line-length = 120
+filename = *.py
+exclude = scripts, nosekatreport, conf.py
