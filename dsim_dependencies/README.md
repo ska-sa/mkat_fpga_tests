@@ -1,13 +1,14 @@
-mkat_fpga_tests
-=========
+#Digitiser Simulator Setup
+##Installation
 
-Digitiser Simulator Setup
+`$sudo bash setup.sh`
 
-* sudo ln -s $(pwd)/pseudo-dmc-child /usr/local/bin
-* sudo ln -s $(pwd)/start-pseudo-dmc /usr/local/bin
-* sudo ln -s $(pwd)/stop-pseudo-dmc /usr/local/bin
-* echo '# location of DMC' >> /etc/cmc.conf
-  echo 'dmc_address=localhost:9011' >> /etc/cmc.conf
-  Where localhost is the location where you will initialise the CBF on.
-* Usage: start-pseudo-dmc dsim_roach,
-* To halt run: stop-pseudo-dmc
+## Usage
+localhost is the location where you will initialise the CBF on.
+*  To start : `$ start-pseudo-dmc ${dsim_roach}`
+*  To halt : `$ stop-pseudo-dmc`
+
+## Contributors
+
+ * Mpho Mphego
+ * Marc Welz

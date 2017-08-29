@@ -54,7 +54,9 @@ _cleanups = []
 """Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
 args, kwargs)
 """
-timeout = 60
+
+# Global katcp timeout
+_timeout = 60
 
 def add_cleanup(_fn, *args, **kwargs):
     _cleanups.append((_fn, args, kwargs))
@@ -113,7 +115,7 @@ class CorrelatorFixture(object):
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
             add_cleanup(self.io_manager.stop)
-            self.io_wrapper.default_timeout = timeout
+            self.io_wrapper.default_timeout = _timeout
             self.io_manager.start()
             self.rc = resource_client.KATCPClientResource(
                 dict(name='{}'.format(self.katcp_clt),
@@ -129,7 +131,7 @@ class CorrelatorFixture(object):
                 getframeinfo(currentframe()).lineno))
             add_cleanup(self._rct.stop)
             try:
-                self._rct.until_synced(timeout=timeout)
+                self._rct.until_synced(timeout=_timeout)
             except TimeoutError:
                 self._rct.stop()
         return self._rct
@@ -230,7 +232,7 @@ class CorrelatorFixture(object):
         """
         LOGGER.info('Halting primary array: %s.' % self.array_name)
         try:
-            reply, informs = self.katcp_rct.req.halt(timeout=timeout)
+            reply, informs = self.katcp_rct.req.halt(timeout=_timeout)
             LOGGER.info(str(reply))
             assert reply.reply_ok()
             assert self._katcp_rct.is_active()
@@ -244,12 +246,12 @@ class CorrelatorFixture(object):
         self._katcp_rct = None
 
         try:
-            reply, informs = self.rct.req.subordinate_list()
+            reply, informs = self.rct.req.subordinate_list(timeout=_timeout)
             assert reply.reply_ok()
             if informs:
                 informs = informs[0]
                 if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
-                    reply, informs = self.rct.req.subordinate_halt(self.array_name)
+                    reply, informs = self.rct.req.subordinate_halt(self.array_name, timeout=_timeout)
                     assert reply.reply_ok()
         except AssertionError:
             msg = 'Failed to halt array: %s, STOPPING resource client' %self.array_name
@@ -327,7 +329,7 @@ class CorrelatorFixture(object):
                             # self.rct.req.subordinate_halt(self.array_name)
                             # self.rct.stop()
                             # self.rct.start()
-                            # self.rct.until_synced(timeout=timeout)
+                            # self.rct.until_synced(timeout=_timeout)
                             # reply, informs = self.rct.req.subordinate_create(self.array_name,
                             # *multicast_ip)
                             errmsg = 'Investigate as to why this thing failed.'
@@ -345,7 +347,7 @@ class CorrelatorFixture(object):
                     katcp_rc, self.io_wrapper))
             self._katcp_rct.start()
             try:
-                self._katcp_rct.until_synced(timeout=timeout)
+                self._katcp_rct.until_synced(timeout=_timeout)
             except Exception as e:
                 self._katcp_rct.stop()
                 LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
@@ -357,7 +359,7 @@ class CorrelatorFixture(object):
             self._katcp_rct.start()
             try:
                 time.sleep(1)
-                self._katcp_rct.until_synced(timeout=timeout)
+                self._katcp_rct.until_synced(timeout=_timeout)
             except Exception as e:
                 self._katcp_rct.stop()
                 LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
@@ -367,7 +369,7 @@ class CorrelatorFixture(object):
     def issue_metadata(self):
         """Issue Spead metadata"""
         try:
-            reply, informs = self.katcp_rct.req.capture_meta(self.product_name, timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_meta(self.product_name, timeout=_timeout)
             assert reply.reply_ok()
         except Exception:
             LOGGER.exception('Failed to issue new metadata: File:%s Line:%s' % (
@@ -384,7 +386,7 @@ class CorrelatorFixture(object):
         """
         try:
             assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply, informs = self.katcp_rct.req.capture_list(timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_list(timeout=_timeout)
             assert reply.reply_ok()
             self.product_name = [i.arguments[0] for i in informs
                                    if self.corr_config['xengine']['output_products'] in i.arguments][0]
@@ -414,7 +416,7 @@ class CorrelatorFixture(object):
             assert self.product_name is not None
             assert isinstance(self.katcp_rct,
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
-            reply, informs = self.katcp_rct.req.capture_stop(self.product_name, timeout=timeout)
+            reply, informs = self.katcp_rct.req.capture_stop(self.product_name, timeout=_timeout)
             assert reply.reply_ok()
             LOGGER.info('%s' %str(reply))
             Aqf.progress(str(reply))
@@ -724,7 +726,7 @@ class CorrelatorFixture(object):
             self._katcp_rct = None
         self.rct.start()
         try:
-            self.rct.until_synced(timeout=timeout)
+            self.rct.until_synced(timeout=_timeout)
             reply, informs = self.rct.req.subordinate_list(self.array_name)
             assert reply.reply_ok()
         except TimeoutError:
@@ -756,10 +758,10 @@ class CorrelatorFixture(object):
                 if self.katcp_array_port is None:
                     LOGGER.info('Assigning array port number')
                     # self.rct.start()
-                    # self.rct.until_synced(timeout=timeout)
+                    # self.rct.until_synced(timeout=_timeout)
                     try:
                         reply, _informs = self.rct.req.subordinate_create(self.array_name,
-                                                                    *multicast_ip, timeout=timeout)
+                                                                    *multicast_ip, timeout=_timeout)
                         assert reply.reply_ok()
                     except Exception:
                         self.katcp_array_port = None
