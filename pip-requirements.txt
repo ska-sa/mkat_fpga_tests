@@ -1,14 +1,16 @@
-git+https://github.com/ska-sa/nosekatreport
-
+# git+https://github.com/ska-sa/nosekatreport.git
 alabaster
 ansicolors
 bitstring
 bokeh
 breathe
 chainmap
+coverage
 crypto
 cryptography
 dpkt
+flake8
+flake8-html
 h5py
 iniparse
 ipynose
@@ -17,28 +19,31 @@ jenkinsapi
 lxml
 matplotlib
 memory_profiler
+mock
 mpld3
 ndg-httpsclient
 nose
-Nose
 nose-testconfig
+nosexcover
 ntplib
 numpy
 pandas
 pandas
 parameterized
+pep8
 pexpect
 pillow
 pyasn1
 pycrypto
-pyopenssl
+pylint
+pyOpenSSL
 requests[security]
+retrying
 sh
 sphinx
 sphinxcontrib-napoleon
 traceback2
 trollius
-retrying
 
 
 # Uncomment below if not installing these packages from a local source

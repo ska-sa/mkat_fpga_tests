@@ -1,6 +1,5 @@
 import base64
 import contextlib
-import corr2
 import glob
 import h5py
 import io
@@ -9,10 +8,10 @@ import numpy as np
 import operator
 import os
 import pwd
-import Queue
+# import Queue
 import random
 import signal
-import threading
+# import threading
 import time
 import warnings
 import subprocess
@@ -29,7 +28,7 @@ from inspect import currentframe
 from inspect import getframeinfo
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
-from memory_profiler import profile as DetectMemLeaks
+# from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
 from socket import inet_ntoa
 from struct import pack
@@ -51,6 +50,7 @@ LOGGER = logging.getLogger('mkat_fpga_tests')
 VACC_FULL_RANGE = float(2 ** 31)
 
 cam_timeout = 60
+
 
 def complexise(input_data):
     """Convert input data shape (X,2) to complex shape (X)
@@ -245,6 +245,7 @@ class CorrelatorFrequencyInfo(object):
         except Exception:
             LOGGER.error('Failed to calculate frequency points to sweep over a test channel')
 
+
 def get_dsim_source_info(dsim):
     """Return a dict with all the current sine, noise and output settings of a dsim"""
     info = dict(sin_sources={}, noise_sources={}, outputs={})
@@ -345,7 +346,7 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         correlator dump's baselines
     """
     try:
-        bls_ordering = test_params(self)['bls_ordering']
+        bls_ordering = parameters(self)['bls_ordering']
         LOGGER.info('Retrieved bls ordering via CAM Interface')
     except Exception:
         bls_ordering = None
@@ -372,9 +373,9 @@ def clear_all_delays(self, num_int=25):
     Return: Boolean
     """
     try:
-        _test_params = test_params(self)
-        no_fengines = _test_params['no_fengines']
-        int_time = _test_params['int_time']
+        _parameters = parameters(self)
+        no_fengines = _parameters['no_fengines']
+        int_time = _parameters['int_time']
         LOGGER.info('Retrieving test params via CAM Interface')
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
@@ -561,7 +562,7 @@ def get_and_restore_initial_eqs(self):
         LOGGER.exception('Failed to retrieve gains via CAM int.')
         return
     else:
-        input_labels = test_params(self)['input_labels']
+        input_labels = parameters(self)['input_labels']
         gain = reply.arguments[-1]
         initial_equalisations = {}
         for label in input_labels:
@@ -574,7 +575,7 @@ def get_and_restore_initial_eqs(self):
             assert reply.reply_ok()
             return True
         except Exception:
-            msg = 'Failed to set gain for input %s with gain of %s' %(_input, _eq)
+            msg = 'Failed to set gain for all inputs with gain of %s' % init_eq
             LOGGER.exception(msg)
             return False
 
@@ -638,13 +639,13 @@ def set_default_eq(self):
 
     eq_levels = list(set(get_eqs_levels(self)))[0]
     try:
-        assert isinstance (eq_levels, complex)
+        assert isinstance(eq_levels, complex)
         reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_levels, timeout=cam_timeout)
         assert reply.reply_ok()
         LOGGER.info('Reset gains to default values from config file.\n')
         return True
     except Exception:
-        LOGGER.exception('Failed to set gains on %s with %s ' %(ant_inputs, eq_levels))
+        LOGGER.exception('Failed to set gains on all inputs with %s ' % (eq_levels))
         return False
 
 
@@ -692,7 +693,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
-    sources = test_params(self)['input_labels']
+    sources = parameters(self)['input_labels']
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
         LOGGER.info('Setting desired gain/eq via CAM interface.')
@@ -822,14 +823,19 @@ class Text_Style(object):
 
     def Bold(self, msg=None):
         return (self.BOLD + msg + self.END)
+
     def Red(self, msg=None):
         return (self.RED + msg + self.END)
+
     def Green(self, msg=None):
         return (self.GREEN + msg + self.END)
+
     def Yellow(self, msg=None):
         return (self.YELLOW + msg + self.END)
+
     def Bold(self, msg=None):
         return (self.BOLD + msg + self.END)
+
     def Underline(self, msg=None):
         return (self.UNDERLINE + msg + self.END)
 
@@ -849,8 +855,10 @@ def ignored(*exceptions):
     except exceptions:
         pass
 
+
 class RetryError(Exception):
     pass
+
 
 def retryloop(attempts, timeout):
     """
@@ -964,7 +972,7 @@ def confirm_out_dest_ip(self):
         xhost = self.correlator.xhosts[random.randrange(len(self.correlator.xhosts))]
         int_ip = int(xhost.registers.gbe_iptx.read()['data']['reg'])
         xhost_ip = inet_ntoa(pack(">L", int_ip))
-        dest_ip =  list(parse_address(
+        dest_ip = list(parse_address(
             self.correlator.configd['xengine']['output_destinations_base']))[0]
         assert dest_ip == xhost_ip
         return True
@@ -1026,18 +1034,21 @@ def who_ran_test():
         Aqf.hop('Test ran by: {} on {} system on {}.\n'.format(user, os.uname()[1].upper(),
                                                                time.strftime("%Y-%m-%d %H:%M:%S")))
     except Exception as e:
-        _errmsg = 'Failed to detemine who ran the test with %s'%str(e)
-        LOGGER.error(str(e))
+        _errmsg = 'Failed to detemine who ran the test with %s' % str(e)
+        LOGGER.error(_errmsg)
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
 
 def cbf_title_report(instrument):
     """Automagiccaly edit Sphinx index.rst file with title + instrument"""
-    with io.open("index.rst", "r+") as file: # Use file to refer to the file object
+
+    # Use file to refer to the file object
+    with io.open("index.rst", "r+") as file:
         data = file.read()
     title = data[data.find('yellow')+len('yellow'):data.find('==')]
     data = data.replace(title, '\n\n\nCBF Qualification and Acceptance Reports (%s)\n'%instrument)
     new_data = data
+
     with io.open("index.rst", "w+") as file:
         file.write(new_data)
 
@@ -1083,6 +1094,7 @@ class GracefullInterruptHandler(object):
         self.released = False
 
         self.original_handler = signal.getsignal(self.sig)
+
         def handler(signum, frame):
             self.release()
             self.interrupted = True
@@ -1129,7 +1141,7 @@ def which_instrument(self, instrument):
         _running_inst = instrument
     return _running_inst
 
-def test_params(self):
+def parameters(self):
     """
     Get all parameters you need to calculate dump time stamp or related.
     param: self: object
@@ -1286,28 +1298,27 @@ def test_params(self):
         'bandwidth': bandwidth,
         'beam0_output_product': beam0_output_product,
         'beam1_output_product': beam1_output_product,
-        'bls_ordering' : bls_ordering,
-        'clock_rate' : clock_rate,
+        'bls_ordering': bls_ordering,
+        'clock_rate': clock_rate,
         'custom_src_names': custom_src_names,
-        'destination' : destination,
+        'destination': destination,
         'input_labelling': input_labelling,
         'input_labels': input_labels,
-        'int_time' : int_time,
+        'int_time': int_time,
         'katcp_host': katcp_host,
         'katcp_port': katcp_port,
-        'n_accs' : n_accs,
+        'n_accs': n_accs,
         'n_ants': n_ants,
-        'n_bls' : n_bls,
-        'n_chans' : n_chans,
+        'n_bls': n_bls,
+        'n_chans': n_chans,
         'network_latency': network_latency,
         'no_fengines': no_fengines,
         'no_xengines': no_xengines,
         'output_product': output_product,
-        'scale_factor_timestamp' : scale_factor_timestamp,
-        'synch_epoch' : synch_epoch,
-        'xeng_acc_len' : xeng_acc_len,
-        'xeng_out_bits_per_sample' : xeng_out_bits_per_sample,
-        }
+        'scale_factor_timestamp': scale_factor_timestamp,
+        'synch_epoch': synch_epoch,
+        'xeng_acc_len': xeng_acc_len,
+        'xeng_out_bits_per_sample': xeng_out_bits_per_sample,}
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
                               ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
@@ -1493,7 +1504,8 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
 
 
     try:
-        for i in xrange(2): reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
+        for i in xrange(2):
+            reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
         errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
         assert reply.reply_ok(), errmsg
         reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
@@ -1580,5 +1592,3 @@ def set_beam_quant_gain(self, beam, gain):
         Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
         return 0
     return actual_beam_gain
-
-
