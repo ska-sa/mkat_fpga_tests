@@ -48,29 +48,10 @@ from datetime import datetime
 # perhaps import mkat_fpga_tests.utils as Utils
 # and mkat_fpga_tests.aqf_utils as AQF_Utils instead
 from mkat_fpga_tests import correlator_fixture
-from mkat_fpga_tests.aqf_utils import aqf_plot_channels, aqf_plot_and_save, aqf_plot_phase_results
-from mkat_fpga_tests.aqf_utils import cls_end_aqf, aqf_plot_histogram
-from mkat_fpga_tests.utils import check_fftoverflow_qdrstatus, get_hosts_status
-from mkat_fpga_tests.utils import disable_warnings_messages, confirm_out_dest_ip, create_logs_directory
-from mkat_fpga_tests.utils import get_and_restore_initial_eqs, get_set_bits, deprogram_hosts
-from mkat_fpga_tests.utils import get_baselines_lookup, get_vacc_offset, RunTestWithTimeout
-from mkat_fpga_tests.utils import get_pfb_counts, check_host_okay, who_ran_test
-from mkat_fpga_tests.utils import get_fftoverflow_qdrstatus, blindwrite
-from mkat_fpga_tests.utils import ignored, clear_host_status, restore_src_names
-from mkat_fpga_tests.utils import init_dsim_sources, CorrelatorFrequencyInfo
-from mkat_fpga_tests.utils import nonzero_baselines, zero_baselines, all_nonzero_baselines
-from mkat_fpga_tests.utils import normalised_magnitude, loggerise, complexise, human_readable_ip
-from mkat_fpga_tests.utils import set_default_eq, clear_all_delays, set_input_levels
-from mkat_fpga_tests.utils import parameters, which_instrument, cbf_title_report
-from mkat_fpga_tests.utils import capture_beam_data, populate_beam_dict, set_beam_quant_gain
-from mkat_fpga_tests.utils import start_katsdpingest_docker, stop_katsdpingest_docker
-from mkat_fpga_tests.utils import retryloop
 
-from nosekatreport import Aqf, aqf_requirements, aqf_vr, system
-from nosekatreport import slow, site_only, generic_test
-from nosekatreport import instrument_bc8n856M4k, instrument_bc16n856M4k, instrument_bc32n856M4k
-from nosekatreport import instrument_bc8n856M32k, instrument_bc16n856M32k, instrument_bc32n856M32k
-from power_logger import PowerLogger
+from mkat_fpga_tests.aqf_utils import *
+from mkat_fpga_tests.utils import *
+from nosekatreport import *
 from descriptions import TestProcedure
 
 LOGGER = logging.getLogger('mkat_fpga_tests')
@@ -3357,7 +3338,7 @@ class test_CBF(unittest.TestCase):
             present_baselines = sorted(baselines_lookup.keys())
 
             possible_baselines = set()
-            _None = [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
+            _ = [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
 
             test_bl = sorted(list(possible_baselines))
             Aqf.step('[CBF-REQ-0087] Check that each baseline (or its reverse-order '
@@ -5481,19 +5462,19 @@ class test_CBF(unittest.TestCase):
             import katcp
             import spead2
 
-            corr2_dir, _None = os.path.split(os.path.split(corr2.__file__)[0])
+            corr2_dir, _ = os.path.split(os.path.split(corr2.__file__)[0])
             corr2_name = corr2.__name__
             corr2_version = corr2.__version__
 
-            casper_dir, _None = os.path.split(os.path.split(casperfpga.__file__)[0])
+            casper_dir, _ = os.path.split(os.path.split(casperfpga.__file__)[0])
             casper_name = casperfpga.__name__
             casper_version = casperfpga.__version__
 
-            katcp_dir, _None = os.path.split(os.path.split(katcp.__file__)[0])
+            katcp_dir, _ = os.path.split(os.path.split(katcp.__file__)[0])
             katcp_name = katcp.__name__
             katcp_version = katcp.__version__
 
-            spead2_dir, _None = os.path.split(os.path.split(spead2.__file__)[0])
+            spead2_dir, _ = os.path.split(os.path.split(spead2.__file__)[0])
             spead2_name = spead2.__name__
             spead2_version = spead2.__version__
 
@@ -5504,9 +5485,9 @@ class test_CBF(unittest.TestCase):
                 mkat_dir = None
                 Aqf.failed('Failed to retrieve mkat_fpga info')
             else:
-                mkat_dir, _None = os.path.split(os.path.split(os.path.dirname(
+                mkat_dir, _ = os.path.split(os.path.split(os.path.dirname(
                     os.path.realpath(bitstream_dir)))[0])
-                _None, mkat_name = os.path.split(mkat_dir)
+                _, mkat_name = os.path.split(mkat_dir)
 
             test_dir, test_name = os.path.split(os.path.dirname(
                 os.path.realpath(__file__)))

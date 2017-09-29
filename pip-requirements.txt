@@ -9,6 +9,7 @@ coverage
 crypto
 cryptography
 dpkt
+fabric
 flake8
 flake8-html
 h5py
