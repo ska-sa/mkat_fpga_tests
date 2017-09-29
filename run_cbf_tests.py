@@ -14,6 +14,8 @@ import glob
 import json
 import os
 import platform
+import pwd
+import py_compile
 import re
 import report_generator
 import sh
@@ -27,7 +29,7 @@ from report_generator.report import Report
 from signal import SIGKILL
 
 # List all core test python module dependencies
-_core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp', 'nosekatreport', ]
+_core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
 
 def option_parser():
     usage = """
@@ -65,7 +67,8 @@ def option_parser():
                       dest="dry_run",
                       action="store_true",
                       default=False,
-                      help="Do a dry run. Print commands that would be called")
+                      help="Do a dry run. Print commands that would be called as well as generate"
+                           "test procedures")
 
     parser.add_option("--4A4k",
                       action="store_const",
@@ -177,7 +180,8 @@ def run_command(settings, log_func, cmd, log_filename=None, stdout=False, stderr
     if settings.get('dry_run') or shell:
         # Fundge the command to add " when the command is
         # printed or run as string in shell.
-        if sh.which('nosetests') in cmd:
+        # if sh.which('nosetests') in cmd:
+        if '/usr/local/bin/nosetests' in cmd:
             for item in range(len(cmd)):
                 if cmd[item].startswith("-A"):
                     break
@@ -186,25 +190,26 @@ def run_command(settings, log_func, cmd, log_filename=None, stdout=False, stderr
     if settings.get('dry_run'):
         # Just print the command
         log_func('INFO', *cmd)
+        os.environ['DRY_RUN'] = 'True'
+
+    if log_filename and not stdout and not stderr:
+        with open(log_filename, 'w') as fh:
+            log_func('DEBUG', 'Writting %s to file: %s' %(' '.join(cmd), log_filename))
+            return subprocess.call(cmd, stderr=fh, stdout=fh)
     else:
-        if log_filename and not stdout and not stderr:
-            with open(log_filename, 'w') as fh:
-                log_func('DEBUG', 'Run command:', *cmd)
-                return subprocess.call(cmd, stderr=fh, stdout=fh)
-        else:
-            log_func('DEBUG', 'Run command with stderr:', *cmd)
-            kwargs_cmd = {'env': os.environ}
-            try:
-                if shell:
-                    kwargs_cmd['shell'] = True
-                    str_cmd = " ".join(cmd)
-                    log_func('DEBUG', 'Run command with shell', str_cmd)
-                    return subprocess.call(str_cmd, **kwargs_cmd)
-                else:
-                    return subprocess.call(cmd, **kwargs_cmd)
-            except KeyboardInterrupt as e:
-                kill_pid('nosetests')
-                log_func("ERROR", "Test closed prematurely, and process has since been killed")
+        log_func('DEBUG', 'Run command with stderr:', *cmd)
+        kwargs_cmd = {'env': os.environ}
+        try:
+            if shell:
+                kwargs_cmd['shell'] = True
+                str_cmd = " ".join(cmd)
+                log_func('DEBUG', 'Run command with shell', str_cmd)
+                return subprocess.call(str_cmd, **kwargs_cmd)
+            else:
+                return subprocess.call(cmd, **kwargs_cmd)
+        except KeyboardInterrupt as e:
+            kill_pid('nosetests')
+            log_func("ERROR", "Test closed prematurely, and process has since been killed")
 
 
 def run_command_output(settings, log_func, cmd):
@@ -223,7 +228,7 @@ def run_command_output(settings, log_func, cmd):
 
 def do_dev_update(settings, log_func):
     """Do a code update and install."""
-    log_func("INFO", "Will perform a Python package update")
+    log_func("DEBUG", "Will perform a Python package update")
     os.chdir(settings.get('me_dir'))
     _pip = sh.which('pip')
     run_command(settings, log_func, [_pip, 'install', '-U', 'pip'])
@@ -346,13 +351,16 @@ def create_log_func(settings):
 
 def generate_html_sphinx_docs(settings, log_func):
     os.chdir(settings['base_dir'])
-    log_func("INFO", "make html from rst documents")
     log_file = '/dev/null'
     cmd = ['make', 'html']
-    status = run_command(settings, log_func, cmd, log_file)
+    if settings['verbose']:
+        log_func("DEBUG", "make html from rst documents")
+        status = run_command(settings, log_func, cmd)
+    else:
+        status = run_command(settings, log_func, cmd, log_file)
+
     if status:
-        log_func("ERROR", "there was an error on 'make html' - not copying"
-                          " build results")
+        log_func("ERROR", "there was an error on 'make html' - not copying build results")
     else:
         now = time.localtime()
         build_dir = settings["build_dir"]
@@ -365,13 +373,16 @@ def generate_html_sphinx_docs(settings, log_func):
         if status:
             log_func("ERROR", "there was an error n mkdir -p ../%s"%dirName)
         # Copy build directory
-        log_func("INFO", "copy build to ../%s/%s" % (dirName, build_dir))
+        log_func("INFO", "Text color mappings")
+        cmd = ['bash', 'scripts/generate_color.sh']
+        run_command(settings, log_func, cmd)
+        log_func("DEBUG", "copy build to ../%s/%s" % (dirName, build_dir))
         cmd = ['cp', '-r', 'build', '../%s/%s' % (dirName, build_dir)]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
             log_func("ERROR", "there was an error on copying build to ../%s/%s" %(dirName, build_dir))
         # Copy katreport_dir directory
-        log_func("INFO", "copy ./%s to ../%s/%s"%(katreport_dir, dirName, build_dir))
+        log_func("DEBUG", "copy ./%s to ../%s/%s"%(katreport_dir, dirName, build_dir))
         cmd = ['cp', '-r', katreport_dir, "../%s/%s"%(dirName, build_dir)]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
@@ -384,13 +395,20 @@ def run_nose_test(settings, log_func):
     result is captured in <katreport_dir>/katreport.json
     """
     os.chdir(settings['base_dir'])
-    cmd = [sh.which('nosetests')]
+    # try:
+    #     cmd = [sh.which('nosetests')]
+    #     assert cmd is not None
+    # except Exception as e:
+    #     cmd = ['/usr/local/bin/nosetests']
+    cmd = ['/usr/local/bin/nosetests']
     katreport_dir = settings.get('katreport_dir')
     # Note settings['verbose'] is a tri-state, where none is normal
     # verbosity level. True is more verbose and False is less.
     if settings['verbose'] is True:
         cmd.append('-v')
         cmd.append('-s')
+        cmd.append("--with-xunit")
+        cmd.append("--xunit-file=%s/nosetests.xml"%katreport_dir)
     elif settings['verbose'] is False:
         cmd.append('-q')
     cmd.append("--with-katreport")
@@ -454,6 +472,14 @@ def run_nose_test(settings, log_func):
     condition['or_str'] = ' or '.join(condition['OR'])
     if condition['AND'] and condition['or_str']:
         condition['AND'].append("(%s)" % condition['or_str'])
+        if condition['AND'][-1].startswith('('):
+            try:
+                assert settings['mode'] is None
+                condition['AND'][-1] = condition['AND'][-1].replace('(','').replace(')','')
+            except AssertionError:
+                condition['AND'][-1] = condition['AND'][-1].replace('(','')
+        if not condition['AND'][-2].startswith('('):
+            condition['AND'][-2] = '(' + condition['AND'][-2]
         cmd.append('-A(%s)' % ' and '.join(condition['AND']))
     elif condition['AND']:
         cmd.append('-A(%s)' % ' and '.join(condition['AND']))
@@ -519,6 +545,7 @@ def get_filename(what, settings):
     return files.get(what, None)
 
 def generate_report(settings, log_func):
+    log_func('INFO', 'Generating report from files')
     report_type = settings['report'].lower()
     katreport_dir = settings["katreport_dir"]
     files = {'test': get_filename('test', settings),
@@ -714,13 +741,26 @@ def kill_pid(proc_name):
     except Exception:
         pass
 
+def plot_backend(_filename, oldcontent, newcontent):
+    """
+    matplotlib backend support
+    """
+    current_user = pwd.getpwuid(os.getuid())[0]
+    if current_user == 'cbf-test':
+        try:
+            with open(_filename,'r') as f:
+                newlines = []
+                for line in f.readlines():
+                    newlines.append(line.replace(oldcontent, newcontent))
+            with open(_filename, 'w') as f:
+                for line in newlines:
+                    f.write(line)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     options, args = option_parser()
-    # Todo
-    # Update setup_virtualenv script
-    # Run new testing script on jenkins
-
+    plot_backend('matplotlibrc', 'TKagg', 'agg')
     kill_pid('nosetests')
     settings = dict((k, getattr(options, k)) for k in dir(options)
                     if not callable(getattr(options, k))
@@ -737,13 +777,17 @@ if __name__ == "__main__":
     if not (settings['test_dir'] == 'mkat_fpga_tests'):
         settings['test_dir'] = 'mkat_fpga_tests'
 
+    test_class = 'test_CBF'
+    settings['tests_class'] = test_class
     try:
         test_file = max(glob.iglob(
-            os.path.join(settings['me_dir'], settings['test_dir'], '[Tt][est_cbf.py]') ),
+            os.path.join(settings['me_dir'], settings['test_dir'], '[Tt][est_cbf.py]')),
             key=os.path.getctime)
         settings['tests'] = test_file
     except Exception:
-        settings['tests'] = os.path.join(settings['me_dir'], settings['test_dir'], 'test_cbf.py')
+        settings['tests'] = os.path.join(settings['me_dir'], settings['test_dir'],
+          'test_cbf.py')
+
     if settings["site_acceptance"]:
         settings['katreport_dir'] = "katreport_acceptance"
     else:
@@ -764,8 +808,8 @@ if __name__ == "__main__":
     # if settings.get('demo'):
     #     settings['report'] = 'skip'
     #     settings['gather_system_settings'] = False
-    if settings.get('dry_run'):
-        settings['report'] = 'skip'
+    # if settings.get('dry_run'):
+    #     settings['report'] = 'skip'
 
     # if settings.get('jenkins'):
     #     settings['dev_update'] = True
@@ -781,6 +825,13 @@ if __name__ == "__main__":
 
     # Do the different steps.
     log_func = create_log_func(settings)
+
+    try:
+        py_compile.compile(settings['tests'], doraise=True)
+    except Exception, e:
+        log_func('ERROR', str(e))
+        sys.exit(1)
+
     if settings.get('dev_update'):
         do_dev_update(settings, log_func)
 
@@ -821,6 +872,6 @@ if __name__ == "__main__":
             if settings['gen_html']:
                 generate_html_sphinx_docs(settings, log_func)
         except Exception as e:
-            pass# log_func("ERROR", "Experienced some issues: %s" %str(e))
+            log_func("ERROR", "Experienced some issues: %s" % sys.exc_info()[0])
 
 

@@ -9,9 +9,9 @@ import sys
 import time
 
 #from testconfig import config as nose_test_config
-from casperfpga import katcp_fpga
+# from casperfpga import katcp_fpga
 from casperfpga import tengbe
-from casperfpga import utils as fpgautils
+# from casperfpga import utils as fpgautils
 from casperfpga.katcp_fpga import KatcpRequestFail
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
@@ -21,18 +21,18 @@ from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
 from katcp import ioloop_manager
-from katcp import KatcpClientError
-from katcp import KatcpDeviceError
-from katcp import KatcpSyntaxError
+# from katcp import KatcpClientError
+# from katcp import KatcpDeviceError
+# from katcp import KatcpSyntaxError
 from katcp import resource_client
 from katcp.core import ProtocolFlags
 from katcp.resource_client import KATCPSensorError
-from mkat_fpga_tests.utils import ignored
+# from mkat_fpga_tests.utils import ignored
 from nosekatreport import Aqf
 
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
-from memory_profiler import profile as DetectMemLeaks
+# from memory_profiler import profile as DetectMemLeaks
 
 try:
     get_username = getusername()
@@ -315,7 +315,7 @@ class CorrelatorFixture(object):
                         else:
                             LOGGER.error('Halting array.')
                             reply, informs = self.rct.req.subordinate_halt(self.array_name,
-                                timeout=timeout)
+                                timeout=_timeout)
                             assert reply.reply_ok()
                     except AssertionError:
                         LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
@@ -731,7 +731,7 @@ class CorrelatorFixture(object):
             assert reply.reply_ok()
         except TimeoutError:
             self.rct.stop()
-            LOGGER.exception('Resource client timed-out after %s s' % timeout)
+            LOGGER.exception('Resource client timed-out after %s s' % _timeout)
             return False
         except AssertionError:
             LOGGER.exception('Failed to get subordinate-list, might not have been assigned, '

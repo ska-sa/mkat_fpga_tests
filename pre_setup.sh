@@ -13,7 +13,7 @@ set -e
 # fixed properly by upgrading the test system GCC
 export PATH=/opt/gcc4.9.3/bin:"${PATH}"
 
-declare -a PYTHON_SRC_PACKAGES=(spead2 casperfpga corr2 katcp-python )
+declare -a PYTHON_SRC_PACKAGES=(spead2 casperfpga corr2 katcp-python nosekatreport)
 PYTHON_SRC_DIR=/usr/local/src
 SPEAD2_URL=https://pypi.python.org/packages/a1/0f/9cf4ab8923a14ff349d5e85c89ec218ab7a790adfdcbd11877393d0c5bba/spead2-1.1.1.tar.gz
 PYTHON_SETUP_FILE=setup.py
@@ -33,7 +33,7 @@ function pip_installer {
 	    	printf "Python %s file not found!\n" "${PYTHON_SETUP_FILE}"
 			continue
 		else
-            pip install -e .
+            sudo pip install -e .
             # NO SUDOing when automating
 			# sudo python setup.py install --force
 			printf "Successfully installed %s in %s\n" "${pkg}" "${INSTALL_DIR}"

@@ -10,7 +10,7 @@ from mkat_fpga_tests.utils import loggerise
 from nosekatreport import Aqf
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
-from memory_profiler import profile as DetectMemLeaks
+# from memory_profiler import profile as DetectMemLeaks
 
 LOGGER = logging.getLogger(__name__)
 
@@ -208,9 +208,9 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1.5)
             plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
                         textcoords='offset points', ha='center', va='bottom',
-                         bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                         arrowprops=dict(arrowstyle='->', fc='yellow',
-                                         connectionstyle='arc3, rad=0.5', color='red'))
+                        bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                        arrowprops=dict(arrowstyle='->', fc='yellow',
+                        connectionstyle='arc3, rad=0.5', color='red'))
 
     if plot_title:
         plt.title(plot_title)

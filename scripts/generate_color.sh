@@ -7,5 +7,3 @@ function change_color(){
     find . -name "*.html" -print0 | xargs -0 sed -i -e 's/class="orange"/style="color: lightgray; background-color: white;"/g'
 }
 change_color
-cd ..
-change_color
