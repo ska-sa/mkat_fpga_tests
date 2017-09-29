@@ -17,6 +17,7 @@ Install dependencies to the system, by following their installation instructions
 * [_katcp-python_](https://github.com/ska-sa/katcp-python)
 * [_casperfpga_](https://github.com/ska-sa/casperfpga)
 * [_corr2_](https://github.com/ska-sa/corr2)
+* [_nosekatreport_](https://github.com/ska-sa/nosekatreport)
 * [_spead2_](https://github.com/ska-sa/spead2)  v1.1.1
  *   [_gcc4.9.3_](https://gcc.gnu.org/gcc-4.9/): spead2 dependency.
 
@@ -26,17 +27,23 @@ It is highly advisable to install these dependencies on a [_Python virtual envir
 #### Setup and Use Virtualenv
 ```
 # Install Python essentials and pip
-$ sudo apt-get install python-dev build-essential
 $ curl -s https://bootstrap.pypa.io/get-pip.py | python
 $ sudo pip install virtualenv virtualenvwrapper
 
 # Install testing dependencies in the virtualenv
 $ bash scripts/setup_virtualenv.sh
+
+#Usage: bash scripts/setup_virtualenv.sh DEST_PATH SYS_PACKAGES
+#
+#    DEST_PATH: Workspace path
+#    SYS_PACKAGES: Boolean:- if true, virtual env will also use system packages (Default:false)
+
 ```
 
 ### CBF Tests installation
-Install CBF Tests (when virtualenv is active.).
+Install CBF Tests 
 ```
+$ . venv/bin/activate
 $ python setup.py install
 ```
 
@@ -44,7 +51,7 @@ $ python setup.py install
 
 Running unit-testing.
 ```
-$ . venv/bin/Activate
+$ . venv/bin/activate
 $ python run_cbf_tests.py --4A4k --no_slow
 # For more options execute:
 # python run_cbf_tests.py -h
