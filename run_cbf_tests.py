@@ -26,6 +26,7 @@ import time
 from optparse import OptionParser
 from process_core_xml import process_xml_to_json
 from report_generator.report import Report
+from shutil import copyfile
 from signal import SIGKILL
 
 # List all core test python module dependencies
@@ -123,6 +124,12 @@ def option_parser():
                       action="store_false",
                       default=True,
                       help="Do not generate the html output")
+
+    parser.add_option("--with_pdf",
+                      dest="gen_pdf",
+                      action="store_true",
+                      default=False,
+                      help="Generate PDF report output")
 
     parser.add_option("--no_slow",
                       dest="slow_test",
@@ -353,10 +360,31 @@ def generate_html_sphinx_docs(settings, log_func):
     os.chdir(settings['base_dir'])
     log_file = '/dev/null'
     cmd = ['make', 'html']
-    if settings['verbose']:
-        log_func("DEBUG", "make html from rst documents")
-        status = run_command(settings, log_func, cmd)
+    try:
+        assert settings['gen_html']
+    except AssertionError:
+        pass
     else:
+        log_func("INFO", "Generating PDF document from rst files")
+        if settings['verbose']:
+            status = run_command(settings, log_func, cmd)
+        else:
+            status = run_command(settings, log_func, cmd, log_file)
+
+    cmd = ['make', 'latexpdf']
+    try:
+        assert settings['gen_pdf']
+    except AssertionError:
+        pass
+    else:
+        log_func("INFO", "Generating PDF document from rst files")
+        copyfile('report_generator/index.rst', 'index.rst')
+        if settings['verbose']:
+            status = run_command(settings, log_func, cmd)
+        else:
+            status = run_command(settings, log_func, cmd, log_file)
+        log_func("DEBUG", "Undo changes made to index.rst to accomodate PDF generation")
+        cmd = ['git', 'checkout', '--', 'index.rst']
         status = run_command(settings, log_func, cmd, log_file)
 
     if status:
@@ -366,16 +394,16 @@ def generate_html_sphinx_docs(settings, log_func):
         build_dir = settings["build_dir"]
         katreport_dir = settings["katreport_dir"]
         # Make run_tests directory
-        dirName = 'CBF_tests_reports'
+        dirName = 'CBF_Tests_Reports'
         log_func("INFO", "mkdir ../%s"%dirName)
         cmd = ['mkdir', '-p', '../%s'%dirName]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
             log_func("ERROR", "there was an error n mkdir -p ../%s"%dirName)
         # Copy build directory
-        log_func("INFO", "Text color mappings")
+        log_func("DEBUG", "Text color mappings")
         cmd = ['bash', 'scripts/generate_color.sh']
-        run_command(settings, log_func, cmd)
+        run_command(settings, log_func, cmd, log_file)
         log_func("DEBUG", "copy build to ../%s/%s" % (dirName, build_dir))
         cmd = ['cp', '-r', 'build', '../%s/%s' % (dirName, build_dir)]
         status = run_command(settings, log_func, cmd, log_file)
@@ -545,7 +573,6 @@ def get_filename(what, settings):
     return files.get(what, None)
 
 def generate_report(settings, log_func):
-    log_func('INFO', 'Generating report from files')
     report_type = settings['report'].lower()
     katreport_dir = settings["katreport_dir"]
     files = {'test': get_filename('test', settings),
@@ -869,7 +896,8 @@ if __name__ == "__main__":
     elif settings['report'] not in ['skip']:
         try:
             generate_report(settings, log_func)
-            if settings['gen_html']:
+            if settings['gen_html'] or settings['gen_pdf']:
+                log_func('DEBUG', 'Generating report from files')
                 generate_html_sphinx_docs(settings, log_func)
         except Exception as e:
             log_func("ERROR", "Experienced some issues: %s" % sys.exc_info()[0])

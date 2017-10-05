@@ -7,9 +7,9 @@ if [ $EUID -ne 0 ]; then
     exit 2
 fi
 
-ln -s pseudo-dmc-child /usr/local/bin
-ln -s start-pseudo-dmc /usr/local/bin
-ln -s stop-pseudo-dmc /usr/local/bin
+ln -s `pwd`/pseudo-dmc-child /usr/local/bin
+ln -s `pwd`/start-pseudo-dmc /usr/local/bin
+ln -s `pwd`/stop-pseudo-dmc /usr/local/bin
 echo -e '
 # location of DMC
 dmc_address=localhost:9011' | sudo tee -a /etc/cmc.conf

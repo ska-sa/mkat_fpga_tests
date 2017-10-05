@@ -910,7 +910,7 @@ class Report(object):
                 else:
                     dp.add_line('  + %s: %s' % (action.get('type', '').title(),
                                                     action.get('msg')))
-        dp.add_line("Test Results: %s\n\n" % (dp.add_link(test_id)))
+        # dp.add_line("Test Results: %s\n\n" % (dp.add_link(test_id)))
 
     def _rst_timescale(self, docproducer, timescales=None):
         """Create a report for a timescale."""
@@ -1156,7 +1156,7 @@ class Report(object):
         _link = subprocess.check_output(cmd.split())
         test_link = "Github link: {}".format(_link)
         docproducer.add_sourcecode(testfile)
-        docproducer.add_sourcecode(test_link)
+        # docproducer.add_sourcecode(test_link)
         data = {'description': test_data.get('description'),
                 'group': test_data.get('group', 'Unknown'),
                 'status': docproducer.str_style(test_data.get('status', self.UNKNOWN).upper())}

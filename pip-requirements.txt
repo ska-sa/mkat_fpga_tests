@@ -13,6 +13,7 @@ fabric
 flake8
 flake8-html
 h5py
+idna==2.5
 iniparse
 ipynose
 ipython[all]
