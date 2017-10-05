@@ -1,41 +1,64 @@
-# Uncomment below if not installing these packages from a local source
-#git+https://github.com/ska-sa/katcp-python#egg=katcp
-#git+https://github.com/ska-sa/casperfpga#egg=casperfpga
-#git+https://github.com/ska-sa/corr2#egg=corr2
-###
-
-#git+https://github.com/ska-sa/PySPEAD#egg=spead
-#git+https://katpull:katpull4git@github.com/ska-sa/katpoint.git#egg=katpoint
-h5py
-ipython[all]
-matplotlib
-mpld3
-bokeh
-sphinxcontrib-napoleon
-sphinx
-breathe
+# git+https://github.com/ska-sa/nosekatreport.git
 alabaster
-trollius
-dpkt
+ansicolors
 bitstring
+bokeh
+breathe
+chainmap
+coverage
+crypto
+cryptography
+dpkt
+fabric
+flake8
+flake8-html
+h5py
+iniparse
+ipynose
+ipython[all]
+jenkinsapi
+lxml
+matplotlib
+memory_profiler
+mock
+mpld3
+ndg-httpsclient
 nose
 nose-testconfig
-pexpect
-requests[security]
-# paramiko
-sphinx
+nosexcover
 ntplib
+numpy
 pandas
+pandas
+parameterized
+pep8
+pexpect
 pillow
-chainmap
-# nose-parameterized
+pyasn1
+pycrypto
+pylint
+pyOpenSSL
+requests[security]
+retrying
+sh
+sphinx
+sphinxcontrib-napoleon
+traceback2
+trollius
+
+
+# Uncomment below if not installing these packages from a local source
+# git+https://github.com/ska-sa/casperfpga#egg=casperfpga
+# git+https://github.com/ska-sa/corr2#egg=corr2
+# git+https://github.com/ska-sa/katcp-python#egg=katcp
+# git+https://github.com/ska-sa/PySPEAD#egg=spead
+# git+https://katpull:katpull4git@github.com/ska-sa/katpoint.git#egg=katpoint
+
+# Deprecated usage for below modules
+# nose-congestion
 # nose-leak-detector
+
 # nose-performance
 # NoseXUnit
-# nose-congestion
-ipynose
-memory_profiler
-pycrypto
-crypto
-# Not sure why we need this package
 # opsutils
+# paramiko

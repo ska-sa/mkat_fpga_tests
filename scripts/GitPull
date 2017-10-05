@@ -2,8 +2,8 @@
 
 get_mkat_fpga(){
     if cd /usr/local/src/mkat_fpga > /dev/null 2&>1; then
-        echo 'Updating mkat_fpga' $(git symbolic-ref --short HEAD)
-        git pull --rebase
+        echo 'Updating mkat_fpga' $($(which git) symbolic-ref --short HEAD)
+        $(which git) pull --rebase
         printf '\n\n'
     else
         echo 'Failed to update mkat_fpga'
@@ -14,15 +14,15 @@ printf '*****************************************************************\n'
 
 get_casper(){
     if cd /usr/local/src/casperfpga > /dev/null 2&>1; then
-        echo 'Updating casperfpga' $(git symbolic-ref --short HEAD)
-        if git pull --rebase > /dev/null 2&>1; then
+        echo 'Updating casperfpga' $($(which git) symbolic-ref --short HEAD)
+        if $(which git) pull --rebase > /dev/null 2&>1; then
             printf '\033[32mSuccessfully pulled latest changes\n\n\033[0m'
         else
             printf '\e[31mLatest changes pulled already, see below log\n\n\e[0m\n'
-            git log --name-status -1
+            $(which git) log --name-status -1
             printf '\n\n'
         fi
-        sudo python setup.py -q install -f
+        sudo $(which python) setup.py -q install -f
     else
         echo 'Failed to update casperfpga'
     fi
@@ -30,15 +30,15 @@ get_casper(){
 
 get_corr2(){
     if cd /usr/local/src/corr2 > /dev/null 2&>1; then
-        echo 'Updating corr2' $(git symbolic-ref --short HEAD)
-        if git pull --rebase > /dev/null 2&>1; then
+        echo 'Updating corr2' $($(which git) symbolic-ref --short HEAD)
+        if $(which git) pull --rebase > /dev/null 2&>1; then
             printf '\033[32mSuccessfully pulled latest changes\n\n\033[0m'
         else
             printf '\e[31mLatest changes pulled already, see below log\n\n\e[0m\n'
-            git log --name-status -1
+            $(which git) log --name-status -1
             printf '\n\n'
         fi
-        sudo python setup.py -q install -f
+        sudo $(which python) setup.py -q install -f
     else
         echo 'Failed to update corr2'
     fi
