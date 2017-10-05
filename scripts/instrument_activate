@@ -3,10 +3,13 @@
 # Mpho Mphego
 
 if [ -z "$*" ];
-    then echo -e "Usage: $0 INSTRUMENT IP PORT \n
-    INSTRUMENT: bc8n856M4k (Default) (CASE SENSATIVE)
-    IP: localhost (Default) / IP
-    PORT: Multicast Port: 8888 (Default)\n";
+    then echo -e "Usage: $0 INSTRUMENT RESTART_CMC START_DSIM KATCP_HOST_IP CONF_PATH \n
+    INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)
+    RESTART_CMC: [y]/n
+    START_DSIM: [y]/n (If not restarted hosts will not be deprogrammed)
+    INSTRUMENT_OPTS: 1011 (Default) / Inststrument activate options, 1=enable, 0=disable [program, calibrate qdr, require synchronisation epoch, monitor vector accumulators] 
+    KATCP_HOST_IP: localhost (Default) / IP
+    CONF_PATH: /etc/corr/templates/ (Default)"\n
     exit 1;
 fi
 
@@ -28,17 +31,29 @@ BLINK=$(tput blink)
 REVERSE=$(tput smso)
 UNDERLINE=$(tput smul)
 
-sudo /etc/init.d/cmc stop
-sleep 2
-echo ''
-sudo /etc/init.d/cmc start
-
 MACHINE=$(hostname)
-instrument=$1
-MACHINE_IP=${2:-localhost}
-DATAPORT=${3:-8888}
-HPOL="239.101.0.64"
-VPOL="239.101.0.66"
+INSTRUMENT=$1
+RESTART_CMC=${2:-y}
+START_DSIM=${3:-y}
+INST_OPTS=${4:-1011}
+PROG=${INST_OPTS:0:1}
+CALQDR=${INST_OPTS:1:1}
+REPOCH=${INST_OPTS:2:1}
+MVACC=${INST_OPTS:3:1}
+MACHINE_IP=${5:-localhost}
+CONF_PATH=${6:-'/etc/corr/templates/'}
+CONF_PATH=${CONF_PATH}${INSTRUMENT}
+VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
+HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
+DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
+
+if [ $RESTART_CMC == y ]; then
+    sudo /etc/init.d/cmc stop
+    sleep 2
+    echo ''
+    sudo /etc/init.d/cmc start
+fi
+
 
 function repeatStr {
     input=$1
@@ -47,47 +62,43 @@ function repeatStr {
     echo "${myString// /$input }"
 }
 
-printf  "${GREEN}Initialisation ${instrument} on ${MACHINE_IP} ${NORMAL}\n"
-if [ $(echo ${instrument::3}) == 'bc8' ]; then
-    ARRAY_INPUTS=`repeatStr "${HPOL}+1:${DATAPORT} ${VPOL}+1:${DATAPORT}" 4`
-    # ARRAY_INPUTS="239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148"
-elif [ $(echo ${instrument::3}) == 'bc1' ]; then
-    ARRAY_INPUTS=`repeatStr "${HPOL}+1:${DATAPORT} ${VPOL}+1:${DATAPORT}" 8`
-    #ARRAY_INPUTS="239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148"
-else
-    ARRAY_INPUTS=`repeatStr "${HPOL}+1:${DATAPORT} ${VPOL}+1:${DATAPORT}" 16`
-    # ARRAY_INPUTS="239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148 239.101.0.64+1:7148 239.101.0.66+1:7148"
-fi
+printf  "${GREEN}Initialisation ${INSTRUMENT} on ${MACHINE_IP} ${NORMAL}\n"
+let "NUM_INPUTS =  ($(grep source_names $CONF_PATH | grep -o , | wc -l)+1)/2"
+ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
 
-printf "${GREEN}FEngine Multicast IPs (HPOL: ${HPOL} and VPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
+printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
 
-export CORR2INI=/etc/corr/templates/${instrument};
-if /usr/local/bin/corr2_deprogram.py --dnsmasq >> /dev/null 2>&1;
-    then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
-else
-    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
+export CORR2INI=$CONF_PATH;
+if [ $START_DSIM == y ]; then
+    printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
+    if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
+        then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
+    else
+        printf "${RED}Failed to deprogram ${NORMAL}\n\n";
+    fi
+    /usr/local/bin/stop-pseudo-dmc || true;
+    sleep 2;
+    DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
+    /usr/local/bin/start-pseudo-dmc $DSIM;
+    printf '';
+    sleep 2;
+    /usr/local/bin/corr2_dsim_control.py --program --start --status;
 fi
-/usr/local/bin/stop-pseudo-dmc;
-sleep 5;
-Dsim=$(cat /etc/corr/templates/${instrument} | grep ^host | tail -1 | cut -d ' ' -f 3);
-/usr/local/bin/start-pseudo-dmc $Dsim;
-printf '';
-sleep 2;
-/usr/local/bin/corr2_dsim_control.py --program --start --status;
-sleep 2;
 /usr/local/bin/corr2_dsim_control.py --zeros-sine --zeros-noise;
 
-printf "${GREEN}Initialising instrument: ${instrument} ${NORMAL}\n\n";
+printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n";
 while true;
     do printf '';
-    /usr/local/bin/kcpcmd -t 30 -s ${MACHINE_IP}:7147 subordinate-halt array0;
-    sleep 5;
+    /usr/local/bin/kcpcmd -t 31 -s ${MACHINE_IP}:7147 subordinate-halt array0  || true;
+    sleep 0.5;
     ARRAY=$(/usr/local/bin/kcpcmd -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3);
+    printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n";
+    SYNC_EPOCH=$(/usr/local/bin/kcpcmd -s ${MACHINE_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 6 -d' ');
+    SYNC_TIME=$(date -d @$SYNC_EPOCH)
+    printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n";
+    sleep 0.5;
+    kcpcmd -t 500 -s $MACHINE_IP:$ARRAY instrument-activate $INSTRUMENT $PROG $CALQDR $REPOCH $MVACC && break;
     sleep 2;
-    printf "${GREEN}\n\nPort number seems to be ${ARRAY} ${NORMAL}\n";
-    /usr/local/bin/kcpcmd -s ${MACHINE_IP}:9011 var-show synchronisation-epoch;
-    sleep 5;
-    /usr/local/bin/kcpcmd -t 500 -s ${MACHINE_IP}:${ARRAY} instrument-activate ${instrument} 1 0 1 1 && break;
 done
 
 sleep 1;
