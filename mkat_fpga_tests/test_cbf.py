@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# https://stackoverflow.com/a/44077346
 ###############################################################################
 # SKA South Africa (http://ska.ac.za/)                                        #
 # Author: cbf@ska.ac.za                                                       #
@@ -126,7 +128,7 @@ class test_CBF(unittest.TestCase):
             sys.exit(errmsg)
         else:
             self.logs_path = None
-            self.addCleanup(who_ran_test)
+            self.addCleanup(executed_by)
             self.logs_path = create_logs_directory(self)
 
             # See: https://docs.python.org/2/library/functions.html#super
@@ -282,7 +284,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('VE.NUM.1.19')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043")
     def test_bc8n856M4k_channelisation(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band"
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -302,7 +303,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.19')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test_bc16n856M4k_channelisation(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band"
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -320,7 +320,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.19')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043")
     def test_bc32n856M4k_channelisation(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band"
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -339,7 +338,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049")
     def test_bc8n856M32k_channelisation(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band"
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -358,7 +356,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049")
     def test_bc16n856M32k_channelisation(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band"
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -377,7 +374,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049")
     def test_bc32n856M32k_channelisation(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band"
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -396,7 +392,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
     def test_bc8n856M4k_channelisation_sfdr_peaks(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band Spurious Free Dynamic Range"
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
@@ -416,7 +411,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
     def test_bc16n856M4k_channelisation_sfdr_peaks(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band Spurious Free Dynamic Range"
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
@@ -436,7 +430,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
     def test_bc32n856M4k_channelisation_sfdr_peaks(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band Spurious Free Dynamic Range"
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
@@ -455,7 +448,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
     def test_bc8n856M32k_channelisation_sfdr_peaks(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band Spurious Free Dynamic Range"
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
@@ -475,7 +467,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
     def test_bc16n856M32k_channelisation_sfdr_peaks(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band Spurious Free Dynamic Range"
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
@@ -495,7 +486,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0053", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0049", "CBF-REQ-0164", "CBF-REQ-0191")
     def test_bc32n856M32k_channelisation_sfdr_peaks(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Channelisation Wideband Fine L-band Spurious Free Dynamic Range"
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
@@ -512,7 +502,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_bc8n856M4k_baseline_correlation_product(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF  Baseline Correlation Products"
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         Aqf.procedure(TestProcedure.BackToBack)
         Aqf.procedure(TestProcedure.FreqConsistency)
@@ -521,10 +510,10 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument)
+            instrument_success = self.set_instrument(instrument, acc_time=1)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
-                self._test_product_baselines(discards=40)
+                self._test_product_baselines()
                 Aqf.addLine('-')
                 self._test_back2back_consistency()
                 Aqf.addLine('-')
@@ -541,7 +530,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_bc16n856M4k_baseline_correlation_product(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF  Baseline Correlation Products"
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         Aqf.procedure(TestProcedure.BackToBack)
         Aqf.procedure(TestProcedure.FreqConsistency)
@@ -569,7 +557,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_bc32n856M4k_baseline_correlation_product(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF  Baseline Correlation Products"
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         Aqf.procedure(TestProcedure.BackToBack)
         Aqf.procedure(TestProcedure.FreqConsistency)
@@ -596,7 +583,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_bc8n856M32k_baseline_correlation_product(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF  Baseline Correlation Products"
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         Aqf.procedure(TestProcedure.BackToBack)
         Aqf.procedure(TestProcedure.FreqConsistency)
@@ -624,7 +610,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_bc16n856M32k_baseline_correlation_product(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF  Baseline Correlation Products"
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         Aqf.procedure(TestProcedure.BackToBack)
         Aqf.procedure(TestProcedure.FreqConsistency)
@@ -652,7 +637,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.30')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_bc32n856M32k_baseline_correlation_product(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF  Baseline Correlation Products"
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         Aqf.procedure(TestProcedure.BackToBack)
         Aqf.procedure(TestProcedure.FreqConsistency)
@@ -680,7 +664,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M4k_delay_tracking(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"
         Aqf.procedure(TestProcedure.DelayTracking)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -698,7 +681,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M4k_delay_tracking(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"
         Aqf.procedure(TestProcedure.DelayTracking)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -716,7 +698,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M4k_delay_tracking(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"
         Aqf.procedure(TestProcedure.DelayTracking)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -733,7 +714,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M32k_delay_tracking(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"
         Aqf.procedure(TestProcedure.DelayTracking)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -751,7 +731,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M32k_delay_tracking(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"
         Aqf.procedure(TestProcedure.DelayTracking)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -769,7 +748,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M32k_delay_tracking(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"
         Aqf.procedure(TestProcedure.DelayTracking)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -785,7 +763,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     @aqf_requirements("CBF-REQ-0096")
     def test_bc8n856M4k_accumulation_length(self, instrument='bc8n856M4k'):
-        self._testMethodName = "Vector Accumulator"
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -805,7 +782,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     @aqf_requirements("CBF-REQ-0096")
     def test_bc16n856M4k_accumulation_length(self, instrument='bc16n856M4k'):
-        self._testMethodName = "Vector Accumulator"
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -825,7 +801,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     @aqf_requirements("CBF-REQ-0096")
     def test_bc32n856M4k_accumulation_length(self, instrument='bc32n856M4k'):
-        self._testMethodName = "Vector Accumulator"
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -844,7 +819,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     @aqf_requirements("CBF-REQ-0096")
     def test_bc8n856M32k_accumulation_length(self, instrument='bc8n856M32k'):
-        self._testMethodName = "Vector Accumulator"
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -867,7 +841,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     @aqf_requirements("CBF-REQ-0096")
     def test_bc16n856M32k_accumulation_length(self, instrument='bc16n856M32k'):
-        self._testMethodName = "Vector Accumulator"
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -890,7 +863,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.31')
     @aqf_requirements("CBF-REQ-0096")
     def test_bc32n856M32k_accumulation_length(self, instrument='bc32n856M32k'):
-        self._testMethodName = "Vector Accumulator"
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -912,7 +884,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     @aqf_requirements("CBF-REQ-0013")
     def test_bc8n856M4k_product_switch(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Data Product Switching Time"
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -931,7 +902,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     @aqf_requirements("CBF-REQ-0013")
     def test_bc16n856M4k_product_switch(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Data Product Switching Time"
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -950,7 +920,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     @aqf_requirements("CBF-REQ-0013")
     def test_bc32n856M4k_product_switch(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Data Product Switching Time"
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -968,7 +937,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     @aqf_requirements("CBF-REQ-0013")
     def test_bc8n856M32k_product_switch(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Data Product Switching Time"
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -987,7 +955,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     @aqf_requirements("CBF-REQ-0013")
     def test_bc16n856M32k_product_switch(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Data Product Switching Time"
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1006,7 +973,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.40')
     @aqf_requirements("CBF-REQ-0013")
     def test_bc32n856M32k_product_switch(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Data Product Switching Time"
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1126,7 +1092,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M4k_delay_rate(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Delay Rate"
         Aqf.procedure(TestProcedure.DelayRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1144,7 +1109,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M4k_delay_rate(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Delay Rate"
         Aqf.procedure(TestProcedure.DelayRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1162,7 +1126,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M4k_delay_rate(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Delay Rate"
         Aqf.procedure(TestProcedure.DelayRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1179,7 +1142,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M32k_delay_rate(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Delay Rate"
         Aqf.procedure(TestProcedure.DelayRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1197,7 +1159,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M32k_delay_rate(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Delay Rate"
         Aqf.procedure(TestProcedure.DelayRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1215,7 +1176,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M32k_delay_rate(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Delay Rate"
         Aqf.procedure(TestProcedure.DelayRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1232,7 +1192,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M4k_fringe_offset(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Offset"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1250,7 +1209,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M4k_fringe_offset(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Offset"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1268,7 +1226,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M4k_fringe_offset(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Offset"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1285,7 +1242,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M32k_fringe_offset(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Offset"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1303,7 +1259,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M32k_fringe_offset(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Offset"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1321,7 +1276,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M32k_fringe_offset(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Offset"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1338,7 +1292,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M4k_fringe_rate(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Rate"
         Aqf.procedure(TestProcedure.FringeOffset)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1356,7 +1309,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M4k_fringe_rate(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Rate"
         Aqf.procedure(TestProcedure.FringeRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1374,7 +1326,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M4k_fringe_rate(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Rate"
         Aqf.procedure(TestProcedure.FringeRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1391,7 +1342,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M32k_fringe_rate(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Rate"
         Aqf.procedure(TestProcedure.FringeRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1409,7 +1359,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M32k_fringe_rate(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Rate"
         Aqf.procedure(TestProcedure.FringeRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1427,7 +1376,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M32k_fringe_rate(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial: Fringe Rate"
         Aqf.procedure(TestProcedure.FringeRate)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1512,7 +1460,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M4k_delay_inputs(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial"
         Aqf.procedure(TestProcedure.DelayInputs)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1530,7 +1477,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M4k_delay_inputs(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial"
         Aqf.procedure(TestProcedure.DelayInputs)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1548,7 +1494,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M4k_delay_inputs(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial"
         Aqf.procedure(TestProcedure.DelayInputs)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1565,7 +1510,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc8n856M32k_delay_inputs(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial"
         Aqf.procedure(TestProcedure.DelayInputs)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1583,7 +1527,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc16n856M32k_delay_inputs(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial"
         Aqf.procedure(TestProcedure.DelayInputs)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1601,7 +1544,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0187", "CBF-REQ-0188", "CBF-REQ-0110", "CBF-REQ-0112")
     @aqf_requirements("CBF-REQ-0128", "CBF-REQ-0077", "CBF-REQ-0072", "CBF-REQ-0066")
     def test_bc32n856M32k_delay_inputs(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Delay Compensation/LO Fringe stopping polynomial"
         Aqf.procedure(TestProcedure.DelayInputs)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1617,7 +1559,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.33')
     @aqf_requirements("CBF-REQ-0120", "CBF-REQ-0213", "CBF-REQ-0223")
     def test_bc8n856M4k_data_product(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Imaging Data Product Set"
         Aqf.procedure(TestProcedure.DataProduct)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1634,7 +1575,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.33', 'TP.C.1.47')
     @aqf_requirements("CBF-REQ-0120", "CBF-REQ-0213", "CBF-REQ-0223")
     def test_bc16n856M4k_data_product(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Imaging Data Product Set"
         Aqf.procedure(TestProcedure.DataProduct)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1651,7 +1591,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.33', 'TP.C.1.47')
     @aqf_requirements("CBF-REQ-0120", "CBF-REQ-0213", "CBF-REQ-0223")
     def test_bc32n856M4k_data_product(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Imaging Data Product Set"
         Aqf.procedure(TestProcedure.DataProduct)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1667,7 +1606,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.33', 'TP.C.1.47')
     @aqf_requirements("CBF-REQ-0120", "CBF-REQ-0213", "CBF-REQ-0223")
     def test_bc8n856M32k_data_product(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Imaging Data Product Set"
         Aqf.procedure(TestProcedure.DataProduct)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1684,7 +1622,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.33', 'TP.C.1.47')
     @aqf_requirements("CBF-REQ-0120", "CBF-REQ-0213", "CBF-REQ-0223")
     def test_bc16n856M32k_data_product(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Imaging Data Product Set"
         Aqf.procedure(TestProcedure.DataProduct)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1701,7 +1638,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.33', 'TP.C.1.47')
     @aqf_requirements("CBF-REQ-0120", "CBF-REQ-0213", "CBF-REQ-0223")
     def test_bc32n856M32k_data_product(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Imaging Data Product Set"
         Aqf.procedure(TestProcedure.DataProduct)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1717,7 +1653,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.29')
     @aqf_requirements("CBF-REQ-0119")
     def test_bc8n856M4k_gain_correction(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Gain Correction"
         Aqf.procedure(TestProcedure.GainCorr)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1734,7 +1669,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.29')
     @aqf_requirements("CBF-REQ-0119")
     def test_bc16n856M4k_gain_correction(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Gain Correction"
         Aqf.procedure(TestProcedure.GainCorr)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1751,7 +1685,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.29')
     @aqf_requirements("CBF-REQ-0119")
     def test_bc32n856M4k_gain_correction(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Gain Correction"
         Aqf.procedure(TestProcedure.GainCorr)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1767,7 +1700,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.29')
     @aqf_requirements("CBF-REQ-0119")
     def test_bc8n856M32k_gain_correction(self, instrument='bc8n856M32k'):
-        self._testMethodName = "CBF Gain Correction"
         Aqf.procedure(TestProcedure.GainCorr)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1784,7 +1716,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.29')
     @aqf_requirements("CBF-REQ-0119")
     def test_bc16n856M32k_gain_correction(self, instrument='bc16n856M32k'):
-        self._testMethodName = "CBF Gain Correction"
         Aqf.procedure(TestProcedure.GainCorr)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1801,7 +1732,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.29')
     @aqf_requirements("CBF-REQ-0119")
     def test_bc32n856M32k_gain_correction(self, instrument='bc32n856M32k'):
-        self._testMethodName = "CBF Gain Correction"
         Aqf.procedure(TestProcedure.GainCorr)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1818,7 +1748,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0117", "CBF-REQ-0094", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0092")
     @aqf_requirements("CBF-REQ-0183")
     def test_bc8n856M4k_beamforming(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Beamformer functionality"
         Aqf.procedure(TestProcedure.Beamformer)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1836,7 +1765,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0117", "CBF-REQ-0094", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0092")
     @aqf_requirements("CBF-REQ-0183")
     def test_bc16n856M4k_beamforming(self, instrument='bc16n856M4k'):
-        self._testMethodName = "CBF Beamformer functionality"
         Aqf.procedure(TestProcedure.Beamformer)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1854,7 +1782,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0117", "CBF-REQ-0094", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0092")
     @aqf_requirements("CBF-REQ-0183")
     def test_bc32n856M4k_beamforming(self, instrument='bc32n856M4k'):
-        self._testMethodName = "CBF Beamformer functionality"
         Aqf.procedure(TestProcedure.Beamformer)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -2027,7 +1954,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.41', 'TP.C.1.43')
     @aqf_requirements("CBF-REQ-0178", "CBF-REQ-0071", "CBF-REQ-0204")
     def test__inclusive_control_init(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Control"
         Aqf.procedure(TestProcedure.Control)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -2044,7 +1970,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.17')
     @aqf_requirements("CBF-REQ-0060", "CBF-REQ-0178", "CBF-REQ-0204")
     def test__inclusive_config_report(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Report Configuration"
         Aqf.procedure(TestProcedure.ReportHWVersion)
         Aqf.procedure(TestProcedure.ReportSWVersion)
         Aqf.procedure(TestProcedure.ReportGitVersion)
@@ -2063,7 +1988,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.18', 'TP.C.1.15')
     @aqf_requirements("CBF-REQ-0157 ")
     def test__inclusive_fault_detection(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Fault Detection"
         _running_inst = which_instrument(self, instrument)
         Aqf.procedure(TestProcedure.TempFaultDetection)
         Aqf.procedure(TestProcedure.MemFaultDetection)
@@ -2098,7 +2022,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0068", "CBF-REQ-0069", "CBF-REQ-0178", "CBF-REQ-0056")
     def test__inclusive_sensor_values(self, instrument='bc8n856M4k'):
         _running_inst = which_instrument(self, instrument)
-        self._testMethodName = "CBF Report Sensor-values"
         Aqf.procedure(TestProcedure.ReportSensorStatus)
         Aqf.procedure(TestProcedure.ReportHostSensor)
         try:
@@ -2119,7 +2042,6 @@ class test_CBF(unittest.TestCase):
     @aqf_vr('TP.C.1.42')
     @aqf_requirements("CBF-REQ-0203")
     def test__inclusive_time_sync(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Time synchronisation"
         Aqf.procedure(TestProcedure.TimeSync)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -2136,7 +2058,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0083", "CBF-REQ-0084", "CBF-REQ-0085", "CBF-REQ-0086")
     @aqf_requirements("CBF-REQ-0221")
     def test__inclusive_small_voltage_buffer(self, instrument='bc8n856M4k'):
-        self._testMethodName = "CBF Voltage Buffer Data Product"
         Aqf.procedure(TestProcedure.VoltageBuffer)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -2377,8 +2298,8 @@ class test_CBF(unittest.TestCase):
             katcp_conn_time = time.time()
             reply, _informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
                                                                  *delay_coefficients, timeout=30)
-            assert reply.reply_ok()
             cmd_end_time = time.time()
+            assert reply.reply_ok()
             actual_delay_coef = reply.arguments[1:]
             try:
                 assert setup_data['num_inputs'] == len(actual_delay_coef)
@@ -3413,7 +3334,6 @@ class test_CBF(unittest.TestCase):
             all_inputs = sorted(set(input_labels))
             zero_inputs = set(input_labels)
             nonzero_inputs = set()
-
             def calc_zero_and_nonzero_baselines(nonzero_inputs):
                 nonzeros = set()
                 zeros = set()
@@ -3467,7 +3387,7 @@ class test_CBF(unittest.TestCase):
                                      # plot_data = [loggerise(test_data[:, i, :])
                                      for i in plot_baseline_inds]
                         plot_filename = '{}/{}_channel_resp_{}.png'.format(self.logs_path,
-                            self._testMethodName, inp)
+                            self._testMethodName.replace(' ', '_'), inp)
 
                         plot_title = ('Baseline Correlation Products on input: {}\n'
                                       'Bls channel response \'Non-Zero\' inputs:\n {}\n'
@@ -4734,6 +4654,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix.stop_x_data()
         self.corr_fix.halt_array
         Aqf.step('Check that SPEAD accumulations are no-longer being produced.')
+        time.sleep(5)
         with ignored(Queue.Empty):
             self.receiver.get_clean_dump(discard=0)
             self.corr_fix.halt_array

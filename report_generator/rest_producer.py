@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# https://stackoverflow.com/a/44077346
 ###############################################################################
 # SKA South Africa (http://ska.ac.za/)                                        #
 # Author: cam@ska.ac.za                                                       #

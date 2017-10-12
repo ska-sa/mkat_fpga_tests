@@ -93,7 +93,7 @@ class PowerLogger(threading.Thread):
         self._conn_retry = conn_retry
         self.start_timestamp = None
         self.log_file_name = 'pdu_log.csv'
-        self.logger.info('PDUs logged: %s' %(pdu_names))
+        self.logger.info('PDUs logged: %s' % (pdu_names))
 
     def stop(self):
         self._stop.set()
@@ -102,13 +102,13 @@ class PowerLogger(threading.Thread):
         return self._stop.isSet()
 
     def run(self):
-        self.logger.info('Starting power_logger %s' %self.name)
+        self.logger.info('Starting power_logger %s' % self.name)
         try:
             self.write_pdu_log()
         except:
             self.logger.info('Stopping power_logger %s' % self.name)
             raise
-        self.logger.info('Stopping power_logger %s' %self.name)
+        self.logger.info('Stopping power_logger %s' % self.name)
 
     def open_telnet_conn(self, host, port=23, timeout=60):
         try:
@@ -118,11 +118,11 @@ class PowerLogger(threading.Thread):
             raise
         else:
             try:
-                _None = telnet_handle.read_until('User Name :', timeout=timeout)
+                telnet_handle.read_until('User Name :', timeout=timeout)
                 telnet_handle.write(self._pdu_username + '\r\n')
-                _None = telnet_handle.read_until('Password  :', timeout=timeout)
+                telnet_handle.read_until('Password  :', timeout=timeout)
                 telnet_handle.write(self._pdu_password + '\r\n')
-                _None = telnet_handle.read_until('apc>', timeout=timeout)
+                telnet_handle.read_until('apc>', timeout=timeout)
                 self.logger.debug('Connection to {} successful.'.format(host))
                 return telnet_handle
             except Exception:
@@ -211,7 +211,7 @@ class PowerLogger(threading.Thread):
                         power = self.read_from_pdu(th, self.REQ_PWR)
                         current = self.read_from_pdu(th, self.REQ_CRNT)
                         data = [power[0], th.host, current[1], power[1]]
-                        if self.start_timestamp == None:
+                        if self.start_timestamp is None:
                             self.start_timestamp = power[0]
                         csv_writer.writerow(data)
                         csvfile.flush()

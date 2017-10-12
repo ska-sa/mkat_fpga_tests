@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# https://stackoverflow.com/a/44077346
 """
 Read a CORE XML backup file and return a JSON file.
 

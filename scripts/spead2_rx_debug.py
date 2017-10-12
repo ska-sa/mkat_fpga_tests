@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import os
 import logging
 import time
@@ -60,13 +59,13 @@ capture_start = True
 #x = correlator.xhosts[0]
 if capture_start:
     print 'c856M4k Capture start'
-    fab.local("kcpcmd -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-start baseline-correlation-products")
+    fab.local("kcpcmd -t 60 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-start baseline-correlation-products")
     print '\n\n'
 
     @atexit.register
     def Cleanup():
         print 'c856M4k Capture stop'
-        fab.local("kcpcmd -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-stop baseline-correlation-products")
+        fab.local("kcpcmd -t 60 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-stop baseline-correlation-products")
         print '\n\n'
 try:
     receiver = CorrRx(port=8888, queue_size=5)

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Start a correlator. It is recommended to do this via corr2_servlet instead!
 

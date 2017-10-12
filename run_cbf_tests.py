@@ -1,5 +1,5 @@
-#!/usr/bin/env python2.7
-
+#!/usr/bin/env python
+# https://stackoverflow.com/a/44077346
 ###############################################################################
 # SKA South Africa (http://ska.ac.za/)                                        #
 # Author: cbf@ska.ac.za                                                       #
@@ -21,6 +21,7 @@ import report_generator
 import sh
 import subprocess
 import sys
+import threading
 import time
 
 from optparse import OptionParser
@@ -64,12 +65,25 @@ def option_parser():
                       help="Will only run test marked '@site_acceptance' or "
                            " if in the Karoo(site) then also @site_only tests")
 
+    parser.add_option("--instrument-activate",
+                      dest="instrument_activate",
+                      action="store_true",
+                      default=False,
+                      help=("""launch an instrument. eg:
+                            ./run_cbf_tests.py -v --instrument-activate --4A4k"""))
+
     parser.add_option("--dry_run",
                       dest="dry_run",
                       action="store_true",
                       default=False,
                       help="Do a dry run. Print commands that would be called as well as generate"
                            "test procedures")
+
+    parser.add_option("--available-tests",
+                      dest="available-tests",
+                      action="store_true",
+                      default=False,
+                      help="Do a dry run. Print all tests available")
 
     parser.add_option("--4A4k",
                       action="store_const",
@@ -180,7 +194,6 @@ def option_parser():
         sys.exit(1)
     return cmd_options, cmd_args
 
-
 def run_command(settings, log_func, cmd, log_filename=None, stdout=False, stderr=False, shell=False):
     if log_filename is False:
         log_filename = '/dev/null'
@@ -191,13 +204,21 @@ def run_command(settings, log_func, cmd, log_filename=None, stdout=False, stderr
         if '/usr/local/bin/nosetests' in cmd:
             for item in range(len(cmd)):
                 if cmd[item].startswith("-A"):
-                    break
-            cmd[item] = cmd[item].replace('-A(', '-A"(') + '"'
+                    # break
+                    cmd[item] = cmd[item].replace('-A(', '-A"(') + '"'
+        else:
+            raise RuntimeError('nose is not installed.')
 
     if settings.get('dry_run'):
         # Just print the command
         log_func('INFO', *cmd)
         os.environ['DRY_RUN'] = 'True'
+
+    if settings.get('available-tests'):
+        # nosetests -vv collect-only
+        if cmd[0].endswith('nosetests'):
+            cmd.insert(1, '--collect-only')
+            log_func('INFO', *cmd)
 
     if log_filename and not stdout and not stderr:
         with open(log_filename, 'w') as fh:
@@ -216,7 +237,8 @@ def run_command(settings, log_func, cmd, log_filename=None, stdout=False, stderr
                 return subprocess.call(cmd, **kwargs_cmd)
         except KeyboardInterrupt as e:
             kill_pid('nosetests')
-            log_func("ERROR", "Test closed prematurely, and process has since been killed")
+            msg = "Test closed prematurely, and process has since been killed"
+            raise RuntimeError(msg)
 
 
 def run_command_output(settings, log_func, cmd):
@@ -233,14 +255,56 @@ def run_command_output(settings, log_func, cmd):
             return ''
 
 
+class RunCmdTimeout(threading.Thread):
+    def __init__(self, settings, log_func, cmd, timeout):
+        """
+        Run a command with timeout
+        """
+        threading.Thread.__init__(self)
+        self.cmd = cmd
+        self.timeout = timeout
+
+    def run(self):
+        if settings.get('dry_run'):
+            log_func('INFO', *cmd)
+            return ''
+        else:
+            try:
+                if settings['verbose']:
+                    self.p = subprocess.Popen(self.cmd)
+                else:
+                    self.p = subprocess.Popen(self.cmd, stdout=open('/dev/null', 'a'),
+                        stderr=subprocess.PIPE)
+                self.p.wait()
+            except OSError:
+                log_func('ERROR', 'OSError: Failed to execute command')
+                return ''
+
+    def run_the_process(self):
+        try:
+            self.start()
+            self.join(self.timeout)
+        except KeyboardInterrupt:
+            log_func('ERROR', 'KeyboardInterrupt')
+        if self.is_alive():
+            self.p.terminate()
+            self.join()
+            return self.p.returncode
+        else:
+            try:
+                return self.p.returncode
+            except Exception:
+                log_func('ERROR', 'Failed to execute command')
+                return
+
+
 def do_dev_update(settings, log_func):
     """Do a code update and install."""
     log_func("DEBUG", "Will perform a Python package update")
     os.chdir(settings.get('me_dir'))
     _pip = sh.which('pip')
     run_command(settings, log_func, [_pip, 'install', '-U', 'pip'])
-    run_command(settings, log_func, [_pip, 'install', '-r', 'pip-requirements.txt'])
-
+    run_command(settings, log_func, [_pip, 'install', '-U', '-r', 'pip-requirements.txt'])
 
 def get_system_info():
     _system = os.uname()
@@ -260,7 +324,6 @@ def get_system_info():
     system['system_type'] = system.get('systype')
     return system
 
-
 def process_core_data(settings, log_func):
     """Process the CORE XML file if JSON file is not there or old."""
 
@@ -273,11 +336,9 @@ def process_core_data(settings, log_func):
     if 'tmp_core_dir' not in settings:
         settings['tmp_core_dir'] = temp_core_export
     if 'xml_file' not in settings:
-        settings['xml_file'] = os.path.join(settings['tmp_core_dir'],
-                                            "svn/MeerKAT.xml")
+        settings['xml_file'] = os.path.join(settings['tmp_core_dir'], "svn/MeerKAT.xml")
     if 'json_file' not in settings:
-        settings['json_file'] = os.path.join(settings['tmp_core_dir'],
-                                             "M.json")
+        settings['json_file'] = os.path.join(settings['tmp_core_dir'], "M.json")
     settings['xml_mtime'] = 0
     settings['json_mtime'] = 0
     settings['use_core_json'] = False
@@ -291,9 +352,9 @@ def process_core_data(settings, log_func):
         settings['xml_file'] = core_supplemental_dir
         assert os.path.exists(core_supplemental_dir)
     except AssertionError as e:
-        log_func('WARNING', 'CORE.xml does not exist in directory: %s' %core_supplemental_dir)
-        core_backup = '/usr/local/src/core_export/'
-        log_func('INFO', 'Retrieving CORE.xml from backup dir: %s'%core_backup)
+        log_func('WARNING', 'CORE.xml does not exist in directory: %s' % core_supplemental_dir)
+        core_backup = settings.get('core_backup')
+        log_func('INFO', 'Retrieving CORE.xml from backup dir: %s' % core_backup)
         if os.path.exists(core_backup):
             latest_core_xml = max(glob.iglob(os.path.join(core_backup ,'*.[Xx][Mm][Ll]')),
                 key=os.path.getctime)
@@ -315,13 +376,12 @@ def process_core_data(settings, log_func):
             settings['json_mtime'] < settings['xml_mtime']):
         log_func("Process: XML -> JSON")
         if not settings.get('dry_run'):
-            process_xml_to_json(settings['xml_file'], settings['json_file'],
-                                verbose=True, log_func=log_func)
+            process_xml_to_json(settings['xml_file'], settings['json_file'], verbose=True,
+                log_func=log_func)
     else:
-        log_func("JSON File is uptodate")
+        log_func("JSON File is up-to-date")
     if os.path.isfile(settings['json_file']):
         settings['use_core_json'] = True
-
 
 def create_log_func(settings):
     """Return the log function.
@@ -355,7 +415,6 @@ def create_log_func(settings):
         allowed_levels.pop()
     return __log_func
 
-
 def generate_html_sphinx_docs(settings, log_func):
     os.chdir(settings['base_dir'])
     log_file = '/dev/null'
@@ -365,7 +424,7 @@ def generate_html_sphinx_docs(settings, log_func):
     except AssertionError:
         pass
     else:
-        log_func("INFO", "Generating PDF document from rst files")
+        log_func("INFO", "Generating HTML document from rst files")
         if settings['verbose']:
             status = run_command(settings, log_func, cmd)
         else:
@@ -395,7 +454,7 @@ def generate_html_sphinx_docs(settings, log_func):
         katreport_dir = settings["katreport_dir"]
         # Make run_tests directory
         dirName = 'CBF_Tests_Reports'
-        log_func("INFO", "mkdir ../%s"%dirName)
+        log_func("INFO", "Creating directory ../%s"%dirName)
         cmd = ['mkdir', '-p', '../%s'%dirName]
         status = run_command(settings, log_func, cmd, log_file)
         if status:
@@ -444,7 +503,7 @@ def run_nose_test(settings, log_func):
         cmd.append("--katreport-requirements=%s" % settings['json_file'])
 
     # Build the nosetests filter.
-    condition = {'OR': ['aqf_system_all', 'aqf_generic_test'], 'AND': []}
+    condition = {'OR': ['aqf_system_all'], 'AND': []}
     # if settings.get('system_type'):
     #     # Include tests for this system type.
     #     condition['OR'].append("aqf_system_%s" % settings['system_type'])
@@ -495,7 +554,7 @@ def run_nose_test(settings, log_func):
 
     if not settings.get('slow_test'):
         condition['AND'].append("not aqf_slow")
-
+    # , 'aqf_generic_test'
     # Mix OR with AND
     condition['or_str'] = ' or '.join(condition['OR'])
     if condition['AND'] and condition['or_str']:
@@ -513,6 +572,7 @@ def run_nose_test(settings, log_func):
         cmd.append('-A(%s)' % ' and '.join(condition['AND']))
     elif condition['or_str']:
         cmd.append('-A(%s)' % condition['or_str'])
+    cmd.append('-A(%s)' % 'aqf_generic_test')
 
     katreport_control = []
     if settings.get('jenkins'):
@@ -548,8 +608,7 @@ def run_nose_test(settings, log_func):
 
     # Let the output log be written into the katreport_dir
     cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
-    run_command(settings, log_func, cmd, shell=True)
-
+    return run_command(settings, log_func, cmd, shell=True)
 
 def _downloadfile(url, filename, log_func):
     from urllib2 import urlopen, HTTPError
@@ -565,21 +624,27 @@ def _downloadfile(url, filename, log_func):
 
 def get_filename(what, settings):
     katreport_dir = settings["katreport_dir"]
-    files = {'test': os.path.join(settings['me_dir'],
+    files = {
+                'test': os.path.join(settings['me_dir'],
                                   '{}/katreport.json'.format(katreport_dir)),
-             'system': os.path.join(settings['me_dir'],
+                'system': os.path.join(settings['me_dir'],
                                     '{}/katreport_system.json'.format(katreport_dir)),
-             'core': settings.get('json_file', '')}
+                'core': settings.get('json_file', '')
+             }
     return files.get(what, None)
 
 def generate_report(settings, log_func):
     report_type = settings['report'].lower()
     katreport_dir = settings["katreport_dir"]
-    files = {'test': get_filename('test', settings),
-             'system': get_filename('system', settings),
-             'core': get_filename('core', settings)}
-    urls_for_jenkins = {'test': "katreport.json",
-                        'system': "katreport_system.json"}
+    files = {
+                'test': get_filename('test', settings),
+                'system': get_filename('system', settings),
+                'core': get_filename('core', settings)
+            }
+    urls_for_jenkins = {
+                            'test': "katreport.json",
+                            'system': "katreport_system.json"
+                        }
 
     # TODO(MS) Get this from the command line so that it can be passed in for
     # each different document generation.
@@ -680,9 +745,9 @@ def show_test_results(settings, log_func):
 def do_cleanup(settings, log_func):
     """Run make clean and remove previous run."""
     katreport_dir = settings["katreport_dir"]
-    log_func('INFO', 'Remove HTML files and results from previous tests from {}'.format(katreport_dir))
+    log_func('INFO', 'Remove HTML files and results from previous tests from %s' % katreport_dir)
     os.chdir(settings.get('me_dir'))
-    var = raw_input("Are you sure you want to delete contents in %s: "%katreport_dir)
+    var = raw_input("Are you sure you want to delete contents in %s:" % katreport_dir)
     if var == ('y' or 'Y'):
         run_command(settings, log_func, ['make', 'clean'])
         run_command(settings, log_func, ['rm', '-rf', katreport_dir])
@@ -693,13 +758,26 @@ def do_cleanup(settings, log_func):
     else:
         sys.exit(1)
 
-
 def gather_system_settings(settings, log_func):
     """Get information of the system we are running on."""
+    try:
+        from getpass import getuser
+        get_username = getuser()
+    except OSError:
+        import pwd
+        get_username = pwd.getpwuid(os.getuid()).pw_name
+
     katreport_dir = settings["katreport_dir"]
     filename = os.path.join(settings['me_dir'], katreport_dir,
                             'katreport_system.json')
-    data = {'pip_version': {}, 'dpkg_version': {}, 'vcs_version': {}}
+    data = {
+                'pip_version':  {
+                                },
+                'dpkg_version': {
+                                },
+                'vcs_version':  {
+                                }
+            }
 
     for item in ['nodetype', 'site', 'systype',
                  'system_type', 'system_location']:
@@ -723,6 +801,7 @@ def gather_system_settings(settings, log_func):
 
     data['dist'] = platform.dist()
     data['uname'] = os.uname()
+    data['username'] = get_username
     data['environment'] = os.environ
     data['environment'] = dict([(i, str(data['environment'].get(i, '')))
                                 for i in data['environment']])
@@ -730,28 +809,44 @@ def gather_system_settings(settings, log_func):
         run_command_output(settings, log_func, ['ip', '-f', 'inet', 'addr']))
     # Here we define the labels that katreport will use. Dont want katreport
     # to have to much knowledge of this file.
-    data['Labels'] = {'pip_version': {'label': 'Python Modules',
-                                      'description': 'Versions of python '
-                                      'modules managed by pip. This data was '
-                                      'obtained by running "pip freeze."'},
-                      'vcs_version': {'label': 'Versions from VCS',
-                                      'description': 'Output from '
-                                                     'kat-versioncontrol.py'},
-                      'dpkg_version': {'label': 'Installed Software',
-                                       'description': 'Versions of software '
-                                       'installed on this system.'},
-                      'dist': {'label': 'OS Distribution',
-                               'description': 'Distribution of the '
-                               'Operating System'},
-                      'uname': {'label': 'Uname',
-                                'description': 'Output of the uname command'},
-                      'ip_addresses': {'label': 'IP Adresses',
-                                       'description': 'IP Adresses of the '
-                                       'system test was ran on'}}
+    data['Labels'] = {
+                        'pip_version': {
+                                            'label': 'Python Modules',
+                                            'description': 'Versions of python '
+                                            'modules managed by pip. This data was '
+                                            'obtained by running "pip freeze."'
+                                        },
+                        'vcs_version': {
+                                            'label': 'Versions from VCS',
+                                            'description': 'Output from '
+                                            'kat-versioncontrol.py'
+                                        },
+                        'dpkg_version': {
+                                            'label': 'Installed Software',
+                                            'description': 'Versions of software '
+                                            'installed on this system.'
+                                        },
+                        'dist':         {
+                                            'label': 'OS Distribution',
+                                            'description': 'Distribution of the '
+                                            'Operating System'
+                                        },
+                        'uname':        {
+                                            'label': 'Uname',
+                                            'description': 'Output of the uname command'},
+                                            'ip_addresses': {
+                                                                'label': 'IP Adresses',
+                                                                'description': 'IP Adresses of the '
+                                                                'system test was ran on'
+                                                            }
+                    }
     with open(filename, 'w') as fh:
         fh.write(json.dumps(data, indent=4))
 
 def verify_dependecies(module_name, log_func):
+    """
+    Check if all module dependencies are satisfied.
+    """
     try:
         _None, _module_loc, _None = __import__('imp').find_module(module_name)
         log_func("DEBUG", "%s has been installed, and can be located in %s"%(module_name, _module_loc))
@@ -785,6 +880,19 @@ def plot_backend(_filename, oldcontent, newcontent):
         except Exception:
             pass
 
+def PyCompile(settings, log_func):
+    """
+    Compile python file, if encounter errors exit.
+    """
+    try:
+        log_func('DEBUG', 'Compiling a source file (%s) to byte-code' % settings['tests'])
+        py_compile.compile(settings['tests'], doraise=True)
+    except Exception, e:
+        log_func('ERROR', str(e))
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     options, args = option_parser()
     plot_backend('matplotlibrc', 'TKagg', 'agg')
@@ -803,7 +911,8 @@ if __name__ == "__main__":
     settings['src_dir'], settings['test_dir'] = os.path.split(settings['me_dir'])
     if not (settings['test_dir'] == 'mkat_fpga_tests'):
         settings['test_dir'] = 'mkat_fpga_tests'
-
+    settings['core_backup'] = '/usr/local/src/core_export/'
+    settings['scripts'] = '/'.join([settings['me_dir'], 'scripts'])
     test_class = 'test_CBF'
     settings['tests_class'] = test_class
     try:
@@ -812,8 +921,7 @@ if __name__ == "__main__":
             key=os.path.getctime)
         settings['tests'] = test_file
     except Exception:
-        settings['tests'] = os.path.join(settings['me_dir'], settings['test_dir'],
-          'test_cbf.py')
+        settings['tests'] = os.path.join(settings['me_dir'], settings['test_dir'], 'test_cbf.py')
 
     if settings["site_acceptance"]:
         settings['katreport_dir'] = "katreport_acceptance"
@@ -853,11 +961,23 @@ if __name__ == "__main__":
     # Do the different steps.
     log_func = create_log_func(settings)
 
-    try:
-        py_compile.compile(settings['tests'], doraise=True)
-    except Exception, e:
-        log_func('ERROR', str(e))
-        sys.exit(1)
+    if os.path.exists(settings.get('scripts')):
+        cmdPath = ''.join([i for i in glob.glob('scripts/*') if 'instrument_activate' in i])
+        if settings['mode'] and settings['instrument_activate'] and os.path.isfile(cmdPath):
+            cmd = ['bash', 'scripts/instrument_activate', settings.get('mode')]
+            # Allow instrument to be activated in 200 seconds
+            timeout = 200
+            initInstrument = RunCmdTimeout(settings, log_func, cmd, timeout)
+            initInstrument.daemon = True
+            status = initInstrument.run_the_process()
+            if status is 0:
+                log_func('INFO', 'Instrument %s activated ok!'%settings.get('mode'))
+            else:
+                msg = 'Failed to initialise %s instrument!'%settings.get('mode')
+                log_func('ERROR', msg)
+                raise RuntimeError(msg)
+
+    PyCompile(settings, log_func)
 
     if settings.get('dev_update'):
         do_dev_update(settings, log_func)
@@ -887,19 +1007,21 @@ if __name__ == "__main__":
             print key,":",settings[key]
         print "=========================="
 
+    condition = (((settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run'))
+                and not settings.get('cleanup')))
     # if (settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run')):
-    if ((settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run')) \
-        and not settings.get('cleanup')):
-        run_nose_test(settings, log_func)
-    if settings['report'] in ['results']:
-        show_test_results(settings, log_func)
-    elif settings['report'] not in ['skip']:
-        try:
-            generate_report(settings, log_func)
-            if settings['gen_html'] or settings['gen_pdf']:
-                log_func('DEBUG', 'Generating report from files')
-                generate_html_sphinx_docs(settings, log_func)
-        except Exception as e:
-            log_func("ERROR", "Experienced some issues: %s" % sys.exc_info()[0])
+    if condition:
+        state = run_nose_test(settings, log_func)
+        if state is 0:
+            if settings['report'] in ['results']:
+                show_test_results(settings, log_func)
+            elif settings['report'] not in ['skip']:
+                try:
+                    generate_report(settings, log_func)
+                    if settings['gen_html'] or settings['gen_pdf']:
+                        log_func('DEBUG', 'Generating report from files')
+                        generate_html_sphinx_docs(settings, log_func)
+                except Exception as e:
+                    log_func("ERROR", "Experienced some issues: %s" % sys.exc_info()[0])
 
 

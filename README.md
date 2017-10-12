@@ -69,33 +69,37 @@ Usage:
         
 
 Options:
-  -h, --help        show this help message and exit
-  -v, --verbose     Be more verbose
-  -q, --quiet       Be more quiet
-  --nose=NOSE_ARGS  Additional arguments to pass on to nosetests.
-                    eg: --nosetests "-x -s -v"
-  --acceptance      Will only run test marked '@site_acceptance' or  if in the
-                    Karoo(site) then also @site_only tests
-  --dry_run         Do a dry run. Print commands that would be called
-  --4A4k            Run the tests decorated with @instrument_bc8n856M4k
-  --4A32k           Run the tests decorated with @instrument_bc8n856M32k
-  --8A4k            Run the tests decorated with @instrument_bc16n856M4
-  --8A32k           Run the tests decorated with @instrument_bc16n856M32k
-  --16A4k           Run the tests decorated with @instrument_bc32n856M4k
-  --16A32k          Run the tests decorated with @instrument_bc32n856M32k
-  --quick           Only generate a small subset of the reports
-  --no_html         Do not generate the html output
-  --no_slow         Exclude tests decorated with @slow in this test run
-  --report=REPORT   Only generate the reports. No tests will be run. Valid
-                    options are: local, jenkins, skip and results. 'results'
-                    will print the katreport[_accept].json test results
-  --clean           Cleanup reports from previous test run. Reports
-                    are replaced by default without --clean. Clean is
-                    useful with --quick to only generate the html of the
-                    test run report
-  --dev_update      Do pip install update and install latest packages
-
-
+  -h, --help            show this help message and exit
+  -v, --verbose         Be more verbose
+  -q, --quiet           Be more quiet
+  --nose=NOSE_ARGS      Additional arguments to pass on to nosetests.
+                        eg: --nosetests "-x -s -v"
+  --acceptance          Will only run test marked '@site_acceptance' or  if in
+                        the Karoo(site) then also @site_only tests
+  --instrument-activate
+                        launch an instrument. eg:
+                        ./run_cbf_tests.py -v --instrument-activate --4A4k
+  --dry_run             Do a dry run. Print commands that would be called as
+                        well as generatetest procedures
+  --4A4k                Run the tests decorated with @instrument_bc8n856M4k
+  --4A32k               Run the tests decorated with @instrument_bc8n856M32k
+  --8A4k                Run the tests decorated with @instrument_bc16n856M4
+  --8A32k               Run the tests decorated with @instrument_bc16n856M32k
+  --16A4k               Run the tests decorated with @instrument_bc32n856M4k
+  --16A32k              Run the tests decorated with @instrument_bc32n856M32k
+  --quick               Only generate a small subset of the reports
+  --no_html             Do not generate the html output
+  --with_pdf            Generate PDF report output
+  --no_slow             Exclude tests decorated with @slow in this test run
+  --report=REPORT       Only generate the reports. No tests will be run. Valid
+                        options are: local, jenkins, skip and results.
+                        'results' will print the katreport[_accept].json test
+                        results
+  --clean               Cleanup reports from previous test run. Reports
+                        are replaced by default without --clean. Clean is
+                        useful with --quick to only generate the html of the
+                        test run report
+  --dev_update          Do pip install update and install latest packages
 ```
 
 

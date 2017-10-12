@@ -7,13 +7,14 @@ if [ -z "$*" ];
     INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)
     RESTART_CMC: [y]/n
     START_DSIM: [y]/n (If not restarted hosts will not be deprogrammed)
-    INSTRUMENT_OPTS: 1011 (Default) / Inststrument activate options, 1=enable, 0=disable [program, calibrate qdr, require synchronisation epoch, monitor vector accumulators] 
+    INSTRUMENT_OPTS: 1011 (Default) / Inststrument activate options, 1=enable, 0=disable [program, calibrate qdr, require synchronisation epoch, monitor vector accumulators]
     KATCP_HOST_IP: localhost (Default) / IP
-    CONF_PATH: /etc/corr/templates/ (Default)"\n
+    CONF_PATH: /etc/corr/templates/ (Default)"
     exit 1;
 fi
 
 export TERM=xterm
+PATH=/usr/local/sbin:/usr/local/bin:$PATH
 
 BLACK=$(tput setaf 0)
 RED=$(tput setaf 1)
@@ -46,6 +47,7 @@ CONF_PATH=${CONF_PATH}${INSTRUMENT}
 VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
 HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
 DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
+KCPCMD=/usr/local/bin/kcpcmd
 
 if [ $RESTART_CMC == y ]; then
     sudo /etc/init.d/cmc stop
@@ -76,8 +78,12 @@ if [ $START_DSIM == y ]; then
     else
         printf "${RED}Failed to deprogram ${NORMAL}\n\n";
     fi
-    /usr/local/bin/stop-pseudo-dmc || true;
-    sleep 2;
+    StopDMC="/usr/local/bin/stop-pseudo-dmc";
+    if [ -x "$(command -v $StopDMC)" ]; then
+        $StopDMC || $KCPCMD -t 30 -s localhost:9010 halt
+    fi
+
+    sleep 5;
     DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
     /usr/local/bin/start-pseudo-dmc $DSIM;
     printf '';
@@ -89,15 +95,15 @@ fi
 printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n";
 while true;
     do printf '';
-    /usr/local/bin/kcpcmd -t 31 -s ${MACHINE_IP}:7147 subordinate-halt array0  || true;
+    $KCPCMD -t 31 -s ${MACHINE_IP}:7147 subordinate-halt array0  || true;
     sleep 0.5;
-    ARRAY=$(/usr/local/bin/kcpcmd -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3);
+    ARRAY=$($KCPCMD -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3);
     printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n";
-    SYNC_EPOCH=$(/usr/local/bin/kcpcmd -s ${MACHINE_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 6 -d' ');
+    SYNC_EPOCH=$($KCPCMD -s ${MACHINE_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 6 -d' ');
     SYNC_TIME=$(date -d @$SYNC_EPOCH)
     printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n";
     sleep 0.5;
-    kcpcmd -t 500 -s $MACHINE_IP:$ARRAY instrument-activate $INSTRUMENT $PROG $CALQDR $REPOCH $MVACC && break;
+    $KCPCMD -t 500 -s $MACHINE_IP:$ARRAY instrument-activate $INSTRUMENT $PROG $CALQDR $REPOCH $MVACC && break;
     sleep 2;
 done
 

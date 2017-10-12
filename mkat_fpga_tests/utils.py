@@ -16,11 +16,7 @@ import time
 import warnings
 import subprocess
 
-from casperfpga.utils import threaded_fpga_function
-from casperfpga.utils import threaded_fpga_operation
-from collections import defaultdict
 from collections import Mapping
-from corr2.data_stream import StreamAddress
 from concurrent.futures import TimeoutError
 from Crypto.Cipher import AES
 from getpass import getuser as getusername
@@ -1025,7 +1021,7 @@ def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
         Aqf.end(traceback=True)
 
 
-def who_ran_test():
+def executed_by():
     """Get who ran the test."""
     try:
         user = pwd.getpwuid(os.getuid()).pw_name
@@ -1592,3 +1588,12 @@ def set_beam_quant_gain(self, beam, gain):
         Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
         return 0
     return actual_beam_gain
+
+
+class DictEval(object):
+    """
+     load variables in a dict into namespace
+    """
+    # Alt use (Not ideal): locals().update(adict)
+    def __init__(self, adict):
+        self.__dict__.update(adict)

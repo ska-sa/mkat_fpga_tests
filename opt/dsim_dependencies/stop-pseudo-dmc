@@ -1,4 +1,6 @@
 #!/bin/bash
 
+PATH=/usr/local/sbin:/usr/local/bin:$PATH
+
 kcpcmd -s localhost:9010 halt
 

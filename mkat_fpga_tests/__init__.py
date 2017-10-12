@@ -208,7 +208,7 @@ class CorrelatorFixture(object):
                         self.correlator.initialise(program=False)
                         return self._correlator
                     except KatcpRequestFail as e:
-                        LOGGER.exception('Did not get a response from roach/host: %s'%str(e))
+                        LOGGER.exception('Did not get a response from roach/host: %s' %str(e))
                         continue
                     except Exception as e:
                         LOGGER.exception('Failed to create new correlator instance with error: %s, '
@@ -350,7 +350,7 @@ class CorrelatorFixture(object):
                 self._katcp_rct.until_synced(timeout=_timeout)
             except Exception as e:
                 self._katcp_rct.stop()
-                LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
+                LOGGER.exception('Failed to connect to katcp due to %s' %str(e))
             LOGGER.info('Cleanup function \'self._katcp_rct\': File: %s line: %s' % (
                 getframeinfo(currentframe()).filename.split('/')[-1],
                 getframeinfo(currentframe()).lineno))
@@ -362,7 +362,7 @@ class CorrelatorFixture(object):
                 self._katcp_rct.until_synced(timeout=_timeout)
             except Exception as e:
                 self._katcp_rct.stop()
-                LOGGER.exception('Failed to connect to katcp due to %s'%str(e))
+                LOGGER.exception('Failed to connect to katcp due to %s' %str(e))
         return self._katcp_rct
 
     @property
@@ -401,7 +401,7 @@ class CorrelatorFixture(object):
         try:
             reply, informs = self.katcp_rct.req.capture_start(self.product_name)
             assert reply.reply_ok()
-            LOGGER.info('%s' % str(reply))
+            LOGGER.info(' %s' % str(reply))
             Aqf.progress(str(reply)+'\n')
             return True
         except Exception:
@@ -418,7 +418,7 @@ class CorrelatorFixture(object):
                               resource_client.ThreadSafeKATCPClientResourceWrapper)
             reply, informs = self.katcp_rct.req.capture_stop(self.product_name, timeout=_timeout)
             assert reply.reply_ok()
-            LOGGER.info('%s' %str(reply))
+            LOGGER.info(' %s' %str(reply))
             Aqf.progress(str(reply))
             return True
         except Exception:
@@ -468,19 +468,19 @@ class CorrelatorFixture(object):
         """
         self.instrument = instrument
         if force_reinit:
-            LOGGER.info('Forcing an instrument(%s) re-initialisation'%self.instrument)
+            LOGGER.info('Forcing an instrument(%s) re-initialisation' %self.instrument)
             corr_success = self.start_correlator(self.instrument, **kwargs)
             return corr_success
 
         success = False
         while retries and not success:
             check_ins = self.check_instrument(self.instrument)
-            msg = 'Retries left to check instrument: %s'%retries
+            msg = 'Retries left to check instrument: %s' %retries
             LOGGER.info(msg)
             if check_ins is True:
                 success = True
                 LOGGER.info('Return true if named instrument is enabled on correlator array after '
-                        '%s retries' %retries)
+                        ' %s retries' %retries)
                 return success
             retries -= 1
 
@@ -544,7 +544,7 @@ class CorrelatorFixture(object):
                 LOGGER.exception('Instrument state could not be retrieved from the sensors')
                 return False
             except AssertionError:
-                LOGGER.error('%s: Seems like the might be no current running instrument'%str(reply))
+                LOGGER.error(' %s: Seems like the might be no current running instrument' %str(reply))
                 return False
 
             else:
@@ -563,6 +563,7 @@ class CorrelatorFixture(object):
         return: List
         """
         try:
+            # ToDo (MM) 06-10-2017 Hardcoded array, fix it
             running_instr = max(glob.iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]
             self.array_name, self.instrument = running_instr.split('-')
             if (self.instrument.startswith('bc') or self.instrument.startswith('c')) and \
@@ -665,7 +666,7 @@ class CorrelatorFixture(object):
         def confirm_multicast_subs(mul_ip='239.100.0.10'):
             """"""
             # or use [netstat -g | grep eth2]
-            list_inets = subprocess.check_output(['ip','maddr','show'])
+            list_inets = subprocess.check_output(['ip', 'maddr', 'show'])
             return True if mul_ip in list_inets else False
 
         outputIPs = {}
@@ -709,10 +710,9 @@ class CorrelatorFixture(object):
         return confirm_multicast_subs(mul_ip=str(_address))
 
     def start_correlator(self, instrument=None, retries=10):
-        LOGGER.debug('CBF instrument(%s) re-initialisation.'%instrument)
+        LOGGER.debug('CBF instrument(%s) re-initialisation.' %instrument)
         success = False
         self.katcp_array_port = None
-        retries_requested = retries
         if instrument is not None:
             self.instrument = instrument
         self._correlator = None  # Invalidate cached correlator instance
@@ -845,8 +845,8 @@ class CorrelatorFixture(object):
                 self._correlator = None
             except:
                 self.halt_array
-                LOGGER.critical('Could not successfully start correlator within %s retries' % (
-                    retries_requested))
+                msg = ('Could not successfully start correlator within %s retries' % (retries))
+                LOGGER.critical(msg)
                 return False
             return False
 
