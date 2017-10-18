@@ -881,7 +881,7 @@ def retryloop(attempts, timeout):
             return
         if starttime + timeout < time.time():
             break
-    raise RetryError
+    raise RetryError('Failed to after %s attempts' % attempts)
 
 
 def clear_host_status(self, timeout=60):

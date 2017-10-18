@@ -66,7 +66,6 @@ Usage:
         Usage: run_cbf_tests.py [options]
         This script auto executes CBF Tests with selected arguments.
         See Help for more information.
-        
 
 Options:
   -h, --help            show this help message and exit
@@ -81,6 +80,7 @@ Options:
                         ./run_cbf_tests.py -v --instrument-activate --4A4k
   --dry_run             Do a dry run. Print commands that would be called as
                         well as generatetest procedures
+  --available-tests     Do a dry run. Print all tests available
   --4A4k                Run the tests decorated with @instrument_bc8n856M4k
   --4A32k               Run the tests decorated with @instrument_bc8n856M32k
   --8A4k                Run the tests decorated with @instrument_bc16n856M4
@@ -101,6 +101,14 @@ Options:
                         test run report
   --dev_update          Do pip install update and install latest packages
 ```
+
+## Testing Philosophy 
+
+1. Test the common case of everything you can. This will tell you when that code breaks after you make some change (which is, in my opinion, the single greatest benefit of automated unit testing).
+2. Test the edge cases of a few unusually complex code that you think will probably have errors.
+3. Whenever you find a bug, write a test case to cover it before fixing it
+4. Add edge-case tests to less critical code whenever someone has time to kil
+Credit: https://softwareengineering.stackexchange.com/a/754
 
 
 ## Contributors

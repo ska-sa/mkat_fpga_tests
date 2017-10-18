@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+import fire
 import os
 import logging
 import time

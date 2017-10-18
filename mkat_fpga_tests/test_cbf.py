@@ -133,6 +133,7 @@ class test_CBF(unittest.TestCase):
 
             # See: https://docs.python.org/2/library/functions.html#super
             super(test_CBF, self).setUp()
+            self._hosts = self.corr_fix.corr_config.get('xengine').get('hosts')
             if have_subscribed is False:
                 subscribed = self.corr_fix.subscribe_multicast
                 if subscribed:
@@ -856,7 +857,6 @@ class test_CBF(unittest.TestCase):
                     self._test_vacc(test_chan, chan_index)
             else:
                 Aqf.failed(self.errmsg)
-
 
     @site_only
     @instrument_bc32n856M32k
@@ -1979,7 +1979,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = which_instrument(self, instrument)
             instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
-            if instrument_success and _running_inst:
+            if instrument_success and _running_inst and self._hosts.startswith('roach'):
                 self._test_config_report(verbose=False)
             else:
                 Aqf.failed(self.errmsg)
@@ -1998,7 +1998,7 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
-            if instrument_success and _running_inst:
+            if instrument_success and _running_inst and self._hosts.startswith('roach'):
                 Aqf.addLine('-')
                 self._test_overtemp()
                 clear_host_status(self)
@@ -2028,7 +2028,7 @@ class test_CBF(unittest.TestCase):
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             instrument_success = self.set_instrument(_running_inst)
-            if instrument_success and _running_inst:
+            if instrument_success and _running_inst and self._hosts.startswith('roach'):
                 Aqf.hop(self._testMethodName)
                 self._test_sensor_values()
                 Aqf.hop('ROACH2 Sensor (Temp, Voltage, Current, Fan) Status: {}\n'.format(
@@ -2740,7 +2740,7 @@ class test_CBF(unittest.TestCase):
                     i + 1, len(requested_test_freqs), freq / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
-            deng_timestamp = time.time()
+            deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -2768,10 +2768,15 @@ class test_CBF(unittest.TestCase):
                 discards = 20
                 while discards > 0:
                     this_freq_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
-                    LOGGER.info('Discarding subsequent dumps which are 5% less than int time.')
                     if (deng_timestamp - this_freq_dump['dump_timestamp']) < 0.1 * int_time:
                         break
                     discards -= 1
+                    LOGGER.info('Discarding subsequent dumps which are 5% less than int time.')
+                    LOGGER.info('DEng timestamp: %s' %(deng_timestamp))
+                    LOGGER.info('Dump timestamp: %s' %(this_freq_dump['dump_timestamp']))
+                    LOGGER.info('DEng & Dump timestamp difference: %s' %(
+                        np.abs(deng_timestamp - this_freq_dump['dump_timestamp'])))
+                    LOGGER.info('Discard: %s' %(discards))
 
                 this_freq_data = this_freq_dump['xeng_raw']
                 this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
@@ -4653,12 +4658,6 @@ class test_CBF(unittest.TestCase):
         Aqf.step('[CBF-REQ-0064] Capture stopped, deprogramming hosts by halting the katcp connection.')
         self.corr_fix.stop_x_data()
         self.corr_fix.halt_array
-        Aqf.step('Check that SPEAD accumulations are no-longer being produced.')
-        time.sleep(5)
-        with ignored(Queue.Empty):
-            self.receiver.get_clean_dump(discard=0)
-            self.corr_fix.halt_array
-            Aqf.failed('SPEAD accumulations are still being produced.')
 
         Aqf.step('[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(**locals()))
         corr_init = False

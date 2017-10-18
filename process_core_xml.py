@@ -268,6 +268,7 @@ def extract_data(base_data, node, depth=1, path=''):
                    (number.startswith('VR.CM.') or
                         number.startswith('VE.CM.') or
                         number.startswith('R.CM.') or
+                        number.startswith('VE.') or
                         number.startswith('TP.C.'))):
                     # If its not a CAM VR or R, drop it.
                     del_entry = False
