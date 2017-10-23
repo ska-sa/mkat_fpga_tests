@@ -5,11 +5,13 @@ bitstring
 bokeh
 breathe
 chainmap
+click
 coverage
 crypto
 cryptography
 dpkt
 fabric
+fire
 flake8
 flake8-html
 h5py
@@ -19,7 +21,7 @@ ipynose
 ipython[all]
 jenkinsapi
 lxml
-matplotlib
+matplotlib==2.0.2
 memory_profiler
 mock
 mpld3

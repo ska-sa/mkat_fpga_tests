@@ -655,7 +655,8 @@ class Report(object):
                                     # flagged as acceptance.
                                     continue
                             if not (item.startswith('TP.C.') or
-                                    item.startswith('R.C.')):
+                                    item.startswith('R.C.') or
+                                    item.startswith('VE.')):
                                 continue
 
                             items[item] = self.status_of_requirements(item, is_demo)

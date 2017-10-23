@@ -133,6 +133,7 @@ class test_CBF(unittest.TestCase):
 
             # See: https://docs.python.org/2/library/functions.html#super
             super(test_CBF, self).setUp()
+            self._hosts = self.corr_fix.corr_config.get('xengine').get('hosts')
             if have_subscribed is False:
                 subscribed = self.corr_fix.subscribe_multicast
                 if subscribed:
@@ -721,7 +722,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument(instrument, acc_time=1, force_reinit=True)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
-                self._test_delay_tracking(settling_time=2)
+                self._test_delay_trackin()
             else:
                 Aqf.failed(self.errmsg)
 
@@ -738,7 +739,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument(instrument)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
-                self._test_delay_tracking(settling_time=4)
+                self._test_delay_tracking()
             else:
                 Aqf.failed(self.errmsg)
 
@@ -755,7 +756,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument(instrument)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
-                self._test_delay_tracking(settling_time=4)
+                self._test_delay_tracking()
             else:
                 Aqf.failed(self.errmsg)
 
@@ -856,7 +857,6 @@ class test_CBF(unittest.TestCase):
                     self._test_vacc(test_chan, chan_index)
             else:
                 Aqf.failed(self.errmsg)
-
 
     @site_only
     @instrument_bc32n856M32k
@@ -1464,7 +1464,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument, force_reinit=True)
+            instrument_success = self.set_instrument(instrument, force_reinit=False)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_delay_inputs()
@@ -1657,7 +1657,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument, force_reinit=True)
+            instrument_success = self.set_instrument(instrument, force_reinit=False)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_gain_correction()
@@ -1979,7 +1979,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = which_instrument(self, instrument)
             instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
-            if instrument_success and _running_inst:
+            if instrument_success and _running_inst and self._hosts.startswith('roach'):
                 self._test_config_report(verbose=False)
             else:
                 Aqf.failed(self.errmsg)
@@ -1998,7 +1998,7 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
-            if instrument_success and _running_inst:
+            if instrument_success and _running_inst and self._hosts.startswith('roach'):
                 Aqf.addLine('-')
                 self._test_overtemp()
                 clear_host_status(self)
@@ -2028,7 +2028,7 @@ class test_CBF(unittest.TestCase):
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             instrument_success = self.set_instrument(_running_inst)
-            if instrument_success and _running_inst:
+            if instrument_success and _running_inst and self._hosts.startswith('roach'):
                 Aqf.hop(self._testMethodName)
                 self._test_sensor_values()
                 Aqf.hop('ROACH2 Sensor (Temp, Voltage, Current, Fan) Status: {}\n'.format(
@@ -2113,11 +2113,12 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
 
     # ---------------------------------------------------------------
-        try:
-            self.last_pfb_counts = get_pfb_counts(
-                get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
-        except Exception:
-            LOGGER.error('Failed to read correlator attribute, correlator might not be running.')
+        if self._hosts.startswith('roach'):
+            try:
+                self.last_pfb_counts = get_pfb_counts(
+                    get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
+            except Exception:
+                LOGGER.error('Failed to read correlator attribute, correlator might not be running.')
 
     def get_flag_dumps(self, flag_enable_fn, flag_disable_fn, flag_description,
                        accumulation_time=1.):
@@ -2679,10 +2680,11 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
                      'SPEAD accumulation, determine the number of frequency channels')
             initial_dump = self.receiver.get_clean_dump(discard=10)
-        except Queue.Empty:
+            self.assertIsInstance(initial_dump, dict)
+        except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
-            Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
         else:
             _parameters = parameters(self)
             bls_to_test = _parameters['bls_ordering'][test_baseline]
@@ -2740,7 +2742,6 @@ class test_CBF(unittest.TestCase):
                     i + 1, len(requested_test_freqs), freq / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
-            deng_timestamp = time.time()
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -2765,15 +2766,38 @@ class test_CBF(unittest.TestCase):
                     return False
             else:
                 # No of spead heap discards relevant to vacc
-                discards = 20
-                while discards > 0:
-                    this_freq_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
-                    LOGGER.info('Discarding subsequent dumps which are 5% less than int time.')
-                    if (deng_timestamp - this_freq_dump['dump_timestamp']) < 0.1 * int_time:
-                        break
-                    discards -= 1
+                discards = 0
+                max_wait_dumps = 100
+                deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+                while True:
+                    try:
+                        queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
+                        self.assertIsInstance(queued_dump, dict)
+                    except Exception:
+                        errmsg = 'Could not retrieve clean accumulation.'
+                        LOGGER.exception(errmsg)
+                        Aqf.failed(errmsg)
+                    else:
+                        timestamp_diff = np.abs(queued_dump['dump_timestamp'] - deng_timestamp)
+                        if (timestamp_diff < 0.5):
+                            msg = ('Received correct accumulation timestamp: %s, relevant to '
+                                   'DEngine timestamp: %s (Difference %.2f)' % (
+                                    queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                            LOGGER.info(msg)
+                            break
 
-                this_freq_data = this_freq_dump['xeng_raw']
+                        if discards > max_wait_dumps:
+                            Aqf.failed('Could not get accumulation with correct timestamp within %s '
+                                       'accumulation periods.' % max_wait_dumps)
+                            break
+                        else:
+                            msg = ('Discarding subsequent dumps (%s) with dump timestamp (%s) '
+                                   'and DEngine timestamp (%s) with difference of %s.' %(discards,
+                                    queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                            LOGGER.info(msg)
+                    discards += 1
+
+                this_freq_data = queued_dump['xeng_raw']
                 this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
                 actual_test_freqs.append(this_source_freq)
                 chan_responses.append(this_freq_response)
@@ -2798,10 +2822,10 @@ class test_CBF(unittest.TestCase):
                                 awgn_scale, gain, fft_shift))
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title, caption=caption,
                                   ylimits=y_axis_limits, cutoff=new_cutoff)
-
-        # Test fft overflow and qdr status after
-        Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after channelisation.')
-        check_fftoverflow_qdrstatus(self.correlator, self.last_pfb_counts)
+        if self._hosts.startswith('roach'):
+            # Test fft overflow and qdr status after
+            Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after channelisation.')
+            check_fftoverflow_qdrstatus(self.correlator, self.last_pfb_counts)
         clear_host_status(self)
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -3860,7 +3884,7 @@ class test_CBF(unittest.TestCase):
                                   caption=caption)
 
 
-    def _test_delay_tracking(self, settling_time=1):
+    def _test_delay_tracking(self):
         """CBF Delay Compensation/LO Fringe stopping polynomial -- Delay tracking"""
         setup_data = self._delays_setup()
         if setup_data:
@@ -3895,7 +3919,7 @@ class test_CBF(unittest.TestCase):
                     try:
                         this_freq_dump = self.receiver.get_clean_dump(discard=0)
                         t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
-                        t_apply_readable = time.strftime("%H:%M:%S", time.localtime(t_apply))
+                        t_apply_readable = this_freq_dump['dump_timestamp_readable']
                         Aqf.step('Delays will be applied with the following parameters:')
                         Aqf.progress('On baseline %s and input %s' %(setup_data['baseline_index'],
                             setup_data['test_source']))
@@ -4653,12 +4677,6 @@ class test_CBF(unittest.TestCase):
         Aqf.step('[CBF-REQ-0064] Capture stopped, deprogramming hosts by halting the katcp connection.')
         self.corr_fix.stop_x_data()
         self.corr_fix.halt_array
-        Aqf.step('Check that SPEAD accumulations are no-longer being produced.')
-        time.sleep(5)
-        with ignored(Queue.Empty):
-            self.receiver.get_clean_dump(discard=0)
-            self.corr_fix.halt_array
-            Aqf.failed('SPEAD accumulations are still being produced.')
 
         Aqf.step('[CBF-REQ-0064] Re-initialising {instrument} instrument'.format(**locals()))
         corr_init = False
@@ -5614,14 +5632,13 @@ class test_CBF(unittest.TestCase):
             air_temp_warn('hwmon{}'.format(hwmon_dir), '{}'.format(label))
 
 
-    def _test_delay_inputs(self, settling_time=2):
+    def _test_delay_inputs(self):
         """
         CBF Delay Compensation/LO Fringe stopping polynomial:
         Delay applied to the correct input
         """
         setup_data = self._delays_setup()
         if setup_data:
-            chan_response = None
             test_delay = self.corr_freqs.sample_period  # Pi
             expected_phases = self.corr_freqs.chan_freqs * 2 * np.pi * test_delay
             expected_phases -= np.max(expected_phases) / 2.
@@ -5631,14 +5648,6 @@ class test_CBF(unittest.TestCase):
             # are known to have QDR issues which results to test failures, hence
             # input1 has been statically assigned to be the testing input
             delayed_input = source_names[random.randrange(len(source_names))]
-            #delayed_input = source_names[8]
-
-            try:
-                last_pfb_counts = get_pfb_counts(
-                    get_fftoverflow_qdrstatus(self.correlator)['fhosts'].items())
-            except Exception:
-                Aqf.failed('Failed to retrieve last PFB error counts')
-
             delays = [0] * setup_data['num_inputs']
             # Get index for input to delay
             test_source_idx = source_names.index(delayed_input)
@@ -5647,18 +5656,26 @@ class test_CBF(unittest.TestCase):
             delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
             int_time = setup_data['int_time']
             sync_time = setup_data['synch_epoch']
+            num_int = setup_data['num_int']
             try:
                 this_freq_dump = self.receiver.get_clean_dump(discard=0)
+                t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
+                t_apply_readable = this_freq_dump['dump_timestamp_readable']
+                Aqf.step('Delays will be applied with the following parameters:')
+                Aqf.progress('Current epoch time: %s (%s)' %(time.time(), time.strftime("%H:%M:%S")))
+                Aqf.progress('Current Dump timestamp: %s (%s)'%(this_freq_dump['dump_timestamp'],
+                    this_freq_dump['dump_timestamp_readable']))
+                Aqf.progress('Time delays will be applied: %s (%s)' %(t_apply, t_apply_readable))
+                Aqf.progress('Delay coefficients: %s' %delay_coefficients)
+                Aqf.step('''Execute delays via CAM interface and calculate the amount of time
+                    it takes to load the delays''')
+                reply, _informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+                assert reply.reply_ok()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 return
-            try:
-                t_apply = (this_freq_dump['dump_timestamp'] + setup_data['num_int'] * int_time)
-                Aqf.step('Setting delay(CAM Int) of %ss to be applied at %s' % (test_delay, t_apply))
-                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-                assert reply.reply_ok()
             except AssertionError:
                 errmsg = '%s'%str(reply).replace('\_',' ')
                 Aqf.failed(errmsg)
@@ -5668,22 +5685,18 @@ class test_CBF(unittest.TestCase):
                 Aqf.is_true(reply.reply_ok(), '[CBF-REQ-0066, 0072] Reply: {}'.format(str(reply)))
                 Aqf.passed('[CBF-REQ-0066, 0072]: Delays were applied on input: {} via CAM int'.format(
                     delayed_input))
-                Aqf.wait(settling_time, 'Settling time in order to set delay in the SPEAD data: '
-                                        '{} ns.'.format(test_delay * 1e9))
             try:
-                Aqf.step('[CBF-REQ-0067] Check FFT overflow and QDR errors after channelisation.')
-                QDR_error_roaches = check_fftoverflow_qdrstatus(self.correlator, last_pfb_counts)
-                dump = self.receiver.get_clean_dump(discard=0)
+                _num_discards = num_int + 5
+                Aqf.step('Getting SPEAD accumulation(while discarding %s dumps) containing '
+                         'the change in delay(s) on input: %s.'%(
+                            _num_discards, test_source_idx))
+                dump = self.receiver.get_clean_dump(discard=_num_discards)
             except Exception:
-                Aqf.failed('Failed to retrieve last PFB error counts')
-            except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
-                return
             else:
                 sorted_bls = get_baselines_lookup(self, this_freq_dump, sorted_lookup=True)
-                chan_response = []
                 degree = 1.0
                 Aqf.step('Maximum expected delay: %s' %np.max(expected_phases))
                 for b_line in sorted_bls:
@@ -5705,21 +5718,6 @@ class test_CBF(unittest.TestCase):
                                     'phase offset found, maximum error value = {:0.8f} rads'.format(
                                            b_line[0], b_line_val, b_line_phase_max))
                             Aqf.failed(desc)
-                            chan_response.append(normalised_magnitude(b_line_dump))
-
-                if QDR_error_roaches:
-                    Aqf.failed('The following roaches contains QDR errors: {}'.format(
-                        set(QDR_error_roaches)))
-
-            # if chan_response:
-            #     legends = ['SPEAD accumulations per Baseline #{}'.format(x)
-            #                for x in xrange(len(chan_response))]
-            #     aqf_plot_channels(zip(chan_response, legends),
-            #                       plot_filename='{}/{}_chan_resp.png'.format(self.logs_path,
-            #                             self._testMethodName),
-            #                       plot_title='Channel Response Phase Offsets Found',
-            #                       log_dynamic_range=90, log_normalise_to=1,
-            #                       caption='Delay applied to the correct input')
 
 
     def _test_data_product(self, instrument, no_channels):
@@ -5926,12 +5924,12 @@ class test_CBF(unittest.TestCase):
         if self.corr_freqs.n_chans == 4096:
             # 4K
             awgn_scale = 0.0645
-            gain = complex(113)
+            gain = 113
             fft_shift = 511
         else:
             # 32K
             awgn_scale = 0.063
-            gain = complex(344)
+            gain = 344
             fft_shift = 4095
 
         Aqf.step('Configure a digitiser simulator to generate correlated noise.')
@@ -5977,14 +5975,14 @@ class test_CBF(unittest.TestCase):
             fnd_less_one = False
             count = 0
             Aqf.step('Note: Gains are relative to reference channels, and are increased '
-                         'interatively until output power is increased by more than 6dB.')
+                     'interatively until output power is increased by more than 6dB.')
             while not found:
                 if not fnd_less_one:
                     target = 1
                     gain_inc = 5
                 else:
                     target = 6
-                    gain_inc = 200
+                    gain_inc = 400
                 gain = gain + gain_inc
                 gain_vector[rand_ch] = gain
                 try:
@@ -5995,16 +5993,12 @@ class test_CBF(unittest.TestCase):
                         Aqf.failed('Gain correction on {} could not be set to {}.: '
                                    'KATCP Reply: {}'.format(test_input, gain, reply))
                         return
-                except TimeoutError:
-                    msg = ('Could not set gains/eqs {} on input {} :CAM interface Timed-out, '.format(
-                        gain, test_input))
-                    Aqf.failed(msg)
                 else:
                     msg = ('[CBF-REQ-0119] Gain correction on input {}, channel {} set to {}.'.format(
                         test_input, rand_ch, complex(gain)))
                     Aqf.passed(msg)
                     try:
-                        dump = self.receiver.get_clean_dump()
+                        dump = self.receiver.get_clean_dump(discard=10)
                     except Queue.Empty:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                         Aqf.failed(errmsg)
