@@ -2995,7 +2995,7 @@ class test_CBF(unittest.TestCase):
                         'relative to channel centre response.'.format(**locals()))
 
 
-    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, stepsize=None, cutoff=53, log_power=True):
+    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, cutoff=53, log_power=True):
         """Test channel spacing and out-of-channel response
 
         Check that the correct channels have the peak response to each
@@ -3008,7 +3008,6 @@ class test_CBF(unittest.TestCase):
         ----------
         required_chan_spacing: float
         no_channels: int
-        stepsize: int
         cutoff : float
             Responses in other channels must be at least `-cutoff` dB below the response
             of the channel with centre frequency corresponding to the source frequency
@@ -3044,13 +3043,6 @@ class test_CBF(unittest.TestCase):
         Aqf.step(msg)
         if log_power:
             Aqf.progress('Logging power usage in the background.')
-
-        if stepsize:
-            Aqf.step('Running FASTER version of Channelisation SFDR test '
-                     'with {} step size.'.format(stepsize))
-            print_counts = 4 * stepsize
-        else:
-            print_counts = 4
 
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -3106,12 +3098,8 @@ class test_CBF(unittest.TestCase):
                  'within the complete L-band.')
         spead_failure_counter = 0
         channel_response_lst = []
-        for channel, channel_f0 in enumerate(
-                self.corr_freqs.chan_freqs[start_chan::stepsize], start_chan):
-
-            if stepsize:
-                channel *= stepsize
-
+        print_counts = 4
+        for channel, channel_f0 in enumerate(self.corr_freqs.chan_freqs[start_chan:], start_chan):
             if channel < print_counts:
                 Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
@@ -3121,8 +3109,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     channel, len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
             else:
-                LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (channel,
-                        len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+                # LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (channel,
+                #         len(self.corr_freqs.chan_freqs), channel_f0 / 1e6))
+                pass
 
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
 
