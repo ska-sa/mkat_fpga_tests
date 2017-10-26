@@ -1,124 +1,108 @@
 #!/usr/bin/env python
-import fire
-import os
-import logging
-import time
-import casperfpga
-import corr2
 import atexit
 import fabric.api as fab
-from casperfpga import katcp_fpga
-from corr2 import fxcorrelator
+import click
+import logging
+import coloredlogs
+import sys
+
 from corr2 import utils
-from corr2.dsimhost_fpga import FpgaDsimHost
-from katcp.testutils import start_thread_with_cleanup
 from corr2.corr_rx import CorrRx
+from corr2.dsimhost_fpga import FpgaDsimHost
 
-dump_timeout = 10
-logging.basicConfig(filename='debug_log.log', level=logging.INFO, format='%(asctime)s - %(levelname)-7s - %(module)-8s - %(message)s')
-logger = logging.getLogger(__name__)
+corr_rx_logger = logging.getLogger("corr2.corr_rx")
+spead2_logger = logging.getLogger("spead2")
 
-capture_start = True
+@click.command()
+@click.option('--config_file', default=None, help='Corr2 config file')
+@click.option('--rx_port', default=8888, help='Which port the receiver will connect to!')
+@click.option('--dsim_start', default=True, help='Enable and Start DEngine.')
+@click.option('--capture_start', default=True, help='Start capture or not?')
+@click.option('--debug', default=True, help='Ipython debug')
+@click.option('--verbose', default=False, help='Debug verbosity')
+def SpeadRx(config_file, rx_port, dsim_start, capture_start, debug, verbose):
+    """
+    Receive data from Correlator and play
+    """
+    if config_file is None:
+        sys.exit("Usage: %s --help" % __file__)
 
-#config = os.environ['CORR2INI']
-#print 'Config file used = {}'.format(config)
-
-#corr_conf = utils.parse_ini_file(config, ['dsimengine'])
-#dsim_conf = corr_conf['dsimengine']
-#dig_host = dsim_conf['host']
-
-#dhost = FpgaDsimHost(dig_host, config=dsim_conf)
-#if dhost.is_running():
-#    dhost.get_system_information()
-#    print 'Dsim is running'
-
-#config_link = '/etc/corr/array0-bc8n856M4k'
-#config_link2 = '/etc/corr/array0-bc8n856M32k'
-#config_link3 = '/etc/corr/templates/bc8n856M4k'
-#config_link4 = '/etc/corr/templates/bc8n856M32k'
-#if os.path.exists(config_link):
-#    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link)
-#elif os.path.exists(config_link2):
-#    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link2)
-#elif os.path.exists(config_link3):
-#    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link3)
-#else:
-#    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link4)
-#correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
-
-#correlator.initialise(program=False)
-#f_engines = {f.host: f for f in correlator.fhosts}
-#x_engines = {x.host: x for x in correlator.xhosts}
-#for fpga in correlator.fhosts + correlator.xhosts:
-#    if fpga.is_running():
-#        fpga.get_system_information()
-
-#print 'correlator is running'
-#f = correlator.fhosts[0]
-#fhost = correlator.fhosts[0]
-
-#xhost = correlator.xhosts[0]
-#x = correlator.xhosts[0]
-if capture_start:
-    print 'c856M4k Capture start'
-    fab.local("kcpcmd -t 60 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-start baseline-correlation-products")
-    print '\n\n'
-
-    @atexit.register
-    def Cleanup():
-        print 'c856M4k Capture stop'
-        fab.local("kcpcmd -t 60 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-stop baseline-correlation-products")
-        print '\n\n'
-try:
-    receiver = CorrRx(port=8888, queue_size=5)
-    corr_rx_logger = logging.getLogger("corr2.corr_rx")
-    corr_rx_logger.setLevel(logging.DEBUG)
-    spead2_logger = logging.getLogger("spead2")
-    spead2_logger.setLevel(logging.DEBUG)
-except Exception as ex:
-    template = "An exception of type {0} occured while trying to instantiate receiver. Arguments:\n{1!r}"
-    message = template.format(type(ex), ex.args)
-    print message
-else:
     try:
-        #start_thread_with_cleanup(receiver, start_timeout=1)
-        print('Waiting for receiver to report running')
-        boop = receiver.start(timeout=10)
-        print boop
-        if receiver.running_event.wait(timeout=10):
-            print('Receiver ready')
-        else:
-            print('Receiver not ready')
-            raise
-        raw_input('press to get clean dump')
+        assert verbose
+        _level = 'DEBUG'
+        logging.basicConfig(level=logging.DEBUG,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : '
+                   '%(lineno)d - %(message)s')
+        corr_rx_logger.setLevel(logging.DEBUG)
+        spead2_logger.setLevel(logging.DEBUG)
+        logging.debug('DEBUG MODE ENABLED')
+    except:
+        _level = 'INFO'
+        logging.basicConfig(level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : '
+                   '%(lineno)d - %(message)s')
+        corr_rx_logger.setLevel(logging.INFO)
+        spead2_logger.setLevel(logging.INFO)
+    finally:
+        logger = logging.getLogger(__name__)
+        coloredlogs.install(level=_level,logger=logger)
+
+    if dsim_start and config_file:
+        corr_conf = utils.parse_ini_file(config_file, ['dsimengine'])
+        dsim_conf = corr_conf['dsimengine']
+        dhost = FpgaDsimHost(dsim_conf['host'], config=dsim_conf)
         try:
-            dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
+            assert dhost.is_running()
+            dhost.get_system_information()
+        except:
+            logger.error('DEngine Not Running!')
+
+    try:
+        assert capture_start
+    except AssertionError:
+        @atexit.register
+        def Cleanup():
+            logger.info('baseline-correlation-products capture stopped!')
+            receiver.stop()
+            receiver.join()
+            logger.info('Receiver stopped.')
+            fab.local("kcpcmd -t 60 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-stop baseline-correlation-products")
+    else:
+        logger.info('baseline-correlation-products capture started!')
+        fab.local("kcpcmd -t 60 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' ) capture-start baseline-correlation-products")
+
+    try:
+        receiver = CorrRx(port=rx_port, queue_size=5)
+        _multicast_ips =  corr_conf['xengine'].get('multicast_interface_address','239.100.0.1')
+        # import IPython; IPython.embed(header='Python Debugger')
+    except Exception as ex:
+        template = "An exception of type {0} occured while trying to instantiate receiver. Arguments:\n{1!r}"
+        message = template.format(type(ex), ex.args)
+        logger.info(message)
+    else:
+        logger.info('Waiting for receiver to report running')
+        receiver.daemon = True
+        receiver.start(timeout=10)
+        if receiver.running_event.wait(timeout=10):
+            logger.info('Receiver ready')
+        else:
+            msg = 'Receiver not ready'
+            logger.info(msg)
+            raise RuntimeError(msg)
+        try:
+            raw_input('Press Enter get clean dump')
+            dump = receiver.get_clean_dump()
+        except KeyboardInterrupt:
+            logger.info('Keyboard interrupt')
         except Exception:
             raise
-        # else:
-        #     prev_ts = dump['timestamp'].value
-        #     while True:
-        #         try:
-        #             dump = receiver.get_clean_dump(dump_timeout=dump_timeout, discard=0)
-        #         except KeyboardInterrupt:
-        #             raise
-        #         except:
-        #             raise
-        #         else:
-        #             ts = dump['timestamp'].value
-        #             sf = dump['scale_factor_timestamp'].value
-        #             ts_delta = ts-prev_ts
-        #             prev_ts = ts
-        #             print('Time delta between received dumps: {}'.format(ts_delta/sf))
-    except KeyboardInterrupt:
-        print '\nKeyboard interrupt detected... closing receiver.'
-        pass
-    except Exception as ex:
-        template = "An exception of type {0} occured. Arguments:\n{1!r}"
-        message = template.format(type(ex), ex.args)
-        print message
-        logger.error(message)
-    import IPython;IPython.embed()
-    receiver.stop()
-    receiver.join()
-    print 'Receiver stopped.'
+        else:
+            logger.info('Dump received')
+        if debug:
+            corr_rx_logger.setLevel(logging.FATAL)
+            spead2_logger.setLevel(logging.FATAL)
+            import IPython; IPython.embed(header='Python Debugger')
+
+
+if __name__ == '__main__':
+    SpeadRx()

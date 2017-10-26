@@ -36,6 +36,7 @@ except ImportError:
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
+from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 
 
@@ -1597,3 +1598,18 @@ class DictEval(object):
     # Alt use (Not ideal): locals().update(adict)
     def __init__(self, adict):
         self.__dict__.update(adict)
+
+
+def FPGA_Connect(hosts, _timeout=30):
+    """Utility to connect to hosts via Casperfpga"""
+    fpgas = False
+    retry = 10
+    while not fpgas:
+        try:
+            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout)
+        except RuntimeError:
+            retry -= 1
+            if retry == 0:
+                errmsg = 'ERROR: Could not connect to SKARABs'
+                return False
+    return fpgas

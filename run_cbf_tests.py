@@ -993,9 +993,8 @@ if __name__ == "__main__":
     if settings['process_core']:
         process_core_data(settings, log_func)
     now = time.localtime()
-    start_time = ("%02d%02d%02d-%02dh%02d" %
-                     (now.tm_year, now.tm_mon, now.tm_mday,
-                      now.tm_hour, now.tm_min))
+    start_time = ("%02d%02d%02d-%02dh%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour,
+                  now.tm_min))
     if settings.get('mode'):
         settings['build_dir'] = "%s-"%settings.get('mode') + start_time
     else:
@@ -1007,21 +1006,19 @@ if __name__ == "__main__":
             print key,":",settings[key]
         print "=========================="
 
-    condition = (((settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run'))
-                and not settings.get('cleanup')))
-    # if (settings['report'] in ['local_&_test', 'skip'] or settings.get('dry_run')):
+    condition = ((settings['report'] in ['local_&_test', 'skip'] or settings.get(
+                 'dry_run')) and not settings.get('cleanup'))
     if condition:
-        state = run_nose_test(settings, log_func)
-        if state is 0:
-            if settings['report'] in ['results']:
-                show_test_results(settings, log_func)
-            elif settings['report'] not in ['skip']:
-                try:
-                    generate_report(settings, log_func)
-                    if settings['gen_html'] or settings['gen_pdf']:
-                        log_func('DEBUG', 'Generating report from files')
-                        generate_html_sphinx_docs(settings, log_func)
-                except Exception as e:
-                    log_func("ERROR", "Experienced some issues: %s" % sys.exc_info()[0])
-
+        run_nose_test(settings, log_func)
+    if settings['report'] in ['results']:
+        show_test_results(settings, log_func)
+    elif settings['report'] not in ['skip']:
+        try:
+            generate_report(settings, log_func)
+            if settings['gen_html']:
+                generate_html_sphinx_docs(settings, log_func)
+        except Exception as e:
+            errmsg = "Experienced some issues: %s" % sys.exc_info()[0]
+            log_func("ERROR", errmsg)
+            sys.exit(errmsg)
 

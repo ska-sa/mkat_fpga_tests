@@ -129,7 +129,6 @@ class TestProcedure:
         5. Retrive hosts firmware infomation
             - UBoot Version
             - ROMFS Version
-            - Linux Version
             - H/W Revision
         """
         return _description
