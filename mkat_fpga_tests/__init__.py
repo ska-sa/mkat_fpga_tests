@@ -544,7 +544,7 @@ class CorrelatorFixture(object):
                 LOGGER.exception('Instrument state could not be retrieved from the sensors')
                 return False
             except AssertionError:
-                LOGGER.error(' %s: Seems like the might be no current running instrument' %str(reply))
+                LOGGER.error(' %s: No running instrument' %str(reply))
                 return False
 
             else:
@@ -710,6 +710,7 @@ class CorrelatorFixture(object):
         return confirm_multicast_subs(mul_ip=str(_address))
 
     def start_correlator(self, instrument=None, retries=10):
+        from mkat_fpga_tests.utils import RunTestWithTimeout
         LOGGER.debug('CBF instrument(%s) re-initialisation.' %instrument)
         success = False
         self.katcp_array_port = None
@@ -788,6 +789,7 @@ class CorrelatorFixture(object):
                                                                          instrument_param,
                                                                          retries))
 
+                # TODO add timeout
                 reply = self.katcp_rct.req.instrument_activate(self.instrument, *instrument_param,
                                                                timeout=500)
                 success = reply.succeeded

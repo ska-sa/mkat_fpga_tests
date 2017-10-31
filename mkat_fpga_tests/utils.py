@@ -1326,36 +1326,28 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         False if katsdpingest docer not started
         True if katsdpingest docker started
     """
+    user_id = pwd.getpwuid(os.getuid()).pw_uid
+    cmd = ['sudo', 'docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v', '/ramdisk:/ramdisk',
+           'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing', 'bf_ingest.py',
+           '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port), '--channels={}'.format(
+            channels), '--ticks-between-spectra={}'.format(ticks_between_spectra),
+           '--channels-per-heap={}'.format(channels_per_heap), '--spectra-per-heap={}'.format(
+            spectra_per_heap), '--file-base=/ramdisk', '--log-level=DEBUG']
+
     stop_katsdpingest_docker(self)
     try:
-        user_id = pwd.getpwuid(os.getuid()).pw_uid
-        output = subprocess.check_output([
-                     'docker',
-                     'run',
-                     '-u',
-                     '{}'.format(user_id),
-                     '-d',
-                     '--net=host',
-                     '-v',
-                     '/ramdisk:/ramdisk',
-                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
-                     'bf_ingest.py',
-                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
-                     '--channels={}'.format(channels),
-                     '--ticks-between-spectra={}'.format(ticks_between_spectra),
-                     '--channels-per-heap={}'.format(channels_per_heap),
-                     '--spectra-per-heap={}'.format(spectra_per_heap),
-                     '--file-base=/ramdisk',
-                     '--log-level=DEBUG'])
+        LOGGER.info('Executing docker command to run KAT SDP injest node')
+        output = subprocess.check_output(cmd)
     except subprocess.CalledProcessError:
         errmsg = ('Could not start sdp-docker-registry container, '
                   'ensure SDP Ingest image has been built successfully')
         Aqf.failed(errmsg)
         LOGGER.exception(errmsg)
         return False
+
     time.sleep(5)
     try:
-        output = subprocess.check_output(['docker','ps'])
+        output = subprocess.check_output(['sudo', 'docker', 'ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1375,7 +1367,7 @@ def stop_katsdpingest_docker(self):
         True if katsdpingest docker container found and stopped
     """
     try:
-        output = subprocess.check_output(['docker','ps'])
+        output = subprocess.check_output(['sudo', 'docker','ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1385,7 +1377,7 @@ def stop_katsdpingest_docker(self):
     if sdp_instance:
         for idx in sdp_instance:
             try:
-                kill_output = subprocess.check_output(['docker','kill',output[idx-1]])
+                kill_output = subprocess.check_output(['sudo', 'docker', 'kill', output[idx-1]])
             except subprocess.CalledProcessError:
                 errmsg = 'Could not kill sdp-docker-registry container'
                 Aqf.failed(errmsg)

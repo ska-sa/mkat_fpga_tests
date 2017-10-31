@@ -49,8 +49,8 @@ function install_pip_requirements {
         # pip install --trusted-host pypi.camlab.kat.ac.za --pre -r $FILENAME
         cat $FILENAME | grep -v -e "^$" -e "^#" | sort -u | while read line
         do
-            python "$(which pip)" install --no-cache-dir --quiet --index-url=http://pypi.python.org/simple/ --trusted-host pypi.python.org $line
-            # python "$(which pip)" install --no-cache-dir -q --trusted-host pypi.camlab.kat.ac.za $line
+            # python "$(which pip)" install --no-cache-dir $line
+            python "$(which pip)" install --no-cache-dir -q --trusted-host pypi.camlab.kat.ac.za $line
             # python "$(which pip)" install --trusted-host pypi.camlab.kat.ac.za --pre $line
             echo -n "."
         done

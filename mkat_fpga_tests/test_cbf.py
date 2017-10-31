@@ -1660,7 +1660,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument, force_reinit=False)
+            instrument_success = self.set_instrument(instrument, acc_time=1)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_gain_correction()
@@ -2285,7 +2285,7 @@ class test_CBF(unittest.TestCase):
         cam_max_load_time = 1
         try:
             # Max time it takes to resync katcp (client connection)
-            katcp_rsync_time = 0.5
+            katcp_rsync_time = 0.9
             # Max network latency
             network_roundtrip = setup_data['network_latency'] + katcp_rsync_time
 
@@ -2312,7 +2312,8 @@ class test_CBF(unittest.TestCase):
                 actual_delay_coef = None
 
             cmd_tot_time = katcp_conn_time + network_roundtrip
-            final_cmd_time = abs(cmd_end_time - cmd_tot_time - 0.5)
+            final_cmd_time = abs(cmd_end_time - cmd_tot_time - katcp_rsync_time)
+            print final_cmd_time
         except AssertionError:
             errmsg = str(reply).replace('\_', ' ')
             Aqf.failed(errmsg)
@@ -2742,14 +2743,14 @@ class test_CBF(unittest.TestCase):
                 Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
                     i + 1, len(requested_test_freqs), freq / 1e6))
             else:
-                LOGGER.info('Getting channel response for freq %s @ %s: %s MHz.' % (
+                LOGGER.debug('Getting channel response for freq %s @ %s: %s MHz.' % (
                     i + 1, len(requested_test_freqs), freq / 1e6))
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
-                LOGGER.info('Skipping channel response for freq %s @ %s: %s MHz.\n'
+                LOGGER.debug('Skipping channel response for freq %s @ %s: %s MHz.\n'
                             'Digitiser frequency is same as previous.' % (
                                 i + 1, len(requested_test_freqs), freq / 1e6))
                 continue  # Already calculated this one
@@ -2791,8 +2792,10 @@ class test_CBF(unittest.TestCase):
                             break
 
                         if discards > max_wait_dumps:
-                            Aqf.failed('Could not get accumulation with correct timestamp within %s '
+                            errmsg = ('Could not get accumulation with correct timestamp within %s '
                                        'accumulation periods.' % max_wait_dumps)
+                            Aqf.failed(errmsg)
+                            LOGGER.error(errmsg)
                             break
                         else:
                             msg = ('Discarding subsequent dumps (%s) with dump timestamp (%s) '
@@ -3178,7 +3181,7 @@ class test_CBF(unittest.TestCase):
         if extra_peaks == [[]] * len(max_channels):
             Aqf.passed(msg)
         else:
-            LOGGER.info('Expected: %s\n\nGot: %s' % (extra_peaks, [[]] * len(max_channels)))
+            LOGGER.debug('Expected: %s\n\nGot: %s' % (extra_peaks, [[]] * len(max_channels)))
             Aqf.failed(msg)
         if power_logger:
             power_logger.stop()
@@ -6084,6 +6087,15 @@ class test_CBF(unittest.TestCase):
         parts_to_process = 2
         part_strt_idx = 0
 
+        try:
+            output = subprocess.check_output(['sudo', 'docker', 'run', 'hello-world'])
+            LOGGER.info(output)
+        except subprocess.CalledProcessError:
+            errmsg = 'Cannot connect to the Docker daemon. Is the docker daemon running on this host?'
+            LOGGER.error(errmsg)
+            Aqf.failed(errmsg)
+            return
+
         Aqf.step('Getting current instrument parameters.')
         try:
             katcp_rct = self.corr_fix.katcp_rct.sensors
@@ -6123,6 +6135,7 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Bandwidth = {}Hz'.format(bw))
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_freq))
+        Aqf.step('Start a KAT SDP docker inject node for beam captures')
         docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
                                                   parts_to_process, nr_ch,
                                                   ticks_between_spectra,
