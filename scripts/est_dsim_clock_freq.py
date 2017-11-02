@@ -90,9 +90,9 @@ if __name__ == "__main__":
             ts_diff = fhost_end_ts-fhost_st_ts
             return ts_diff/loc_time_diff
         freq_ts_list = []
+        delay = opts.time_delta
+        print 'Estimating dsim clock frequency using direct register method with delay of {}'.format(delay)
         while True:
-            delay = opts.time_delta
-            print 'Estimating dsim clock frequency using direct register method with delay of {}'.format(delay)
             freq_ts = freq_get_ts(delay)
             freq_ts_list.append(freq_ts)
             print ('Frequency using get timestamp = {}'.format(freq_ts))
