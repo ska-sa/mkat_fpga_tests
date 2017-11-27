@@ -9,6 +9,14 @@
 # WRITTEN PERMISSION OF SKA SA.                                               #
 ###############################################################################
 """Helper routines for programtically producing ReStructuredText output."""
+import logging
+import coloredlogs
+log_level = 'DEBUG'
+logging.basicConfig(level=getattr(logging, log_level))
+logger = logging.getLogger(__file__)
+coloredlogs.install(level=log_level, logger=logger,
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : '
+       '%(lineno)d - %(message)s')
 
 
 class ReStProducer(object):
@@ -49,8 +57,8 @@ class ReStProducer(object):
         :param heading: Str. Title of the heading.
         :param anchor: Boolean. If a anchor should be added, the anchor will
                         allow the heading to be referenced.
-
         """
+        logger.debug('Adding %s heading, titled :%s' %(level, heading))
         assert('\n' not in heading)
         if anchor:
             self.add_anchor(heading)
@@ -64,6 +72,7 @@ class ReStProducer(object):
 
     def add_sourcecode(self, quote):
         """Add sourceode block, i.e. Quote text verbatim in a block-quote."""
+        logger.debug('Adding sourcecode [reST]')
         if quote:
             self._ensure_empty_line()
             quote = str(quote).replace('\r', '\n').split('\n')
@@ -78,6 +87,7 @@ class ReStProducer(object):
 
     def add_figure(self, filename, caption, alt=None, legend=None,
                    align='center', figwidth='90%', width='80%', **options):
+        logger.debug('Adding figure: %s [on reST]'%filename)
         self._ensure_empty_line()
         self._output.append(' .. figure:: {}'.format(filename))
         if alt:
@@ -287,7 +297,7 @@ class ReStProducer(object):
         elif style.lower() == 'italics':
             return "*%s*" % text
         else:
-            style = {'error': 'orange',
+            style = {'error': 'red',
                      'fail': 'red',
                      'failed': 'red',
                      'skip': 'blue',
@@ -295,13 +305,13 @@ class ReStProducer(object):
                      'tbd': 'blue',
                      'pass': 'green',
                      'passed': 'green',
-                     'exists': 'green',
+                     'implemented': 'green',
                      'waived': 'fuchsia',
                      'control': 'gray',
                      'checkbox': 'lime',
-                     'not implemented': 'orange',
+                     'not implemented': 'red',
                      'unknown': 'gray',
-                     'progress': 'orange',
+                     'progress': 'gray',
                      }.get(style.lower())
             if style:
                 style_line = ".. role:: %s" % style

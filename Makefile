@@ -48,7 +48,7 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
-
+	$(MAKE) clean -C docs/Cover_Page
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo

@@ -13,7 +13,6 @@
 from __future__ import division
 
 import collections
-import colors
 import corr2
 import csv
 import gc
@@ -285,7 +284,7 @@ class test_CBF(unittest.TestCase):
                 return True
 
     @instrument_bc8n856M4k
-    @aqf_vr('VE.NUM.1.19')
+    @aqf_vr('TP.C.1.19')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043")
     def test_bc8n856M4k_channelisation(self, instrument='bc8n856M4k'):
         Aqf.procedure(TestProcedure.Channelisation)
@@ -2088,6 +2087,8 @@ class test_CBF(unittest.TestCase):
         except subprocess.CalledProcessError:
             # Aqf.failed('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
             LOGGER.error('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
+        except IOError:
+            LOGGER.exception('Corr2_Sensor_Servlet PID could not be discovered, might not be running.')
 
         if not confirm_out_dest_ip(self):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
@@ -4180,9 +4181,8 @@ class test_CBF(unittest.TestCase):
                 else:
                     # Check if QDR is okay before test is ran
                     msg = ('Confirm that ({}) hardware sensor indicates QDR status is '
-                           '{}. Current status on HW: {}.'.format(
-                        colors.green('\'Healthy\''), host.host.upper(),
-                        colors.green(host_sensor.get_status())))
+                           'Healthy. Current status on HW: {}.'.format(host.host.upper(),
+                            host_sensor.get_status()))
                     Aqf.is_true(host_sensor.get_value(), msg)
                     host_sensor.set_strategy('auto')
                     self.addCleanup(host_sensor.set_sampling_strategy, 'none')
@@ -4339,16 +4339,13 @@ class test_CBF(unittest.TestCase):
                 pfb_status = get_pfb_status(self)
                 Aqf.step('Confirm that the sensors indicated that the f-engins PFB has been set')
                 if pfb_status == 1:
-                    msg = ('Sensors indicate that F-Eng PFB status is '
-                           '\'%s\'.\n'% colors.green('Okay'))
+                    msg = ('Sensors indicate that F-Eng PFB status is OKAY')
                     Aqf.passed(msg)
                 elif pfb_status == 0 and fft_shift == 0:
-                    msg = ('Sensors indicate that there is an \'%s\' on the '
-                           'F-Eng PFB status.\n'% colors.red('ERROR'))
+                    msg = ('Sensors indicate that there is an ERROR on the F-Eng PFB status.\n')
                     Aqf.passed(msg)
                 elif pfb_status == 1 and fft_shift == 0:
-                    msg = ('Sensors indicate that there is an \'%s\' on the '
-                           'F-Eng PFB status.\n'% colors.red('Error'))
+                    msg = ('Sensors indicate that there is an ERROR on the F-Eng PFB status.\n')
                     Aqf.failed(msg)
                 else:
                     Aqf.failed('Could not retrieve PFB sensor status')
@@ -4438,7 +4435,7 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(self.correlator.sensor_poll_time,
                      'Wait until the sensors have been updated with new changes')
             if get_lru_status(self, host) == 1:
-                Aqf.passed('Confirm that the X-engine {} LRU sensor is \'Okay\' and '
+                Aqf.passed('Confirm that the X-engine {} LRU sensor is OKAY and '
                            'that the X-eng is receiving feasible data.'.format(host.host.upper()))
             elif get_lru_status(self, host) == 0:
                 Aqf.passed('Confirm that the X-engine {} LRU sensor is reporting a '
@@ -4484,7 +4481,7 @@ class test_CBF(unittest.TestCase):
     def _test_roach_sensors_status(self):
         clear_host_status(self)
         Aqf.step('This test confirms that each ROACH sensor (Temp, Voltage, Current, '
-                 'Fan) has not %s.' %colors.red('\'Failed\''))
+                 'Fan) has not FAILED.')
         for roach in (self.correlator.fhosts + self.correlator.xhosts):
             values_reply, sensors_values = roach.katcprequest('sensor-value')
             list_reply, sensors_list = roach.katcprequest('sensor-list')

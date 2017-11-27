@@ -1,0 +1,204 @@
+% File: katdoc.sty
+% Subject: Stylesheet for KAT document
+% Author: M. Welz and A. Pinska; based on template by R.T. Lord and J.C. Guzman
+\ProvidesPackage{katdoc}
+% % \setcounter{errorcontextlines}{999}
+
+\newcommand{\stylesheetVersion}{1.1.2}
+
+% \usepackage{array}
+% \usepackage{graphicx}
+% \usepackage{ifthen}
+% \usepackage{lastpage}
+% \usepackage{svg}
+\usepackage[latin1]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\usepackage{fancyhdr}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{mathptmx}
+\usepackage{multirow}
+
+\geometry{verbose,a4paper,tmargin=32mm,bmargin=27mm,lmargin=21mm,rmargin=19mm,headheight=10mm,headsep=12mm,footskip=12mm}
+% \pagestyle{empty}
+% \setlength{\parskip}{\medskipamount}
+% \setlength{\parindent}{0pt}
+% \pagenumbering{arabic}
+% \setlength{\unitlength}{1mm}
+
+% Front Cover
+\newcommand{\addcontributor}[5]{
+    #1 & #2 & #3 & #4 & #5 & \\
+    \hline
+    }
+
+\newcommand{\addchange}[4]{
+    #1 & #2 & #3 & #4 \\
+    \hline
+    }
+
+\newcommand{\addprogram}[4]{
+    #1 & #2 & #3 \\
+    \hline
+    }
+
+\renewcommand{\maketitle}{
+    \begin{titlepage}
+        \begin{center}
+
+        % SKA logo
+        \begin{figure}
+            \begin{center}
+                \includegraphics[width=0.33\linewidth]{images/ska_logo.png}
+            \end{center}
+        \end{figure}
+        \vspace{2cm}
+
+        \renewcommand{\arraystretch}{1.5}
+
+        % Client Table
+        \Large
+        \setlength\LTleft{0pt}
+        \setlength\LTright{0pt}
+        \begin{longtable}{@{\extracolsep{\fill}}|l|r|@{}}
+            \hline
+            \textbf{Client:} & \docClient \\
+            \hline
+            \textbf{Project:} & \docProject \\
+            \hline
+            \textbf{Type:} & \docType \\
+            \hline
+            \end{longtable}
+        \vspace{1cm}
+
+        % Title
+        \huge
+        \textbf{
+            \@title
+            }
+        \vspace{1cm}
+
+        % Document Information Table
+        \Large
+        \begin{longtable}{@{\extracolsep{\fill}}|l|r|@{}}
+            \hline
+            \textbf{Document number:} & \docId \\
+            \hline
+            \textbf{Revision:} & \docRevision \\
+            \hline
+            \textbf{Classification:} & \docClassification \\
+            \hline
+            \textbf{Author:} & \@author \\
+            \hline
+            \textbf{Date:} & \docDate \\
+            \hline
+        \end{longtable}
+        \newpage{}
+
+        % Approval Table
+        \LARGE
+        \textbf{Document Approval}
+        \vspace{0.5cm}
+
+        \normalsize
+        \begin{longtable}{@{\extracolsep{\fill}}|l|l|l|l|l|l|@{}}
+            \hline
+            Function & Name & Designation & Affiliation & Date & Signature \\
+            \hline
+            \docApproval
+        \end{longtable}
+        \vspace{1cm}
+
+        % Record of Attendees Table
+        \LARGE
+        \textbf{Record of Attendees}
+        \vspace{0.5cm}
+
+        \normalsize
+        \begin{longtable}{@{\extracolsep{\fill}}|l|l|l|l|l|l|@{}}
+            \hline
+            Function & Name & Designation & Affiliation & Date & Signature \\
+            \hline
+            \docPerform
+        \end{longtable}
+        \vspace{1cm}
+
+        % Document History
+        \LARGE
+        \textbf{Document History}
+        \vspace{0.5cm}
+
+        \renewcommand{\arraystretch}{1.2}
+        \normalsize
+        \begin{longtable}{@{\extracolsep{\fill}}|l|l|l|l|@{}}
+            \hline
+            Revision & Date of Issue & ECP/ECN Number & Comments \\
+            \hline
+            \docHistory
+        \end{longtable}
+        \vspace{1cm}
+
+        % Document Software
+        \LARGE
+        \textbf{Document Software}
+        \vspace{0.5cm}
+
+        \normalsize
+        \begin{longtable}[c]{|l|l|l|}
+            \hline
+            Task & Package & Version \\
+            \hline
+            Stylesheet & katdoc & \stylesheetVersion \\
+            \hline
+            \docSoftware
+        \end{longtable}
+        \vspace{1cm}
+
+        % Company Details
+        \newpage
+        \LARGE
+        \textbf{Company Details}
+        \vspace{0.5cm}
+
+        \normalsize
+        \begin{longtable}[c]{|l|l|}
+            \hline
+            Name & SKA South Africa Office \\
+            \hline
+            \multirow{5}{*}{Physical/Postal Address} & Third Floor \\ & The Park \\ & Park Road \\ & Pinelands \\ & 7405 \\
+            \hline
+            Tel. & +27 21 506 7300 \\
+            \hline
+            Fax & +27 21 506 7375 \\
+            \hline
+            Website & http://www.ska.ac.za/ \\
+            \hline
+        \end{longtable}
+        \vspace{1cm}
+        \end{center}
+        % reset table cell padding
+        \renewcommand{\arraystretch}{1.0}
+    \end{titlepage}
+    }
+
+% General Page Header and Footer
+\clearpage
+\pagestyle{fancy}
+\fancyhead{} % clear all header fields
+\fancyhead[C]{\docClassification}
+\fancyhead[R]{\docId: \docRevision}
+% Footer
+\fancyfoot{} % clear all footer fields
+\fancyfoot[L]{\docDate \\ }
+\fancyfoot[C]{\docClassification}
+\fancyfoot[R]{\footnotesize \docCopyright}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% The entire beginning part of the document
+\newcommand{\makekatdocbeginning}{
+        \maketitle
+        \newpage{}
+        }
+

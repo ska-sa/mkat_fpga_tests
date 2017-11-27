@@ -1,0 +1,24 @@
+#!/bin/bash
+set +e
+#while true;
+#    do
+        i=1;
+        n=0;
+        for A in $(cat /var/lib/misc/dnsmasq.leases | cut -f 4 -d " " | grep 20);
+        do  ping -c 2 $A > /dev/null 2>&1;
+            if [ $? -eq 0 ];
+                then echo ' ';
+		        n=((n+1))
+                echo '#' $((i++)) ' Ping '$A 'ok!';
+                echo 'status: ' && kcpcmd -s $A status | grep status;
+                echo 'tap-dhcp gbe0 ' && kcpcmd -s $A tap-dhcp gbe0 | grep '!tap-dhcp ';
+                echo 'tap-dhcp gbe1 ' && kcpcmd -s $A tap-dhcp gbe1 | grep '!tap-dhcp ';
+                echo 'tap-dhcp gbe2 ' && kcpcmd -s $A tap-dhcp gbe2 | grep '!tap-dhcp ';
+                echo 'tap-dhcp gbe3 ' && kcpcmd -s $A tap-dhcp gbe3 | grep '!tap-dhcp ';
+            else
+            printf "\nPing $A Failed\n";
+            fi;
+        done;
+#        printf '******************************************\n\n';
+#        sleep 3;
+#done

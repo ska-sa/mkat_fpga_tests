@@ -12,7 +12,7 @@ class TestProcedure:
         3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
         4. Connect to a random host.
         5. For both Air Inlet and Outlet Temperature Warning.
-            - Retrive current air outlet temperature
+            - Retrieve current air outlet temperature
             - Confirm that the over-temp alarm is Not triggered.
             - Confirm that the under-temp alarm is Not triggered.
             - Confirm that the over-temp alarm is Triggered.
@@ -125,8 +125,8 @@ class TestProcedure:
         2. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Determine number of hosts and current configuration(Dsim, X/Fengine)
-        5. Retrive hosts firmware infomation
+        4. Determine number of hosts and current configuration(DEngine, X/Fengine)
+        5. Retrieve hosts firmware information
             - UBoot Version
             - ROMFS Version
             - H/W Revision
@@ -209,7 +209,7 @@ class TestProcedure:
             - Set gain/equalisation correction on relevant input
             - Retrieving SPEAD accumulation and,
             - Confirm if gain/equalization correction has been applied.
-        14. Check that expected baseline visibilities are nonzero with non-zero inputs and,
+        14. Check that expected baseline visibilities are non-zero with non-zero inputs and,
             - Confirm that expected baselines visibilities are 'Zeros'
             """
         return _description
@@ -291,7 +291,7 @@ class TestProcedure:
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
         5. Configure the CBF to simultaneously generate Baseline Correlation Products and Tied-Array Voltage Data Products (If available)
         6. Capture Tied-Array Data and,
-            - - Confirm that the tide-array data were captured.
+            - Confirm that the tide-array data were captured.
         7. Capture Correlation Data and,
             - Confirm the number of channels in the SPEAD data.
             - Check that data product has the number of frequency channels corresponding to the instrument.
@@ -309,7 +309,7 @@ class TestProcedure:
         2. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. List of available CAM commands, current status(executable or abondoned),replies(if any)
+        4. List of available CAM commands, current status(executable or abandoned),replies(if any)
         """
         return _description
 
@@ -338,7 +338,7 @@ class TestProcedure:
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
         5. Check that Transient Buffer ready is implemented via CAM interface.
-        6. Capture an ADC snapshot via CAM inteface and,
+        6. Capture an ADC snapshot via CAM interface and,
             - Confirm the FFT length
             - Check that the expected frequency and measured frequency matches to within a channel bandwidth
         """
@@ -361,7 +361,7 @@ class TestProcedure:
             - Check that the spectrum is zero except in the test channel
             - Confirm FFT Window samples, Internal Accumulations, VACC accumulation
         9. Retrieve quantiser snapshot of the selected input via CAM Interface
-        10. Iteratively set accumulation length and confirm if the righy accumulation is set on the SPEAD accumulation,
+        10. Iteratively set accumulation length and confirm if the right accumulation is set on the SPEAD accumulation,
             - Confirm that vacc length was set successfully, and equates to a specific accumulation time as per calculation
             - Check that the accumulator actual response is equal to the expected response for the accumulation length
         """
@@ -374,7 +374,7 @@ class TestProcedure:
         2. Configure the CBF to generate a data product, using the noise source. Which specific data product is chosen is irrelevant.
         3. Confirm that SPEAD packets are being produced, with the selected data product(s).
         4. Start timer.
-        5. Deprogram CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
+        5. De-program CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
         6. Reinitialise the instrument and repeat step 2 and 3.
         7. Confirm that SPEAD packets are being produced, with the selected data product(s).
         8. Stop timer and
@@ -400,10 +400,10 @@ class TestProcedure:
             - Confirm that the number of channels in the SPEAD accumulation, is equal to the number of frequency channels as calculated
             - Confirm that the Channelise total bandwidth is >= 770000000.0Hz.
             - Confirm the number of calculated channel frequency step is within requirement.
-            - Verify that the calculated channel frequency step size is withing requirement
+            - Verify that the calculated channel frequency step size is within requirement
             - Confirm the channelisation spacing and confirm that it is within the maximum tolerance.
         8. Sweep the digitiser simulator over the centre frequencies of at least all the channels that fall within the complete L-band
-            - Capture channel response for every frequency channel in the selected frequenies calculated
+            - Capture channel response for every frequency channel in the selected frequencies calculated
         Check FFT overflow and QDR errors after channelisation.
         9. Check that the peak channeliser response to input frequencies in central 80% of the test channel frequency band are all in the test channel
         10. Check that VACC output is at < 99% of maximum value, if fails then it is probably overranging.
@@ -473,7 +473,7 @@ class TestProcedure:
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM inteface.
+        5. Change CBF input labels and confirm via CAM interface.
         6. Clear all coarse and fine delays for all inputs before testing
             - Confirm if all previously applied delays have been reset
         7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
@@ -484,9 +484,9 @@ class TestProcedure:
             - Confirm delays have been set
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
         12. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
-        13. When final SPEAD accumulation iis received,
+        13. When final SPEAD accumulation is received,
             - Capture all subsequent SPEAD accumulation
-        14. For all subsequenct SPEAD accumulaions captured,
+        14. For all subsequent SPEAD accumulations captured,
             - Observe the change in the phase slope, and confirm the phase change is as expected.
             - Check if difference between expected phases and actual phases are 'Almost Equal' within 1.0 degree when a delay rate is applied.
             - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.0 degree.
@@ -503,7 +503,7 @@ class TestProcedure:
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM inteface.
+        5. Change CBF input labels and confirm via CAM interface.
         6. Clear all coarse and fine delays for all inputs before testing
             - Confirm if all previously applied delays have been reset
         7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
@@ -517,7 +517,7 @@ class TestProcedure:
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
             - Capture SPEAD accumulation (while discarding x dumps) containing the change in delay(s) on selected input
         13. Iteratively, with captured SPEAD accumulations,
-            - Check that if difference expected and actual phases are equal at delay 0.00000ns within 1.0 degree.
+            - Check that if difference expected and actual phases are equal at delay 0.0ns within 1.0 degree.
             - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.0 degree.
             - Check that when a delay of x clock cycle is introduced there is a phase change of x degrees as expected to within 1.0 degree.
             """
@@ -533,7 +533,7 @@ class TestProcedure:
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM inteface.
+        5. Change CBF input labels and confirm via CAM interface.
         6. Clear all coarse and fine delays for all inputs before testing
             - Confirm if all previously applied delays have been reset
         7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
@@ -547,7 +547,7 @@ class TestProcedure:
         12. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
         13. When final SPEAD accumulation is received,
             - Capture all subsequent SPEAD accumulation
-        14. For all subsequenct SPEAD accumulaions captured,
+        14. For all subsequent SPEAD accumulations captured,
             - Observe the change in the phase slope, and confirm the phase change is as expected.
             - Check if difference between expected phases and actual phases are 'Almost Equal' within 1.000 degree when fringe offset of 2.548 is applied.
             - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.000 degree
@@ -565,7 +565,7 @@ class TestProcedure:
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM inteface.
+        5. Change CBF input labels and confirm via CAM interface.
         6. Clear all coarse and fine delays for all inputs before testing
             - Confirm if all previously applied delays have been reset
         7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
@@ -579,7 +579,7 @@ class TestProcedure:
         12. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
         13. When final SPEAD accumulation is received,
             - Capture all subsequent SPEAD accumulation
-        14. For all subsequenct SPEAD accumulaions captured,
+        14. For all subsequent SPEAD accumulations captured,
             - Observe the change in the phase slope, and confirm the phase change is as expected.
             - Check if difference between expected phases and actual phases are 'Almost Equal' within 1.000 degree when fringe offset of 2.548 is applied.
             - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.000 degree
@@ -596,18 +596,18 @@ class TestProcedure:
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM inteface.
+        5. Change CBF input labels and confirm via CAM interface.
         6. Clear all coarse and fine delays for all inputs before testing
             - Confirm if all previously applied delays have been reset
         7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
         8. Get list of all the baselines present in the correlator output
         9. Select input and baseline for testing
         10. Set time to apply delays to x integrations/accumulations in the future.
-        11. Request Delay(s) Corrections via CAM interface.
+        11. Calculate the maximum expected delay on the baseline
+        12. Request Delay(s) Corrections via CAM interface.
             - Confirm delays have been set
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
-        12. ...
-        13. ...
+        13. Confirm is delay is being applied to the correct baseline
         """
         return _description
 

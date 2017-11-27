@@ -12,6 +12,9 @@ import re
 import json
 import datetime
 import hashlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 math_escape_re = re.compile(r'(?P<leading>\s*)\$\$(?P<maths>.+?)\$\$(?P<trailing>\s*)')
 
@@ -349,51 +352,48 @@ def re_index_to_kat_id(data):
     return new_data
 
 
-def process_xml_to_json(xml_filename, json_filename,
-                        no_filter=False, verbose=False, log_func=None):
+def process_xml_to_json(xml_filename, json_filename, no_filter=False, verbose=False):
     """Process an CORE XML file and output a JSON file.
 
     :param xml_filename: String. Filename of Core XML backup.
     :param json_filename: String. Filename of output JSON file.
     :param no_filter: Boolea.: False - Filter the JSON output.
     :param verbose: Boolean. True be verbose.
-
     """
-
-    if log_func is None:
-        def _redef_log_func(*msg):
-            print " ".join([str(s) for s in msg])
-        log_func = _redef_log_func
-
     if verbose:
-        log_func("Parse File:", xml_filename)
+        logger.debug("Parse File: %s" % xml_filename)
     try:
         import lxml.etree
         parser = lxml.etree.XMLParser(recover=True)
         doc = xml.etree.ElementTree.parse(xml_filename, parser)
     except ImportError:
-        print "Install Python lxml for better processing of XML files."
+        logger.warning("Install Python lxml for better processing of XML files.")
         doc = xml.etree.ElementTree.parse(xml_filename)
 
     if verbose:
-        log_func("Step through CORE data and create output.")
-    base = {'entity': {}, 'relationship': {}, 'index': {}}
+        logger.debug("Step through CORE data and create output.")
+    base = {
+            'entity': {
+                      },
+            'relationship': {
+                            },
+            'index': {
+                     }
+            }
 
     if no_filter:
-        log_func("Only do XML to JSON conversion")
+        logger.debug("Only do XML to JSON conversion")
         ri_data = core_xml_to_dict(doc.getroot())
     else:
         extract_data(base, doc.getroot())
         if verbose:
-            log_func("ReIndex data.")
-
+            logger.debug("ReIndex data.")
         with open(json_filename + ".test.json", 'w') as fh:
             fh.write(json.dumps(base, indent=4))
-
         ri_data = re_index_to_kat_id(base)
 
     if verbose:
-        log_func("Write to file ", json_filename)
+        logger.debug("Write to file %s" % json_filename)
     with open(json_filename, 'w') as fh:
         fh.write(json.dumps(ri_data, indent=4))
 

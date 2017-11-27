@@ -8,8 +8,13 @@ import json
 import os
 import re
 import subprocess
+import time
 import zlib
+
 from report_generator.rest_producer import ReStProducer
+
+_array_release = '2.0'
+
 
 class Report(object):
 
@@ -60,19 +65,21 @@ class Report(object):
     def as_list(self, report_type=None):
         """Return report as a list, each item in list is a line in report."""
         if not self.test_data['Meta'].get('end'):
-            self.test_data['Meta']['end'] = str(datetime.datetime.utcnow())
+            self.test_data['Meta']['end'] = time.ctime()
+            # self.test_data['Meta']['end'] = str(datetime.datetime.utcnow())
         # Select the report type we want to output.
-        {'summary': self._rst_summary,
-         'tests': self._rst_tests,
-         'system': self._rst_system,
-         'table': self._rst_table,
-         'requirements': self._rst_requirement_list,
-         'core': self._rst_core,
-         'procedure': self._rst_procedure,
-         'timescale': self._rst_timescale,
-         'not_vr_procedure': (lambda v: self._rst_procedure(v, False)),
-         'not_vr_table': (lambda v: self._rst_table(v, filter_name='not_vr')),
-         'vr_table': (lambda v: self._rst_table(v, filter_name='vr')),
+        {
+            'summary': self._rst_summary,
+            'tests': self._rst_tests,
+            'system': self._rst_system,
+            'table': self._rst_table,
+            'requirements': self._rst_requirement_list,
+            'core': self._rst_core,
+            'procedure': self._rst_procedure,
+            'timescale': self._rst_timescale,
+            'not_vr_procedure': (lambda v: self._rst_procedure(v, False)),
+            'not_vr_table': (lambda v: self._rst_table(v, filter_name='not_vr')),
+            'vr_table': (lambda v: self._rst_table(v, filter_name='vr')),
          }.get(report_type, self._rst_summary)(self.docproducer)
         return self.docproducer.output
 
@@ -119,16 +126,16 @@ class Report(object):
         documents = ['CBF %s Summary' % scheme.capitalize()]
         # documents = ['CBF %s Summary' % scheme.capitalize(),
         #              'System Information']
-
         for timescale in nsort(timescales):
             for demo in [False, True]: # for Testing and Demonstration
                 for procedure in [True, False]: # For Procedure and Results
 
                     self.clear()
                     number += 1
-                    title = self.generate_cbf_report(
-                        base_dir, timescale, scheme, demo, procedure,
-                        number='AQF.{0}'.format(number))
+                    # title = self.generate_cbf_report(base_dir, timescale, scheme, demo, procedure,
+                    #                                 number='AQF.{0}'.format(number))
+                    title = self.generate_cbf_report(base_dir, timescale, scheme, demo, procedure,
+                                                     number='{0}'.format(number))
                     if not title:
                         number -= 1
                         continue
@@ -142,15 +149,20 @@ class Report(object):
                             fh.write(line + '\n')
         if documents:
             filename = os.path.join(base_dir, 'doc_list.inc')
+            curpath = os.path.dirname(os.path.realpath(__file__))
+            _katreport_dir = ''.join([curpath.split(os.path.basename(curpath))[0],
+                self.katreport_dir])
             with open(filename, 'w') as fh:
                 for line in documents:
                     fh.write(" * {0}\n".format(
                         self.docproducer.add_link(line)))
+                # No-one read this json file
                 # Add katreport.json and output.log links
-                fh.write(" * Test results:  :download:`katreport.json <{0}/katreport.json>`\n".format(
-                        self.katreport_dir))
+                # fh.write(" * Test results:  :download:`katreport.json <{0}/katreport.json>`\n".format(
+                        # _katreport_dir))
+
                 fh.write(" * Test output log:  :download:`output.log <{0}/output.log>`\n".format(
-                       self.katreport_dir))
+                       _katreport_dir))
                 # fh.write(" * CORE export:  `katreport_core.html <{0}/katreport_core.html>`\n".format(
                 #         self.katreport_dir))
 
@@ -158,20 +170,23 @@ class Report(object):
         dp = self.docproducer
         filename = os.path.join(base_dir, "summary_info.inc")
         start = self.test_data.get("Meta", {}).get("start", "Unknown")
+        start = start.split('.')[0]
         end = self.test_data.get("Meta", {}).get("end", "Unknown")
+        end = end.split('.')[0]
         try:
             sitename = os.uname()[1]
             test_executed = os.getlogin()
         except:
-            sitename = 'Lab'
+            sitename = 'SKA SA - CBF Lab'
             test_executed = 'Automated'
 
         site_type = self.test_data.get("Meta", {}).get("Sitename", sitename)
         who_ran = self.test_data.get("Meta", {}).get("User: ", test_executed)
 
-        dp.add_line(':Build directory: %s' % dp.add_link(build_dir))
-        dp.add_line(":Test Ran on: %s" % site_type)
-        dp.add_line(":Test Executed by: %s" % who_ran)
+        # dp.add_line(':Build directory: %s' % dp.add_link(build_dir))
+        dp.add_line(":Test Ran on: %s" % site_type.upper())
+        dp.add_line(":Test Executor: %s" % who_ran)
+        dp.add_line(":Instrument Tested: %s" %self.system_data.get('system_type', 'Unknown').upper())
         dp.add_line(":Test run: From %s Until %s" % (start, end))
         dp.add_line(':CORE Model Exported on: %s' % (str(self.core_meta.get(
             'export', {}).get('time-stamp', ''))))
@@ -244,8 +259,7 @@ class Report(object):
             if in_demo_doc:
                 return True
 
-    def generate_cbf_report(self, base_dir, timescale, scheme,
-                            demo=False, procedure=True, number=None):
+    def generate_cbf_report(self, base_dir, timescale, scheme, demo=False, procedure=True, number=None):
         """Generate the cbf reports.
 
         :param timescale: String. Timescale for the report.
@@ -262,28 +276,35 @@ class Report(object):
         demo_test_title = 'Demonstration' if demo else 'Testing'
         proc_result_title = 'Procedure' if procedure else 'Results'
         title_l = ['CBF', timescale.title(), scheme.title()]
-        title_l.append(demo_test_title)
+        # title_l.append(demo_test_title)
         title_l.append(proc_result_title)
         title = ' '.join(title_l)
         # This produces "CBF Timescale N Demonstration/Testing Procedure/Results"
 
         if number:
             key = title.lower()
-            self.document_lookup[key] = number + ' ' + title
+            self.document_lookup[key] = title
+            # self.document_lookup[key] = number + ' ' + title
             title = self.document_lookup[key]
-            # self.docproducer.add_heading('chapter', number + ' ' + title,
+            # self.docproducer.add_heading('section', number + ' ' + title,
             #                             anchor=True)
-        self.docproducer.add_heading('chapter', title, anchor=True)
+        self.docproducer.add_heading('section', title, anchor=True)
 
         # Include stats and tables.
-        inc_title = "CBF %s %s %s %s Summary" % \
-                    (timescale, scheme, demo_test_title, proc_result_title)
+        inc_title = "CBF %s %s %s %s Summary" % (timescale, scheme, demo_test_title,
+            proc_result_title)
         inc_filename = inc_title.lower().replace(" ", "_") + ".inc"
-        self.docproducer.add_include(inc_filename)
+        # 'cbf_timescale_unlinked_qualification_testing_procedure_summary.inc'
+        # cbf_timescale_unlinked_qualification_testing_results_summary.inc
+        # cbf_timescale_unlinked_qualification_demonstration_procedure_summary.inc
+        if inc_filename != 'cbf_timescale_unlinked_qualification_testing_results_summary.inc':
+            self.docproducer.add_include(inc_filename)
 
-        inc_title = "CBF %s %s %s %s" % \
-                    (timescale, scheme, demo_test_title, proc_result_title)
+        inc_title = "CBF %s %s %s %s" % (timescale, scheme, demo_test_title, proc_result_title)
         inc_filename = inc_title.lower().replace(" ", "_") + "_table.inc"
+        # cbf_timescale_unlinked_qualification_testing_procedure_table.inc
+        # cbf_timescale_unlinked_qualification_testing_results_table.inc
+        # cbf_timescale_unlinked_qualification_demonstration_procedure_table.inc
         self.docproducer.add_include(inc_filename)
 
         # Generate the list of requirements to include
@@ -291,16 +312,15 @@ class Report(object):
         for item in self.requirements:
             requirement = self.requirements[item]
             # Build up a list of verification requirements.
-            if (requirement.get('definition') not in ('VerificationRequirement'
-                                                      'TestProcedure')):
+            if (requirement.get('definition') not in ('VerificationRequirementTestProcedure')):
                 # Only verification requirements.
                 continue
-            if (requirement.get('timescale',
-                                'Timescale Unlinked') != timescale):
+            if (requirement.get('timescale', 'Timescale Unlinked') != timescale):
                 # Only for the selected timescale.
                 continue
 
-            if not (item.startswith('TP.C.') or item.startswith('R.C.') or item.startswith('VE.')):
+            if not (item.startswith('TP.C.') or item.startswith('R.C.') or
+                item.startswith('VR.C') or item.startswith('VE.')):
                 continue
             if self.acceptance_report:
                 if not self.is_acceptance(item):
@@ -329,6 +349,12 @@ class Report(object):
 
         demo_script = []
         count = 0
+        if results_doc:
+            self.docproducer.add_include(
+                'cbf_timescale_unlinked_qualification_testing_procedure_table.inc')
+            self.docproducer.add_heading('section', 'Detailed Test Results', anchor=True)
+        else:
+            self.docproducer.add_heading('section', 'Test Procedures', anchor=True)
         for item in nsort(req_list):
             demo_script.append(('requirement', item))
             count += 1
@@ -336,17 +362,20 @@ class Report(object):
             # Ignore test procedures that were not tested for the text of the test report.
             if item not in self._requirements_from_tests():
                 continue
-            self.add_requirement(item, ['description', 'relationship'],
-                                 title=inc_title,
-                                 number=aqf_number)
-            demo_script.append(('aqf_no', aqf_number))
+            # Removed additional description from CORE
+            # self.add_requirement(item, ['description', 'relationship'], title=inc_title,
+            self.add_requirement(item, ['relationship'], title=inc_title,)
+            # number=aqf_number)
+            # demo_script.append(('aqf_no', aqf_number))
             if procedure:
-                self.add_requirement_procedure(item, demo_script)
+                self.add_requirement_procedure(item)
+                # self.add_requirement_procedure(item, demo_script)
             else:
                 self.add_requirement_results(item)
 
         if demo and procedure:
-            self.write_script(base_dir, timescale, scheme, demo_script)
+            self.write_script(base_dir, timescale, scheme)
+            # self.write_script(base_dir, timescale, scheme, demo_script)
         return title
 
     # Todo 05-09-2017(MM) fix this method
@@ -420,11 +449,9 @@ class Report(object):
                 filename = os.path.join(base_dir, "%s_%s.rst" %
                                         (prefix, group))
                 self.clear()
-                self.docproducer.add_heading('chapter',
-                                             'AQF Test Group: %s' % group)
+                self.docproducer.add_heading('section', 'AQF Test Group: %s' % group)
                 for test in groups[group]:
-                    self._rst_show_test(self.docproducer, 1, test,
-                                        self.test_data[test])
+                    self._rst_show_test(self.docproducer, 1, test, self.test_data[test])
                 with open(filename, 'w') as fh:
                     for line in self.docproducer.output:
                         fh.write(line + '\n')
@@ -518,7 +545,7 @@ class Report(object):
             requirement = self.requirements[item]
             definition = requirement.get('definition', 'CBF Verification Test')
             # Treat all things as being of unlinked timescale
-            #timescale = requirement.get('timescale', 'Timescale Unlinked')
+            timescale = requirement.get('timescale', 'Timescale Unlinked')
             timescale = 'Timescale Unlinked'
             if False:
                 # is_demo = requirement.get('method') == 'Demonstration'
@@ -540,94 +567,94 @@ class Report(object):
         return data
 
     def status_of_requirements(self, req, demo=False):
+        """
+        Retrieve test result status if test whether passed, failed or waived.
+        """
         rft = self._requirements_from_tests()
         status = rft.get(req, {}).get('status', self.UNKNOWN).upper()
         if demo and status not in ['WAIVED']:
             # For demo's we just say Exist, Not Implemented or
             # say that it is WAIVED.
-            return 'Exists' if req in rft else 'Not Implemented'
+            #return 'Exists' if req in rft else 'Not Implemented'
+            return 'Implemented' if req in rft else 'Not Implemented'
         else:
             return status
 
     def _rst_summary(self, docproducer=None):
-        """Generate the summary report."""
+        """Generate the qualification summary report."""
         if docproducer is None:
             docproducer = self.docproducer
         dp = docproducer
         # Generate the score card.
         scheme = 'acceptance' if self.acceptance_report else 'qualification'
-        dp.add_heading('chapter', 'CBF %s Summary' % scheme.capitalize(),
-                       anchor=True)
+        dp.add_heading('section', 'CBF %s Summary' % scheme.capitalize(), anchor=True)
         dp.add_include('summary_info.inc')
         reqs = self.grouped_requirements(self.status_of_requirements)
-        header = ["label", "FAILED", "PASSED",
-                  "SKIPPED", "TBD", 'WAIVED', "UNKNOWN", "total"]
+        header = ["label", "FAILED", "PASSED", "SKIPPED", "TBD", 'WAIVED', "UNKNOWN", "total"]
         table = []
         for ts in nsort(reqs):
             for desc in nsort([t for t in reqs[ts]
-                               if t in ('VerificationRequirement',
-                                        'TestProcedure')]):
+                               if t in ('VerificationRequirement', 'TestProcedure')]):
                 for demo_or_test in reversed(nsort(reqs[ts][desc])):
                     title = "cbf %s %s %s results" % (ts, scheme, demo_or_test)
-                    label = dp.add_link(self.document_lookup.get(
-                        title.lower(), title))
+                    label = dp.add_link(self.document_lookup.get(title.lower(), title))
                     row_data = self.sum_status(reqs[ts][desc][demo_or_test])
-                    row_data['FAILED'] = (row_data.get('FAILED', 0) +
-                                          row_data.get('ERROR', 0))
+                    row_data['FAILED'] = (row_data.get('FAILED', 0) + row_data.get('ERROR', 0))
                     if row_data['FAILED'] == 0:
                         row_data['FAILED'] = '--'
                     row_data['label'] = label
                     table.append(row_data)
 
         dp.add_table_ld(table, header_map=header,
-                        table_title="Verification Requirements Results Table",
-                        hide_first_header=True)
+                        table_title="Verification Requirements Results Table", hide_first_header=True)
 
         #ADD SUMMARY OF QUALIFICATION/ACCEPTANCE TEST RESULTS AND DEMONSTRATION RESULTS
         timescales = dict([(n, []) for n in self.get_timescales()])
         for timescale in nsort(timescales.keys()):
             ts_string = " ".join([ts.capitalize() for ts in timescale.split(' ')])
-            dp.add_heading('chapter', 'CBF %s %s Testing Results'
+            dp.add_heading('section', 'CBF %s %s Testing Results'
                         % (ts_string, scheme.capitalize()), anchor=True)
-            dp.add_include('cbf_%s_%s_testing_results_summary.inc'
-                        % (ts_string.lower().replace(' ','_'), scheme.lower()))
+            # dp.add_include('cbf_%s_%s_testing_results_summary.inc'
+            #             % (ts_string.lower().replace(' ','_'), scheme.lower()))
             dp.add_include('cbf_%s_%s_testing_results_table.inc'
                         % (ts_string.lower().replace(' ','_'), scheme.lower()))
 
-            dp.add_heading('chapter', 'CBF %s %s Demonstration Results'
-                        % (ts_string, scheme.capitalize()), anchor=True)
-            dp.add_include('cbf_%s_%s_demonstration_results_summary.inc'
-                        % (ts_string.lower().replace(' ','_'), scheme.lower()))
-            dp.add_include('cbf_%s_%s_demonstration_results_table.inc'
-                        % (ts_string.lower().replace(' ','_'), scheme.lower()))
+            # dp.add_heading('section', 'CBF %s %s Demonstration Results'
+            #             % (ts_string, scheme.capitalize()), anchor=True)
+            # dp.add_include('cbf_%s_%s_demonstration_results_summary.inc'
+            #             % (ts_string.lower().replace(' ','_'), scheme.lower()))
+            # dp.add_include('cbf_%s_%s_demonstration_results_table.inc'
+            #             % (ts_string.lower().replace(' ','_'), scheme.lower()))
 
     def write_report_system_info(self, base_dir):
         dp = self.docproducer
         self.clear()
-        dp.add_heading('chapter', 'System Information', anchor=True)
-        labels = self.system_data.get('Labels', {})
-        for section_name in ['vcs_version']:
+        dp.add_heading('section', 'System Information', anchor=True)
 
-            section = self.system_data.get(section_name, {})
-            label = labels.get(section_name,
-                               {}).get('label', section_name.title())
-            dp.add_heading('section', label)
-            desc = labels.get(section_name, {}).get('description')
-            if desc:
-                dp.add_line(desc)
+        # kat-versioncontrol.py REDUNDANT
+        # labels = self.system_data.get('Labels', {})
+        # for section_name in ['vcs_version']:
+        #     section = self.system_data.get(section_name, {})
+        #     label = labels.get(section_name,
+        #                        {}).get('label', section_name.title())
+        #     dp.add_heading('section', label)
+        #     desc = labels.get(section_name, {}).get('description')
+        #     if desc:
+        #         dp.add_line(desc)
 
-            if isinstance(section, dict):
-                self._rst_add_data(dp, section)
-            elif isinstance(section, list):
-                for line in section:
-                    dp.add_line(str(line))
-            else:
-                dp.add_line(str(section))
+        #     if isinstance(section, dict):
+        #         self._rst_add_data(dp, section)
+        #     elif isinstance(section, list):
+        #         for line in section:
+        #             dp.add_line(str(line))
+        #     else:
+        #         dp.add_line(str(section))
 
-        filename = os.path.join(base_dir, 'system_info.rst')
-        with open(filename, 'w') as fh:
-            for line in dp.output:
-                fh.write(line + "\n")
+        # Redundant or irrelavent
+        # filename = os.path.join(base_dir, 'system_info.rst')
+        # with open(filename, 'w') as fh:
+        #     for line in dp.output:
+        #         fh.write(line + "\n")
 
     def generate_include_documents(self, basedir):
         """Generate several documents that is included in other documents."""
@@ -637,8 +664,7 @@ class Report(object):
         reqs = self.grouped_requirements(self.status_of_requirements)
         for timescale, scheme in itertools.product(reqs, [QUAL, ACCEPT]):
             for vreq in [t for t in reqs[timescale]
-                         if t in ('VerificationRequirement',
-                                  'TestProcedure')]:
+                         if t in ('VerificationRequirement', 'TestProcedure')]:
                 for demo in reqs[timescale][vreq]:
                     is_demo = demo == 'Demonstration'
                     for result in ['Results', 'Procedure']:
@@ -654,18 +680,16 @@ class Report(object):
                                     # the requirements do not have a test
                                     # flagged as acceptance.
                                     continue
-                            if not (item.startswith('TP.C.') or
-                                    item.startswith('R.C.') or
+                            if not (item.startswith('TP.C.') or item.startswith('R.C.') or
                                     item.startswith('VE.')):
                                 continue
 
                             items[item] = self.status_of_requirements(item, is_demo)
-                            if result == 'Results' and items[item] == 'Exists':
+                            if result == 'Results' and items[item] == 'Implemented':
                                 items[item] = 'Implemented'
-
                         title = "CBF %s %s %s %s Summary" % \
                                 (timescale, scheme, demo, result)
-                        self.generate_include_summary(title, items, basedir)
+                        # self.generate_include_summary(title, items, basedir)
                         title = "CBF %s %s %s %s" % \
                                 (timescale, scheme, demo, result)
                         self.generate_include_table(title, items, basedir)
@@ -702,29 +726,52 @@ class Report(object):
         return ref
 
     def generate_include_table(self, title, items, basedir):
-        ## Generate the table.
+        """
+        Generate the procedure table which contains - Requirements, VR, Status and Description.
+        """
         self.clear()
+        if 'results' in title.lower():
+            self.docproducer.add_heading('section', 'Summary of Test Results')
+            _title = 'Summary of Test Results'
+        else:
+            self.docproducer.add_heading('section',
+                'CBF Array Release %s Requirements Verification Matrix' % _array_release)
+            _title = 'Requirements Verification Traceability Matrix'
+
         filename = title.lower().replace(" ", "_") + "_table.inc"
         table_data = []
         header_map = []
         if title.lower().endswith('procedure'):
-            header_map.append('requirement')
-        header_map.extend(['verification requirement',
-                           'status', 'description'])
+            header_map.append('requirements')
+        header_map.extend(['verification event', 'status', 'verification event description'])
         for req in nsort(items):
+            _requirements = []
             vr = self.requirements.get(req, {})
-            row = {'verification requirement': self.docproducer.add_link(
-                self.short_link(title, req), req)}
+            row = {'verification event': self.docproducer.add_link(self.short_link(
+                    title, req), req)}
             row['status'] = self.docproducer.str_style(items[req])
-            row['description'] = vr.get('name', '')
+            row['verification event description'] = vr.get('name', '')
             if title.lower().endswith('procedure'):
-                row['requirement'] = " ".join(nsort(vr.get('relationship', {}).
-                                              get('verifies', [])))
-
+                relationship = vr.get('relationship', {})
+                relationships = []
+                for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
+                              'references'):
+                    for r in relationship.get(rtype, []):
+                        if r.startswith('R.C.') or r.startswith('CBF-REQ'):
+                            relationships.append(r)
+                for rel in nsort(relationships):
+                    _req = self.requirements.get(rel, {}).get('puid')
+                    if _req:
+                        _requirements.append(_req)
+                if _requirements:
+                    _requirements = [i for i in _requirements if i.startswith('CBF-REQ')]
+                    row['requirements'] = ', '.join(nsort(list(set(_requirements))))
+                else:
+                    row['requirements'] = " ".join(nsort(vr.get('relationship', {}).
+                                              get('X-referenced by', [])))
             table_data.append(row)
-        self.docproducer.add_table_ld(table_data,
-                                      table_title=title.title(),
-                                      header_map=header_map)
+
+        self.docproducer.add_table_ld(table_data, table_title=_title, header_map=header_map)
         with open(os.path.join(basedir, filename), 'w') as fh:
             for line in self.docproducer.output:
                 fh.write(line + '\n')
@@ -741,7 +788,7 @@ class Report(object):
         dp.add_line(":Total: %s" % data.get('total', total))
 
     def _rst_requirement_list(self, docproducer):
-        docproducer.add_heading('chapter', 'AQF Requirements List', True)
+        docproducer.add_heading('section', 'AQF Requirements List', True)
         requirements = self._requirements_from_tests()
         for req in nsort(requirements):
             self._rst_requirement(req, requirements[req])
@@ -756,12 +803,9 @@ class Report(object):
         dp.add_heading('subsection',
                        "%s: %s" % (name, core_req.get('name', '')))
         if not data.get('success'):
-            dp.add_line("The requirement in " +
-                        dp.str_style('red', 'NOT')
-                        + " met")
+            dp.add_line("The requirement in " + dp.str_style('red', 'NOT') + " met")
         if self.requirements.get(name):
-            dp.add_line("Procedure defined in %s" %
-                        dp.add_link("procedure_%s" % name))
+            dp.add_line("Procedure defined in %s" % dp.add_link("procedure_%s" % name))
         disp_order = ['description', 'relationship', 'timescale']
 
         # Get information form the requirements doc.
@@ -776,8 +820,7 @@ class Report(object):
             dp.add_line(" * %s status is %s" %
                         (dp.add_link(test), styled_status))
 
-    def add_requirement(self, name, fields=None, data=None,
-                        title=None, number=None):
+    def add_requirement(self, name, fields=None, data=None, title=None, number=None):
         """Add this requirement to the report."""
         dp = self.docproducer
         req_data = {}
@@ -790,27 +833,33 @@ class Report(object):
             dp.add_anchor(name)
         long_name = req_data.get('name', name)
         stitle = name if name == long_name else "%s: %s" % (name, long_name)
+        # Test Results - Section
         if number:
             dp.add_heading('section', number + ' - ' + stitle)
         else:
             dp.add_heading('section', stitle)
-        self._rst_add_data(dp, req_data, fields, ['id'])
+
+        dp.add_heading('subsection', 'Requirements Verified')
         relationship = req_data.get('relationship', {})
         relationships = []
         for rtype in ('verifies', 'X-referenced by', 'X-references',
                       'referenced by', 'references'):
             for r in  relationship.get(rtype, []):
-                if r.startswith('R.C.'):
+                if r.startswith('R.C.') or r.startswith('CBF-REQ'):
                     relationships.append(r)
 
-        dp.add_heading('subsection', 'Requirements Verified')
         if relationships:
             for rel in nsort(relationships):
-                dp.add_line(":{0}: {1}".
-                            format(rel, self.requirements.get(rel, {}).
-                                get('description', '')))
+                if self.requirements.get(rel, {}).get('puid'):
+                    dp.add_line(":**{}**: - {}".format(self.requirements.get(rel, {}).get('puid'),
+                        self.requirements.get(rel, {}).get('description', '')))
+                # else:
+                #      dp.add_line(":{}: {}".format(rel,
+                #         self.requirements.get(rel, {}).get('description', '')))
         else:
             dp.add_line("No Requirements")
+
+        self._rst_add_data(dp, req_data, fields, ['id'])
 
     def _rst_procedure(self, docproducer, verification_requirement=True):
         """Generate a test procedure document.
@@ -820,21 +869,19 @@ class Report(object):
         """
         test_requirements = self._requirements_from_tests()
         if verification_requirement:
-            docproducer.add_heading('chapter', "AQF Test Procedure")
+            docproducer.add_heading('section', "AQF Test Procedure")
             list_of_requirements = self.requirements
         else:
-            docproducer.add_heading('chapter',
+            docproducer.add_heading('section',
                                     "AQF Test Procedure(exclude VR)")
             list_of_requirements = test_requirements
 
         for vr in nsort(list_of_requirements):
             _req = self.requirements.get(vr, {})
             if verification_requirement:
-                condition = _req.get("definition") in ("VerificationRequirement",
-                                                       'TestProcedure')
+                condition = _req.get("definition") in ("VerificationRequirement", 'TestProcedure')
             else:
-                condition = _req.get("definition") not in (
-                    "VerificationRequirement", 'TestProcedure')
+                condition = _req.get("definition") not in ("VerificationRequirement", 'TestProcedure')
 
             # if (condition and ("1500 CAM" in _req.get('category-list', [])
             #                    or "1200 CBF" in requirement.get('category-list', []))):
@@ -843,8 +890,7 @@ class Report(object):
                 docproducer.add_heading('section', "%s: %s" %
                                         (vr, self.requirements.get(
                                             vr, {}).get("name", '')))
-                self._rst_add_data(docproducer, _req,
-                                   ['description', 'timescale'])
+                self._rst_add_data(docproducer, _req, ['description', 'timescale'])
 
                 self._rst_add_data(docproducer,
                                    {"Last run": docproducer.add_link(vr),
@@ -856,11 +902,10 @@ class Report(object):
     def add_requirement_results(self, req_id):
         """Add to the report the test procedures for the requirements."""
         tests = self._requirements_from_tests().get(req_id, {}).get('tests')
-        self.docproducer.add_heading('subsection', 'Results')
+        self.docproducer.add_heading('subsubsection', 'Test Results')
         if tests:
             for test in nsort(tests):
-                self._rst_show_test(self.docproducer, 1,
-                                    test, self.test_data[test])
+                self._rst_show_test(self.docproducer, 1, test, self.test_data[test])
         else:
             self.docproducer.add_line("No Result")
 
@@ -868,14 +913,17 @@ class Report(object):
         """Add to the report the test procedures for the requirements."""
         tests = self._requirements_from_tests().get(req_id, {}).get('tests')
 
-        self.docproducer.add_heading('subsection', 'Requirements')
-        requirements = self._requirements_from_tests()
-        _requirements = [_id for _id ,_value in requirements.iteritems()
-                         if tests.keys() == _value['tests'].keys()]
-        for _req in sorted(_requirements):
-            self.docproducer.add_line('- ' + _req)
-
-        self.docproducer.add_heading('subsection', 'Procedure')
+        # Not adding requirements (Duplicate)
+        # self.docproducer.add_heading('subsection', 'Requirements')
+        # requirements = self._requirements_from_tests()
+        # _requirements = [_id for _id ,_value in requirements.iteritems()
+        #                  if tests.keys() == _value['tests'].keys()]
+        # for _req in sorted(_requirements):
+        #     self.docproducer.add_line('' + _req)
+        self.docproducer.add_heading('subsection', 'Test Configuration')
+        _text = "   Tests should be executed on a suitable baseline of the CBF Sub-System."
+        self.docproducer.add_indented_raw_text(_text, level=2)
+        self.docproducer.add_heading('subsection', 'Test Procedure')
         if tests:
             for test in nsort(tests):
                 demo_script.append(('test', test))
@@ -901,12 +949,9 @@ class Report(object):
             #     demo_script.append(('step', counter))
 
             for action in [a for a in this_step.get('action', [])
-                           if a.get('type') in ['checkbox',
-                                                'waived',
-                                                'evaluate']]:
+                           if a.get('type') in ['checkbox', 'waived', 'evaluate']]:
                 if action.get('type') == 'checkbox':
-                    demo_script.append(('checkbox',
-                                        {'msg': action.get('msg')}))
+                    demo_script.append(('checkbox', {'msg': action.get('msg')}))
                     dp.add_line('  + %s: %s \n      **Implemented** ' %
                                 (action.get('type', '').title(),
                                  action.get('msg')))
@@ -928,8 +973,7 @@ class Report(object):
         table_head = ['VR', 'Status', 'Description']
         for req_id in self.requirements:
             req = self.requirements[req_id]
-            if (req.get("definition") in ("VerificationRequirement",
-                                          'TestProcedure')
+            if (req.get("definition") in ("VerificationRequirement",  'TestProcedure')
                 # and ("1500 CAM" in req.get('category-list', []) or
                 #      "1200 CBF" in req.get('category-list', []))
             ):
@@ -956,12 +1000,11 @@ class Report(object):
                        self.requirements.get(vr, {}).get('name', '')]
                 sorted_table_data.append(row)
             self.add_styled_summary(counter)
-            docproducer.add_table(table_head, sorted_table_data)
+            # docproducer.add_table(table_head, sorted_table_data)
 
     def _rst_system(self, docproducer, filter_name=None):
         # Create includes.
-        if (isinstance(self.system_data, str) and
-                os.path.isfile(self.system_data)):
+        if (isinstance(self.system_data, str) and os.path.isfile(self.system_data)):
             # Received a filename not the data.
             docproducer.add_line('Read data from file: %s' % self.system_data)
             with open(self.system_data, 'r') as fh:
@@ -970,33 +1013,64 @@ class Report(object):
                 self.system_data = data
         labels = self.system_data.get('Labels', {})
         inc_files = []
-        section_names = [n for n in self.system_data.keys()
-                         if n not in ['Labels']]
-        for section_name in section_names:
-            self.clear()
-            docproducer = self.docproducer
-            section = self.system_data.get(section_name, {})
-            label = labels.get(section_name,
-                               {}).get('label', section_name.title())
-            docproducer.add_heading('section', label)
-            desc = labels.get(section_name, {}).get('description')
+        if self.system_data.has_key('site'):
+            self.system_data.pop('site', None)
+
+        section_names = [n for n in self.system_data.keys() if n not in ['Labels']]
+
+        for section_name, label in nsort(self.system_data['Labels'].iteritems()):
+            docproducer.add_heading('section', label.get('label'))
+            desc = label.get('description')
             if desc:
                 docproducer.add_line(desc)
+                if 'Hardware' in label.get('label'):
+                    docproducer.add_line(str(' '.join(
+                        [docproducer.str_style('bold','User:'),
+                        self.system_data.get('username','Unknown')])))
+                    docproducer.add_line(str(' '.join(
+                        [docproducer.str_style('bold', 'Linux OS:'),
+                        self.system_data.get('dist', 'Unknown')])))
+                    docproducer.add_line(str(' '.join(
+                        [docproducer.str_style('bold', 'Linux Kernel:'),
+                        self.system_data.get('uname','Unknown')])))
+                    docproducer.add_line(str(' '.join(
+                        [docproducer.str_style('bold', 'IP Addresses:'),
+                        '\n'.join(self.system_data.get('ip_addresses', 'Unknown'))])))
+                    docproducer.add_line(str(' '.join(
+                        [docproducer.str_style('bold', 'System Location:'),
+                        self.system_data.get('system_location', 'Unknown')])))
+                elif 'Software' in label.get('label'):
+                    _ = [docproducer.add_line(i) for i in self.system_data.get('system_config',
+                                                                                'Unknown')]
+                else:
+                    docproducer.add_line(str(' '.join(
+                        [docproducer.str_style('bold', 'Instrument Ran:'),
+                        self.system_data.get('system_type', 'Unknown')])))
 
-            if isinstance(section, dict):
-                self._rst_add_data(docproducer, section)
-            elif isinstance(section, list):
-                for line in section:
-                    docproducer.add_line(str(line))
-            else:
-                docproducer.add_line(str(section))
+        # for section_name in section_names:
+        #     self.clear()
+        #     docproducer = self.docproducer
+        #     section = self.system_data.get(section_name, {})
+        #     label = labels.get(section_name,
+        #                        {}).get('label', section_name.title())
+        #     docproducer.add_heading('section', label)
+        #     desc = labels.get(section_name, {}).get('description')
+        #     if desc:
+        #         docproducer.add_line(desc)
 
-            filename = "sysinfo_%s.inc" % section_name
-            inc_files.append(filename)
-            with open(os.path.join(self.base_dir, filename), 'w') as fh:
-                for line in self.docproducer.output:
-                    line = line.encode('ascii', 'ignore').decode('ascii')
-                    fh.write(line + '\n')
+        #     if isinstance(section, dict):
+        #         self._rst_add_data(docproducer, section)
+        #     elif isinstance(section, list):
+        #         for line in section:
+        #             docproducer.add_line(str(line))
+        #     else:
+        #         docproducer.add_line(str(section))
+        filename = "system_info.inc"
+        inc_files.append(filename)
+        with open(os.path.join(self.base_dir, filename), 'w') as fh:
+            for line in self.docproducer.output:
+                line = line.encode('ascii', 'ignore').decode('ascii')
+                fh.write(line + '\n')
 
         # Create the doc.
         self.clear()
@@ -1009,13 +1083,14 @@ class Report(object):
         if not self.system_data:
             self.system_data = 'katreport/katreport_system.json'
 
-        docproducer.add_line("Nose Called with:")
+        docproducer.add_line("NoseTests executed command: ")
         docproducer.add_sourcecode(nose_cmd)
 
         if not isinstance(self.system_data, dict):
             self.system_data = {}
 
         for filename in inc_files:
+            # system_info.inc
             docproducer.add_include(filename)
 
     def _rst_table(self, docproducer, filter_name=None):
@@ -1059,7 +1134,6 @@ class Report(object):
 
     def _rst_add_data(self, docproducer, data, add_items=None, ignore_items=None):
         """ ."""
-
         if not add_items:
             add_items = sorted(data.keys())
         elif not isinstance(add_items, list):
@@ -1143,29 +1217,34 @@ class Report(object):
         """Add a summary of a test to the docproducer."""
         if test_name == "Meta":
             return
+
         docproducer.add_anchor(test_name)
         _test_name = test_data.get('label', test_name)
         if _test_name.startswith('Test'):
             _test_name = _test_name.replace('Test ', '') + ' Test'
             test_data['label'] = _test_name
 
-        docproducer.add_heading('subsubsection',
-                                test_data.get('label', test_name))
-
+        # docproducer.add_heading('subsubsection', test_data.get('label', test_name))
         test_path = test_name.split(".")
         testfile = "Test path: {0}.py:{1}.{2}".format('/'.join(test_path[:-2]),
                                            test_path[-2], test_path[-1])
         cmd ='git ls-remote --get-url'
         _link = subprocess.check_output(cmd.split())
         test_link = "Github link: {}".format(_link)
-        docproducer.add_sourcecode(testfile)
+        # docproducer.add_sourcecode(testfile)
         # docproducer.add_sourcecode(test_link)
-        data = {'description': test_data.get('description'),
+        data = {
+                'description': test_data.get('description'),
                 'group': test_data.get('group', 'Unknown'),
-                'status': docproducer.str_style(test_data.get('status', self.UNKNOWN).upper())}
+                'status': docproducer.str_style(test_data.get('status', self.UNKNOWN).upper())
+                }
 
+        test_status = ' '.join(['Verification Event:', docproducer.str_style(
+            test_data.get('status', self.UNKNOWN).title())])
         if not test_data.get('success'):
-           docproducer.add_box_warning(test_data.get('status', self.UNKNOWN).title())
+           docproducer.add_box_warning(test_status)
+        else:
+            docproducer.add_box_note(test_status)
         ## AQF decorator info.
         data['systems'] = ", ".join([n for n in test_data.get('aqf_systems', [])])
 
@@ -1182,16 +1261,17 @@ class Report(object):
                     'aqf_instrument_bc32n856M4k': 'This is a 16 Antenna, 4096-channel CBF test (*Only*)',
                     'aqf_instrument_bc8n856M32k': 'This is a 4 Antenna, 32768-channel CBF test (*Only*)',
                     'aqf_instrument_bc16n856M32k': 'This is a 8 Antenna, 32768-channel CBF test (*Only*)',
-                    'aqf_instrument_bc32n856M32k': 'This is a 16 Antenna, 32768-channel CBF test (*Only*)'}
+                    'aqf_instrument_bc32n856M32k': 'This is a 16 Antenna, 32768-channel CBF test (*Only*)'
+                    }
 
         for aqf_var in aqf_vars:
             if test_data.get(aqf_var):
                 data[aqf_var.replace('aqf_', '').replace('_', ' ')] = aqf_vars[aqf_var]
 
-        data['requirements'] = sorted(test_data.get('requirements', []))
-        self._rst_add_data(docproducer, data)
+        # Requirements already mapped from data pulled from CORE
+        #data['requirements'] = sorted(test_data.get('requirements', []))
+        # self._rst_add_data(docproducer, data)
 
-        docproducer.add_line('-------')
         ## Show the steps:
         if len(nsort(test_data.get('steps', {}).keys())) > 2:
             counter = 0
@@ -1201,9 +1281,10 @@ class Report(object):
                     docproducer.add_line("- Hop: %s (%s)" %
                                         (this_step.get('description'), this_step.get('step_start')))
                 else:
-                    counter += 1
-                    docproducer.add_line("- Step %d: %s (%s)" %
-                                        (counter, this_step.get('description'), this_step.get('step_start')))
+                    if this_step.get('description'):
+                        counter += 1
+                        docproducer.add_line("- Step %d: %s (%s)" % (counter,
+                            this_step.get('description'), this_step.get('step_start')))
                 ## Show the progress:
                 for action in this_step.get('action', []):
                     line = [" +"]
@@ -1287,21 +1368,15 @@ class Report(object):
             for test in self.test_data:
                 if test == "Meta":
                     continue
-                test_data = {'status': self.test_data[test].get('status',
-                                                                self.UNKNOWN),
-                             'success': self.test_data[test].get('success',
-                                                                 False)}
+                test_data = {'status': self.test_data[test].get('status', self.UNKNOWN),
+                             'success': self.test_data[test].get('success', False)}
                 for test_req in self.test_data[test].get('requirements', []):
                     if test_req not in reqs:
-                        reqs[test_req] = {'status': self.UNKNOWN,
-                                          'success': True,
-                                          'tests': {}}
+                        reqs[test_req] = {'status': self.UNKNOWN, 'success': True, 'tests': {}}
                     reqs[test_req]['tests'][test] = test_data
                     reqs[test_req]['success'] &= test_data['success']
-                    reqs[test_req]['status'] = self._comp_status(
-                        reqs[test_req]['status'],
-                        test_data['status'])
-
+                    reqs[test_req]['status'] = self._comp_status(reqs[test_req]['status'],
+                                                                test_data['status'])
             self._cache_requirements_from_tests = reqs
         return self._cache_requirements_from_tests
 
