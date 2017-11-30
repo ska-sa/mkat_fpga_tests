@@ -373,7 +373,7 @@ def clear_all_delays(self, num_int=25):
         _parameters = parameters(self)
         no_fengines = _parameters['no_fengines']
         int_time = _parameters['int_time']
-        LOGGER.info('Retrieving test params via CAM Interface')
+        LOGGER.info('Retrieving test parameters via CAM Interface')
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
@@ -386,20 +386,16 @@ def clear_all_delays(self, num_int=25):
                 dump = self.receiver.get_clean_dump()
                 dump_timestamp = dump['dump_timestamp']
                 t_apply = dump_timestamp + num_int * int_time
-                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
-                                                                    *delay_coefficients)
-                errmsg = str(reply)
-                assert reply.reply_ok(), errmsg
+                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+                assert reply.reply_ok()
                 LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-                dump = self.receiver.get_clean_dump(discard=num_int*2)
+                dump = self.receiver.get_clean_dump()
                 _max = int(np.max(np.angle(dump['xeng_raw'])))
                 _min = int(np.min(np.angle(dump['xeng_raw'])))
-                errmsg = 'Maximum/Minimum delays are not equal to zero ie not cleared'
-                assert _min ==_max == 0, errmsg
+                assert _min ==_max == 0
                 LOGGER.info('Delays cleared successfully.')
                 return True
             except Exception as e:
-                LOGGER.error(errmsg)
                 LOGGER.exception('Failed to clear delays due to : %s, Max/Min delays found: %s/%s'%(
                     str(e), np.max(np.angle(dump['xeng_raw'])), np.min(np.angle(dump['xeng_raw']))))
                 continue

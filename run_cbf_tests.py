@@ -36,8 +36,10 @@ from signal import SIGKILL
 
 # List all core test python module dependencies
 _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
-# Array Release
-_release ='2.0'
+
+# TODO (MM) perhaps implement a config file
+_revision ='1.0'
+_release = '2.0'
 
 def option_parser():
     usage = """
@@ -577,9 +579,9 @@ def generate_sphinx_docs(settings):
                 document_data['document_type'].values()[0])
             _document_num = document_data['document_number'].get(
                 document_data.get('documented_instrument', 'Unknown'), 'Unknown')[0]
-            _document_rel = _release
-            latex_file = ''.join(glob.glob(cover_page_dir +'/*.tex'))
-            orig_names = ['Doctype', 'DocNumber', 'DocRelease', 'DocumentTitle']
+            _document_rel = _revision
+            latex_file = ''.join(glob.glob(cover_page_dir + '/*.tex'))
+            orig_names = ['Doctype', 'DocNumber', 'DocRevision', 'DocumentTitle']
             if settings.get('gen_qtr', False):
                 logger.debug('Making fixes for QTR on Cover page')
                 num_antennas = ''.join(['(',document_data['document_number'].get(

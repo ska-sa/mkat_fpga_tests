@@ -743,7 +743,7 @@ class Report(object):
         header_map = []
         if title.lower().endswith('procedure'):
             header_map.append('requirements')
-        header_map.extend(['verification event', 'status', 'verification event description'])
+        header_map.extend(['verification event', 'verification event description', 'status'])
         for req in nsort(items):
             _requirements = []
             vr = self.requirements.get(req, {})
@@ -849,10 +849,17 @@ class Report(object):
                     relationships.append(r)
 
         if relationships:
-            for rel in nsort(relationships):
+            for count, rel in enumerate(nsort(relationships), 1):
                 if self.requirements.get(rel, {}).get('puid'):
-                    dp.add_line(":**{}**: - {}".format(self.requirements.get(rel, {}).get('puid'),
-                        self.requirements.get(rel, {}).get('description', '')))
+                    _description = self.requirements.get(rel, {}).get('description', '')
+                    # TODO (MM) 28-Nov-2017
+                    # Perhaps use regular expressions
+                    for i in ['a)','b)','c)','d)','e)','f)','g)','h)','i)','j)',
+                              '1)', '2)', '3)', '4)', '5)', '6)', '7)', '8)']:
+                        if i in _description:
+                            _description = _description.replace(i, '                      - ')
+                    dp.add_line(":**%s**:   %s) %s" %(self.requirements.get(rel, {}).get('puid'),
+                       count, _description))
                 # else:
                 #      dp.add_line(":{}: {}".format(rel,
                 #         self.requirements.get(rel, {}).get('description', '')))

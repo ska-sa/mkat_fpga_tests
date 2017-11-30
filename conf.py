@@ -7,12 +7,11 @@
 # THIS SOFTWARE MAY NOT BE COPIED OR DISTRIBUTED IN ANY FORM WITHOUT THE      #
 # WRITTEN PERMISSION OF SKA SA.                                               #
 ###############################################################################
-import string
-
 import atexit
 import glob
 import json
 import os
+import string
 import subprocess
 import sys
 import time
@@ -195,6 +194,7 @@ latex_elements = {
              left=20mm,
              top=20mm,
              }
+        \usepackage{paralist}
         \usepackage{color}
         % http://users.sdsc.edu/~ssmallen/latex/longtable.html
         \usepackage{longtable}
@@ -278,7 +278,7 @@ def exit_handler():
                 replaceAll(tex_file, "DUrole{%s}" % color, "textcolor{%s}" % color)
             # Fixes to the tables
             replaceAll(tex_file, "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
-                                 "{longtable}[c]{|p{1.2in}|p{.7in}|p{.8in}|p{2in}|}")
+                                 "{longtable}[c]{|p{1.2in}|p{.7in}|p{2in}|p{.8in}|}")
             replaceAll(tex_file, "{tabulary}{\linewidth}[t]{|T|T|T|}",
                                  "{longtable}[c]{|p{1.2in}|p{.7in}|l|}")
             replaceAll(tex_file, "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
@@ -288,6 +288,7 @@ def exit_handler():
             replaceAll(tex_file, "end{tabulary}", "end{longtable}")
             # Add new page after the table
             replaceAll(tex_file, "\item[", "\item")
+            replaceAll(tex_file, "\item{", "\item\hspace{-0.15cm}{")
             replaceAll(tex_file, "] \leavevmode", " \leavevmode")
             replaceAll(tex_file, "sphinxstylestrong{", "sphinxstylestrong{\small ")
             replaceAll(tex_file, "\end{savenotes}", "\end{savenotes}\\newpage")

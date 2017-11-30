@@ -191,7 +191,10 @@ class test_CBF(unittest.TestCase):
                 assert instrument_state, self.errmsg
             except AssertionError:
                 LOGGER.error(self.errmsg)
-                retry()
+                try:
+                    retry()
+                except RetryError:
+                    return False
 
         if self._dsim_set:
                 Aqf.step('Configure a digitiser simulator to be used as input source to F-Engines.')
