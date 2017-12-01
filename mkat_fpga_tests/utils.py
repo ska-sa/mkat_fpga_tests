@@ -380,28 +380,28 @@ def clear_all_delays(self, num_int=25):
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
     _retries = 3
-    for _retry in range(_retries):
-        while True:
-            try:
-                dump = self.receiver.get_clean_dump()
-                dump_timestamp = dump['dump_timestamp']
-                t_apply = dump_timestamp + num_int * int_time
-                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-                assert reply.reply_ok()
-                LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-                dump = self.receiver.get_clean_dump()
-                _max = int(np.max(np.angle(dump['xeng_raw'])))
-                _min = int(np.min(np.angle(dump['xeng_raw'])))
-                assert _min ==_max == 0
-                LOGGER.info('Delays cleared successfully.')
-                return True
-            except Exception as e:
-                LOGGER.exception('Failed to clear delays due to : %s, Max/Min delays found: %s/%s'%(
-                    str(e), np.max(np.angle(dump['xeng_raw'])), np.min(np.angle(dump['xeng_raw']))))
-                continue
-            break
-        if _retry == (_retries - 1):
-            return False
+    errmsg = ''
+    while _retries:
+        try:
+            dump = self.receiver.get_clean_dump(discard=20)
+            dump_timestamp = dump['dump_timestamp']
+            errmsg = 'Dump timestamp is not in-sync with epoch'
+            assert int(dump_timestamp - time.time()) == -1, errmsg
+            t_apply = dump_timestamp + num_int * int_time
+            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            errmsg = 'Delays command could not be executed in the given time'
+            assert reply.reply_ok(), errmsg
+            LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
+            dump = self.receiver.get_clean_dump()
+            _max = int(np.max(np.angle(dump['xeng_raw'])))
+            _min = int(np.min(np.angle(dump['xeng_raw'])))
+            assert _min ==_max == 0, 'Max/Min delays found: %s/%s ie not cleared'%(_max, _min)
+            LOGGER.info('Delays cleared successfully.')
+            return True
+        except Exception:
+            LOGGER.exception(errmsg)
+            continue
+    return False
 
 
 def get_fftoverflow_qdrstatus(correlator):
