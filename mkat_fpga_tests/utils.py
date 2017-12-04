@@ -365,7 +365,7 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
 def clear_all_delays(self, num_int=25):
     """Clears all delays on all fhosts.
     Param: object
-    Param: num_int: Number of intergrations for calculation time to apply delays and number of
+    Param: num_int: Number of integrations for calculation time to apply delays and number of
                     spead accumulation discards.
     Return: Boolean
     """
@@ -393,11 +393,13 @@ def clear_all_delays(self, num_int=25):
             assert reply.reply_ok(), errmsg
             LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
             dump = self.receiver.get_clean_dump()
-            _max = int(np.max(np.angle(dump['xeng_raw'])))
-            _min = int(np.min(np.angle(dump['xeng_raw'])))
-            assert _min ==_max == 0, 'Max/Min delays found: %s/%s ie not cleared'%(_max, _min)
+            _max, _min = int(np.max(np.angle(dump['xeng_raw']))), int(np.min(np.angle(dump['xeng_raw'])))
+            assert (_min ==_max) == 0, 'Max/Min delays found: %s/%s ie not cleared'%(_max, _min)
             LOGGER.info('Delays cleared successfully.')
             return True
+        except TypeError:
+            LOGGER.exception("Object has no attributes")
+            return False
         except Exception:
             LOGGER.exception(errmsg)
             continue
