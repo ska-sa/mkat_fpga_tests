@@ -362,7 +362,7 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         return baseline_lookup
 
 
-def clear_all_delays(self, num_int=25):
+def clear_all_delays(self, num_int=10):
     """Clears all delays on all fhosts.
     Param: object
     Param: num_int: Number of integrations for calculation time to apply delays and number of
@@ -379,30 +379,35 @@ def clear_all_delays(self, num_int=25):
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
-    _retries = 3
+    _retries = 10
     errmsg = ''
     while _retries:
+        _retries -= 1
         try:
-            dump = self.receiver.get_clean_dump(discard=20)
+            dump = self.receiver.get_clean_dump(discard=10)
             dump_timestamp = dump['dump_timestamp']
-            errmsg = 'Dump timestamp is not in-sync with epoch'
-            assert int(dump_timestamp - time.time()) == -1, errmsg
-            t_apply = dump_timestamp + num_int * int_time
+            time_now = time.time()
+            time_diff = dump_timestamp - time_now
+            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
+                dump_timestamp, time_now, time_diff))
+            assert int(time_diff) == -1, errmsg
+            t_apply = dump_timestamp + (num_int * int_time)
             reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
             errmsg = 'Delays command could not be executed in the given time'
             assert reply.reply_ok(), errmsg
-            LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-            dump = self.receiver.get_clean_dump()
-            _max, _min = int(np.max(np.angle(dump['xeng_raw']))), int(np.min(np.angle(dump['xeng_raw'])))
-            assert (_min ==_max) == 0, 'Max/Min delays found: %s/%s ie not cleared'%(_max, _min)
-            LOGGER.info('Delays cleared successfully.')
+            dump = self.receiver.get_clean_dump(discard=10)
+            _max = int(np.max(np.angle(dump['xeng_raw'])))
+            _min = int(np.min(np.angle(dump['xeng_raw'])))
+            errmsg = 'Max/Min delays found: %s/%s ie not cleared'%(_max, _min)
+            assert _min ==_max == 0, errmsg
+            LOGGER.info(
+                'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
             return True
         except TypeError:
             LOGGER.exception("Object has no attributes")
             return False
         except Exception:
             LOGGER.exception(errmsg)
-            continue
     return False
 
 
