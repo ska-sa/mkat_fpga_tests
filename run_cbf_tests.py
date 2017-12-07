@@ -519,25 +519,35 @@ def generate_sphinx_docs(settings):
     else:
         logger.info("Generating LATEX/PDF document from reST")
         document_data = {
-                'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test '%_release,
+                'project': 'MeerKAT Correlator-Beamformer Array Release 2/3 Qualification Test ',
                 'documented_instrument': settings.get('system_type', 'Unknown'),
-                'document_number': {'QTP': 'M1200-0000-xxx',
-                                    'QTR': 'M1200-0000-xxx',
-                                    'bc8n856M4k': ['M1200-0000-xx1', '4 Antenna System running in '
-                                                                     'Wideband Coarse (4K) mode '
-                                                                     'with a beamformer'],
-                                    'bc8n856M32k':  ['M1200-0000-xx2', '4 Antenna System running in'
-                                                                      'Wideband Fine (32K) mode'],
-                                    'bc16n856M4k':  ['M1200-0000-xx3', '8 Antenna System running in'
-                                                                      'Wideband Coarse (4K) mode'
-                                                                      'with a beamformer'],
-                                    'bc16n856M32k': ['M1200-0000-xx4', '8 Antenna System running in'
-                                                                      'Wideband Fine (32K) mode'],
-                                    'bc32n856M4k':  ['M1200-0000-xx5', '16 Antenna System running in'
-                                                                      'Wideband Coarse (4K) mode'
-                                                                      'with a beamformer'],
-                                    'bc32n856M32k': ['M1200-0000-xx6', '16 Antenna System running in'
-                                                                      'Wideband Fine (32K) mode'],
+                'document_number': {'QTP': 'M1200-0000-054 ',
+                                    'QTR': 'M1200-0000-055',
+                                    'bc8n856M4k': ['M1200-0000-055-1',
+                                                   '4 Antenna System running in Wideband Coarse (4K) mode'
+                                                   ' with a beamformer'],
+                                    'bc8n856M32k':  ['M1200-0000-055-2',
+                                                   '4 Antenna System running in Wideband Fine (32K) mode'],
+                                    'bc16n856M4k':  ['M1200-0000-055-3',
+                                                   '8 Antenna System running in Wideband Coarse (4K) mode'
+                                                   ' with a beamformer'],
+                                    'bc16n856M32k': ['M1200-0000-055-4',
+                                                   '8 Antenna System running in Wideband Fine (32K) mode'],
+                                    'bc32n856M4k':  ['M1200-0000-55-5',
+                                                   '16 Antenna System running in Wideband Coarse (4K) mode'
+                                                   ' with a beamformer'],
+                                    'bc32n856M32k': ['M1200-0000-55-6',
+                                                   '16 Antenna System running in Wideband Fine (32K) mode'],
+                                    'bc64n856M4k':  ['M1200-0000-55-7',
+                                                   '32 Antenna System running in Wideband Coarse (4K) mode'
+                                                   ' with a beamformer'],
+                                    'bc64n856M32k': ['M1200-0000-55-8',
+                                                   '32 Antenna System running in Wideband Fine (32K) mode'],
+                                    'bc128n856M4k':  ['M1200-0000-55-9',
+                                                   '64 Antenna System running in Wideband Coarse (4K) mode'
+                                                   ' with a beamformer'],
+                                    'bc128n856M32k': ['M1200-0000-55-10',
+                                                   '64 Antenna System running in Wideband Fine (32K) mode'],
                                     },
                         }
         _filename = os.path.join(settings.get('me_dir'),
