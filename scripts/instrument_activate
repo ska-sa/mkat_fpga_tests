@@ -72,12 +72,12 @@ printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: $
 
 export CORR2INI=$CONF_PATH;
 if [ $START_DSIM == y ]; then
-    printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
-    if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
-        then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
-    else
-        printf "${RED}Failed to deprogram ${NORMAL}\n\n";
-    fi
+    #printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
+    #if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
+    #    then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
+    #else
+    #    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
+    #fi
     StopDMC="/usr/local/bin/stop-pseudo-dmc";
     if [ -x "$(command -v $StopDMC)" ]; then
         $StopDMC || $KCPCMD -t 30 -s localhost:9010 halt
@@ -92,22 +92,19 @@ if [ $START_DSIM == y ]; then
 fi
 /usr/local/bin/corr2_dsim_control.py --zeros-sine --zeros-noise;
 
-printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n";
-while true;
-    do printf '';
-    $KCPCMD -t 31 -s ${MACHINE_IP}:7147 subordinate-halt array0  || true;
-    sleep 0.5;
-    ARRAY=$($KCPCMD -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3);
-    printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n";
-    SYNC_EPOCH=$($KCPCMD -s ${MACHINE_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 6 -d' ');
-    SYNC_TIME=$(date -d @$SYNC_EPOCH)
-    printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n";
-    sleep 0.5;
-    $KCPCMD -t 500 -s $MACHINE_IP:$ARRAY instrument-activate $INSTRUMENT $PROG $CALQDR $REPOCH $MVACC && break;
-    sleep 2;
-done
+printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n"
+$KCPCMD -t 31 -s ${MACHINE_IP}:7147 subordinate-halt array0  || true
+sleep 0.5
+ARRAY=$($KCPCMD -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3)
+printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n"
+SYNC_EPOCH=$($KCPCMD -s ${MACHINE_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 6 -d' ')
+SYNC_TIME=$(date -d @$SYNC_EPOCH)
+printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n"
+$KCPCMD -t 500 -s $MACHINE_IP:$ARRAY digitiser-synch-epoch $SYNC_EPOCH
+sleep 0.5;
+$KCPCMD -t 500 -s $MACHINE_IP:$ARRAY instrument-activate $INSTRUMENT $PROG $CALQDR $REPOCH $MVACC
+sleep 2;
 
-sleep 1;
 if [ $(echo ${MACHINE::4}) == 'cmc1' ]; then
     printf "${GREEN} Copying config file over to CMC2 and CMC3${NORMAL}"
     scp /etc/corr/array0-* ${USER}@10.103.254.3:/etc/corr
