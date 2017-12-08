@@ -5,7 +5,7 @@
 if [ -z "$*" ];
     then echo -e "Usage: $0 INSTRUMENT RESTART_CMC START_DSIM KATCP_HOST_IP CONF_PATH \n
     INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)
-    RESTART_CMC: [y]/n
+    RESTART_CMC: y/[n]
     START_DSIM: [y]/n (If not restarted hosts will not be deprogrammed)
     INSTRUMENT_OPTS: 1011 (Default) / Inststrument activate options, 1=enable, 0=disable [program, calibrate qdr, require synchronisation epoch, monitor vector accumulators]
     KATCP_HOST_IP: localhost (Default) / IP
@@ -34,7 +34,7 @@ UNDERLINE=$(tput smul)
 
 MACHINE=$(hostname)
 INSTRUMENT=$1
-RESTART_CMC=${2:-y}
+RESTART_CMC=${2:-n}
 START_DSIM=${3:-y}
 INST_OPTS=${4:-1011}
 PROG=${INST_OPTS:0:1}
