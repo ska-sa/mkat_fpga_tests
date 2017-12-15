@@ -339,3 +339,8 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
             plt.show(block=False)
         plt.cla()
         plt.clf()
+
+def test_heading(heading):
+    Aqf.hop('-'*50)
+    Aqf.stepBold(heading)
+    Aqf.hop('-'*50)

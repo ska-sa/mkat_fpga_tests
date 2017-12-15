@@ -475,12 +475,11 @@ class CorrelatorFixture(object):
         success = False
         while retries and not success:
             check_ins = self.check_instrument(self.instrument)
-            msg = 'Retries left to check instrument: %s' %retries
+            msg = 'Will retry to check if the instrument is up: #%s retry.' % retries
             LOGGER.info(msg)
             if check_ins is True:
                 success = True
-                LOGGER.info('Return true if named instrument is enabled on correlator array after '
-                        ' %s retries' %retries)
+                LOGGER.info('Named instrument (%s) is currently running' % instrument)
                 return success
             retries -= 1
 

@@ -2,64 +2,17 @@ class TestProcedure:
     """Test Procedures"""
 
     @property
-    def TempFaultDetection(self):
-        _description = """
-        **Host Temperature Fault Detection**
-
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period
-            - and confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Connect to a random host.
-        5. For both Air Inlet and Outlet Temperature Warning.
-            - Retrieve current air outlet temperature
-            - Confirm that the over-temp alarm is Not triggered.
-            - Confirm that the under-temp alarm is Not triggered.
-            - Confirm that the over-temp alarm is Triggered.
-            - Confirm that the under-temp alarm is Triggered.
-            - Confirm that the over-temp alarm was set back to default.
-            - Confirm that the under-temp alarm was set back to default.
-        """
-        return _description
-
-    @property
-    def MemFaultDetection(self):
-        _description = """
-        **Memory Error Detection**
-
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period
-            - and confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Connect to a random F-host via CAM interface
-        5. Confirm that the hardware sensor indicates that the QDR is healthy.
-        6. Write random data to the QDR memory.
-            - Confirm that sensor indicates that the QDR memory is unreadable/corrupted.
-            - Confirm that the error counters have incremented, showing that the corner turner experienced faults.
-            - Confirm that the error counters have stopped incrementing with last known incremented.
-        7. Reset the error counters,
-            - Confirm that the error counters have been reset
-            - Confirm that sensor indicates that the QDR memory recovered.
-        8. Repeat above steps for Xhosts
-        """
-        return _description
-
-    @property
     def LinkFaultDetection(self):
         _description = """
         **Link Error Detection**
 
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Connect to a random host via CAM interface
-        5. Retrieve current multicast destination address
-        6. Randomly change the multicast destination address of the host.
+        1. Connect to a random host via CAM interface
+        2. Retrieve current multicast destination address
+        3. Randomly change the multicast destination address of the host.
             - Confirm that the multicast destination address has been changed
             - Confirm that the X-engine LRU sensor is reporting a failure,
             - Confirm that the SPEAD accumulation are still being produced
-        7. Restore the multicast destination address back to original
+        4. Restore the multicast destination address back to original
             - Confirm that the multicast destination address has been changed back to its original
             - Confirm that the X-engine LRU sensor is healthy
             - Confirm that the SPEAD accumulation is being produced and verify that the data is feasible
@@ -93,22 +46,18 @@ class TestProcedure:
         _description = """
         **Sensor status**
 
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period,
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Check that the number of sensors available on the primary and sub array interface is consistent.
-        5. Check that time synchronous is implemented on primary interface
-        6. Check that Transient Buffer ready is implemented.
+        1. Confirm that the number of sensors available on the primary and sub array interface is consistent.
+        2. Confirm that time synchronous is implemented on primary interface
+        3. Confirm that Transient Buffer ready is implemented.
         """
         return _description
 
     @property
     def ReportHostSensor(self):
         _description = """
-        **ROACH2 Sensor (Temp, Voltage, Current, Fan) Status**
+        **Processing Node's Sensor (Temp, Voltage, Current, Fan) Status**
 
-        1. This test confirms that each ROACH sensor (Temp, Voltage, Current, Fan) has not Failed.
+        1. This test confirms that each Processing Node's sensor (Temp, Voltage, Current, Fan) has not Failed.
         2. For all hosts.
             - Verify that the number of hardware sensors are consistent.
             - Confirm that the number of hardware sensors-list are equal to the sensor-values of specific hardware
@@ -119,17 +68,10 @@ class TestProcedure:
     @property
     def ReportHWVersion(self):
         _description = """
-        **CBF ROACH version information.**
+        **CBF processing node version information.**
 
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Determine number of hosts and current configuration(DEngine, X/Fengine)
-        5. Retrieve hosts firmware information
-            - UBoot Version
-            - ROMFS Version
-            - H/W Revision
+        1. Determine number of hosts and current configuration(DEngine, X/F/B-Engine)
+        2. Retrieve hosts firmware information
         """
         return _description
 
@@ -138,11 +80,7 @@ class TestProcedure:
         _description = """
         **CBF Software Version Information**
 
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Request a list of available configuration items using KATCP command "?version-list"
+        1. Request a list of available configuration items using KATCP command "?version-list"
             - F/Xengine firmware information
             - KATCP device, library, protocol
             - CBF server name
@@ -154,14 +92,10 @@ class TestProcedure:
         _description = """
         **CBF Git Version Information**
 
-        1. Configure a digitiser simulator to generate correlated input noise signal.
-        2. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Retrieve CORE software information
-            - Repo directory
-            - Repo branch and status
-            - Repo version/tag
+        1. Retrieve CORE software information
+            - Repository directory
+            - Repository branch and status
+            - Repository version/tag
         """
         return _description
 
@@ -187,86 +121,66 @@ class TestProcedure:
     @property
     def BaselineCorrelation(self):
         _description = """
-        **Baseline Correlation Products**
-
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate correlated input noise signal.
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Set list for all the correlator input labels as per config file
-        6. Capture an initial correlator SPEAD accumulation, and retrieve list of all the correlator input labels via CAM interface.
-        7. Get list of all possible baselines (including redundant baselines) present in the correlator output from SPEAD accumulation
-        8. Check that each baseline (or its reverse-order counterpart) is present in the correlator output
-        9. Expect all baselines and all channels to be non-zero with Digitiser Simulator set to output AWGN.
+
+        **Baseline Correlation Products**
+
+        1. Set list for all the correlator input labels as per config file
+        2. Capture an initial correlator SPEAD accumulation, and retrieve list of all the correlator input labels via CAM interface.
+        3. Get list of all possible baselines (including redundant baselines) present in the correlator output from SPEAD accumulation
+        4. Check that each baseline (or its reverse-order counterpart) is present in the correlator output
+        5. Expect all baselines and all channels to be non-zero with Digitiser Simulator set to output AWGN.
               - Confirm that no baselines have all-zero visibilities.
               - Confirm that all baseline visibilities are non-zero across all channels
-        10. Save initial f-engine equalisations, and ensure they are restored at the end of the test
-        11. Set all inputs gains to `Zero`, and confirm that output product is all-zeros
-        12. - Confirm that all the inputs equalisations have been set to 'Zero'.
+        6. Save initial f-engine equalisations, and ensure they are restored at the end of the test
+        7. Set all inputs gains to `Zero`, and confirm that output product is all-zeros
+        8. - Confirm that all the inputs equalisations have been set to 'Zero'.
             -  Confirm that all baseline visibilities are `Zero`.
-        13. Iterate through input combinations, verifying for each that the correct output appears in the correct baseline product.
+        9. Iterate through input combinations, verifying for each that the correct output appears in the correct baseline product.
             - Set gain/equalisation correction on relevant input
             - Retrieving SPEAD accumulation and,
             - Confirm if gain/equalization correction has been applied.
-        14. Check that expected baseline visibilities are non-zero with non-zero inputs and,
+        10. Check that expected baseline visibilities are non-zero with non-zero inputs and,
             - Confirm that expected baselines visibilities are 'Zeros'
-            """
-        return _description
 
-    @property
-    def BackToBack(self):
-        _description = """
-        **Baseline Correlation Products Back-to-Back Consistency**
+        **Spead Accumulation Back-to-Back Consistency**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate periodic wave in order for each FFT to be identical.
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Randomly select a channel to test.
-        6. Calculate a list of frequencies to test
-        7. Sweep the digitiser simulator over the selected/requested frequencies fall within the complete L-band, for each frequency
+        Note: This test confirms that back-to-back SPEAD accumulations with same frequency input are identical/bit-perfect.
+
+        1. Randomly select a channel to test.
+        2. Calculate a list of frequencies to test
+        3. Sweep the digitiser simulator over the selected/requested frequencies fall within the complete L-band, for each frequency
             - Retrieve channel response for each frequency.
             - Capture SPEAD accumulation and
             - Confirm that the difference between subsequent accumulation is Zero.
             - Check that the maximum difference between the subsequent SPEAD accumulations with the same frequency input is 'Zero' on baseline that baseline
 
-        Note: This test confirms that back-to-back SPEAD accumulations with same frequency input are identical/bit-perfect.
-        """
-        return _description
 
-    @property
-    def FreqConsistency(self):
-        _description = """
-        **Baseline Correlation Products Frequency Consistency**
+        **Spead Accumulation Frequency Consistency**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate generate continuous wave.
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Randomly select a frequency channel to test.
-        6. Sweep the digitiser simulator over the centre frequencies of all the selected frequency channels that fall within the complete L-band
+        Note: This test confirms if the identical frequency scans produce equal results.
+
+        1. Randomly select a frequency channel to test.
+        2. Sweep the digitiser simulator over the centre frequencies of all the selected frequency channels that fall within the complete L-band
             - Retrieve channel response for each frequency
             - Capture SPEAD accumulations, and
             - Confirm that identical frequency scans between subsequent SPEAD accumulations produce equal results.
 
-        Note: This test confirms if the identical frequency scans produce equal results.
-        """
-        return _description
 
-    @property
-    def SpeadVerify(self):
-        _description = """
-        **Baseline Correlation Products SPEAD ACC Verification**
+        **SPEAD Accumulation Verification**
+
+        Note: This test verifies if a cw tone is only applied to a single input 0, Confirm if VACC is rooted by 1
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate generate continuous wave on input 0
+        2. Configure a digitiser simulator to generate continuous wave, on input 0
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Capture a correlator SPEAD accumulation.
+        5. Capture SPEAD accumulation, and
             - Confirm that auto-correlation in baseline 0 contains Non-Zeros and,
             - Baseline 1 is Zeros, when cw tone is only outputted on input 0.
         6. Reset digitiser simulator to Zeros
@@ -275,7 +189,6 @@ class TestProcedure:
             - Confirm that auto-correlation in baseline 1 contains non-Zeros and,
             - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
 
-        Note: This test verifies if a cw tone is only applied to a single input 0, Confirm if VACC is rooted by 1
         """
         return _description
 
@@ -303,13 +216,16 @@ class TestProcedure:
     @property
     def Control(self):
         _description = """
-        **Control Interface**
+        **Control VR**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. List of available CAM commands, current status(executable or abandoned),replies(if any)
+        1. The CBF shall, on request via the CAM interface, set the following parameters:
+            a) Downconversion frequency
+            b) Channelisation configuration
+            c) Accumulation interval
+            d) Re-quantiser settings (Gain)
+            e) Complex gain correction
+            f) Polarisation correction.
+        2. The CBF shall, on request via the CAM interface, report the requested setting of each control parameter.
         """
         return _description
 
@@ -318,12 +234,8 @@ class TestProcedure:
         _description = """
         **Time synchronisation**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        4. Request NTP pool address used
-        4. Confirm that the CBF synchronised time is within 0.005s of UTC time as provided via PTP (NTP server) on the CBF-TRF interface.
+        1. Request NTP pool address used
+        2. Confirm that the CBF synchronised time is within 0.005s of UTC time as provided via PTP (NTP server) on the CBF-TRF interface.
         """
         return _description
 
@@ -362,6 +274,7 @@ class TestProcedure:
             - Confirm FFT Window samples, Internal Accumulations, VACC accumulation
         9. Retrieve quantiser snapshot of the selected input via CAM Interface
         10. Iteratively set accumulation length and confirm if the right accumulation is set on the SPEAD accumulation,
+
             - Confirm that vacc length was set successfully, and equates to a specific accumulation time as per calculation
             - Check that the accumulator actual response is equal to the expected response for the accumulation length
         """
@@ -464,150 +377,79 @@ class TestProcedure:
         return _description
 
     @property
-    def DelayRate(self):
+    def CBF_Delay_Phase_Compensation(self):
         _description = """
-        **Delay Compensation/LO Fringe stopping polynomial: Delay Rate**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated Gaussian noise
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM interface.
-        6. Clear all coarse and fine delays for all inputs before testing
-            - Confirm if all previously applied delays have been reset
+        1. Configure a digitiser simulator to be used as input source to F-Engines.
+        2. Configure a digitiser simulator to generate correlated Gaussian noise.
+        3. Set a predetermined accumulation period, and
+            - confirm it has been set via CAM interface.
+        4. Initiate SPEAD receiver, enable data to flow and,
+            - confirm CBF output product
+        5. Change current CBF input labels and confirm via CAM interface.
+        6. Clear all coarse and fine delays for all inputs, and
+            - confirm if all previously applied delays have been reset
         7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
         8. Get list of all the baselines present in the correlator output
-        9. Select input and baseline for testing
-        10. Set time to apply delays to 30 integrations/accumulations in the future.
-        11. Request Delay(s) Corrections via CAM interface.
-            - Confirm delays have been set
-            - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
-        12. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
-        13. When final SPEAD accumulation is received,
-            - Capture all subsequent SPEAD accumulation
-        14. For all subsequent SPEAD accumulations captured,
-            - Observe the change in the phase slope, and confirm the phase change is as expected.
-            - Check if difference between expected phases and actual phases are 'Almost Equal' within 1.0 degree when a delay rate is applied.
-            - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.0 degree.
-        """
-        return _description
+        9. Select random input and baseline for testing
 
-    @property
-    def DelayTracking(self):
-        _description = """
-        **Delay Compensation/LO Fringe stopping polynomial: Delay Tracking**
+        **Delay Tracking**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated Gaussian noise
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM interface.
-        6. Clear all coarse and fine delays for all inputs before testing
-            - Confirm if all previously applied delays have been reset
-        7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
-        8. Get list of all the baselines present in the correlator output
-        9. Select input and baseline for testing
-        10. Set time to apply delays to x integrations/accumulations in the future.
-        11. Compile list of delays to be set (iteratively) for testing purposes
-
-        12. Iterate through preselected, execute delays via CAM interface and calculate the amount of time it takes to load the delays
+        1. Set time to apply delays to x integrations/accumulations in the future.
+        2. Compile list of delays to be set (iteratively) for testing purposes
+        3. Iterate through preselected, execute delays via CAM interface and calculate the amount of time it takes to load the delays
             - Confirm delays have been set
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
             - Capture SPEAD accumulation (while discarding x dumps) containing the change in delay(s) on selected input
-        13. Iteratively, with captured SPEAD accumulations,
+        4. Iteratively, with captured SPEAD accumulations,
             - Check that if difference expected and actual phases are equal at delay 0.0ns within 1.0 degree.
             - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.0 degree.
             - Check that when a delay of x clock cycle is introduced there is a phase change of x degrees as expected to within 1.0 degree.
-            """
-        return _description
 
-    @property
-    def FringeOffset(self):
-        _description = """
-        **Delay Compensation/LO Fringe stopping polynomial: Fringe Offset**
+        **Delay Rate**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated Gaussian noise
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM interface.
-        6. Clear all coarse and fine delays for all inputs before testing
-            - Confirm if all previously applied delays have been reset
-        7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
-        8. Get list of all the baselines present in the correlator output
-        9. Select input and baseline for testing
-        10. Set time to apply delays to x integrations/accumulations in the future.
-        11. Request Delay(s) Corrections via CAM interface.
+        1. Set time to apply delays to x integrations/accumulations in the future.
+        2. Request Delay(s) Corrections via CAM interface.
             - Confirm delays have been set
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
-
-        12. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
-        13. When final SPEAD accumulation is received,
-            - Capture all subsequent SPEAD accumulation
-        14. For all subsequent SPEAD accumulations captured,
+        3. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
+        4. For all subsequent SPEAD accumulations captured,
             - Observe the change in the phase slope, and confirm the phase change is as expected.
-            - Check if difference between expected phases and actual phases are 'Almost Equal' within 1.000 degree when fringe offset of 2.548 is applied.
-            - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.000 degree
-            """
-        return _description
+            - Check if difference between expected phases and actual phases are 'Almost Equal', within 1 degree when a delay rate is applied.
+            - Check that the maximum difference between expected phase and actual phase between integrations is less than 1 degree.
 
+        **Fringe Offset**
 
-    @property
-    def FringeRate(self):
-        _description = """
-        **Delay Compensation/LO Fringe stopping polynomial: Fringe Rate**
-
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated Gaussian noise
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM interface.
-        6. Clear all coarse and fine delays for all inputs before testing
-            - Confirm if all previously applied delays have been reset
-        7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
-        8. Get list of all the baselines present in the correlator output
-        9. Select input and baseline for testing
-        10. Set time to apply delays to x integrations/accumulations in the future.
-        11. Request Delay(s) Corrections via CAM interface.
-            - Confirm delays have been set
+        1. Set time to apply delays to x integrations/accumulations in the future.
+        2. Request delay(s) corrections via CAM interface.
+            - Confirm delays have been set,
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
-
-        12. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
-        13. When final SPEAD accumulation is received,
-            - Capture all subsequent SPEAD accumulation
-        14. For all subsequent SPEAD accumulations captured,
+        3. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
+        4. For all subsequent SPEAD accumulations captured,
             - Observe the change in the phase slope, and confirm the phase change is as expected.
-            - Check if difference between expected phases and actual phases are 'Almost Equal' within 1.000 degree when fringe offset of 2.548 is applied.
-            - Check that the maximum difference between expected phase and actual phase between integrations is less than 1.000 degree
-            """
-        return _description
+            - Check if difference between expected phases and actual phases are 'Almost Equal' within 1 degree when fringe offset is applied.
+            - Check that the maximum difference between expected phase and actual phase between integrations is less than 1 degree
 
-    @property
-    def DelayInputs(self):
-        _description = """
-        **Delay Compensation/LO Fringe stopping polynomial: Delayed Input**
+        **Fringe Rate**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated Gaussian noise
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Change CBF input labels and confirm via CAM interface.
-        6. Clear all coarse and fine delays for all inputs before testing
-            - Confirm if all previously applied delays have been reset
-        7. Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.
-        8. Get list of all the baselines present in the correlator output
-        9. Select input and baseline for testing
-        10. Set time to apply delays to x integrations/accumulations in the future.
-        11. Calculate the maximum expected delay on the baseline
-        12. Request Delay(s) Corrections via CAM interface.
+        1. Set time to apply delays to x integrations/accumulations in the future.
+        2. Request Delay(s) Corrections via CAM interface.
             - Confirm delays have been set
             - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
-        13. Confirm is delay is being applied to the correct baseline
+        3. Capture SPEAD accumulation containing the change in phase on selected input and discard all irrelevant accumulations.
+        4. For all subsequent SPEAD accumulations captured,
+            - Observe the change in the phase slope, and confirm the phase change is as expected.
+            - Check if difference between expected phases and actual phases are 'Almost Equal' within 1 degree when fringe rate is applied.
+            - Check that the maximum difference between expected phase and actual phase between integrations is less than 1 degree
+
+        **Delayed Input**
+
+        1. Set time to apply delays to x integrations/accumulations in the future.
+        2. Calculate the maximum expected delay on the baseline
+        3. Request Delay(s) Corrections via CAM interface, and
+            - confirm delays have been set
+            - calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
+        4. Confirm is delay is being applied to the correct baseline
         """
         return _description
 
