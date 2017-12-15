@@ -249,12 +249,6 @@ latex_use_parts = False
 # Path to jsMath loader script (relative to ./_static/)
 jsmath_path = 'jsMath/easy/load.js'
 
-def cleanup():
-    cmd1 = ["git", "checkout", "--", "docs/introduction_qtp.tex"]
-    cmd2 = ["git", "checkout", "--", "docs/introduction_qtr.tex"]
-    _ = [subprocess.check_call(i) for i in [cmd1, cmd2]]
-    print '-'*60, 'Clean up', '-'*60
-
 def replaceAll(file, searchExp, replaceExp):
     """Search and replace"""
     with open(file, 'r') as f:
@@ -280,7 +274,6 @@ def exit_handler():
             old_tags = ["{tabulary}{\linewidth}[t]{|T|T|T|T|}",
                         "{tabulary}{\linewidth}[t]{|T|T|T|}",
                         "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
-                        "{tabulary}{\linewidth}[t]{|T|T|T|}",
                         "end{tabulary}","\item[",
                         "\item{", "] \leavevmode", "sphinxstylestrong{",
                         "\end{savenotes}", "\chapter{TP", "\chapter{AQF",
@@ -289,9 +282,8 @@ def exit_handler():
                         ]
 
             new_tags = ["{longtable}[c]{|p{1.2in}|p{.7in}|p{2in}|p{.8in}|}",
-                        "{longtable}[c]{|p{1.2in}|p{.7in}|l|}",
+                        "{longtable}[c]{|l|l|l|}",
                         "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
-                        "{longtable}[c]{|p{1.2in}|p{.7in}|l|}",
                         "end{longtable}",  "\item", "\item\hspace{-0.15cm}{",
                         " \leavevmode", "sphinxstylestrong{\small ",
                         "\end{savenotes}\\newpage", "\section{TP",
@@ -302,23 +294,26 @@ def exit_handler():
             for _old_tags, _new_tags in zip(old_tags, new_tags):
                 replaceAll(tex_file, _old_tags, _new_tags)
 
-            cleanup()
             docutype = ''.join(_document_data.get('document_type').keys()).lower()
-            _intro_doc = str('/'.join([curpath, 'docs/introduction_%s.tex'%(docutype)]))
-            replaceAll(tex_file, 'sphinxtableofcontents', 'sphinxtableofcontents\input{%s}'%_intro_doc)
-            if docutype == 'qtr':
+            if docutype == 'qtp':
+                _intro_doc = str('/'.join([curpath, 'docs/introduction_%s.tex'%(docutype)]))
+            else:
+                _intro_doc = str('/'.join([curpath, 'docs/introduction_%s.tex'%(docutype)]))
                 old_name = ['DocNumber', 'DocInfo', 'instrument']
                 new_name = [_document_number,
                             _document_info,
                             _document_data.get('documented_instrument', 'Unknown')
                             ]
-                for _old_name, _new_name in zip(old_name, new_name):
-                    replaceAll(_intro_doc, _old_name, _new_name)
 
+                for _old_name, _new_name in zip(old_name, new_name):
+                    replaceAll(_intro_doc, str(_old_name), str(_new_name))
+                time.sleep(1)
+
+            replaceAll(tex_file, 'sphinxtableofcontents',
+                                 'sphinxtableofcontents\input{%s}' % _intro_doc)
     except Exception:
         pass
-    cleanup()
-    print '-'*30, 'Done making changes', '-'*30
-
+    else:
+        print '-'*30, 'Done making changes', '-'*30
 
 atexit.register(exit_handler)
