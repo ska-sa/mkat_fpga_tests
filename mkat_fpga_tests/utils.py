@@ -1,3 +1,4 @@
+# import threading
 import base64
 import contextlib
 import glob
@@ -8,13 +9,12 @@ import numpy as np
 import operator
 import os
 import pwd
-# import Queue
+import Queue
 import random
 import signal
-# import threading
+import subprocess
 import time
 import warnings
-import subprocess
 
 from collections import Mapping
 from concurrent.futures import TimeoutError
@@ -390,7 +390,7 @@ def clear_all_delays(self, num_int=10):
             time_diff = dump_timestamp - time_now
             errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
                 dump_timestamp, time_now, time_diff))
-            assert int(time_diff) == -1, errmsg
+            assert int(time_diff) in [-1, 0], errmsg
             t_apply = dump_timestamp + (num_int * int_time)
             reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
             errmsg = 'Delays command could not be executed in the given time'
@@ -398,11 +398,13 @@ def clear_all_delays(self, num_int=10):
             dump = self.receiver.get_clean_dump(discard=10)
             _max = int(np.max(np.angle(dump['xeng_raw'])))
             _min = int(np.min(np.angle(dump['xeng_raw'])))
-            errmsg = 'Max/Min delays found: %s/%s ie not cleared'%(_max, _min)
+            errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (_max, _min)
             assert _min ==_max == 0, errmsg
             LOGGER.info(
                 'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
             return True
+        except AssertionError:
+            LOGGER.warning(errmsg)
         except TypeError:
             LOGGER.exception("Object has no attributes")
             return False
@@ -1330,10 +1332,10 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         True if katsdpingest docker started
     """
     user_id = pwd.getpwuid(os.getuid()).pw_uid
-    cmd = ['sudo', 'docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v', '/ramdisk:/ramdisk',
-           'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing', 'bf_ingest.py',
-           '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port), '--channels={}'.format(
-            channels), '--ticks-between-spectra={}'.format(ticks_between_spectra),
+    cmd = ['sudo', 'docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
+           '/ramdisk:/ramdisk', 'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
+           'bf_ingest.py', '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
+           '--channels={}'.format(channels), '--ticks-between-spectra={}'.format(ticks_between_spectra),
            '--channels-per-heap={}'.format(channels_per_heap), '--spectra-per-heap={}'.format(
             spectra_per_heap), '--file-base=/ramdisk', '--log-level=DEBUG']
 
@@ -1608,3 +1610,28 @@ def FPGA_Connect(hosts, _timeout=30):
                 errmsg = 'ERROR: Could not connect to SKARABs'
                 return False
     return fpgas
+
+def get_clean_dump(self, discards=10, retries=20):
+    while retries:
+        retries -= 1
+        errmsg = ''
+        try:
+            dump = self.receiver.get_clean_dump(discard=discards)
+            dump_timestamp = dump['dump_timestamp']
+            time_now = time.time()
+            time_diff = dump_timestamp - time_now
+            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
+            dump_timestamp, time_now, time_diff))
+            assert int(time_diff) in [-1, 0], errmsg
+        except AssertionError:
+            LOGGER.warning(errmsg)
+        except Queue.Empty:
+            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+            LOGGER.exception(errmsg)
+            return False
+        else:
+            LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with epoch (%s) [diff: %s] '
+                        'after %s retries' % (dump_timestamp, time_now, time_diff, retries))
+            return dump
+
+
