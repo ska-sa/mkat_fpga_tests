@@ -39,7 +39,7 @@ _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
 
 # TODO (MM) perhaps implement a config file
 _revision ='1.0'
-_release = '2.0'
+_release = '2/3'
 
 def option_parser():
     usage = """
@@ -579,24 +579,27 @@ def generate_sphinx_docs(settings):
         return
     else:
         latex_dir = str(os.path.abspath('/'.join([base_dir, 'build/latex'])))
-        cover_page_dir = str(os.path.abspath(os.path.join(base_dir, 'docs/Cover_Page/')))
-        latex_pdf = ''.join(glob.glob(latex_dir + '/*.pdf'))
+        docs_dir = (os.path.abspath(os.path.join(base_dir, 'docs')))
+        cover_page_dir = str(os.path.abspath(os.path.join(docs_dir, 'Cover_Page/')))
+        latex_pdf = max(glob.iglob(latex_dir + '/*.pdf'), key=os.path.getctime)
         if os.path.exists(latex_dir) and os.path.exists(cover_page_dir) and os.path.exists(latex_pdf):
             logger.debug("Generating MeerKAT cover page")
             # ToDo: MM 16-Nov-2017 Improve this logic
             _document_title = document_data['project'] + document_data['document_type'].values()[0]
             _document_type = '%s: Qualification Test %s' % (document_data['document_type'].keys()[0],
                 document_data['document_type'].values()[0])
-            _document_num = document_data['document_number'].get(
-                document_data.get('documented_instrument', 'Unknown'), 'Unknown')[0]
+            _document_num = document_data.get('document_number', 'Unknown').get(
+                document_data.get('document_type', 'Unknown').keys()[0])
             _document_rel = _revision
-            latex_file = ''.join(glob.glob(cover_page_dir + '/*.tex'))
+            latex_file = max(glob.iglob(cover_page_dir + '/*.tex'), key=os.path.getctime)
             orig_names = ['Doctype', 'DocNumber', 'DocRevision', 'DocumentTitle']
             if settings.get('gen_qtr', False):
                 logger.debug('Making fixes for QTR on Cover page')
                 num_antennas = ''.join(['(',document_data['document_number'].get(
                     document_data.get('documented_instrument', 'Unknown'), 'Unknown')[-1].split(
                     'Antenna')[0],  'A Fully Tested) '])
+                _document_num = document_data['document_number'].get(
+                    document_data.get('documented_instrument', 'Unknown'), 'Unknown')[0]
                 _document_title = _document_title.replace('Qualification',
                     num_antennas + 'Qualification')
                 # TODO (MM) Find a way not to hardcode this info
@@ -627,8 +630,7 @@ def generate_sphinx_docs(settings):
                 logger.debug("Merged MeerKAT cover page with %s"%filename)
                 os.rename(filename, '/'.join([latex_dir, filename]))
                 logger.info("Moved %s back into build directory"%filename)
-                cmd = ['git', 'checkout', '--', cover_page_dir]
-                run_command(settings, cmd, log_file)
+
 
         now = time.localtime()
         build_dir = settings["build_dir"]
@@ -652,7 +654,10 @@ def generate_sphinx_docs(settings):
         if status:
             logger.error("there was an error on copying ./%s to %s" % (katreport_dir, build_dir))
         else:
-            logger.info('Done generating the document!!!')
+            logger.debug('Cleaning up %s directory' % docs_dir)
+            run_command(settings, ['git', 'checkout', '--', docs_dir], log_file)
+            logger.info('******Done generating the document!!!******')
+
 
 def run_nose_test(settings):
     """
