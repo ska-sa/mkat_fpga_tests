@@ -1285,10 +1285,17 @@ class Report(object):
             for step in nsort(test_data.get('steps', {}).keys()):
                 this_step = test_data['steps'][step]
                 if this_step.get('hop'):
-                    docproducer.add_line("- Hop: %s (%s)" %
-                                        (this_step.get('description'), this_step.get('step_start')))
+                    if '-'*10 in this_step.get('description'):
+                        docproducer.add_line('-'*5)
+                    else:
+                        docproducer.add_line("- Hop: %s" % (this_step.get('description')))
                 else:
-                    if this_step.get('description'):
+                    try:
+                        assert this_step.get('description').startswith('.-.')
+                        counter = 0
+                        new_desc = this_step.get('description').replace('.-.', '**')
+                        docproducer.add_line("%s" % (new_desc))
+                    except:
                         counter += 1
                         docproducer.add_line("- Step %d: %s (%s)" % (counter,
                             this_step.get('description'), this_step.get('step_start')))
