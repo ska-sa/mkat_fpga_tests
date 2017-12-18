@@ -1287,6 +1287,10 @@ class Report(object):
                 if this_step.get('hop'):
                     if '-'*10 in this_step.get('description'):
                         docproducer.add_line('-'*5)
+                    elif this_step.get('description').startswith('.-.'):
+                        counter = 0
+                        new_desc = this_step.get('description').replace('.-.', '**')
+                        docproducer.add_line("%s" % (new_desc))
                     else:
                         docproducer.add_line("- Hop: %s" % (this_step.get('description')))
                 else:

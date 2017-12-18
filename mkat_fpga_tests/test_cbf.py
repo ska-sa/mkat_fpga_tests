@@ -595,7 +595,7 @@ class test_CBF(unittest.TestCase):
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             _running_inst = which_instrument(self, instrument)
-            instrument_success = self.set_instrument(_running_inst, acc_time=1)
+            instrument_success = self.set_instrument(_running_inst, acc_time=0.99)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 Aqf.step('Testing maximum channels to 4096 due to quantiser snap-block limitations.')
@@ -618,7 +618,7 @@ class test_CBF(unittest.TestCase):
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             _running_inst = which_instrument(self, instrument)
-            instrument_success = self.set_instrument(_running_inst, acc_time=1)
+            instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_gain_correction()
@@ -672,11 +672,12 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0112", "CBF-REQ-0128", "CBF-REQ-0185", "CBF-REQ-0187", "CBF-REQ-0188")
     def test__delay_phase_compensation(self, instrument='bc8n856M4k'):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation)
+        Aqf.procedure(TestProcedure.PFBFaultDetection)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             _running_inst = which_instrument(self, instrument)
-            instrument_success = self.set_instrument(_running_inst, acc_time=1, force_reinit=False)
+            instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_delay_tracking()
@@ -703,8 +704,9 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            _running_inst = self.corr_fix.get_running_instrument()
+            _running_inst = which_instrument(self, instrument)
             instrument_success = self.set_instrument(_running_inst)
+            _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_report_config(verbose=False)
             else:
@@ -718,10 +720,10 @@ class test_CBF(unittest.TestCase):
         #     a. Digitiser data acquisition and/or signal processing (e.g. ADC saturation),
         #     b. Signal processing and/or data manipulation performed in the CBF (e.g. FFT overflow).
         Aqf.procedure(TestProcedure.PFBFaultDetection)
-        _running_inst = which_instrument(self, instrument)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
+            _running_inst = which_instrument(self, instrument)
             instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
@@ -741,10 +743,10 @@ class test_CBF(unittest.TestCase):
         #     c) network link errors
         # Detected failures shall be reported over the CBF-CAM interface.
         Aqf.procedure(TestProcedure.LinkFaultDetection)
-        _running_inst = which_instrument(self, instrument)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
+            _running_inst = which_instrument(self, instrument)
             instrument_success = self.set_instrument(_running_inst)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
@@ -762,13 +764,14 @@ class test_CBF(unittest.TestCase):
         # The CBF shall, on request via the CAM interface, report sensor values.
         # The CBF shall, on request via the CAM interface, report time synchronisation status.
 
-        _running_inst = which_instrument(self, instrument)
         Aqf.procedure(TestProcedure.ReportSensorStatus)
         Aqf.procedure(TestProcedure.ReportHostSensor)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
+            _running_inst = which_instrument(self, instrument)
             instrument_success = self.set_instrument(_running_inst)
+            _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_sensor_values()
                 self._test_host_sensors_status()
@@ -795,7 +798,8 @@ class test_CBF(unittest.TestCase):
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             _running_inst = which_instrument(self, instrument)
-            instrument_success = self.set_instrument(_running_inst, acc_time=0.99)
+            instrument_success = self.set_instrument(_running_inst)
+            _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._small_voltage_buffer()
             else:
@@ -877,92 +881,73 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
 
-        try:
-            Aqf.step('Change CBF input labels and confirm via CAM interface.')
-            reply_, _informs = self.corr_fix.katcp_rct.req.input_labels(timeout=60)
-            assert reply_.reply_ok()
-            Aqf.progress('Original source names changed from: {}'.format(
-                ', '.join(reply_.arguments[1:])))
-        except Exception:
-            Aqf.failed('Failed to retrieve input labels via CAM interface')
         _parameters = parameters(self)
         local_src_names = _parameters['custom_src_names']
-        try:
-            reply, _informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names, timeout=60)
-            assert reply.reply_ok()
-        except Exception:
-            Aqf.failed(
-                'Could not retrieve new source names via CAM interface:\n {}'.format(str(reply)))
-            return False
+        network_latency = _parameters['network_latency']
+        self.corr_fix.issue_metadata
+        source_names = reply.arguments[1:]
+        Aqf.progress('Source names changed to: {}'.format(', '.join(source_names)))
+        # Get name for test_source_idx
+        test_source = source_names[test_source_idx]
+        ref_source = source_names[0]
+        num_inputs = len(source_names)
+        # Number of integrations
+        num_int = 30
+        Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
+        delays_cleared = clear_all_delays(self)
+        if not delays_cleared:
+            Aqf.failed('Delays were not completely cleared, data might be corrupted.')
         else:
-            network_latency = _parameters['network_latency']
-            self.corr_fix.issue_metadata
-            source_names = reply.arguments[1:]
-            Aqf.progress('Source names changed to: {}'.format(
-                ', '.join(source_names)))
-            # Get name for test_source_idx
-            test_source = source_names[test_source_idx]
-            ref_source = source_names[0]
-            num_inputs = len(source_names)
-            # Number of integrations
-            num_int = 30
-            Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
-            delays_cleared = clear_all_delays(self)
-            if not delays_cleared:
-                Aqf.failed('Delays were not completely cleared, data might be corrupted.')
-            else:
-                Aqf.passed('Cleared all previously applied delays prior to test.')
+            Aqf.passed('Cleared all previously applied delays prior to test.')
 
-            Aqf.step('Retrieve initial SPEAD accumulation, in-order to calculate all '
-                     'relevant parameters.')
+        Aqf.step('Retrieve initial SPEAD accumulation, in-order to calculate all '
+                 'relevant parameters.')
+        try:
+            initial_dump = get_clean_dump(self)
+        except Queue.Empty:
+            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+        else:
+            Aqf.progress('Successfully retrieve initial spead accumulation')
+            int_time = _parameters['int_time']
+            synch_epoch = _parameters['synch_epoch']
+            # n_accs = _parameters['n_accs']
+            no_chans = range(_parameters['n_chans'])
+            time_stamp = initial_dump['timestamp']
+            # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
+            # int_time_ticks = n_accs * ticks_between_spectra
+            t_apply = (initial_dump['dump_timestamp'] + num_int * int_time)
+            t_apply_readable = time.strftime("%H:%M:%S", time.localtime(t_apply))
             try:
-                _discards = 2
-                initial_dump = get_clean_dump(self)
-            except Queue.Empty:
-                errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
+                baseline_lookup = get_baselines_lookup(self)
+                # Choose baseline for phase comparison
+                baseline_index = baseline_lookup[(ref_source, test_source)]
+                Aqf.step('Get list of all the baselines present in the correlator output')
+                Aqf.progress('Selected input and baseline for testing respectively: %s, %s.'%(
+                    test_source, baseline_index))
+                Aqf.progress('Time to apply delays (%s/%s) is set to %s integrations/accumulations in '
+                     'the future.' % (t_apply,t_apply_readable, num_int))
+            except KeyError:
+                Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
+                           'ordering format.')
+                return False
             else:
-                Aqf.progress(
-                    'Successfully retrieve initial spead accumulation after %s discards' % _discards)
-                int_time = _parameters['int_time']
-                synch_epoch = _parameters['synch_epoch']
-                # n_accs = _parameters['n_accs']
-                no_chans = range(_parameters['n_chans'])
-                time_stamp = initial_dump['timestamp']
-                # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
-                # int_time_ticks = n_accs * ticks_between_spectra
-                t_apply = (initial_dump['dump_timestamp'] + num_int * int_time)
-                t_apply_readable = time.strftime("%H:%M:%S", time.localtime(t_apply))
-                try:
-                    baseline_lookup = get_baselines_lookup(self)
-                    # Choose baseline for phase comparison
-                    baseline_index = baseline_lookup[(ref_source, test_source)]
-                    Aqf.step('Get list of all the baselines present in the correlator output')
-                    Aqf.progress('Selected input and baseline for testing respectively: %s, %s.'%(
-                        test_source, baseline_index))
-                    Aqf.progress('Time to apply delays (%s/%s) is set to %s integrations/accumulations in '
-                         'the future.' % (t_apply,t_apply_readable, num_int))
-                except KeyError:
-                    Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
-                               'ordering format.')
-                    return False
-                else:
-                    return {
-                            'baseline_index': baseline_index,
-                            'baseline_lookup': baseline_lookup,
-                            'initial_dump': initial_dump,
-                            'int_time': int_time,
-                            'network_latency': network_latency,
-                            'num_inputs': num_inputs,
-                            'sample_period': self.corr_freqs.sample_period,
-                            't_apply': t_apply,
-                            'test_source': test_source,
-                            'test_source_ind': test_source_idx,
-                            'time_stamp': time_stamp,
-                            'synch_epoch': synch_epoch,
-                            'num_int': num_int,
-                           }
+                return {
+                        'baseline_index': baseline_index,
+                        'baseline_lookup': baseline_lookup,
+                        'initial_dump': initial_dump,
+                        'int_time': int_time,
+                        'network_latency': network_latency,
+                        'num_inputs': num_inputs,
+                        'sample_period': self.corr_freqs.sample_period,
+                        't_apply': t_apply,
+                        'test_source': test_source,
+                        'test_source_ind': test_source_idx,
+                        'time_stamp': time_stamp,
+                        'synch_epoch': synch_epoch,
+                        'num_int': num_int,
+                       }
 
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=30):
@@ -1922,18 +1907,31 @@ class test_CBF(unittest.TestCase):
                                             freq=self.corr_freqs.chan_freqs[1500],
                                             fft_shift=fft_shift, gain=gain)
 
-        Aqf.step('Set list for all the correlator input labels as per config file')
-        local_src_names = self.correlator.configd['fengine']['source_names'].split(',')
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-            assert reply.reply_ok()
-            Aqf.passed('Input labels successfully changed/set to {}'.format(str(reply.arguments[1:])))
+            Aqf.step('Change CBF input labels and confirm via CAM interface.')
+            reply_, _informs = self.corr_fix.katcp_rct.req.input_labels(timeout=60)
+            assert reply_.reply_ok()
+            ori_source_name = reply_.arguments[1:]
+            Aqf.progress('Original source names: {}'.format(', '.join(ori_source_name)))
         except Exception:
-            Aqf.failed('Failed to set/change input labels.')
+            Aqf.failed('Failed to retrieve input labels via CAM interface')
+        try:
+            self.corr_fix.issue_metadata
+            time.sleep(5)
+            _parameters = parameters(self)
+            self.corr_fix.issue_metadata
+            local_src_names = _parameters['custom_src_names']
+            reply, _informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names, timeout=60)
+            assert reply.reply_ok()
+        except Exception:
+            Aqf.failed('Could not retrieve new source names via CAM interface:\n %s' % (str(reply)))
+        else:
+            source_names = reply.arguments[1:]
+            msg = ('Source names changed to: {}'.format(', '.join(source_names)))
+            Aqf.passed(msg)
 
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels via Cam interface.')
-        self.corr_fix.issue_metadata
         try:
             test_dump = get_clean_dump(self)
             self.assertIsInstance(test_dump, dict)
@@ -2253,11 +2251,9 @@ class test_CBF(unittest.TestCase):
         else:
             cw_scale = 0.675
             Aqf.step('Digitiser simulator configured to generate continuous wave')
-
             Aqf.step('Sweeping the digitiser simulator over the centre frequencies of at '
                      'least all channels that fall within the complete L-band: {} Hz'.format(
                             expected_fc))
-
             for scan_i in xrange(3):
                 scan_dumps = []
                 frequencies = []
@@ -2292,8 +2288,7 @@ class test_CBF(unittest.TestCase):
                         else:
                             this_freq_data = this_freq_dump['xeng_raw']
 
-                    this_freq_response = normalised_magnitude(
-                        this_freq_data[:, test_baseline, :])
+                    this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
                     chan_responses.append(this_freq_response)
                     scan_dumps.append(this_freq_data)
                     frequencies.append(freq_val)
