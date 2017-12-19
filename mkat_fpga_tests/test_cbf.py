@@ -1379,14 +1379,14 @@ class test_CBF(unittest.TestCase):
             chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
             chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
                                 chan_spacing + (chan_spacing * 1 / 100)]
-            Aqf.step('Confirm the number of calculated channel '
+            Aqf.step('Confirm that the number of calculated channel '
                      'frequency step is within requirement.')
             msg = ('Verify that the calculated channel '
                    'frequency ({} Hz)step size is between {} and {} Hz'.format(chan_spacing,
                     req_chan_spacing / 2, req_chan_spacing))
             Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
 
-            Aqf.step('Confirm the channelisation spacing and confirm that it is '
+            Aqf.step('Confirm that the channelisation spacing and confirm that it is '
                      'within the maximum tolerance.')
             msg = ('Channelisation spacing is within maximum tolerance of 1% of the '
                    'channel spacing.')
@@ -1561,7 +1561,7 @@ class test_CBF(unittest.TestCase):
                                                           test_chan))
 
             Aqf.less(np.max(np.abs(central_chan_responses[:, test_chan])), 0.99,
-                     'Confirm that VACC output is at < 99% of maximum value, if fails '
+                     'Confirm that theVACC output is at < 99% of maximum value, if fails '
                      'then it is probably over-ranging.')
 
             max_central_chan_response = np.max(10 * np.log10(
@@ -1571,7 +1571,7 @@ class test_CBF(unittest.TestCase):
             chan_ripple = max_central_chan_response - min_central_chan_response
             acceptable_ripple_lt = 1.5
             Aqf.less(chan_ripple, acceptable_ripple_lt,
-                     'Confirm that ripple within 80% of cut-off '
+                     'Confirm that theripple within 80% of cut-off '
                      'frequency channel is < {} dB'.format(acceptable_ripple_lt))
 
             # Get frequency samples closest channel fc and crossover points
@@ -1588,7 +1588,7 @@ class test_CBF(unittest.TestCase):
             co_low_ind, co_low_src_freq, co_low_resp = get_close_result(co_low_freq)
             co_high_ind, co_high_src_freq, co_high_resp = get_close_result(co_high_freq)
             # [CBF-REQ-0047] CBF channelisation frequency resolution requirement
-            Aqf.step('Confirm that response at channel-edges are -3 dB '
+            Aqf.step('Confirm that theresponse at channel-edges are -3 dB '
                      'relative to the channel centre at {:.3f} Hz, actual source freq '
                      '{:.3f} Hz'.format(expected_fc, fc_src_freq))
 
@@ -1650,13 +1650,13 @@ class test_CBF(unittest.TestCase):
                               ylimits=y_axis_limits)
 
             Aqf.is_true(low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
-                        'Confirm that relative response at the low band-edge '
+                        'Confirm that therelative response at the low band-edge '
                         '({co_lo_band_edge_rel_resp} dB @ {co_low_freq} Hz, actual source freq '
                         '{co_low_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                         'relative to channel centre response.'.format(**locals()))
 
             Aqf.is_true(low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
-                        'Confirm that relative response at the high band-edge '
+                        'Confirm that therelative response at the high band-edge '
                         '({co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq '
                         '{co_high_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                         'relative to channel centre response.'.format(**locals()))
@@ -1756,7 +1756,7 @@ class test_CBF(unittest.TestCase):
             chan_spacing = (_parameters['bandwidth'] / np.shape(initial_dump['xeng_raw'])[0])
             # [CBF-REQ-0043]
             calc_channel = ((required_chan_spacing / 2) <= chan_spacing <= required_chan_spacing)
-            Aqf.step('Confirm the number of calculated channel '
+            Aqf.step('Confirm that the number of calculated channel '
                      'frequency step is within requirement.')
             mag = ('Confirm that the calculated channel frequency step size is between {} and '
                    '{} Hz'.format(required_chan_spacing / 2, required_chan_spacing))
@@ -1867,7 +1867,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             vacc_offset = get_vacc_offset(dump['xeng_raw'])
-            msg = ('Confirm that auto-correlation in baseline 0 contains Non-Zeros, '
+            msg = ('Confirm that theauto-correlation in baseline 0 contains Non-Zeros, '
                    'and baseline 1 is Zeros, when cw tone is only outputted on input 0.')
             Aqf.equals(vacc_offset, 0, msg)
             # TODO Plot baseline
@@ -1879,7 +1879,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Capture a correlator SPEAD accumulation.')
             dump = get_clean_dump(self)
             vacc_offset = get_vacc_offset(dump['xeng_raw'])
-            msg = ('Confirm that auto-correlation in baseline 1 contains non-Zeros, '
+            msg = ('Confirm that theauto-correlation in baseline 1 contains non-Zeros, '
                    'and baseline 0 is Zeros, when cw tone is only outputted on input 1.')
             Aqf.equals(vacc_offset, 1, msg)
             init_dsim_sources(self.dhost)
@@ -2099,11 +2099,11 @@ class test_CBF(unittest.TestCase):
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set(tuple(bls_ordering[i]) for i in actual_z_bls_indices)
-                        msg = ('Confirm that expected baseline visibilities are nonzero with '
+                        msg = ('Confirm that the expected baseline visibilities are non-zero with '
                                'non-zero inputs {} and,'.format(sorted(nonzero_inputs)))
                         Aqf.equals(actual_nz_bls, expected_nz_bls, msg)
 
-                        msg = ('Confirm that expected baselines visibilities are \'Zeros\'.\n')
+                        msg = ('Confirm that theexpected baselines visibilities are \'Zeros\'.\n')
                         Aqf.equals(actual_z_bls, expected_z_bls, msg)
 
                         # Sum of all baselines powers expected to be non zeros
@@ -2438,7 +2438,7 @@ class test_CBF(unittest.TestCase):
                         LOGGER.exception(errmsg)
                         return False
                     else:
-                        msg = ('Confirm that data product has the number of frequency '
+                        msg = ('Confirm that the data product has the same number of frequency '
                                'channels {no_channels} corresponding to the {instrument} '
                                'instrument product'.format(**locals()))
                         try:
@@ -2737,7 +2737,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.equals(int(reply.arguments[-1]), len(informs), msg)
 
         def report_time_sync(self):
-            Aqf.step('Confirm that time synchronous is implemented on primary interface')
+            Aqf.step('Confirm that thetime synchronous is implemented on primary interface')
             try:
                 reply, informs = self.corr_fix.rct.req.sensor_value('time.synchronised')
             except:
@@ -2759,7 +2759,7 @@ class test_CBF(unittest.TestCase):
 
 
         def report_small_buffer(self):
-            Aqf.step('Confirm that Transient Buffer ready is implemented.')
+            Aqf.step('Confirm that the Transient Buffer ready is implemented.')
             try:
                 assert self.corr_fix.katcp_rct.req.transient_buffer_trigger.is_active()
             except Exception:
@@ -3157,7 +3157,7 @@ class test_CBF(unittest.TestCase):
 
 
     def _test_product_switch(self, instrument):
-        Aqf.step('Confirm that SPEAD accumulations are being produced when Digitiser simulator is '
+        Aqf.step('Confirm that the SPEAD accumulations are being produced when Digitiser simulator is '
                  'configured to output correlated noise')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         with ignored(Queue.Empty):
@@ -3213,7 +3213,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
             else:
-                msg = ('Confirm that SPEAD accumulations are being produced after instrument '
+                msg = ('Confirm that the SPEAD accumulations are being produced after instrument '
                        're-initialisation.')
                 Aqf.is_true(re_dump, msg)
 
@@ -3296,7 +3296,7 @@ class test_CBF(unittest.TestCase):
                                 delta_expected, delta_actual, degree, delay_rate))
                     Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
 
-                    msg = ('Confirm that that the maximum difference ({:.3f} '
+                    msg = ('Confirm that the maximum difference ({:.3f} '
                            'degree/{:.3f} rad) between expected phase and actual phase '
                            'between integrations is less than {} degree.'.format(
                                 np.rad2deg(abs_diff), abs_diff, degree))
@@ -3638,7 +3638,7 @@ class test_CBF(unittest.TestCase):
                     b_line_phase_max = round(np.max(b_line_phase), 2)
                     if ((delayed_input in b_line[0]) and
                                 b_line[0] != (delayed_input, delayed_input)):
-                        msg = ('Confirm that baseline(s) {} '
+                        msg = ('Confirm that the baseline(s) {} '
                                'expected delay is within 1 degree.'.format(b_line[0]))
                         Aqf.array_abs_error(np.abs(b_line_phase[1:-1]),
                                             np.abs(expected_phases[1:-1]), msg, degree)
@@ -3991,7 +3991,7 @@ class test_CBF(unittest.TestCase):
                     # hardcoded the bandwidth value due to a custom dsim frequency used in the config file
                     baseline_ch_bw = 856e6 / test_dump['xeng_raw'].shape[0]
                     beam_ch_bw = pb / len(cap_mag[0])
-                    msg = ('Confirm that baseline-correlation-product channel width'
+                    msg = ('Confirm that the baseline-correlation-product channel width'
                            ' {}Hz is the same as the tied-array-channelised-voltage channel width '
                            '{}Hz'.format(baseline_ch_bw, beam_ch_bw))
                     Aqf.almost_equals(baseline_ch_bw, beam_ch_bw, 1e-3, msg)
@@ -4337,7 +4337,7 @@ class test_CBF(unittest.TestCase):
                         beam_dict, target_pb, target_cf)
 
                 except Exception as e:
-                    Aqf.step('Confirm that Docker container is running and also confirm the '
+                    Aqf.step('Confirm that the Docker container is running and also confirm the '
                         'igmp version = 2')
                     errmsg = 'Failed to capture beam data due to error: %s' % str(e)
                     Aqf.failed(errmsg)
@@ -4398,7 +4398,7 @@ class test_CBF(unittest.TestCase):
                 errmsg = 'Failed to capture beam data due to error: %s' % str(e)
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
-            Aqf.step('Confirm the data type of the beamforming data for one channel.')
+            Aqf.step('Confirm that the data type of the beamforming data for one channel.')
             try:
                 msg = ('Beamformer data type is {}, example value for one channel: {}'.format(
                     data_type, cap[0][0]))

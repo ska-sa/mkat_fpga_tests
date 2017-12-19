@@ -1462,7 +1462,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
             in_wgts[key] = beam_dict[key]
 
     for key in in_wgts:
-        Aqf.step('Confirm that the Input {} weight has been set to the desired weight.'.format(
+        Aqf.step('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
             key))
         try:
             reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
