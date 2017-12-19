@@ -20,6 +20,7 @@ import logging
 import os
 import Queue
 import random
+import socket
 import subprocess
 import sys
 import telnetlib
@@ -3654,26 +3655,37 @@ class test_CBF(unittest.TestCase):
         """CBF Report configuration"""
         test_config = self.corr_fix._test_config_file
 
-        def get_hardware_config():
-            Aqf.progress('DEngine :{}'.format(self.dhost.host))
-            fhosts = [fhost.host for fhost in self.correlator.fhosts]
-            Aqf.progress('Available F-Engines :{}'.format(', '.join(fhosts)))
-            xhosts = [xhost.host for xhost in self.correlator.xhosts]
-            Aqf.progress('Available X-Engines :{}\n'.format(', '.join(xhosts)))
-
         def get_skarab_config(_timeout=30):
             from casperfpga import utils as fpgautils
+            Aqf.step('List of all processing nodes')
+            Aqf.progress('D-Engine :{}'.format(self.dhost.host))
+            fhosts = [fhost.host for fhost in self.correlator.fhosts]
+            Aqf.progress('List of F-Engines :{}'.format(', '.join(fhosts)))
+            xhosts = [xhost.host for xhost in self.correlator.xhosts]
+            Aqf.progress('List of X-Engines :{}\n'.format(', '.join(xhosts)))
             skarabs = FPGA_Connect(self._hosts)
             if skarabs:
                 version_info = fpgautils.threaded_fpga_operation(
                     skarabs, timeout=_timeout, target_function=(lambda fpga:
                         fpga.transport.get_skarab_version_info(), [], {}))
-
-                _ = [Aqf.hop('%s:    %s' % (host, versions))
-                     for host, versions in version_info.iteritems()]
             # ToDo (MM) Get a list of all skarabs available including ip's and
             # leaf the host is connected to.
             # subprocess.check_output(['bash', 'scripts/find-skarabs-arp.sh'])
+            for _host, _versions in version_info.iteritems():
+                Aqf.step('%s [R3000-0000] Software/Hardware Version Information' % _host.upper())
+                Aqf.progress('IP Address: %s' % (socket.gethostbyname(_host)))
+                for _name, _version in _versions.iteritems():
+                    try:
+                        assert isinstance(_version, str)
+                        _name =  _name.title().replace('_',' ')
+                        if _name.startswith('Microblaze Hardware'):
+                            Aqf.progress('%s [M1200-0070]: %s\n' % (_name, _version))
+                        elif _name.startswith('Microblaze Software'):
+                            Aqf.progress('%s [M1200-0071]: %s' % (_name, _version))
+                        elif _name.startswith('Spartan'):
+                            Aqf.progress( '%s [M1200-0069]: %s' % (_name, _version))
+                    except:
+                        pass
 
         def get_src_dir():
 
@@ -3770,7 +3782,7 @@ class test_CBF(unittest.TestCase):
                 except OSError:
                     Aqf.failed('OS Error occurred while retrieving gut repo: %s\n' % name)
 
-        def get_gateware_info(self):
+        def get_gateware_info():
             try:
                 reply, informs = self.corr_fix.katcp_rct.req.version_list()
                 assert reply.reply_ok()
@@ -3799,17 +3811,13 @@ class test_CBF(unittest.TestCase):
             #     B-ENGINE (CBF)                              M1200-0066
             #     X/B-ENGINE (CBF)                            M1200-0067
 
-
         test_heading('CBF Software Packages Version Information.')
-        get_gateware_info(self)
+        get_gateware_info()
         test_heading('CBF Git Version Information.')
         get_package_versions()
-
-        test_heading('CBF Processing Node Hardware Version Information')
-        get_hardware_config()
+        test_heading('CBF Processing Node Version Information')
         try:
             assert 'roach' in str(self._hosts)
-            test_heading('CBF Processing Node Software Version Information')
         except Exception:
             get_skarab_config()
 

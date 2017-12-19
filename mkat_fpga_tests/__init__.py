@@ -12,7 +12,6 @@ import time
 # from casperfpga import katcp_fpga
 from casperfpga import tengbe
 # from casperfpga import utils as fpgautils
-from casperfpga.katcp_fpga import KatcpRequestFail
 from concurrent.futures import TimeoutError
 from corr2 import fxcorrelator
 from corr2.data_stream import StreamAddress
