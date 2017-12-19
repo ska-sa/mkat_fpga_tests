@@ -1577,7 +1577,7 @@ def set_beam_quant_gain(self, beam, gain):
         reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(beam, gain)
         if reply.reply_ok():
             actual_beam_gain = float(reply.arguments[1])
-            msg = ('[CBF-REQ-0117] Requested beamformer level adjust gain of {:.2f}, '
+            msg = ('Requested beamformer level adjust gain of {:.2f}, '
                    'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
             Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
         else:

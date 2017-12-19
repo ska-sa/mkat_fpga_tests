@@ -886,8 +886,7 @@ class test_CBF(unittest.TestCase):
         local_src_names = _parameters['custom_src_names']
         network_latency = _parameters['network_latency']
         self.corr_fix.issue_metadata
-        source_names = reply.arguments[1:]
-        Aqf.progress('Source names changed to: {}'.format(', '.join(source_names)))
+        source_names = _parameters['input_labels']
         # Get name for test_source_idx
         test_source = source_names[test_source_idx]
         ref_source = source_names[0]
@@ -2680,7 +2679,7 @@ class test_CBF(unittest.TestCase):
                                 np.testing.assert_almost_equal(delta_actual_s, delta_expected_s,
                                                                decimal=decimal)
                             except AssertionError:
-                                msg = ('[CBF-REQ-0128, 01877] Difference expected({:.5f}) phases'
+                                msg = ('Difference expected({:.5f}) phases'
                                        ' and actual({:.5f}) phases are \'Not almost equal\' '
                                        'within {} degree when delay of {}ns is applied.'.format(
                                             delta_expected, delta_actual, degree, delay * 1e9))
@@ -2764,12 +2763,12 @@ class test_CBF(unittest.TestCase):
             try:
                 assert self.corr_fix.katcp_rct.req.transient_buffer_trigger.is_active()
             except Exception:
-                errmsg = ('[CBF-REQ-0056] CBF Transient buffer ready for triggering'
+                errmsg = ('CBF Transient buffer ready for triggering'
                            '\'Not\' implemented in this release.\n')
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                Aqf.passed('[CBF-REQ-0056] CBF Transient buffer ready for triggering'
+                Aqf.passed('CBF Transient buffer ready for triggering'
                             ' implemented in this release.\n')
 
         def report_primary_sensors(self):
@@ -3846,32 +3845,30 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
 
-        Aqf.step('Configure the CBF to simultaneously generate Baseline '
-                 'Correlation Products and Tied-Array Voltage Data Products (If available).')
+        Aqf.step('Configure the CBF to simultaneously generate baseline-correlation-products '
+                 ' as-well as tied-array-channelised-voltage Data Products (If available).')
         try:
-            Aqf.step('Capture Tied-Array Data and Correlation Data.')
-            Aqf.progress('Retrieving initial SPEAD accumulation and confirm the number of channels '
-                         'in the  SPEAD data.')
+            Aqf.progress('Retrieving initial SPEAD accumulation, in-order to confirm the number of '
+                         'channels in the SPEAD data.')
             test_dump = get_clean_dump(self)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
-            no_channels = self.corr_freqs.n_chans
             _parameters = parameters(self)
+            no_channels = _parameters['n_chans']
             # Get baseline 0 data, i.e. auto-corr of m000h
             test_baseline = 0
             test_bls = _parameters['bls_ordering'][test_baseline]
             Aqf.equals(test_dump['xeng_raw'].shape[0], no_channels,
-                       'Confirm that the data product has the number of frequency '
-                       'channels {no_channels} corresponding to the {instrument} '
-                       'instrument product.\n'.format(**locals()))
-            response = normalised_magnitude(test_dump['xeng_raw'][:, test_baseline, :])
-
-            Aqf.step('Confirm that both data products were captured.')
-            Aqf.passed('Confirm that imaging data product set has been '
+                       'Confirm that the baseline-correlation-products has the same number of '
+                       'frequency channels ({no_channels}) corresponding to the {instrument} '
+                       'instrument currently running,'.format(**locals()))
+            Aqf.passed('and confirm that imaging data product set has been '
                        'implemented for instrument: {}.'.format(instrument))
+
+            response = normalised_magnitude(test_dump['xeng_raw'][:, test_baseline, :])
             plot_filename = '{}/{}.png'.format(self.logs_path, self._testMethodName)
 
             caption = ('An overall frequency response at {} baseline, '
@@ -3880,6 +3877,8 @@ class test_CBF(unittest.TestCase):
                         gain, fft_shift))
             aqf_plot_channels(response, plot_filename, log_dynamic_range=90, caption=caption)
 
+
+            Aqf.step('Check if Tied-Array Data capture is available.')
             labels = _parameters['input_labels']
             beam0_output_product = _parameters['beam0_output_product']
             beam1_output_product = _parameters['beam1_output_product']
@@ -3927,8 +3926,51 @@ class test_CBF(unittest.TestCase):
                 weight = 1.0
                 beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
                 try:
-                    bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam,
-                        beam_dict, target_pb, target_cfreq)
+                    beam_y = self.corr_fix.corr_config['beam1']['output_products']
+                    beam_y_ip, beam_y_port = self.corr_fix.corr_config['beam1']['output_destinations_base'].split(':')
+                    beam_ip = beam_y_ip
+                    beam_port = beam_y_port
+                    beam_name = beam_y.replace('-','_').replace('.','_')
+                    parts_to_process = 2
+                    part_strt_idx = 0
+
+                    try:
+                        output = subprocess.check_output(['sudo', 'docker', 'run', 'hello-world'])
+                        LOGGER.info(output)
+                    except subprocess.CalledProcessError:
+                        errmsg = 'Cannot connect to the Docker daemon. Is the docker daemon running on this host?'
+                        LOGGER.error(errmsg)
+                        Aqf.failed(errmsg)
+                        return
+                    try:
+                        katcp_rct = self.corr_fix.katcp_rct.sensors
+                        nr_ch = katcp_rct.n_chans.get_value()
+                        assert isinstance(nr_ch,int)
+                        ticks_between_spectra = katcp_rct.antenna_channelised_voltage_n_samples_between_spectra.get_value()
+                        assert isinstance(ticks_between_spectra,int)
+                        spectra_per_heap = getattr(katcp_rct, '{}_spectra_per_heap'.format(beam_name)).get_value()
+                        assert isinstance(spectra_per_heap,int)
+                        ch_per_heap = getattr(katcp_rct, '{}_n_chans_per_substream'.format(beam_name)).get_value()
+                        assert isinstance(ch_per_heap,int)
+                        return False
+                    except Exception as e:
+                        errmsg = 'Exception: {}'.format(str(e))
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+                        return False
+                    try:
+                        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                              parts_to_process, nr_ch,
+                                                              ticks_between_spectra,
+                                                              ch_per_heap, spectra_per_heap)
+                        assert docker_status
+                        Aqf.progress('KAT SDP ingest node started successfully.')
+                    except Exception:
+                        Aqf.failed('KAT SDP Ingest Node failed to start')
+
+
+                    bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(
+                        self, beam, beam_dict, target_pb, target_cfreq)
                 except TypeError, e:
                     errmsg = ('Failed to capture beam data: %s\n\n Confirm that Docker container is '
                              'running and also confirm the igmp version = 2 ' % str(e))
@@ -3949,9 +3991,9 @@ class test_CBF(unittest.TestCase):
                     # hardcoded the bandwidth value due to a custom dsim frequency used in the config file
                     baseline_ch_bw = 856e6 / test_dump['xeng_raw'].shape[0]
                     beam_ch_bw = pb / len(cap_mag[0])
-                    msg = ('Confirm Baseline Correlation Product channel width'
-                           ' {}Hz is the same as the Tied Array Beam channel width {}Hz'.format(
-                                baseline_ch_bw, beam_ch_bw))
+                    msg = ('Confirm that baseline-correlation-product channel width'
+                           ' {}Hz is the same as the tied-array-channelised-voltage channel width '
+                           '{}Hz'.format(baseline_ch_bw, beam_ch_bw))
                     Aqf.almost_equals(baseline_ch_bw, beam_ch_bw, 1e-3, msg)
 
                     # Square the voltage data. This is a hack as aqf_plot expects squared
@@ -3999,9 +4041,9 @@ class test_CBF(unittest.TestCase):
                 msg = '%s: Available and executable via CAM interface.' % req_name.upper()
             Aqf.progress(msg)
 
-        Aqf.progress('[CBF-REQ-011, 0114] Down-conversion frequency has not been implemented '
+        Aqf.progress('Down-conversion frequency has not been implemented '
                      'in this release.')
-        Aqf.progress('[CBF-REQ-011, 0114] CBF Polarisation Correction has not been implemented '
+        Aqf.progress('CBF Polarisation Correction has not been implemented '
                     'in this release.')
 
     def _test_time_sync(self):
