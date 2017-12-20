@@ -206,9 +206,6 @@ class CorrelatorFixture(object):
                         time.sleep(1)
                         self.correlator.initialise(program=False)
                         return self._correlator
-                    except KatcpRequestFail as e:
-                        LOGGER.exception('Did not get a response from roach/host: %s' %str(e))
-                        continue
                     except Exception as e:
                         LOGGER.exception('Failed to create new correlator instance with error: %s, '
                             'Will now try to start correlator with config: %s-%s' % (str(e),

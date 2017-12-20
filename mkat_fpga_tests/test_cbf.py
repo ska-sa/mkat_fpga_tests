@@ -3725,12 +3725,11 @@ class test_CBF(unittest.TestCase):
 
             test_dir, test_name = os.path.split(os.path.dirname(
                 os.path.realpath(__file__)))
-
             with open('/etc/cmc.conf') as f:
                 cmc_conf =  f.readlines()
-            template_name , template_loc  = ' '.join(
-                [i for i in cmc_conf if 'CORR_TEMPLATE' in i]).split('=')
-            template_loc = template_loc.strip()
+            template_name , template_loc  = [i.strip().split('=') for i in cmc_conf
+                                            if i.startswith('CORR_TEMPLATE')][0]
+            template_name = template_name.replace('_', ' ').title()
             template_dir, templates = os.path.split(template_loc)
 
             return {
@@ -3762,11 +3761,7 @@ class test_CBF(unittest.TestCase):
                         ['git', '--git-dir=%s/.git'%(repo_dir[0]), '--work-tree=%s'%(repo_dir[0]),
                          'diff', 'HEAD'])
                     if bool(git_diff):
-                        if verbose:
-                            Aqf.progress('Repo: %s: Contains changes not staged for commit.\n\n'
-                                         'Difference: \n%s' % (name, git_diff))
-                        else:
-                            Aqf.progress('Repo: %s: Contains changes not staged for commit.\n' % name)
+                        Aqf.progress('Repo: %s: Contains changes not committed.\n' % name)
                     else:
                         Aqf.progress('Repo: %s: Up-to-date.\n' % name)
                 except subprocess.CalledProcessError:
