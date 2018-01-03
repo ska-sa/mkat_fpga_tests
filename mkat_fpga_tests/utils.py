@@ -764,15 +764,15 @@ def get_delay_bounds(correlator):
     max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) *
                                 correlator.sample_rate_hz) / bitshift
     return {
-        'max_delay': max_delay,
-        'min_delay': min_delay,
-        'max_positive_delta_delay': max_positive_delta_delay,
-        'max_negative_delta_delay': max_negative_delta_delay,
-        'max_positive_phase_offset': max_positive_phase_offset,
-        'max_negative_phase_offset': max_negative_phase_offset,
-        'max_positive_delta_phase': max_positive_delta_phase,
-        'max_negative_delta_phase': max_negative_delta_phase
-    }
+            'max_positve_delay': max_delay,
+            'min_negative_delay': min_delay,
+            'max_positive_delay_rate': max_positive_delta_delay,
+            'max_negative_delay_rate': max_negative_delta_delay,
+            'max_positive_phase_offset': max_positive_phase_offset,
+            'max_negative_phase_offset': max_negative_phase_offset,
+            'max_positive_phase_rate': max_positive_delta_phase,
+            'max_negative_phase_rate': max_negative_delta_phase
+            }
 
 
 def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug=True,

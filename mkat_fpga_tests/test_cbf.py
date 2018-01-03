@@ -673,7 +673,6 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0112", "CBF-REQ-0128", "CBF-REQ-0185", "CBF-REQ-0187", "CBF-REQ-0188")
     def test__delay_phase_compensation(self, instrument='bc8n856M4k'):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation)
-        Aqf.procedure(TestProcedure.PFBFaultDetection)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
@@ -686,6 +685,7 @@ class test_CBF(unittest.TestCase):
                 self._test_fringe_rate()
                 self._test_fringe_offset()
                 self._test_delay_inputs()
+                self._test_min_max_delays()
                 clear_all_delays(self)
                 restore_src_names(self)
             else:
@@ -3573,84 +3573,91 @@ class test_CBF(unittest.TestCase):
         test_heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
-            test_delay = self.corr_freqs.sample_period  # Pi
-            expected_phases = self.corr_freqs.chan_freqs * 2 * np.pi * test_delay
-            expected_phases -= np.max(expected_phases) / 2.
-            source_names = parameters(self)['input_labels']
             # (MM) 2016-07-12
             # Disabled source name randomisation due to the fact that some roach boards
             # are known to have QDR issues which results to test failures, hence
             # input1 has been statically assigned to be the testing input
-            delayed_input = source_names[random.randrange(len(source_names))]
-            delays = [0] * setup_data['num_inputs']
-            # Get index for input to delay
-            test_source_idx = source_names.index(delayed_input)
-            Aqf.step('Selected input to test: {}'.format(delayed_input))
-            delays[test_source_idx] = test_delay
-            delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
-            int_time = setup_data['int_time']
-            sync_time = setup_data['synch_epoch']
-            num_int = setup_data['num_int']
-            try:
-                this_freq_dump = get_clean_dump(self)
-                t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
-                t_apply_readable = this_freq_dump['dump_timestamp_readable']
-                Aqf.step('Delays will be applied with the following parameters:')
-                Aqf.progress('Current epoch time: %s (%s)' %(time.time(), time.strftime("%H:%M:%S")))
-                Aqf.progress('Current Dump timestamp: %s (%s)'%(this_freq_dump['dump_timestamp'],
-                    this_freq_dump['dump_timestamp_readable']))
-                Aqf.progress('Time delays will be applied: %s (%s)' %(t_apply, t_apply_readable))
-                Aqf.progress('Delay coefficients: %s' %delay_coefficients)
-                Aqf.step('Execute delays via CAM interface and calculate the amount of time '
-                         'it takes to load the delays')
-                reply, _informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-                assert reply.reply_ok()
-            except Queue.Empty:
-                errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
-                return
-            except AssertionError:
-                errmsg = '%s'%str(reply).replace('\_',' ')
-                Aqf.failed(errmsg)
-                LOGGER.error(errmsg)
-                return
-            else:
-                Aqf.is_true(reply.reply_ok(), 'CAM Reply: {}'.format(str(reply)))
-                Aqf.passed('Delays were applied on input: {} via CAM int'.format(delayed_input))
-            try:
-                Aqf.step('Getting SPEAD accumulation (while discarding subsequent dumps) containing '
-                         'the change in delay(s) on input: %s.'%(test_source_idx))
-                dump = self.receiver.get_clean_dump(discard=35)
-            except Exception:
-                errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
-            else:
-                sorted_bls = get_baselines_lookup(self, this_freq_dump, sorted_lookup=True)
-                degree = 1.0
-                Aqf.step('Maximum expected delay: %s' % np.max(expected_phases))
-                for b_line in sorted_bls:
-                    b_line_val = b_line[1]
-                    b_line_dump = (dump['xeng_raw'][:, b_line_val, :])
-                    b_line_phase = np.angle(complexise(b_line_dump))
-                    # np.deg2rad(1) = 0.017 ie error should be withing 2 decimals
-                    b_line_phase_max = round(np.max(b_line_phase), 2)
-                    if ((delayed_input in b_line[0]) and
-                                b_line[0] != (delayed_input, delayed_input)):
-                        msg = ('Confirm that the baseline(s) {} '
-                               'expected delay is within 1 degree.'.format(b_line[0]))
-                        Aqf.array_abs_error(np.abs(b_line_phase[1:-1]),
-                                            np.abs(expected_phases[1:-1]), msg, degree)
+            Aqf.step("The test will sweep through all baselines, randomly select and set a delay value,"
+                     " Confirm if the delay set is as expected.")
+            for delayed_input in source_names:
+                test_delay_val = random.randrange(self.corr_freqs.sample_period, step=.83e-10, int=float)
+                # test_delay_val = self.corr_freqs.sample_period  # Pi
+                expected_phases = self.corr_freqs.chan_freqs * 2 * np.pi * test_delay_val
+                expected_phases -= np.max(expected_phases) / 2.
+                source_names = parameters(self)['input_labels']
+                Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
+                delays_cleared = clear_all_delays(self)
+                if not delays_cleared:
+                    Aqf.failed('Delays were not completely cleared, data might be corrupted.\n')
+                else:
+                    Aqf.passed('Cleared all previously applied delays prior to test.\n')
+                    delays = [0] * setup_data['num_inputs']
+                    # Get index for input to delay
+                    test_source_idx = source_names.index(delayed_input)
+                    Aqf.step('Selected input to test: {}'.format(delayed_input))
+                    delays[test_source_idx] = test_delay_val
+                    Aqf.step('Randomly selected delay value ({}) relevant to sampling period'.format(
+                        test_delay_val))
+                    delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
+                    int_time = setup_data['int_time']
+                    sync_time = setup_data['synch_epoch']
+                    num_int = setup_data['num_int']
+                    try:
+                        this_freq_dump = get_clean_dump(self)
+                        t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
+                        t_apply_readable = this_freq_dump['dump_timestamp_readable']
+                        Aqf.step('Delays will be applied with the following parameters:')
+                        Aqf.progress('Current epoch time: %s (%s)' %(time.time(), time.strftime("%H:%M:%S")))
+                        Aqf.progress('Current Dump timestamp: %s (%s)'%(this_freq_dump['dump_timestamp'],
+                            this_freq_dump['dump_timestamp_readable']))
+                        Aqf.progress('Time delays will be applied: %s (%s)' %(t_apply, t_apply_readable))
+                        Aqf.progress('Delay coefficients: %s' %delay_coefficients)
+                        reply, _informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+                        assert reply.reply_ok()
+                    except Exception:
+                        errmsg = '%s'%str(reply).replace('\_',' ')
+                        Aqf.failed(errmsg)
+                        LOGGER.error(errmsg)
+                        return
                     else:
-                        # TODO Readdress this failure and calculate
-                        if b_line_phase_max != 0.0:
-                            desc = ('Checking baseline {}, index: {:02d}, '
-                                    'phase offset found, maximum error value = {:0.8f} rads'.format(
-                                           b_line[0], b_line_val, b_line_phase_max))
-                            Aqf.failed(desc)
+                        Aqf.is_true(reply.reply_ok(), 'CAM Reply: {}'.format(str(reply)))
+                        Aqf.passed('Delays were applied on input: {} successfully'.format(delayed_input))
+                    try:
+                        Aqf.step('Getting SPEAD accumulation (while discarding subsequent dumps) containing '
+                                 'the change in delay(s) on input: %s.'%(test_source_idx))
+                        dump = self.receiver.get_clean_dump(discard=35)
+                    except Exception:
+                        errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+                    else:
+                        sorted_bls = get_baselines_lookup(self, this_freq_dump, sorted_lookup=True)
+                        degree = 1.0
+                        Aqf.step('Maximum expected delay: %s' % np.max(expected_phases))
+                        for b_line in sorted_bls:
+                            b_line_val = b_line[1]
+                            b_line_dump = (dump['xeng_raw'][:, b_line_val, :])
+                            b_line_phase = np.angle(complexise(b_line_dump))
+                            # np.deg2rad(1) = 0.017 ie error should be withing 2 decimals
+                            b_line_phase_max = round(np.max(b_line_phase), 2)
+                            if ((delayed_input in b_line[0]) and
+                                        b_line[0] != (delayed_input, delayed_input)):
+                                msg = ('Confirm that the baseline(s) {} expected delay is within 1 '
+                                       'degree.'.format(b_line[0]))
+                                Aqf.array_abs_error(np.abs(b_line_phase[1:-1]),
+                                                    np.abs(expected_phases[1:-1]), msg, degree)
+                            else:
+                                # TODO Readdress this failure and calculate
+                                if b_line_phase_max != 0.0:
+                                    desc = ('Checking baseline {}, index: {}, phase offset found, '
+                                            'maximum error value = {} rads'.format(b_line[0], b_line_val,
+                                                b_line_phase_max))
+                                    Aqf.failed(desc)
 
-    def     _test_report_config(self, verbose):
+    def _test_min_max_delays(self):
+    pass
+
+    def _test_report_config(self, verbose):
         """CBF Report configuration"""
         test_config = self.corr_fix._test_config_file
 
