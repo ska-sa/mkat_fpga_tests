@@ -904,12 +904,13 @@ class test_CBF(unittest.TestCase):
                  'relevant parameters.')
         try:
             initial_dump = get_clean_dump(self)
+            print time.time(), initial_dump['dump_timestamp']
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
-            Aqf.progress('Successfully retrieve initial spead accumulation')
+            Aqf.progress('Successfully retrieved initial spead accumulation')
             int_time = _parameters['int_time']
             synch_epoch = _parameters['synch_epoch']
             # n_accs = _parameters['n_accs']
@@ -926,8 +927,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.step('Get list of all the baselines present in the correlator output')
                 Aqf.progress('Selected input and baseline for testing respectively: %s, %s.'%(
                     test_source, baseline_index))
-                Aqf.progress('Time to apply delays (%s/%s) is set to %s integrations/accumulations in '
-                     'the future.' % (t_apply,t_apply_readable, num_int))
+                Aqf.progress('Time to apply delays (%s/%s), current epoch (%s) is set to %s '
+                             'integrations/accumulations in the future.' % (t_apply, t_apply_readable,
+                             time.time(), num_int))
             except KeyError:
                 Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
                            'ordering format.')
@@ -2788,7 +2790,6 @@ class test_CBF(unittest.TestCase):
         # Check all sensors statuses if they are nominal
         report_primary_sensors(self)
 
-
     def _test_fft_overflow(self):
         """Sensor PFB error"""
         test_heading("Systematic Errors Reporting: FFT Overflow")
@@ -2874,7 +2875,6 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Restoring previous FFT Shift values')
         confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
         clear_host_status(self)
-
 
     def _test_network_link_error(self):
         test_heading("Fault Detection: Network Link Errors")
@@ -2996,7 +2996,6 @@ class test_CBF(unittest.TestCase):
         get_spead_data(self)
         clear_host_status(self)
 
-
     def _test_host_sensors_status(self):
         test_heading('Monitor Sensors: Processing Node\'s Sensor Status')
         clear_host_status(self)
@@ -3016,7 +3015,6 @@ class test_CBF(unittest.TestCase):
                 if i.arguments[2].startswith('xhost') or i.arguments[2].startswith('fhost'):
                     if i.arguments[-2].lower() != 'nominal':
                         Aqf.failed(' contains an '.join(i.arguments[2:-1]))
-
 
     def _test_vacc(self, test_chan, chan_index=None, acc_time=0.998):
         """Test vector accumulator"""
@@ -3155,7 +3153,6 @@ class test_CBF(unittest.TestCase):
                             aqf_plot_channels(actual_response_mag, plot_filename, plot_title,
                                               log_normalise_to=0, normalise=0, caption=caption)
 
-
     def _test_product_switch(self, instrument):
         Aqf.step('Confirm that the SPEAD accumulations are being produced when Digitiser simulator is '
                  'configured to output correlated noise')
@@ -3226,7 +3223,6 @@ class test_CBF(unittest.TestCase):
                 msg = ('[CBF-REQ-0013] Confirm that instrument switching to %s '
                        'time is less than one minute' % instrument)
                 Aqf.less(final_time, minute, msg)
-
 
     def _test_delay_rate(self, plot_diagram=True):
         msg = ("CBF Delay and Phase Compensation Functional VR: -- Delay Rate")
@@ -3340,7 +3336,6 @@ class test_CBF(unittest.TestCase):
                 if plot_diagram:
                     aqf_plot_phase_results(no_chans, actual_phases, expected_phases, plot_filename,
                                    plot_title, plot_units, caption, dump_counts)
-
 
     def _test_fringe_rate(self, plot_diagram=True):
         msg = ("CBF Delay and Phase Compensation Functional VR: -- Fringe rate")
@@ -3568,8 +3563,7 @@ class test_CBF(unittest.TestCase):
         CBF Delay Compensation/LO Fringe stopping polynomial:
         Delay applied to the correct input
         """
-        msg = ("CBF Delay and Phase Compensation Functional VR: "
-                "Delays applied to the correct input")
+        msg = ("CBF Delay and Phase Compensation Functional VR: Delays applied to the correct input")
         test_heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
@@ -3655,7 +3649,52 @@ class test_CBF(unittest.TestCase):
                                     Aqf.failed(desc)
 
     def _test_min_max_delays(self):
-    pass
+        delays_cleared = clear_all_delays(self)
+        setup_data = self._delays_setup()
+        _parameters = parameters(self)
+        num_int = 30
+        int_time = _parameters['int_time']
+        if setup_data:
+            Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
+            if not delays_cleared:
+                Aqf.failed('Delays were not completely cleared, data might be corrupted.\n')
+            else:
+                dump_counts = 5
+                delay_bounds = get_delay_bounds(self.correlator)
+                for _name, _values in sorted(delay_bounds.iteritems()):
+                    _new_name = _name.title().replace('_', ' ')
+                    Aqf.step('Calculate the parameters to be used for setting %s.' % _new_name)
+                    delay_coefficients = 0
+                    dump = get_clean_dump(self)
+                    t_apply = (dump['dump_timestamp'] + num_int * int_time)
+                    setup_data['t_apply'] = t_apply
+                    no_inputs =  [0] * setup_data['num_inputs']
+                    input_source = setup_data['test_source']
+                    no_inputs[setup_data['test_source_ind']] = _values * dump_counts
+                    if 'delay_value' in _name:
+                        delay_coefficients = ['{},0:0,0'.format(dv) for dv in no_inputs]
+                    if 'delay_rate' in _name:
+                        delay_coefficients = ['0,{}:0,0'.format(dr) for dr in no_inputs]
+                    if 'phase_offset' in _name:
+                        delay_coefficients = ['0,0:{},0'.format(fo) for fo in no_inputs]
+                    else:
+                        delay_coefficients = ['0,0:0,{}'.format(fr) for fr in no_inputs]
+
+                    Aqf.progress('%s of %s will be set on input %s. Note: All other parameters '
+                                 'will be set to zero' % (_name.title(),  _values, input_source))
+                    try:
+                        actual_data, _delay_coefficients = self._get_actual_data(
+                            setup_data, dump_counts, delay_coefficients)
+                    except TypeError:
+                        errmsg = 'Failed to set the delays/fringes'
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+                    else:
+                        Aqf.step('Confirm that the %s where successfully set' % _new_name)
+                        reply, informs = self.corr_fix.katcp_rct.req.delays()
+                        msg = ('%s where successfully set via CAM interface.'
+                               '\n\t\t\t    Reply: %s\n\n' % (_new_name, reply))
+                        Aqf.is_true(reply.reply_ok(), msg)
 
     def _test_report_config(self, verbose):
         """CBF Report configuration"""

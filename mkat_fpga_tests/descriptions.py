@@ -447,9 +447,16 @@ class TestProcedure:
         1. Set time to apply delays to x integrations/accumulations in the future.
         2. Calculate the maximum expected delay on the baseline
         3. Request Delay(s) Corrections via CAM interface, and
-            - confirm delays have been set
-            - calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
+            - Confirm delays have been set
+            - Calculate the time it takes to load delay/fringe(s), value should be less than 1s as per requirement
         4. Confirm is delay is being applied to the correct baseline
+
+        **Delay Resolution**
+
+        1. Set time to apply delays to x integrations/accumulations in the future.
+        2. Calculate the maximum/minimum delays that can be set.
+        3. Request Maximum and Minimum delay(s) corrections via CAM interface, and
+            - Confirm that the maximum/minimum delays have been set
         """
         return _description
 

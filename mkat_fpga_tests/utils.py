@@ -764,14 +764,14 @@ def get_delay_bounds(correlator):
     max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) *
                                 correlator.sample_rate_hz) / bitshift
     return {
-            'max_positve_delay': max_delay,
-            'min_negative_delay': min_delay,
-            'max_positive_delay_rate': max_positive_delta_delay,
-            'max_negative_delay_rate': max_negative_delta_delay,
-            'max_positive_phase_offset': max_positive_phase_offset,
-            'max_negative_phase_offset': max_negative_phase_offset,
-            'max_positive_phase_rate': max_positive_delta_phase,
-            'max_negative_phase_rate': max_negative_delta_phase
+            'max_delay_value': max_delay,
+            'min_delay_value': min_delay,
+            'max_delay_rate': max_positive_delta_delay,
+            'min_delay_rate': max_negative_delta_delay,
+            'max_phase_offset': max_positive_phase_offset,
+            'min_phase_offset': max_negative_phase_offset,
+            'max_phase_rate': max_positive_delta_phase,
+            'min_phase_rate': max_negative_delta_phase
             }
 
 
