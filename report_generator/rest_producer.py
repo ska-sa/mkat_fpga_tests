@@ -51,14 +51,14 @@ class ReStProducer(object):
             self._output.append('')
 
     def add_heading(self, level, heading, anchor=False):
-        """Add a headin.
+        """Add a heading.
 
         :param level: Str. Type of heading.
         :param heading: Str. Title of the heading.
         :param anchor: Boolean. If a anchor should be added, the anchor will
                         allow the heading to be referenced.
         """
-        logger.debug('Adding %s heading, titled :%s' %(level, heading))
+        # logger.debug('Adding %s heading, titled :%s' %(level, heading))
         assert('\n' not in heading)
         if anchor:
             self.add_anchor(heading)
@@ -72,7 +72,7 @@ class ReStProducer(object):
 
     def add_sourcecode(self, quote):
         """Add sourceode block, i.e. Quote text verbatim in a block-quote."""
-        logger.debug('Adding sourcecode [reST]')
+        # logger.debug('Adding sourcecode [reST]')
         if quote:
             self._ensure_empty_line()
             quote = str(quote).replace('\r', '\n').split('\n')
@@ -87,7 +87,7 @@ class ReStProducer(object):
 
     def add_figure(self, filename, caption, alt=None, legend=None,
                    align='center', figwidth='90%', width='80%', **options):
-        logger.debug('Adding figure: %s [on reST]'%filename)
+        # logger.debug('Adding figure: %s [on reST]'%filename)
         self._ensure_empty_line()
         self._output.append(' .. figure:: {}'.format(filename))
         if alt:

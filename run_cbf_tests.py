@@ -375,7 +375,8 @@ def process_core_data(settings):
         if os.path.exists(core_backup):
             latest_core_xml = max(glob.iglob(os.path.join(core_backup ,'*.[Xx][Mm][Ll]')),
                 key=os.path.getctime)
-            logger.debug('CORE.xml file size %.2f Mb' % (os.path.getsize(latest_core_xml) / 1e6))
+            logger.debug('CORE.xml file name %s @ %.2f Mb' % (os.path.split(latest_core_xml)[-1]
+              , os.path.getsize(latest_core_xml) / 1e6))
             settings['xml_file'] = latest_core_xml
         else:
             errmsg = 'CORE.xml file does not exist in %s dir' % core_backup
@@ -498,18 +499,23 @@ def generate_sphinx_docs(settings):
        katreport/cbf_timescale_unlinked_qualification_results.rst
        katreport/katreport_system.rst
     """
+    def verbose_cmd_exec(log_level, cmd):
+        if settings.get('log_level') == log_level:
+            logger.debug('Executed CMD: %s' % cmd)
+            status = run_command(settings, cmd)
+        else:
+            status = run_command(settings, cmd, log_file)
 
     try:
-        cmd = ['make', 'html']
+        logger.debug(
+          'Cleaning up previous builds, Note: Backup can be found on ../CBF_Tests_Reports dir')
+        verbose_cmd_exec('DEBUG', ['make', 'clean'])
         assert settings.get('gen_html', False)
     except AssertionError:
         pass
     else:
         logger.info("Generating HTML document from rst files")
-        if settings.get('log_level') == 'DEBUG':
-            status = run_command(settings, cmd)
-        else:
-            status = run_command(settings, cmd, log_file)
+        verbose_cmd_exec('DEBUG', ['make', 'html'])
 
     try:
         assert settings.get('gen_qtp', False) or settings.get('gen_qtr', False)
@@ -866,8 +872,7 @@ def generate_report(settings):
 
     report.clear()
     report.write_rst_cbf_files(os.path.join(settings['me_dir'], katreport_dir),
-                               settings['build_dir'], settings["katreport_dir"],
-                               'cbf')
+                               settings['build_dir'], settings["katreport_dir"], 'cbf')
 
 def show_test_results(settings):
     """Helper function to print test results

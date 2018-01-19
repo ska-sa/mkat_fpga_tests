@@ -99,10 +99,6 @@ class Report(object):
         timescales = sorted(set([self.requirements[r]['timescale']
                            for r in self.requirements
                            if self.requirements[r].get('timescale')]))
-        timescales = [i.replace(i[-1], 'AR{}'.format(count)) for count, i in enumerate(timescales)] +\
-                     ['Timescale Unlinked']
-
-        # return timescales
         return ['Timescale Unlinked']
 
     def write_rst_cbf_files(self, base_dir, build_dir, katreport_dir, prefix):
@@ -112,7 +108,7 @@ class Report(object):
         self.katreport_dir = katreport_dir
         for test_req in self._requirements_from_tests():
             if test_req not in self.requirements:
-                # Create a fake Core entry.
+                # Create a fake Core entry for the requirement.
                 self.requirements[test_req] = {'definition': 'VerificationRequirement',
                                                'category-list': ["1200 CBF"],
                                                'method': 'test'
@@ -312,14 +308,14 @@ class Report(object):
         for item in self.requirements:
             requirement = self.requirements[item]
             # Build up a list of verification requirements.
-            if (requirement.get('definition') not in ('VerificationRequirementTestProcedure')):
+            if (requirement.get('definition') not in ('VerificationRequirement', 'VerificationEvent')):
                 # Only verification requirements.
                 continue
             if (requirement.get('timescale', 'Timescale Unlinked') != timescale):
                 # Only for the selected timescale.
                 continue
 
-            if not (item.startswith('TP.C.') or item.startswith('R.C.') or
+            if not (item.startswith('CBF.V') or item.startswith('R.C.') or
                 item.startswith('VR.C') or item.startswith('VE.')):
                 continue
             if self.acceptance_report:
@@ -348,34 +344,27 @@ class Report(object):
             return
 
         demo_script = []
-        count = 0
         if results_doc:
             self.docproducer.add_include(
                 'cbf_timescale_unlinked_qualification_testing_procedure_table.inc')
             self.docproducer.add_heading('section', 'Detailed Test Results', anchor=True)
         else:
-            self.docproducer.add_heading('section', 'Test Procedures', anchor=True)
+            self.docproducer.add_heading('chapter', 'Test Procedures', anchor=True)
+
         for item in nsort(req_list):
-            demo_script.append(('requirement', item))
-            count += 1
-            aqf_number = "{0}.{1}".format(number, count)
             # Ignore test procedures that were not tested for the text of the test report.
             if item not in self._requirements_from_tests():
                 continue
             # Removed additional description from CORE
-            # self.add_requirement(item, ['description', 'relationship'], title=inc_title,
-            self.add_requirement(item, ['relationship'], title=inc_title,)
-            # number=aqf_number)
-            # demo_script.append(('aqf_no', aqf_number))
+            self.add_requirement(item, ['description', 'relationship'], title=inc_title,)
+            # self.add_requirement(item, ['relationship'], title=inc_title,)
             if procedure:
                 self.add_requirement_procedure(item)
-                # self.add_requirement_procedure(item, demo_script)
             else:
                 self.add_requirement_results(item)
 
         if demo and procedure:
             self.write_script(base_dir, timescale, scheme)
-            # self.write_script(base_dir, timescale, scheme, demo_script)
         return title
 
     # Todo 05-09-2017(MM) fix this method
@@ -594,7 +583,7 @@ class Report(object):
         table = []
         for ts in nsort(reqs):
             for desc in nsort([t for t in reqs[ts]
-                               if t in ('VerificationRequirement', 'TestProcedure')]):
+                               if t in ('VerificationRequirement', 'VerificationEvent')]):
                 for demo_or_test in reversed(nsort(reqs[ts][desc])):
                     title = "cbf %s %s %s results" % (ts, scheme, demo_or_test)
                     label = dp.add_link(self.document_lookup.get(title.lower(), title))
@@ -664,7 +653,7 @@ class Report(object):
         reqs = self.grouped_requirements(self.status_of_requirements)
         for timescale, scheme in itertools.product(reqs, [QUAL, ACCEPT]):
             for vreq in [t for t in reqs[timescale]
-                         if t in ('VerificationRequirement', 'TestProcedure')]:
+                         if t in ('VerificationRequirement', 'VerificationEvent')]:
                 for demo in reqs[timescale][vreq]:
                     is_demo = demo == 'Demonstration'
                     for result in ['Results', 'Procedure']:
@@ -680,15 +669,15 @@ class Report(object):
                                     # the requirements do not have a test
                                     # flagged as acceptance.
                                     continue
-                            if not (item.startswith('TP.C.') or item.startswith('R.C.') or
+                            if not (item.startswith('CBF.V') or item.startswith('R.C.') or
                                     item.startswith('VE.')):
                                 continue
 
                             items[item] = self.status_of_requirements(item, is_demo)
                             if result == 'Results' and items[item] == 'Implemented':
                                 items[item] = 'Implemented'
-                        title = "CBF %s %s %s %s Summary" % \
-                                (timescale, scheme, demo, result)
+                        # title = "CBF %s %s %s %s Summary" % \
+                        #         (timescale, scheme, demo, result)
                         # self.generate_include_summary(title, items, basedir)
                         title = "CBF %s %s %s %s" % \
                                 (timescale, scheme, demo, result)
@@ -734,7 +723,7 @@ class Report(object):
             self.docproducer.add_heading('section', 'Summary of Test Results')
             _title = 'Summary of Test Results'
         else:
-            self.docproducer.add_heading('section',
+            self.docproducer.add_heading('chapter',
                 'CBF Array Release %s Requirements Verification Matrix' % _array_release)
             _title = 'Requirements Verification Traceability Matrix'
 
@@ -743,32 +732,37 @@ class Report(object):
         header_map = []
         if title.lower().endswith('procedure'):
             header_map.append('requirements')
-        header_map.extend(['verification event', 'verification event description', 'status'])
+        header_map.extend(['verification event', 'verification description', 'status'])
         for req in nsort(items):
             _requirements = []
             vr = self.requirements.get(req, {})
             row = {'verification event': self.docproducer.add_link(self.short_link(
                     title, req), req)}
             row['status'] = self.docproducer.str_style(items[req])
-            row['verification event description'] = vr.get('name', '')
+            row['verification description'] = vr.get('name', '')
             if title.lower().endswith('procedure'):
                 relationship = vr.get('relationship', {})
                 relationships = []
-                for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
-                              'references'):
-                    for r in relationship.get(rtype, []):
-                        if r.startswith('R.C.') or r.startswith('CBF-REQ'):
-                            relationships.append(r)
-                for rel in nsort(relationships):
-                    _req = self.requirements.get(rel, {}).get('puid')
-                    if _req:
-                        _requirements.append(_req)
-                if _requirements:
-                    _requirements = [i for i in _requirements if i.startswith('CBF-REQ')]
-                    row['requirements'] = ', '.join(nsort(list(set(_requirements))))
-                else:
-                    row['requirements'] = " ".join(nsort(vr.get('relationship', {}).
-                                              get('X-referenced by', [])))
+                for fulfilled_by in relationship.get('fulfills', {}):
+                    _vr = self.requirements.get(fulfilled_by, {})
+                    for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
+                                  'references'):
+                        _vr_relationship = _vr.get('relationship', {})
+                        for r in _vr_relationship.get(rtype, []):
+                            if r.startswith('R.C.') or r.startswith('CBF-REQ'):
+                                relationships.append(r)
+                    for rel in nsort(relationships):
+                        _req = self.requirements.get(rel, {}).get('puid')
+                        if _req:
+                            _requirements.append(_req)
+                    if _requirements:
+                        print ''
+                        _requirements = [i for i in _requirements if i.startswith('CBF-REQ')]
+                        row['requirements'] = ', '.join(
+                            nsort(list(set(_requirements))))
+                    else:
+                        row['requirements'] = " ".join(
+                            nsort(vr.get('relationship', {}).get('X-referenced by', [])))
             table_data.append(row)
 
         self.docproducer.add_table_ld(table_data, table_title=_title, header_map=header_map)
@@ -837,16 +831,20 @@ class Report(object):
         if number:
             dp.add_heading('section', number + ' - ' + stitle)
         else:
-            dp.add_heading('section', stitle)
+            dp.add_heading('subsection', stitle)
 
-        dp.add_heading('subsection', 'Requirements Verified')
+        dp.add_heading('subsubsection', 'Requirements Verified')
         relationship = req_data.get('relationship', {})
         relationships = []
-        for rtype in ('verifies', 'X-referenced by', 'X-references',
-                      'referenced by', 'references'):
-            for r in  relationship.get(rtype, []):
-                if r.startswith('R.C.') or r.startswith('CBF-REQ'):
-                    relationships.append(r)
+        _requirements = []
+        for fulfilled_by in relationship.get('fulfills', {}):
+            _vr = self.requirements.get(fulfilled_by, {})
+            for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
+                          'references'):
+                _vr_relationship = _vr.get('relationship', {})
+                for r in _vr_relationship.get(rtype, []):
+                    if r.startswith('R.C.') or r.startswith('CBF-REQ'):
+                        relationships.append(r)
 
         if relationships:
             for count, rel in enumerate(nsort(relationships), 1):
@@ -886,9 +884,11 @@ class Report(object):
         for vr in nsort(list_of_requirements):
             _req = self.requirements.get(vr, {})
             if verification_requirement:
-                condition = _req.get("definition") in ("VerificationRequirement", 'TestProcedure')
+                condition = _req.get("definition") in ("VerificationRequirement",
+                    'VerificationEvent')
             else:
-                condition = _req.get("definition") not in ("VerificationRequirement", 'TestProcedure')
+                condition = _req.get("definition") not in ("VerificationRequirement",
+                    'VerificationEvent')
 
             # if (condition and ("1500 CAM" in _req.get('category-list', [])
             #                    or "1200 CBF" in requirement.get('category-list', []))):
@@ -901,15 +901,14 @@ class Report(object):
 
                 self._rst_add_data(docproducer,
                                    {"Last run": docproducer.add_link(vr),
-                                    "CORE definition":
-                                    docproducer.add_link("core_%s" % vr)
+                                    "CORE definition": docproducer.add_link("core_%s" % vr)
                                     })
                 self.add_requirement_procedure(vr)
 
     def add_requirement_results(self, req_id):
         """Add to the report the test procedures for the requirements."""
         tests = self._requirements_from_tests().get(req_id, {}).get('tests')
-        self.docproducer.add_heading('subsubsection', 'Test Results')
+        self.docproducer.add_heading('subsection', 'Test Results')
         if tests:
             for test in nsort(tests):
                 self._rst_show_test(self.docproducer, 1, test, self.test_data[test])
@@ -927,9 +926,22 @@ class Report(object):
         #                  if tests.keys() == _value['tests'].keys()]
         # for _req in sorted(_requirements):
         #     self.docproducer.add_line('' + _req)
-        self.docproducer.add_heading('subsection', 'Test Configuration')
-        _text = "   Tests should be executed on a suitable baseline of the CBF Sub-System."
+        try:
+            desc = self.requirements.get(''.join(self.requirements.get(req_id, {}).get(
+                'relationship', {}).get('fulfills', {})), {}).get('description', {})
+            assert desc != {}
+        except:
+            desc = 'Verification by means of test.'
+
+        self.docproducer.add_heading('subsubsection', 'Verification Method')
+        self.docproducer.add_indented_raw_text(desc, level=2)
+
+
+        self.docproducer.add_heading('subsubsection', 'Test Configuration')
+        _text = "Tests should be executed on a suitable baseline of the CBF Sub-System.\n"
         self.docproducer.add_indented_raw_text(_text, level=2)
+
+
         self.docproducer.add_heading('subsection', 'Test Procedure')
         if tests:
             for test in nsort(tests):
@@ -980,7 +992,7 @@ class Report(object):
         table_head = ['VR', 'Status', 'Description']
         for req_id in self.requirements:
             req = self.requirements[req_id]
-            if (req.get("definition") in ("VerificationRequirement",  'TestProcedure')
+            if (req.get("definition") in ("VerificationRequirement",  'VerificationEvent')
                 # and ("1500 CAM" in req.get('category-list', []) or
                 #      "1200 CBF" in req.get('category-list', []))
             ):
@@ -1111,13 +1123,13 @@ class Report(object):
             heading_title = "AQF Verification Requirements Table"
             for key in nsort(requirements.keys()):
                 if (self.requirements.get(key, {}).get("definition") in
-                        ("VerificationRequirement", 'TestProcedure')):
+                        ("VerificationRequirement", 'VerificationEvent')):
                     requirement_keys.append(key)
         elif filter_name == "not_vr":
             heading_title = "AQF Requirements Table (excluding VR)"
             for key in nsort(requirements.keys()):
                 if not (self.requirements.get(key, {}).get("definition") in
-                        ("VerificationRequirement", 'TestProcedure')):
+                        ("VerificationRequirement", 'VerificationEvent')):
                     requirement_keys.append(key)
         else:
             requirement_keys = nsort(requirements.keys())
@@ -1180,7 +1192,7 @@ class Report(object):
         """Generate a report of the entities from Core."""
         definitions = {}
         for item in self.requirements: # [d for d in self.requirements
-            if not (item.startswith('TP.C') or item.startswith('VR.C') or
+            if not (item.startswith('CBF.V') or item.startswith('VR.C') or
                     item.startswith('VE.')  or item.startswith('R.C')): continue
 
             req_def = self.requirements[item].get('definition', self.UNKNOWN)

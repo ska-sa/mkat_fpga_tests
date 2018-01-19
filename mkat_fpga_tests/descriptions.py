@@ -42,19 +42,14 @@ class TestProcedure:
         return _description
 
     @property
-    def ReportSensorStatus(self):
+    def MonitorSensors(self):
         _description = """
         **Sensor status**
 
         1. Confirm that the number of sensors available on the primary and sub array interface is consistent.
         2. Confirm that time synchronous is implemented on primary interface
         3. Confirm that Transient Buffer ready is implemented.
-        """
-        return _description
 
-    @property
-    def ReportHostSensor(self):
-        _description = """
         **Processing Node's Sensor (Temp, Voltage, Current, Fan) Status**
 
         1. This test confirms that each Processing Node's sensor (Temp, Voltage, Current, Fan) has not Failed.
@@ -66,30 +61,20 @@ class TestProcedure:
         return _description
 
     @property
-    def ReportHWVersion(self):
+    def ReportConfiguration(self):
         _description = """
         **CBF processing node version information.**
 
         1. Determine number of hosts and current configuration(DEngine, X/F/B-Engine)
         2. Retrieve hosts firmware information
-        """
-        return _description
 
-    @property
-    def ReportSWVersion(self):
-        _description = """
         **CBF Software Version Information**
 
         1. Request a list of available configuration items using KATCP command "?version-list"
             - F/Xengine firmware information
             - KATCP device, library, protocol
             - CBF server name
-        """
-        return _description
 
-    @property
-    def ReportGitVersion(self):
-        _description = """
         **CBF Git Version Information**
 
         1. Retrieve CORE software information
@@ -186,7 +171,7 @@ class TestProcedure:
         6. Reset digitiser simulator to Zeros
         7. Configure digitiser simulator configured to generate cw tone with frequency on input 1
             - Capture a correlator SPEAD accumulation.
-            - Confirm that auto-correlation in baseline 1 contains non-Zeros and,
+            - Confirm that auto-correlation in baseline 1 contains non-Zeros and
             - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
 
         """
@@ -317,13 +302,14 @@ class TestProcedure:
             - Confirm the channelisation spacing and confirm that it is within the maximum tolerance.
         8. Sweep the digitiser simulator over the centre frequencies of at least all the channels that fall within the complete L-band
             - Capture channel response for every frequency channel in the selected frequencies calculated
-        Check FFT overflow and QDR errors after channelisation.
-        9. Check that the peak channeliser response to input frequencies in central 80% of the test channel frequency band are all in the test channel
-        10. Check that VACC output is at < 99% of maximum value, if fails then it is probably overranging.
-        11. Check that ripple within 80% of cut-off frequency channel is < 1.5 dB
-        12. Check that response at channel-edges are -3 dB relative to the channel centre at selected freq, actual source frequency
-        13. Check that relative response at the low band-edge is within the range of -6 +- 1% relative to channel centre response.
-        14. Check that relative response at the high band-edge is within the range of -6 +- 1% relative to channel centre response.
+        9. Check FFT overflow and QDR errors after channelisation.
+        10. Check that the peak channeliser response to input frequencies in central 80% of the test
+            channel frequency band are all in the test channel.
+        11. Check that VACC output is at < 99% of maximum value, if fails then it is probably over-ranging.
+        12. Check that ripple within 80% of cut-off frequency channel is < 1.5 dB
+        13. Check that response at channel-edges are -3 dB relative to the channel centre at selected freq, actual source frequency
+        14. Check that relative response at the low band-edge is within the range of -6 +- 1% relative to channel centre response.
+        15. Check that relative response at the high band-edge is within the range of -6 +- 1% relative to channel centre response.
          """
         return _description
 
@@ -355,6 +341,8 @@ class TestProcedure:
     @property
     def PowerConsumption(self):
         _description = """
+        **CBF Power Consumption**
+
         1. Request power consumption of each PDU via telnet interface at 1 minute intervals.
         2. Repeat for each PDU.
         3. Exercise each of the available CBF data product sets for 10 minutes or more. The total time must be more than 60 minutes.
@@ -370,10 +358,28 @@ class TestProcedure:
         11. The CBF average peak power test passes if the CBF average power is <= 60kW.
         12. Divide the CBF average power by the number of CBF racks that are actually used, to get a CBF average power per rack.
         13. The CBF maximum heat generation test passes that the CBF average power per rack is <= 5kW.
-            - In each worksheet, make a column which computes peak power by multiplying peak current drawn over the three phases, multiplied by 220 i.e. (Imax Ph1+Imax Ph2+Imax Ph3)*220.
+
+            - In each worksheet, make a column which computes peak power by multiplying peak current drawn over the three phases,
+                multiplied by 220 i.e. (Imax Ph1+Imax Ph2+Imax Ph3)*220.
             - Sum the peak power of each rack to get a CBF peak power.
             - The CBF peak power test passes if the maximum CBF peak power is <= 60kW.
          """
+        return _description
+
+    @property
+    def CBF_Delay_Phase_Compensation_Control(self):
+        _description = """
+
+        1. Configure a digitiser simulator to be used as input source to F-Engines.
+        2. Configure a digitiser simulator to generate correlated Gaussian noise.
+        3. Set a predetermined accumulation period, and
+            - Confirm it has been set via CAM interface.
+        4. Initiate SPEAD receiver, enable data to flow and,
+            - Confirm CBF output product
+        5. Disable/Enable delays
+        6. Set delays via CAM interface, and
+            - Confirm that the time it takes to set the delays is below 1 seconds
+        """
         return _description
 
     @property
@@ -481,10 +487,13 @@ class TestProcedure:
             - List missed heaps on partitions
             - Confirm the data type of the beamforming data for one channel.
         11. Expected value is calculated by taking the reference input level and multiplying by the channel weights and quantiser gain.
+
             - Capture reference level measured by setting the gain for one antenna to 1 and the rest to 0.
             - Capture reference level averaged over x channels. Channel averages determined over x samples.
-            - Confirm that the expected voltage level is within 0.2dB of the measured mean value
-        Repeat above for different beam weights        """
+            - Confirm that the expected voltage level is within 0.2dB of the measured mean value.
+
+        12. Repeat above for different beam weights
+        """
         return _description
 
 
