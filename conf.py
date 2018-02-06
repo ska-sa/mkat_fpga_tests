@@ -188,31 +188,28 @@ _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys(
 latex_elements = {
     'papersize': 'a4paper',
     'preamble': r"""
-     \geometry{
-             a4paper,
-             total={170mm,257mm},
-             left=20mm,
-             top=20mm,
-             }
-        \usepackage{paralist}
-        \usepackage{color}
-        % http://users.sdsc.edu/~ssmallen/latex/longtable.html
-        \usepackage{longtable}
+    \geometry{a4paper, total={170mm,257mm}, left=20mm, top=20mm,}
+    \usepackage{paralist}
+    \usepackage{color}
+    % http://users.sdsc.edu/~ssmallen/latex/longtable.html
+    \usepackage{longtable}
+    \usepackage{amsfonts}
+    \usepackage{amssymb}
+    % \usepackage{fixltx2e}
 
-        \usepackage{sectsty}
-        \sectionfont{\large}
-        \subsectionfont{\large}
-        \subsubsectionfont{\large}
-        \paragraphfont{\large}
+    \usepackage{sectsty}
+    \sectionfont{\large}
+    \subsectionfont{\large}
+    \subsubsectionfont{\large}
+    \paragraphfont{\large}
 
-        \hypersetup{colorlinks=false,pdfborder={0 0 0},}
-        \titleformat{\chapter}[display]
-        {\normalfont\bfseries}{}{0pt}{\Large}
-
-        \let\cleardoublepage\clearpage
-        """,
-    'fontpkg': '\\usepackage{times}',
-    'releasename': 'Array Release 2.0',
+    \hypersetup{colorlinks=false,pdfborder={0 0 0},}
+    \titleformat{\chapter}[display]
+    {\normalfont\bfseries}{}{0pt}{\Large}
+    \let\cleardoublepage\clearpage
+    """,
+    'fontpkg': r'\usepackage{times}',
+    'releasename': 'Array Release 2/3',
     'maketitle': '',
     }
 
@@ -249,13 +246,13 @@ latex_use_parts = False
 # Path to jsMath loader script (relative to ./_static/)
 jsmath_path = 'jsMath/easy/load.js'
 
-def replaceAll(file, searchExp, replaceExp):
+def replaceAll(_file, searchExp, replaceExp):
     """Search and replace"""
-    with open(file, 'r') as f:
+    with open(_file, 'r') as f:
         newlines = []
         for line in f.readlines():
             newlines.append(line.replace(searchExp, replaceExp))
-    with open(file, 'w') as f:
+    with open(_file, 'w') as f:
         for line in newlines:
             f.write(line)
 
@@ -279,6 +276,9 @@ def exit_handler():
                         "\end{savenotes}", "\chapter{TP", "\chapter{AQF",
                         "\section{Test Configuration}", "\section{Requirements Verified}",
                         "\section{Test Procedure}",
+                        r'\sphinxatlongtablestart\begin{longtable}{|l|l|l|l|}',
+                        r'\caption{Requirements', r'\strut}',
+                        r'\\*[\sphinxlongtablecapskipadjust]',
                         ]
 
             new_tags = ["{longtable}[c]{|p{1.2in}|p{.7in}|p{2in}|p{.8in}|}",
@@ -287,8 +287,11 @@ def exit_handler():
                         "end{longtable}",  "\item", "\item\hspace{-0.15cm}{",
                         " \leavevmode", "sphinxstylestrong{\small ",
                         "\end{savenotes}\\newpage", "\section{TP",
-                         "\section{AQF", "\subsection{Test Configuration}",
-                         "\subsection{Requirements Verified}", "\subsection{Test Procedure}"
+                        "\section{AQF", "\subsection{Test Configuration}",
+                        "\subsection{Requirements Verified}", "\subsection{Test Procedure}",
+                        r"\sphinxattablestart\centering\sphinxcapstartof{table}",
+                        r'\sphinxcaption{Requirements', '}',
+                        r'\sphinxaftercaption\begin{longtable}[c]{|p{1.2in}|p{.7in}|p{2in}|p{.8in}|}',
                         ]
 
             for _old_tags, _new_tags in zip(old_tags, new_tags):
@@ -300,10 +303,8 @@ def exit_handler():
             else:
                 _intro_doc = str('/'.join([curpath, 'docs/introduction_%s.tex'%(docutype)]))
                 old_name = ['DocNumber', 'DocInfo', 'instrument']
-                new_name = [_document_number,
-                            _document_info,
-                            _document_data.get('documented_instrument', 'Unknown')
-                            ]
+                new_name = [_document_number, _document_info, _document_data.get(
+                            'documented_instrument', 'Unknown')]
 
                 for _old_name, _new_name in zip(old_name, new_name):
                     replaceAll(_intro_doc, str(_old_name), str(_new_name))

@@ -13,7 +13,7 @@ import zlib
 
 from report_generator.rest_producer import ReStProducer
 
-_array_release = '2.0'
+_array_release = '2/3'
 
 
 class Report(object):
@@ -29,6 +29,7 @@ class Report(object):
         # See update_status_strings method.
         self.UNKNOWN = 'untested'
         self.WAIVED = 'waived'
+        self.NOT_TESTED = 'not_tested'
         self.PASS = 'passed'
         self.PROGRESS = 'progress'
         self.SKIP = 'skipped'
@@ -315,9 +316,9 @@ class Report(object):
                 # Only for the selected timescale.
                 continue
 
-            if not (item.startswith('CBF.V') or item.startswith('R.C.') or
-                item.startswith('VR.C') or item.startswith('VE.')):
-                continue
+            # if not (item.startswith('CBF.V') or item.startswith('R.C.') or
+            #     item.startswith('VR.C') or item.startswith('VE.')):
+            if not item.startswith('CBF.V'): continue
             if self.acceptance_report:
                 if not self.is_acceptance(item):
                     continue
@@ -561,13 +562,16 @@ class Report(object):
         """
         rft = self._requirements_from_tests()
         status = rft.get(req, {}).get('status', self.UNKNOWN).upper()
-        if demo and status not in ['WAIVED']:
-            # For demo's we just say Exist, Not Implemented or
+        if status not in ['WAIVED', 'NOT_TESTED']:
+            # For demo's we just say Exist, Not Tested or
             # say that it is WAIVED.
-            #return 'Exists' if req in rft else 'Not Implemented'
-            return 'Implemented' if req in rft else 'Not Implemented'
+            #return 'Exists' if req in rft else 'Not Tested'
+            return 'Test Implemented' if req in rft else 'Test Not Implemented'
         else:
-            return status
+            return (
+                "Test Not Implemented"
+                if status.title().replace('_', ' ') == "Not Tested"
+                else status.title().replace('_', ' '))
 
     def _rst_summary(self, docproducer=None):
         """Generate the qualification summary report."""
@@ -579,7 +583,8 @@ class Report(object):
         dp.add_heading('section', 'CBF %s Summary' % scheme.capitalize(), anchor=True)
         dp.add_include('summary_info.inc')
         reqs = self.grouped_requirements(self.status_of_requirements)
-        header = ["label", "FAILED", "PASSED", "SKIPPED", "TBD", 'WAIVED', "UNKNOWN", "total"]
+        header = ["label", "FAILED", "PASSED", "SKIPPED", "TBD", 'WAIVED', "UNKNOWN", "NOT_TESTED",
+                  "total"]
         table = []
         for ts in nsort(reqs):
             for desc in nsort([t for t in reqs[ts]
@@ -669,13 +674,13 @@ class Report(object):
                                     # the requirements do not have a test
                                     # flagged as acceptance.
                                     continue
-                            if not (item.startswith('CBF.V') or item.startswith('R.C.') or
-                                    item.startswith('VE.')):
-                                continue
+                            # if not (item.startswith('CBF.V') or item.startswith('R.C.') or
+                            #         item.startswith('VE.')):
+                            if not item.startswith('CBF.V'): continue
 
                             items[item] = self.status_of_requirements(item, is_demo)
-                            if result == 'Results' and items[item] == 'Implemented':
-                                items[item] = 'Implemented'
+                            if result == 'Results' and items[item] == 'Tested':
+                                items[item] = 'Tested'
                         # title = "CBF %s %s %s %s Summary" % \
                         #         (timescale, scheme, demo, result)
                         # self.generate_include_summary(title, items, basedir)
@@ -726,6 +731,8 @@ class Report(object):
             self.docproducer.add_heading('chapter',
                 'CBF Array Release %s Requirements Verification Matrix' % _array_release)
             _title = 'Requirements Verification Traceability Matrix'
+            self.docproducer.add_box_note("Tests not implemented are due to the requirements "
+                                         " not being applicable to the array release under test.")
 
         filename = title.lower().replace(" ", "_") + "_table.inc"
         table_data = []
@@ -736,13 +743,12 @@ class Report(object):
         for req in nsort(items):
             _requirements = []
             vr = self.requirements.get(req, {})
-            row = {'verification event': self.docproducer.add_link(self.short_link(
-                    title, req), req)}
+            row = {'verification event': self.docproducer.add_link(self.short_link(title, req), req)}
             row['status'] = self.docproducer.str_style(items[req])
             row['verification description'] = vr.get('name', '')
             if title.lower().endswith('procedure'):
                 relationship = vr.get('relationship', {})
-                relationships = []
+                relationships = set()
                 for fulfilled_by in relationship.get('fulfills', {}):
                     _vr = self.requirements.get(fulfilled_by, {})
                     for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
@@ -750,16 +756,17 @@ class Report(object):
                         _vr_relationship = _vr.get('relationship', {})
                         for r in _vr_relationship.get(rtype, []):
                             if r.startswith('R.C.') or r.startswith('CBF-REQ'):
-                                relationships.append(r)
+                            # if r.startswith('CBF-REQ'):
+                                relationships.add(r)
+
                     for rel in nsort(relationships):
                         _req = self.requirements.get(rel, {}).get('puid')
-                        if _req:
+                        if _req and (_req in self._requirements_from_tests()):
                             _requirements.append(_req)
                     if _requirements:
                         print ''
                         _requirements = [i for i in _requirements if i.startswith('CBF-REQ')]
-                        row['requirements'] = ', '.join(
-                            nsort(list(set(_requirements))))
+                        row['requirements'] = ', '.join(nsort(list(set(_requirements))))
                     else:
                         row['requirements'] = " ".join(
                             nsort(vr.get('relationship', {}).get('X-referenced by', [])))
@@ -835,8 +842,7 @@ class Report(object):
 
         dp.add_heading('subsubsection', 'Requirements Verified')
         relationship = req_data.get('relationship', {})
-        relationships = []
-        _requirements = []
+        relationships = set()
         for fulfilled_by in relationship.get('fulfills', {}):
             _vr = self.requirements.get(fulfilled_by, {})
             for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
@@ -844,26 +850,21 @@ class Report(object):
                 _vr_relationship = _vr.get('relationship', {})
                 for r in _vr_relationship.get(rtype, []):
                     if r.startswith('R.C.') or r.startswith('CBF-REQ'):
-                        relationships.append(r)
+                        relationships.add(r)
 
         if relationships:
             for count, rel in enumerate(nsort(relationships), 1):
                 if self.requirements.get(rel, {}).get('puid'):
                     _description = self.requirements.get(rel, {}).get('description', '')
-                    # TODO (MM) 28-Nov-2017
-                    # Perhaps use regular expressions
-                    for i in ['a)','b)','c)','d)','e)','f)','g)','h)','i)','j)',
+                    for i in ['a) ','b) ','c) ','d) ','e) ','f) ','g) ','h) ','i) ','j) ',
                               '1)', '2)', '3)', '4)', '5)', '6)', '7)', '8)']:
                         if i in _description:
-                            _description = _description.replace(i, '                      - ')
-                    dp.add_line(":**%s**:   %s) %s" %(self.requirements.get(rel, {}).get('puid'),
-                       count, _description))
-                # else:
-                #      dp.add_line(":{}: {}".format(rel,
-                #         self.requirements.get(rel, {}).get('description', '')))
+                            _description = _description.replace(i, '\t\t\t - ')
+                    puid = self.requirements.get(rel, {}).get('puid')
+                    if puid.startswith('CBF-REQ') and (puid in self._requirements_from_tests()):
+                        dp.add_line(":**%s**:   %s) %s" %(puid, count, _description))
         else:
             dp.add_line("No Requirements")
-
         self._rst_add_data(dp, req_data, fields, ['id'])
 
     def _rst_procedure(self, docproducer, verification_requirement=True):
@@ -935,25 +936,18 @@ class Report(object):
 
         self.docproducer.add_heading('subsubsection', 'Verification Method')
         self.docproducer.add_indented_raw_text(desc, level=2)
-
-
-        self.docproducer.add_heading('subsubsection', 'Test Configuration')
-        _text = "Tests should be executed on a suitable baseline of the CBF Sub-System.\n"
-        self.docproducer.add_indented_raw_text(_text, level=2)
-
-
         self.docproducer.add_heading('subsection', 'Test Procedure')
         if tests:
             for test in nsort(tests):
-                demo_script.append(('test', test))
-                self.add_test_procedure(test, demo_script)
+                self.add_test_procedure(test)
+                # self.add_test_procedure(test, demo_script)
         else:
             self.docproducer.add_line("No Procedure Implemented")
 
-    def add_test_procedure(self, test_id, demo_script=[]):
+    def add_test_procedure(self, test_id):
+    # def add_test_procedure(self, test_id, demo_script=[]):
         """Add to the report the procedure for the test."""
         dp = self.docproducer
-
         steps = self.test_data.get(test_id, {}).get('steps', {})
         counter = 0
         for step in nsort([s for s in steps if not steps[s].get('hop')]):
@@ -970,13 +964,11 @@ class Report(object):
             for action in [a for a in this_step.get('action', [])
                            if a.get('type') in ['checkbox', 'waived', 'evaluate']]:
                 if action.get('type') == 'checkbox':
-                    demo_script.append(('checkbox', {'msg': action.get('msg')}))
-                    dp.add_line('  + %s: %s \n      **Implemented** ' %
-                                (action.get('type', '').title(),
-                                 action.get('msg')))
+                    # demo_script.append(('checkbox', {'msg': action.get('msg')}))
+                    dp.add_line('  + %s: %s \n      **Tested** ' % (
+                        action.get('type', '').title(), action.get('msg')))
                 else:
-                    dp.add_line('  + %s: %s' % (action.get('type', '').title(),
-                                                    action.get('msg')))
+                    dp.add_line('  + %s: %s' % (action.get('type', '').title(), action.get('msg')))
         # dp.add_line("Test Results: %s\n\n" % (dp.add_link(test_id)))
 
     def _rst_timescale(self, docproducer, timescales=None):
@@ -1192,8 +1184,9 @@ class Report(object):
         """Generate a report of the entities from Core."""
         definitions = {}
         for item in self.requirements: # [d for d in self.requirements
-            if not (item.startswith('CBF.V') or item.startswith('VR.C') or
-                    item.startswith('VE.')  or item.startswith('R.C')): continue
+            if not item.startswith('CBF.V'): continue
+            # if not (item.startswith('CBF.V') or item.startswith('VR.C') or
+            #                     item.startswith('VE.')  or item.startswith('R.C')): continue
 
             req_def = self.requirements[item].get('definition', self.UNKNOWN)
             if req_def not in definitions:
@@ -1327,7 +1320,7 @@ class Report(object):
                         if action_type != 'CONTROL':
                             docproducer.add_line("  ".join([l for l in line if l]))
                         if action_type == 'CHECKBOX':
-                            docproducer.add_line('        **Implemented** ')
+                            docproducer.add_line('        **Tested** ')
                         #if action.get('stack'):
                             #docproducer.add_sourcecode(''.join(action['stack']))
                         if action_type == 'IMAGE':
@@ -1354,6 +1347,7 @@ class Report(object):
         # PASSED but one is WAIVED results in WAIVED)
         status = [self.UNKNOWN,   # Dont know what happened
                   self.WAIVED,    # Test is waived
+                  self.NOT_TESTED,    # Test will not run
                   self.PASS,      # Test Passed
                   self.SKIP,      # Skip this test
                   self.TBD,       # Test is to-be-done

@@ -133,6 +133,16 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             hlines will be plotted, use this index to indicate at which actual line to
             start matching colours.
     """
+
+    def add_hxline(cutoff, msg):
+        # msg = ('Acceptable Ripple: {:.3f}dB'.format(cutoff))
+        plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1)
+        plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
+                    textcoords='offset points', ha='center', va='bottom',
+                    bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                    arrowprops=dict(arrowstyle='->', fc='yellow',
+                    connectionstyle='arc3, rad=0.5', color='red'))
+
     try:
         if not isinstance(channelisation[0], tuple):
             channelisation = ((channelisation, None),)
@@ -143,7 +153,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     try:
         ax = plt.gca()
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception('No display on $DISPLAY environment variable, check matplotlib backend')
         return False
 
     try:
@@ -179,7 +189,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         try:
             plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
         except tkinter.TclError:
-            LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+            LOGGER.exception('No display on $DISPLAY environment variable, check matplotlib backend')
             return False
 
         if type(vlines) is list:
@@ -199,18 +209,30 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     else:
         plt.ylabel(ylbl)
 
+    # MM 24-01-18
+    # Tricks and hacks on generating plots
+
     if xlabel:
         plt.xlabel(xlabel)
+        try:
+            if cutoff == -1.5:
+                msg = ('Acceptable Passband Ripple: {:.3f}dB'.format(cutoff))
+                add_hxline(cutoff, msg)
+
+                cutoff = cutoff * 2
+                msg = ('Cutoff Frequency: {:.3f}dB'.format(cutoff))
+                add_hxline(cutoff, msg)
+            elif int(cutoff) == -6:
+                msg = ('Average band-edge: {:.3f}dB'.format(cutoff))
+                add_hxline(cutoff, msg)
+                msg = ('CBF channel isolation: -53dB')
+                add_hxline(-53, msg)
+        except:
+            pass
     else:
         plt.xlabel('Channel number')
-        if cutoff:
-            msg = ('CBF channel isolation: {:.3f}dB'.format(cutoff))
-            plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1.5)
-            plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
-                        textcoords='offset points', ha='center', va='bottom',
-                        bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                        arrowprops=dict(arrowstyle='->', fc='yellow',
-                        connectionstyle='arc3, rad=0.5', color='red'))
+        msg = ('CBF channel isolation: -53dB')
+        add_hxline(-53, msg)
 
     if plot_title:
         plt.title(plot_title)
@@ -256,8 +278,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                                      connectionstyle='arc3, rad=0.5', color='red'))
 
     if has_legend:
-        plt.legend(fontsize=9, fancybox=True,
-                   loc='center left', bbox_to_anchor=(1, .8),
+        plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
                    borderaxespad=0.).set_alpha(0.5)
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)

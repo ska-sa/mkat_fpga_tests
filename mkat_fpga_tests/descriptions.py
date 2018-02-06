@@ -2,6 +2,13 @@ class TestProcedure:
     """Test Procedures"""
 
     @property
+    def TBD(self):
+        _description = """
+        **TBD**
+        """
+        return _description
+
+    @property
     def LinkFaultDetection(self):
         _description = """
         **Link Error Detection**
@@ -180,7 +187,7 @@ class TestProcedure:
     @property
     def DataProduct(self):
         _description = """
-        **Imaging Data Product**
+        **Data Product**
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate correlated noise.
@@ -219,8 +226,8 @@ class TestProcedure:
         _description = """
         **Time synchronisation**
 
-        1. Request NTP pool address used
-        2. Confirm that the CBF synchronised time is within 0.005s of UTC time as provided via PTP (NTP server) on the CBF-TRF interface.
+        1. Request NTP pool address used,
+            - Confirm that the CBF synchronised time is within 0.005s of UTC time as provided via PTP (NTP server) on the CBF-TRF interface.
         """
         return _description
 
@@ -273,11 +280,11 @@ class TestProcedure:
         3. Confirm that SPEAD packets are being produced, with the selected data product(s).
         4. Start timer.
         5. De-program CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
-        6. Reinitialise the instrument and repeat step 2 and 3.
-        7. Confirm that SPEAD packets are being produced, with the selected data product(s).
-        8. Stop timer and
+        6. Verify by setting up multiple sub-arrays (repeat step 2 and 3) and verify that they operate independently without interference..
+            - Confirm that SPEAD packets are being produced, with the selected data product(s).
+        7. Stop timer and
             - Confirm data product switching time is less than 60 seconds (Data Product switching time = End time - Start time.)
-        9. Repeat for all combinations of available data products, including the case where the "new" data product is the same as the "old" one.
+        8. Repeat for all combinations of available data products, including the case where the "new" data product is the same as the "old" one.
         """
         return _description
 
@@ -307,10 +314,11 @@ class TestProcedure:
             channel frequency band are all in the test channel.
         11. Check that VACC output is at < 99% of maximum value, if fails then it is probably over-ranging.
         12. Check that ripple within 80% of cut-off frequency channel is < 1.5 dB
-        13. Check that response at channel-edges are -3 dB relative to the channel centre at selected freq, actual source frequency
-        14. Check that relative response at the low band-edge is within the range of -6 +- 1% relative to channel centre response.
-        15. Check that relative response at the high band-edge is within the range of -6 +- 1% relative to channel centre response.
-         """
+        13. Measure the power difference between the middle of the center and the middle of the next adjacent bins and confirm that is > -53dB
+        14. Check that response at channel-edges are -3 dB relative to the channel centre at selected freq, actual source frequency
+        15. Check that relative response at the low band-edge is within the range of -6 +- 1% relative to channel centre response.
+        16. Check that relative response at the high band-edge is within the range of -6 +- 1% relative to channel centre response.
+        """
         return _description
 
     @property
@@ -335,7 +343,7 @@ class TestProcedure:
         Note: This tests confirms that the correct channels have the peak response to each frequency and
         that no other channels have significant relative power, while logging the power usage of the CBF in the background.
 
-         """
+        """
         return _description
 
     @property
@@ -363,7 +371,7 @@ class TestProcedure:
                 multiplied by 220 i.e. (Imax Ph1+Imax Ph2+Imax Ph3)*220.
             - Sum the peak power of each rack to get a CBF peak power.
             - The CBF peak power test passes if the maximum CBF peak power is <= 60kW.
-         """
+        """
         return _description
 
     @property
@@ -374,9 +382,8 @@ class TestProcedure:
         2. Configure a digitiser simulator to generate correlated Gaussian noise.
         3. Set a predetermined accumulation period, and
             - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and,
-            - Confirm CBF output product
-        5. Disable/Enable delays
+        4. Initiate SPEAD receiver, enable data to flow and confirm the CBF output product.
+        5. Confirm that the user can disable and/or enable delays and/or phase via CAM interface.
         6. Set delays via CAM interface, and
             - Confirm that the time it takes to set the delays is below 1 seconds
         """
@@ -463,6 +470,25 @@ class TestProcedure:
         2. Calculate the maximum/minimum delays that can be set.
         3. Request Maximum and Minimum delay(s) corrections via CAM interface, and
             - Confirm that the maximum/minimum delays have been set
+        4. TBD, For all subsequent SPEAD accumulations captured observe the change in the phase slope, and confirm the phase change is as expected.
+        """
+        return _description
+
+    @property
+    def BeamformerEfficiency(self):
+        _description = """
+        **Beamformer Efficiency**
+
+        TBD
+        """
+        return _description
+
+    @property
+    def LBandEfficiency(self):
+        _description = """
+        **L-Band Efficiency**
+
+        TBD
         """
         return _description
 
@@ -496,6 +522,463 @@ class TestProcedure:
         """
         return _description
 
+    @property
+    def StateAndModes(self):
+        _description = """
+        State and Modes
+
+        1. Start with the CBF off. Turn the CBF on by turning on power to the PDU(s). Start a stopwatch.
+        2. Observe that each of the LRUs powers up, loads any boot firmware, software bootloaders and operating systems, and launches the operational state software applications. This must be done completely automatically, manual intervention is not permitted.
+        3. During this boot process, send a KATCP status request message every few seconds. It is permissible for the CBF to be unresponsive while initialising.
+        4. Continue sending status requests every few seconds, until the CBF responds. This is considered to be an indication that the CBF has entered operational state. Record the time from when power was applied to when the CBF first responses to a status request.
+        5. Confirm that each of the processing nodes has been allocated an IP address, by inspecting the leases in dnsmasq.
+        6. If not, continue checking until this is the case, and record the time that it occurred.
+        7. Restart the CBF by issuing the appropriate command on the CAM interface.
+        8. Send a status request, and confirm that the CBF does not respond.
+        9. Send a status request message every few seconds. It is permissible for the CBF to be unresponsive while initialising.
+        10. Continue sending status requests every few seconds, until the CBF responds. Record in the Observations section below the time taken from reboot command to CBF responding.
+
+        Verify Transition from Initialisation state to Fault state
+
+        1. Turn the CBF CMC on.
+        2. After five seconds, remove the CAM network cable from the CMC.
+        3. Verify that the CMC remains unresponsive, indicating a Fault state.
+        4. Reconnect the CAM network cable to the port on the CMC.
+        5. Repeatedly issue KATCP system-info request messages every few seconds.
+        6. Continue sending system-info requests every few seconds, until the CBF responds. This is considered to be an indication that the CBF has entered operational state.
+        7. Verify whether all tests performed in CBF OPERATIONAL mode demonstrated full functionality.
+        """
+        return _description
+
+    @property
+    def PowerSupply(self):
+        _description = """
+        1. Confirm by inspection of the datasheets of each of the LRUs used in the CBF that the LRUs are specified to work over an input voltage range of at least 209Vrms to 231Vrms, frequency range at least 49.5Hz to 50.5Hz.
+        2. Record the item part numbers and supply references to the item data sheets and/or specification used.
+
+        NOTE: Total harmonic distortion is not tested. This is considered low enough risk to be acceptable.
+        """
+        return _description
+
+    @property
+    def ProcuredItemsEMCCert(self):
+        _description = """
+        1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+        2. Confirm whether each has been EMC/RFI certified according to CISPR 22 standard for Class B devices.
+        3. For each item where this is true, record the item part number and reference the item data sheets and/or specification used.
+        4. For each item where this is not true, perform an analysis of the available EMC/RFI certification versus CISPR 22 standard for Class B devices. If equivalence can be argued, present this for approval to the SKA system engineer. If approved, attach the motivation and record the approval.
+        5. The test is considered a pass if each item either has been EMC/RFI certified according to CISPR 22 standard for Class B devices, or has been approved as equivalent by the SKA system engineer.
+        """
+        return _description
+
+    @property
+    def AccumulatorDynamicRange(self):
+        _description = """
+        1. Provide analysis that the accumulator dynamic range requirement criteria are met.
+        """
+        return _description
+
+    @property
+    def ChannelisedVoltageDataTransfer(self):
+        _description = """
+        1. Analyse switch infrastructure to ensure users can subscribe to channelised voltage data.
+        2. Confirm that the switch infrastructure provides enough bandwidth to transport channelised voltage data.
+        """
+        return _description
+
+    @property
+    def CoolingMethod(self):
+        _description = """
+        1. Confirm that the front and rear doors of the CBF racks are perforated to allow natural convection of air moving from the cold aisle to the hot aisle.
+        2. Confirm that the CBF has no external cooling besides that provided by natural convection of air moving from the cold aisle to the hot aisle, and optionally active cooling (eg fans) which are mounted inside the CBF and/or inside of CBF LRUs.
+        """
+        return _description
+
+    @property
+    def COTSLRUStatusandDisplay(self):
+        _description = """
+        1. With the CBF installed in the racks and turned on, confirm whether the COTS LRUs indicate via LEDs, visible with the LRUs installed, the state of the LRU as OK.
+        2. Record for each COTS LRU, whether a status LED is present or not, and the LRU part number.
+
+        Note that this test is a desirable only, not mandatory. The test status must be marked as Passed once each of the LRUs have been checked, regardless of the result.
+        """
+        return _description
+
+    @property
+    def DataProductsAvailableforAllReceivers(self):
+        _description = """
+        1. Provide analysis that CBF data products are available for all receivers.
+        """
+        return _description
+
+    @property
+    def DataSubscribersLink(self):
+        _description = """
+        1. Verify by inspection that the CBF provides the correct number of 40GbE QSFP+ ports on the CBF Data Switch to all data subscriber groups.
+        2. Record the number of ports and their locations.
+        """
+        return _description
+
+    @property
+    def DesigntoEMCSANSStandard(self):
+        _description = """
+        1. Verify by inspection that each CBF rack has a ground connection point.
+        2. Verify by inspection that each CBF cabinet has at least one ESD earthing point.
+        3. Measure the resistance between the chassis, rack connection points and input power chassis pin on one of each type of LRU used on the CBF. Confirm that this is less than 0.1 ohm. Record the resistance in the Observations section below.
+        4. Verify by inspection that the CBF processing node has an integrated power filter on the input power line.
+        5. Measure the resistance between the housing of the processing node input power filter and the processing node chassis. Confirm this is less than 0.1 ohm. Record the resistance.
+        """
+        return _description
+
+    @property
+    def DesigntoNRS083Standards(self):
+        _description = """
+        1. Verify by inspection that each CBF rack has a ground connection point.
+        2. Verify by inspection that each CBF cabinet has at least one ESD earthing point.
+        3. Measure the resistance between the chassis, rack connection points and input power chassis pin on one of each type of LRU used on the CBF. Confirm that this is less than 0.1 ohm. Record the resistance in the Observations section below.
+        4. Verify by inspection that the CBF processing node has an integrated power filter on the input power line.
+        5. Measure the resistance between the housing of the processing node input power filter and the processing node chassis. Confirm this is less than 0.1 ohm. Record the resistance.
+        """
+        return _description
+
+    @property
+    def DigitiserCAMData(self):
+        _description = """
+        1. Connect to a live digitiser from the DMC host.
+        2. Request sensor information.
+        3. Confirm sensor information is valid.
+        """
+        return _description
+
+    @property
+    def ExternalInterfaces(self):
+        _description = """
+        1. With the CBF installed in the KAPB, confirm that no more than 16 racks have been used to house the complete CBF.
+        2. Record the number of racks used.
+        """
+        return _description
+
+    @property
+    def FailSafe(self):
+        _description = """
+        1. Confirm by inspection of the datasheets of each of the COTS LRUs making up the CBF, that each LRU has an overtemperature protection mechanism.
+            - NOTE: if this information is not contained in the datasheets, direct confirmation from the supplier is acceptable.
+        2. Record the item part number and reference relevant page of the datasheet used, or a printout of the supplier confirmation.
+        3. Confirm by inspection of the CBF processing node verification results that the overtemperature shutdown function passed. Provide a reference to the processing node test result document.
+        """
+        return _description
+
+    @property
+    def FullFunctionalMode(self):
+        _description = """
+        1. Refer to CBF functional tests and confirm that the tests were run in the OPERATIONAL state.
+        """
+        return _description
+
+    @property
+    def Humidity(self):
+        _description = """
+        The August-Roche-Magnus approximation related temperature (T), dew point (TD) and relative humidity (RH) with the equations:
+
+            - RH: = 100 * (EXP((17.625*TD) / (243.04+TD)) / EXP((17.625*T) / (243.04+T)))
+            - TD: = 243.04 * (LN(RH/100)+((17.625*T)/(243.04+T))) /(17.625-LN(RH/100)-((17.625*T)/(243.04+T)))
+            - T: = 243.04 * (((17.625*TD)/(243.04+TD))-LN(RH/100)) /(17.625+LN(RH/100)-((17.625*TD)/(243.04+TD)))
+
+        Applying these equations to the CBF humidity requirements, over the CBF temperature range, the requirements can be satisfied by the CBF having operational humidity range between 25% and 82%, non condensing.
+
+        1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+        2. Confirm whether each has an operational humidity specification better than 25% to 82%, non condensing.
+        3. Record the item part numbers in the Observations section below, and attach the item data sheets and/or specification used.
+
+        The humidity environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the KAPB operational environment, and the result of the transport environment verification is used as verification of the humidity environment requirement.
+
+        1. Inspect the verification results of the processing node.
+        2. Confirm that the transport environment verification passed.
+        """
+        return _description
+
+    @property
+    def Interchangeability(self):
+        _description = """
+
+        Confirm by inspection of the CBF physical item structure, as captured in the latest approved Correlator-Beamformer Design Document, that:
+
+        1. The architecture enables Data Switch LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the switch have been loaded.
+        2. The architecture enables processing node LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the processing node have been loaded.
+        3. The architecture enables PDU and/or CMC LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the PDU and/or CMC have been loaded.
+        """
+        return _description
+
+    @property
+    def InternalInterfaces(self):
+        _description = """
+        1. Verify by inspection that the CBF does provide a 19 rack mounting space for the DMC, with height at least 3U, full rack width, and depth at least 1000mm.
+        2. Verify by inspection that the output power connectors between the CBF and the DMC are each located in one of the CBF racks, on flyleads with connector specification:
+            - Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+            - Quantity: Four (4)
+        3. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs.
+        4. Verify by inspection that the physical link between the DMC and the CBF Data Switch is via one 10GBASE-CR STP cable, QSPF+ to 4xSPF+, length =3m.
+        5. Verify by inspection that the physical link between the DMC and the CBF CAM switch is via one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length =2m.
+        6. Verify by inspection that the CBF does provide a 19 rack mounting space for M&C switches, with height at least 3U, full rack width, and depth at least 1000mm.
+        7. Verify by inspection that the output power connectors between the CBF and the M&C switches are each be located in one of the CBF racks, on fly-leads with connector specification:
+           - Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+           - Quantity: Six (6)
+        8. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs.
+        9. Verify by inspection that the physical link between the M&C switches and the DMC is one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length =2m.
+
+        """
+        return _description
+
+    @property
+    def ItemHandling(self):
+        _description = """
+        1. Confirm by inspection of the CBF physical item structure that all items weighing between 15kg and 40kg have handles and that those weighing over 40kg have suitable lifting arrangements.
+        """
+        return _description
+
+    @property
+    def ItemMarkingandLabelling(self):
+        _description = """
+        1. Confirm by inspection that each type of COTS LRU used in the CBF is labelled with the following information
+            - Product Supplier Name
+            - Product Serial Number.
+        2. Confirm by inspection that the above information is visible with the LRU installed in a rack. It is permissible that either the front or rear door of the CBF rack be opened to read the information.
+        3. Confirm by inspection that Processing Node LRUs are labelled with the following information:
+            - Product Supplier Name
+            - Product Name
+            - Product Part Number
+            - Product Version
+            - Product Serial Number.
+        4. Confirm by inspection that the above information is visible with the processing node installed. It is permissible that either the front or rear door of the CBF rack be opened to read the information.
+        5. Remove the top lid of a processing node.
+        6. Confirm by inspection that each type of Mezzanine SRUs are labelled with the following information:
+            - Product Supplier Name.
+            - Product Name
+            - Product Part Number
+            - Product Version
+            - Product Serial Number.
+        7. Confirm by inspection that the above information is visible with the only the processing node top lid removed. It is not permissible to have to unplug the card to read the information.
+        8. Confirm by inspection that each port on the LRU making up the CBF Data Switch is labelled with at least the port number.
+        9. Determine whether each CBF LRU contains any hazardous material. This would typically be lead and/or heatsink paste.
+        10. For each identified LRU containing hazardous material, confirm by inspection that the LRU has a Hazardous Waste label.
+        11. Confirm by inspection that each CBF internal cable (ie cables between CBF LRUs) is labelled.
+
+        """
+        return _description
+
+    @property
+    def Logging(self):
+        _description = """
+        1. Turn the CBF on and wait for it to boot.
+        2. ssh into the CMC.
+        3. Watch the current log file using command tail -f <filename>.katlog
+        4. Via the CAM interface, request the current log level using KATCP command ?log-level
+        5. Confirm the CBF replies with #log-level ok <>, where <> contains one of off, fatal, error, warn, info, debug, trace, all.
+        6. Set the log level using KATCP command ?log-level info
+        7. Confirm the CBF replies with #log-level ok info
+        8. Send an invalid KATCP command eg ?guesswhatthisis
+        9. Confirm that a message is logged to the log file that an unknown command was received.
+        10. Set the log level using KATCP command ?log-level debug
+        11. Confirm the CBF replies with #log-level ok debug
+        12. Confirm that messages are being logged periodically, as the CBF is being used.
+        13. Set the log level using KATCP command ?log-level fatal
+        14. Confirm the CBF replies with #log-level ok fatal
+        15. Set the log level back to the setting which it was at the start of the test.
+        16. Peruse archived log files and confirm that the log file contains more than 1000 lines.
+        """
+        return _description
+
+    @property
+    def LRUReplacement(self):
+        _description = r"""
+        The CBF Mean Time To Repair test is accomplished by means of demonstration.
+        This must be carried out by a maintenance person rather than a development person, in order to be realistic.
+
+        1. Select the most difficult CBF LRU to remove. The choice is left to the person conducting the test.
+        2. Start a timer.
+        3. Remove the selected LRU.
+        4. Once the LRU has been completely removed, replace the LRU, including refitted all connections.
+        5. Run tests to confirm that the CBF is operating correctly.
+        6. Stop the timer once the CBF has been confirmed operational.
+        7. Confirm that the elapsed time is less than 8 hours. Record the achieved MTTR in the Observations section below.
+        8. Repeat this procedure for a processing node and with the processing node removed confirm that the CBF is still operational by starting an instrument.
+        """
+        return _description
+
+    @property
+    def LRUStatusandDisplay(self):
+        _description = """
+        1. Inspect CBF processing node physical hardware and documentation to confirm that the processing nodes will suitably display faults.
+        """
+        return _description
+
+    @property
+    def LRUStorage(self):
+        _description = r"""
+        Confirm by inspection that:
+
+        1. The transport packaging containers defined in the CBF structure are CLIP-LOCK containers.
+        2. A label, or set of labels, for these containers have been defined, each containing at least the following information:
+            - "Fragile" label
+            - "Careful transportation"
+            - "This side up"
+            - Packaged Item Identification label with place for filling in of identification data
+        3. A Packaged Item Identification label has been defined when use to carry ROACHs, containing at least the following information:
+            - Identification "MeerKAT System Component"
+            - LRU Name
+            - LRU/SRU Part Number and Version
+            - Packaged weight
+            - Container stack-ability (if applicable)
+        4. A Packaged Item Identification plate has been defined when use to carry COTS LRUs containing at least the following information:
+            - LRU Name
+            - LRU/SRU Part Number and Version
+            - Packaged weight
+            - Container stack-ability (if applicable)
+        5. Record the part number of the Clip-Lock container(s).
+        6. Record the part number of the label, or labels if multiple are defined.
+
+        Note: A single Packaged Item Identification label catering for both options is permissible.
+        A single label with space for all of the above information is also permissible.
+        """
+        return _description
+
+    @property
+    def MTBF(self):
+        _description = """
+        1. Determine the MTBF by inspection of the data sheets of each of the LRUs used in the CBF.
+        2. Collate all the MTBF figures and confirm that the full system adheres to the specification.
+        3. Record all LRU MTBF figures.
+        """
+        return _description
+
+    @property
+    def PeriodicMaintenanceLRUStorage(self):
+        _description = """
+        Confirm by inspection of the CBF physical item structure, as captured in the latest approved M1200-0000-003 Correlator-Beamformer Design Document, that the CBF does not contain items which require periodic maintenance.
+
+        - If this is the case, the test can be marked as Passed, since the requirement is no longer applicable.
+        - If this is not the case, the test must be marked as Failed until a suitable test has been defined.
+        """
+        return _description
+
+    @property
+    def ProductMarkingEnvironmentals(self):
+        _description = """
+        The test for the label environmental is to inspect the labels for damage at least one year after the CBF has been deployed to the KAPB.
+        That is considered sufficient time for each of the labels to have been exposed to the storage, transport and operational environment to demonstrate the robustness of the labels.
+        Between one year and two years after the first CBF has been deployed to the KAPB:
+
+        1. Inspect the labels on each of the items making up the CBF ie PDU, CMC, Processing Nodes, Data Switch LRU.
+        2. Confirm that the equipment labels are still attached.
+        3. Confirm that the information on the equipment labels is still legible.
+        4. Inspect the labels on at least one of each of the cable types in the CBF racks.
+        5. Confirm that the cable labels are still attached.
+        6. Confirm that the information on the cable labels is still legible.
+        7. Record the item part numbers and versions.
+        8. It is desirable to attach photographs of the labels.
+        """
+        return _description
+
+    @property
+    def RouteBasicSpectrometerData(self):
+        _description = """
+        The generation of basic Spectrometer data and Digitisers raw data are functions of the digitiser, not the CBF.
+        The CBF merely has to route this data to subscribed users.
+        The test thus consists of checking that data from ports assigned to Digitiser inputs can be routed to ports assigned to SP/USE and that the added traffic load will not saturate the network links.
+
+        1. Determine the bandwidth required for Basic Spectrometer Data.
+        2. Determine the maximum bandwidth per Digitiser link during normal operation.
+        3. Verify the the link will not be saturated when routing Basic Spectrometer Data.
+        """
+        return _description
+
+    @property
+
+    def SafeDesign(self):
+        _description = """
+        1. Inspect the Bill-of-Materials of the processing nodes used in the CBF.
+            - Confirm that each part used is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this.
+        2. Inspect the data sheets of the COTS LRUs used in the CBF.
+            - Confirm that LRU is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this.
+        3. Record the item part numbers and supply references to the item data sheets or BOM used.
+        """
+        return _description
+
+    @property
+    def SafePhysicalDesign(self):
+        _description = """
+        With the CBF installed and running in the KAPB:
+
+        1. Connect to a CBF rack using an anti-static wrist strap.
+        2. Run your hands over the accessible external edges of the rack, confirming that fingers/hands can be run lightly over all accessible edges without causing cuts.
+        3. Confirm that accessible external edges of the rack can be touched comfortably i.e. the temperature is below 80 Degrees Celsius.
+        4. Open the front door of each rack. Repeat the sharp edges and surface temperature test on the installed equipment on rack internal surfaces and edges which are now accessible.
+        5. Open the back door of each rack. Repeat the sharp edges and surface temperature test on rack internal surfaces and edges which are now accessible.
+        6. Close the rack doors.
+        7. Repeat for each CBF rack which is utilised.
+        """
+        return _description
+
+    @property
+    def StorageEnvironment(self):
+        _description = """
+        ETSI EN 300 019-1-1, Class 1.1 specifies a storage environment of:
+            - humidity between 5% to 95%
+            - temperature between 5 Degrees Celsius and 45 Degrees Celsius
+            - condensation
+            - no precipitation
+            - no icing
+
+        CBF items will be stored in protective boxes, which will protect against condensation. The test therefore checks just for on-operational temperature and humidity ranges of CBF LRUs.
+
+        1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+        2. Confirm whether each has storage temperature between 5 Degrees Celsius and 45 Degrees Celsius or better, and non-operational humidity between 5% to 95%or better.
+        3. For each item where this is true, record the item part number and reference the item data sheets and/or specification used.
+
+        The storage environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the storage environment, and the result of the transport environment verification is used as verification of the storage environment requirement.
+
+        1. Inspect the verification results of the CBF processing node.
+        2. Confirm that the transport environment verification passed.
+        """
+        return _description
+
+    @property
+    def SubArrayDataProductSet(self):
+        _description = """
+        1. Analyse test results of each data product listed and verify that these are produced.
+        """
+        return _description
+
+    @property
+    def TemperatureRange(self):
+        _description = """
+        1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+        2. Confirm whether each has an operational temperature specification better than 18 Degrees Celsius to 35 Degrees Celsius
+        3. Record the item part number and reference the item data sheets and/or specification used.
+        """
+        return _description
+
+    @property
+    def TransportationofComponents(self):
+        _description = """
+        After deployment of a number of (at least 12) processing nodes to the KAPB and other LRU infrastructure:
+
+        1. If any processing nodes or LRUs failed after transportation, analyse the failure to determine whether vibration was the cause of failure.
+        2. The test passes if no processing nodes failed, or if vibration was not the cause of any failures.
+        """
+        return _description
+
+    @property
+    def UseofCOTSEquipment(self):
+        _description = """
+        Confirm by asking the opinion of the CBF Technical lead, that:
+
+        1. The CBF design utilises largely commercial off the shelf (COTS) equipment
+        2. Where possible, COTS components with long support life expectancy have been chosen.
+
+        Note that this test is highly subjective. The opinion of the CBF Technical Lead is sufficient to pass the test.
+        """
+        return _description
 
 
 

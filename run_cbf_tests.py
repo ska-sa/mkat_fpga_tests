@@ -226,7 +226,7 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
     if settings.get('dry_run'):
         # Just print the command
         os.environ['DRY_RUN'] = 'True'
-        settings['gen_qtp'] = True
+        # settings['gen_qtp'] = True
 
     if settings.get('available-tests'):
         # nosetests -vv collect-only
@@ -393,8 +393,8 @@ def process_core_data(settings):
     if (settings['xml_mtime'] > 0 and
             settings['json_mtime'] < settings['xml_mtime']):
         logger.debug("Process: XML -> JSON")
-        if not settings.get('dry_run'):
-            process_xml_to_json(settings['xml_file'], settings['json_file'], verbose=True)
+        # if not settings.get('dry_run'):
+        process_xml_to_json(settings['xml_file'], settings['json_file'], verbose=True)
     else:
         logger.debug("JSON File is up-to-date")
     if os.path.isfile(settings['json_file']):
@@ -717,7 +717,8 @@ def run_nose_test(settings):
             # For Acceptance
             # run tests decorated with aqf_instrument_MODE and site_acceptance
             # and aqf_site_tests
-            condition['AND'].append('(aqf_site_test or (aqf_site_acceptance and %s))'%_decorated_instrument)
+            _conditions = '(aqf_site_test or (aqf_site_acceptance and %s))' % _decorated_instrument
+            condition['AND'].append(_conditions)
         elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32')) and \
             settings['system_location'].lower() == 'lab'):
             logger.error("Test can ONLY be ran on SITE!!!!!!!!")
@@ -1287,8 +1288,9 @@ if __name__ == "__main__":
     if settings.get('mode'):
         settings['build_dir'] = "%s-" % settings.get('mode') + start_time
     else:
-        settings['mode'] = settings.get('system_type', 'Unknown')
-        settings['build_dir'] = "%s-" % settings.get('mode') + start_time
+        settings['build_dir'] = "%s-%s" % (settings.get('system_type', 'Unknown'), start_time)
+        # settings['mode'] = settings.get('system_type', 'Unknown')
+        # settings['build_dir'] = "%s-" % settings.get('mode') + start_time
 
     if settings.get('log_level') == 'DEBUG':
         print "=========settings========="
@@ -1304,12 +1306,11 @@ if __name__ == "__main__":
         show_test_results(settings)
     elif settings['report'] not in ['skip']:
         try:
-            generate_report(settings)
             if settings.get('gen_html', False) or settings.get('gen_qtp', False) or settings.get(
                 'gen_qtr', False):
+                generate_report(settings)
                 generate_sphinx_docs(settings)
         except Exception as e:
             errmsg = "Experienced some issues: %s" % str(e)
             logger.error(errmsg)
             sys.exit(errmsg)
-
