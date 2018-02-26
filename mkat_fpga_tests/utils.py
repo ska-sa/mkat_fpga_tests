@@ -2,6 +2,7 @@
 import base64
 import contextlib
 import glob
+import pandas as pd
 import h5py
 import io
 import logging
@@ -1159,13 +1160,11 @@ def parameters(self):
         try:
             reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=cam_timeout)
             assert reply.reply_ok()
-            output_product = [i.arguments[0] for i in informs if
-                self.correlator.configd['xengine']['output_products'] in i.arguments][0]
-            output_product_ = output_product.lower().replace('-', '_')
-            beam0_output_product = [i.arguments[0] for i in informs if
-                self.correlator.configd['beam0']['output_products'] in i.arguments][0]
-            beam1_output_product = [i.arguments[0] for i in informs if
-                self.correlator.configd['beam1']['output_products'] in i.arguments][0]
+            output_product = 'baseline-correlation-products'
+            output_product_ = self.correlator.configd['xengine'].get('output_products',
+                'baseline_correlation_products').replace('-', '_')
+            beam0_output_product = self.correlator.configd['beam0'].get('output_products')
+            beam1_output_product = self.correlator.configd['beam1'].get('output_products')
         except KeyError:
             msg = 'Instrument does not contain beamforming capabilities'
             LOGGER.info(msg)
@@ -1241,7 +1240,7 @@ def parameters(self):
         n_bls = None
 
     try:
-        n_chans = getattr(katcp_rct, '{}_n_chans'.format(output_product_)).get_value()
+        n_chans = getattr(katcp_rct, 'n_chans').get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve n_chans via CAM int.')
         n_chans = None
@@ -1320,7 +1319,8 @@ def parameters(self):
         'scale_factor_timestamp': scale_factor_timestamp,
         'synch_epoch': synch_epoch,
         'xeng_acc_len': xeng_acc_len,
-        'xeng_out_bits_per_sample': xeng_out_bits_per_sample,}
+        'xeng_out_bits_per_sample': xeng_out_bits_per_sample,
+        }
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
                               ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
@@ -1631,7 +1631,59 @@ def get_clean_dump(self, discards=10, retries=20):
             return False
         else:
             LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with epoch (%s) [diff: %s] '
-                        'after %s retries' % (dump_timestamp, time_now, time_diff, retries))
+                        'within %s retries' % (dump_timestamp, time_now, time_diff, retries))
             return dump
 
 
+
+class CSV_Reader(object):
+    """
+    Manual Tests CSV reader
+
+    Parameters
+    ---------
+        csv_filename: str, Valid path to csv file/url
+        set_index: str, If you want to change the index, set name
+    Returns
+    -------
+        result: Pandas DataFrame
+    """
+    def __init__(self, csv_filename, set_index=None):
+        self.csv_filename = csv_filename
+        self.set_index = set_index
+
+    @property
+    def load_csv(self):
+        """
+        Load csv file
+
+        Parameters
+        ----------
+            object
+
+        Returns
+        -------
+            result: Pandas DataFrame
+        """
+        try:
+            assert self.csv_filename
+            df = pd.read_csv(self.csv_filename)
+            df = df.replace(np.nan, "Unknown", regex=True)
+        except:
+            return False
+        else:
+            return df.set_index(self.set_index) if self.set_index else df1
+
+    def csv_to_dict(self, ve_number=None):
+        """
+        CSV contents to Dict
+
+        Parameters
+        ----------
+            ve_number: Verification Event Number e.g. CBF.V.1.11
+
+        Returns
+        -------
+        result: dict
+        """
+        return dict(self.load_csv.loc[ve_number]) if ve_number else None

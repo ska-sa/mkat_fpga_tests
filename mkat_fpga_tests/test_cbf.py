@@ -66,13 +66,16 @@ have_subscribed = False
 set_dsim_epoch = False
 dsim_timeout = 60
 
-
 @cls_end_aqf
 @system('all')
 class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
 
     receiver = None
+    # Hard-coded, perhaps fix this later
+    _csv_filename = 'docs/Manual_Tests.csv'
+    if os.path.exists(_csv_filename):
+        csv_manual_tests = CSV_Reader(_csv_filename, set_index="Verification Event Number")
 
     def setUp(self):
         global have_subscribed, set_dsim_epoch
@@ -104,7 +107,6 @@ class test_CBF(unittest.TestCase):
             sys.exit(errmsg)
         else:
             self.logs_path = None
-            self.addCleanup(executed_by)
             self.logs_path = create_logs_directory(self)
 
             # See: https://docs.python.org/2/library/functions.html#super
@@ -255,6 +257,7 @@ class test_CBF(unittest.TestCase):
                 self.corr_fix.start_x_data
                 self.addCleanup(self.corr_fix.stop_x_data)
                 self.addCleanup(gc.collect)
+                self.addCleanup(executed_by)
                 self.addCleanup(self.receiver.stop)
                 clear_host_status(self)
                 # Run system tests before each test is ran
@@ -362,13 +365,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument)
-            _running_inst = self.corr_fix.get_running_instrument()
-            if instrument_success and _running_inst:
-                # self._beamformer_efficiency()
-                Aqf.waived("This requirement is currently not being tested.")
-            else:
-                Aqf.failed(self.errmsg)
+            Aqf.waived("This requirement is currently not being tested.")
 
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
@@ -380,12 +377,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument)
-            _running_inst = self.corr_fix.get_running_instrument()
-            if instrument_success and _running_inst:
-                Aqf.waived("This requirement is currently not being tested.")
-            else:
-                Aqf.failed(self.errmsg)
+            Aqf.waived("This requirement is currently not being tested.")
 
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
@@ -638,7 +630,6 @@ class test_CBF(unittest.TestCase):
         #     a) Transient buffer ready for triggering
         # The CBF shall, on request via the CAM interface, report sensor values.
         # The CBF shall, on request via the CAM interface, report time synchronisation status.
-
         Aqf.procedure(TestProcedure.MonitorSensors)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -686,440 +677,399 @@ class test_CBF(unittest.TestCase):
 
 # Perhaps, enlist all manual tests here with VE & REQ
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.1.11")
     @aqf_requirements("CBF-REQ-0137")
-    def test__procured_items_emc_certification(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.ProcuredItemsEMCCert)
-        # Aqf.manual_test("")
+    def test__procured_items_emc_certification(self):
+        self._test_global_manual("CBF.V.1.11")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.3")
     @aqf_requirements("CBF-REQ-0018", "CBF-REQ-0019", "CBF-REQ-0021", "CBF-REQ-0022", "CBF-REQ-0024")
     @aqf_requirements("CBF-REQ-0011", "CBF-REQ-0012", "CBF-REQ-0014", "CBF-REQ-0016", "CBF-REQ-0017")
-    @aqf_requirements("CBF-REQ-0027",  "CBF-REQ-0064")
-    def test__states_and_modes_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.StateAndModes)
-        # Aqf.manual_test("")
+    @aqf_requirements("CBF-REQ-0027", "CBF-REQ-0064")
+    def test__states_and_modes_ve(self):
+        self._test_global_manual("CBF.V.3.3")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.15")
     @aqf_requirements("CBF-REQ-0131", "CBF-REQ-0132", "CBF-REQ-0133")
-    def test__power_supply_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.PowerSupply)
-        # Aqf.manual_test("")
+    def test__power_supply_ve(self):
+        self._test_global_manual("CBF.V.3.15")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.16")
     @aqf_requirements("CBF-REQ-0199")
-    def test__safe_design_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.SafeDesign)
-        # Aqf.manual_test("")
+    def test__safe_design_ve(self):
+        self._test_global_manual("CBF.V.3.16")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.17")
     @aqf_requirements("CBF-REQ-0061")
-    def test__lru_status_and_display_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.LRUStatusandDisplay)
+    def test__lru_status_and_display_ve(self):
+        self._test_global_manual("CBF.V.3.17")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.18")
     @aqf_requirements("CBF-REQ-0197")
-    def test__cots_lru_status_and_display_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.COTSLRUStatusandDisplay)
-        # Aqf.manual_test("")
+    def test__cots_lru_status_and_display_ve(self):
+        self._test_global_manual("CBF.V.3.18")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.19")
     @aqf_requirements("CBF-REQ-0182")
-    def test__interchangeability_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.Interchangeability)
-        # Aqf.manual_test("")
+    def test__interchangeability_ve(self):
+        self._test_global_manual("CBF.V.3.19")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.20")
     @aqf_requirements("CBF-REQ-0168", "CBF-REQ-0171" )
-    def test__periodic_maintenance_lru_storage_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.PeriodicMaintenanceLRUStorage)
-        # Aqf.manual_test("")
+    def test__periodic_maintenance_lru_storage_ve(self):
+        self._test_global_manual("CBF.V.3.20")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.21")
     @aqf_requirements("CBF-REQ-0169", "CBF-REQ-0170", "CBF-REQ-0172", "CBF-REQ-0173")
-    def test__lru_storage_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.LRUStorage)
-        # Aqf.manual_test("")
+    def test__lru_storage_ve(self):
+        self._test_global_manual("CBF.V.3.21")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.22")
     @aqf_requirements("CBF-REQ-0147"," CBF-REQ-0148" )
-    def test__item_handling_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.ItemHandling)
-        # Aqf.manual_test("")
+    def test__item_handling_ve(self):
+        self._test_global_manual("CBF.V.3.22")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.23")
     @aqf_requirements("CBF-REQ-0152", "CBF-REQ-0153", "CBF-REQ-0154", "CBF-REQ-0155", "CBF-REQ-0184")
-    def test__item_marking_and_labelling_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.ItemMarkingandLabelling)
-        # Aqf.manual_test("")
+    def test__item_marking_and_labelling_ve(self):
+        self._test_global_manual("CBF.V.3.23")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.24")
     @aqf_requirements("CBF-REQ-0162")
-    def test__use_of_cots_equipment_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.UseofCOTSEquipment)
-        # Aqf.manual_test("")
+    def test__use_of_cots_equipment_ve(self):
+        self._test_global_manual("CBF.V.3.24")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.25")
     @aqf_requirements("CBF-REQ-0060", "CBF-REQ-0177", "CBF-REQ-0196")
-    def test__logging_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.Logging)
-        # Aqf.manual_test("")
+    def test__logging_ve(self):
+        self._test_global_manual("CBF.V.3.25")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.33")
     @aqf_requirements("CBF-REQ-0103")
-    def test__accumulator_dynamic_range_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.AccumulatorDynamicRange)
-        # Aqf.manual_test("")
+    def test__accumulator_dynamic_range_ve(self):
+        self._test_global_manual("CBF.V.3.33")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.36")
     @aqf_requirements("CBF-REQ-0001")
-    def test__data_products_available_for_all_receivers_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.DataProductsAvailableforAllReceivers)
-        # Aqf.manual_test("")
+    def test__data_products_available_for_all_receivers_ve(self):
+        self._test_global_manual("CBF.V.3.36")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.39")
     @aqf_requirements("CBF-REQ-0140")
-    def test__cooling_method_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.CoolingMethod)
-        # Aqf.manual_test("")
+    def test__cooling_method_ve(self):
+        self._test_global_manual("CBF.V.3.39")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.40")
     @aqf_requirements("CBF-REQ-0142", "CBF-REQ-0143")
-    def test__humidity_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.Humidity)
-        # Aqf.manual_test("")
+    def test__humidity_ve(self):
+        self._test_global_manual("CBF.V.3.40")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.41")
     @aqf_requirements("CBF-REQ-0145")
-    def test__storage_environment_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.StorageEnvironment)
-        # Aqf.manual_test("")
+    def test__storage_environment_ve(self):
+        self._test_global_manual("CBF.V.3.41")
 
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.42")
     @aqf_requirements("CBF-REQ-0141")
-    def test__temperature_range_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.TemperatureRange)
-        # Aqf.manual_test("")
+    def test__temperature_range_ve(self):
+        self._test_global_manual("CBF.V.3.42")
 
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.43")
     @aqf_requirements("CBF-REQ-0146")
-    def test__transportation_of_components_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.TransportationofComponents)
-        # Aqf.manual_test("")
+    def test__transportation_of_components_ve(self):
+        self._test_global_manual("CBF.V.3.43")
 
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.44")
     @aqf_requirements("CBF-REQ-0156")
-    def test__product_marking_environmentals_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.ProductMarkingEnvironmentals)
-        # Aqf.manual_test("")
+    def test__product_marking_environmentals_ve(self):
+        self._test_global_manual("CBF.V.3.44")
 
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.45")
     @aqf_requirements("CBF-REQ-0158", "CBF-REQ-0160")
-    def test__fail_safe_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.FailSafe)
-        # Aqf.manual_test("")
+    def test__fail_safe_ve(self):
+        self._test_global_manual("CBF.V.3.45")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.47")
     @aqf_requirements("CBF-REQ-0161", "CBF-REQ-0186")
-    def test__safe_physical_design_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.SafePhysicalDesign)
-        # Aqf.manual_test("")
+    def test__safe_physical_design_ve(self):
+        self._test_global_manual("CBF.V.3.47")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.48")
     @aqf_requirements("CBF-REQ-0107")
-    def test__digitiser_cam_data_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.DigitiserCAMData)
-        # Aqf.manual_test("")
+    def test__digitiser_cam_data_ve(self):
+        self._test_global_manual("CBF.V.3.48")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.50")
     @aqf_requirements("CBF-REQ-0149")
-    def test__mtbf_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.MTBF)
-        # Aqf.manual_test("")
+    def test__mtbf_ve(self):
+        self._test_global_manual("CBF.V.3.50")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.52")
-    @aqf_requirements("CBF-REQ-0179", "CBF-REQ-0180", "CBF-REQ-0190"," CBF-REQ-0194", "CBF-REQ-0201", "CBF-REQ-0202")
-    def test__internal_interfaces_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.InternalInterfaces)
-        # Aqf.manual_test("")
+    @aqf_requirements("CBF-REQ-0179", "CBF-REQ-0180", "CBF-REQ-0190"," CBF-REQ-0194")
+    @aqf_requirements("CBF-REQ-0201", "CBF-REQ-0202")
+    def test__internal_interfaces_ve(self):
+        self._test_global_manual("CBF.V.3.52")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.53")
     @aqf_requirements("CBF-REQ-0136", "CBF-REQ-0166")
-    def test__external_interfaces_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.ExternalInterfaces)
-        # Aqf.manual_test("")
+    def test__external_interfaces_ve(self):
+        self._test_global_manual("CBF.V.3.53")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.54")
     @aqf_requirements("CBF-REQ-0150", "CBF-REQ-0151")
-    def test__lru_replacement_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.LRUReplacement)
-        # Aqf.manual_test("")
+    def test__lru_replacement_ve(self):
+        self._test_global_manual("CBF.V.3.54")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.57")
     @aqf_requirements("CBF-REQ-0193", "CBF-REQ-0195")
-    def test__data_subscribers_link_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.DataSubscribersLink)
-        # Aqf.manual_test("")
+    def test__data_subscribers_link_ve(self):
+        self._test_global_manual("CBF.V.3.57")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.6.9")
     @aqf_requirements("CBF-REQ-0138")
-    def test__design_to_emc_sans_standard_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.DesigntoEMCSANSStandard)
-        # Aqf.manual_test("")
+    def test__design_to_emc_sans_standard_ve(self):
+        self._test_global_manual("CBF.V.6.9")
 
-
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.6.10")
     @aqf_requirements("CBF-REQ-0139")
-    def test__design_standards_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.DesigntoNRS083Standards)
-        # Aqf.manual_test("")
+    def test__design_standards_ve(self):
+        self._test_global_manual("CBF.V.6.10")
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.66")
     @aqf_requirements("CBF-REQ-0223")
-    def test__channelised_voltage_data_transfer_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.ChannelisedVoltageDataTransfer)
-        # Aqf.manual_test("")
+    def test__channelised_voltage_data_transfer_ve(self):
+        self._test_global_manual("CBF.V.3.66")
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.49")
     @aqf_requirements("CBF-REQ-0224")
-    def test__route_basic_spectrometer_data_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.RouteBasicSpectrometerData)
-        # Aqf.manual_test("")
+    def test__route_basic_spectrometer_data_ve(self):
+        self._test_global_manual("CBF.V.3.49")
 
-    #@manual_test
+    @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.58")
     @aqf_requirements("CBF-REQ-0237")
-    def test__subarray_data_product_set_ve(self, instrument="bc8n856M4k"):
-        Aqf.procedure(TestProcedure.SubArrayDataProductSet)
-        # Aqf.manual_test("")
-
+    def test__subarray_data_product_set_ve(self):
+        self._test_global_manual("CBF.V.3.58")
 
 
 #----------------------------------------------NOT TESTED-----------------------------------------
 #---------------------------------------------------------------------------------------------------
 
+    @untested
     @generic_test
     @aqf_vr('CBF.V.3.61')
     @aqf_requirements("CBF-REQ-0007")
-    def test__vlbi_data_product(self, instrument='bc8n856M4k'):
+    def test__vlbi_data_product(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be qualified on AR3.")
 
+    @untested
     @generic_test
     @aqf_vr('CBF.V.3.68')
     @aqf_requirements("CBF-REQ-0025.1")
-    def test__data_product_xband(self, instrument='bc8n856M4k'):
+    def test__data_product_xband(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be qualified on AR3.")
 
+    @untested
     @generic_test
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0035", "CBF-REQ-0036", "CBF-REQ-0037", "CBF-REQ-0038", "CBF-REQ-0039")
-    @aqf_requirements("CBF-REQ-0041", "CBF-REQ-0044","CBF-REQ-0045", "CBF-REQ-0049", "CBF-REQ-0050")
+    @aqf_requirements("CBF-REQ-0041", "CBF-REQ-0044", "CBF-REQ-0045", "CBF-REQ-0049", "CBF-REQ-0050")
     @aqf_requirements("CBF-REQ-0051", "CBF-REQ-0052", "CBF-REQ-0054", "CBF-REQ-0198", "CBF-REQ-0226")
     @aqf_requirements("CBF-REQ-0227", "CBF-REQ-0236", "CBF-REQ-0243")
-    def test__channelisation(self, instrument='bc8n856M4k'):
-        Aqf.procedure("TBD")
+    def test__channelisation(self):
+        Aqf.procedure(TestProcedure.Channelisation)
         Aqf.not_tested("This requirement will not be qualified on AR3.")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.71")
     @aqf_requirements("CBF-REQ-0076")
-    def test__tied_array_repoint_time(self, instrument="bc8n856M4k"):
+    def test__tied_array_repoint_time(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.76")
     @aqf_requirements("CBF-REQ-0081", "CBF-REQ-0082")
-    def test__incoherent_beam_total_power_ve(self, instrument="bc8n856M4k"):
+    def test__incoherent_beam_total_power_ve(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.7.11")
     @aqf_requirements("CBF-REQ-0088", "CBF-REQ-0089", "CBF-REQ-0090", "CBF-REQ-0091")
-    def test__antenna_correlation_products(self, instrument="bc8n856M4k"):
+    def test__antenna_correlation_products(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.69")
     @aqf_requirements("CBF-REQ-0093", "CBF-REQ-0042")
-    def test__vlbi_channelisation(self, instrument="bc8n856M4k"):
+    def test__vlbi_channelisation(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.63")
     @aqf_requirements("CBF-REQ-0095", "CBF-REQ-0030")
-    def test__pulsar_timing_data_product_set(self, instrument="bc8n856M4k"):
+    def test__pulsar_timing_data_product_set(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.75")
     @aqf_requirements("CBF-REQ-0114", "CBF-REQ-0115")
-    def test__polarisation_correction_ve(self, instrument="bc8n856M4k"):
+    def test__polarisation_correction_ve(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.72")
     @aqf_requirements("CBF-REQ-0121")
-    def test__ta_antenna_delay_correction(self, instrument="bc8n856M4k"):
+    def test__ta_antenna_delay_correction(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.73")
     @aqf_requirements("CBF-REQ-0122")
-    def test__ta_beam_pointing(self, instrument="bc8n856M4k"):
+    def test__ta_beam_pointing(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.57")
     @aqf_requirements("CBF-REQ-0195")
-    def test__data_subscribers_link(self, instrument="bc8n856M4k"):
+    def test__data_subscribers_link(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.70")
     @aqf_requirements("CBF-REQ-0220")
-    def test__beam_pointing_polynomial(self, instrument="bc8n856M4k"):
+    def test__beam_pointing_polynomial(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.74")
     @aqf_requirements("CBF-REQ-0229")
-    def test__incoherent_summation(self, instrument="bc8n856M4k"):
+    def test__incoherent_summation(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.57")
     @aqf_requirements("CBF-REQ-0230", "CBF-REQ-0231", "CBF-REQ-0232", "CBF-REQ-0233", "CBF-REQ-0235")
-    def test__data_subscribers_link(self, instrument="bc8n856M4k"):
+    def test__data_subscribers_link(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.65")
     @aqf_requirements("CBF-REQ-0239")
-    def test__transient_search_data_product_set(self, instrument="bc8n856M4k"):
+    def test__transient_search_data_product_set(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.59")
     @aqf_requirements("CBF-REQ-0240")
-    def test__flys_eye_data_product_set(self, instrument="bc8n856M4k"):
+    def test__flys_eye_data_product_set(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
+    @untested
     @generic_test
     @aqf_vr("CBF.V.3.60")
     @aqf_requirements("CBF-REQ-0241")
-    def test__generic_tiedarray_data_product_set(self, instrument="bc8n856M4k"):
+    def test__generic_tiedarray_data_product_set(self):
         Aqf.procedure("TBD")
         Aqf.not_tested("This requirement will not be tested on AR3")
 
@@ -1583,7 +1533,7 @@ class test_CBF(unittest.TestCase):
                     curr = val[:, 0]
                     power = val[:, 1]
                     watts = power.sum(axis=1).mean()
-                    msg = ('Measured power for rack {} ({:.2f}kW) is more than {}kW'.format(
+                    msg = ('Measured power for rack {} ({:.2f}kW) is less than {}kW'.format(
                             rack, watts, max_power_per_rack))
                     Aqf.less(watts, max_power_per_rack, msg)
                     phase = np.zeros(3)
@@ -1599,11 +1549,11 @@ class test_CBF(unittest.TestCase):
                     # Aqf.less(max_diff,max_power_diff_per_rack,msg)
                     # Aqf.waived(msg)
                 watts = tot_power.mean()
-                msg = 'Measured power for CBF ({:.2f}kW) is more than {}kW'.format(watts,
+                msg = 'Measured power for CBF ({:.2f}kW) is less than {}kW'.format(watts,
                     max_power_cbf)
                 Aqf.less(watts, max_power_cbf, msg)
                 watts = tot_power.max()
-                msg = 'Measured peak power for CBF ({:.2f}kW) is more than {}kW'.format(watts,
+                msg = 'Measured peak power for CBF ({:.2f}kW) is less than {}kW'.format(watts,
                     max_power_cbf)
                 Aqf.less(watts, max_power_cbf, msg)
 
@@ -2387,7 +2337,7 @@ class test_CBF(unittest.TestCase):
                     expected_z_bls, expected_nz_bls = (calc_zero_and_nonzero_baselines(
                         nonzero_inputs))
                     try:
-                        Aqf.step('Retrieving SPEAD accumulation and confirm if gain/equlisation '
+                        Aqf.step('Retrieving SPEAD accumulation and confirm if gain/equalisation '
                                  'correction has been applied.')
                         test_dump = get_clean_dump(self)
                     except Queue.Empty:
@@ -2409,13 +2359,13 @@ class test_CBF(unittest.TestCase):
                                       ' \n'.join(textwrap.wrap(', \n'.join(sorted(nonzero_inputs)))),
                                       ' \n'.join(textwrap.wrap(', \n'.join(sorted(zero_inputs))))))
 
-                        caption = ('Baseline channel response on input:{} {} with the following non-zero'
+                        _caption = ('Baseline channel response on input:{} {} with the following non-zero'
                                    ' inputs:\n {} \n and\nzero inputs:\n {}'.format(inp, bls_msg,
-                                        sorted(nonzero_inputs), sorted(zero_inputs)))
+                                        sorted(', '.join(nonzero_inputs)), sorted(', '.join(zero_inputs))))
 
                         aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
                                           plot_title, log_dynamic_range=None, log_normalise_to=1,
-                                          caption=caption, ylimits=(-0.1, np.max(plot_data) + 0.1))
+                                          caption=_caption, ylimits=(-0.1, np.max(plot_data) + 0.1))
                         actual_nz_bls_indices = all_nonzero_baselines(test_data)
                         actual_nz_bls = set(tuple(bls_ordering[i]) for i in actual_nz_bls_indices)
 
@@ -3054,12 +3004,12 @@ class test_CBF(unittest.TestCase):
                 errmsg = 'CAM interface connection encountered errors.'
                 Aqf.failed(errmsg)
             else:
-                msg = ('[CBF-REQ-0068] Confirm that the number of sensors are equal '
+                msg = ('Confirm that the number of sensors are equal '
                        'to the number of sensors listed on the running instrument.\n')
                 Aqf.equals(int(reply.arguments[-1]), len(informs), msg)
 
         def report_time_sync(self):
-            Aqf.step('Confirm that thetime synchronous is implemented on primary interface')
+            Aqf.step('Confirm that the time synchronous is implemented on primary interface')
             try:
                 reply, informs = self.corr_fix.rct.req.sensor_value('time.synchronised')
             except:
@@ -6306,3 +6256,32 @@ class test_CBF(unittest.TestCase):
                           caption=('FFT of captured small voltage buffer. {} voltage points captured '
                                    'on input {}. Input bandwidth = {}Hz'.format(fft_len, label, bw)),
                           xlabel='FFT bins')
+
+
+    def _test_global_manual(self, ve_num):
+        """Manual Test Method, for executing all manual tests
+
+        Parameters
+        ----------
+            ve_num: str, Verification Event Number
+        Returns
+        -------
+            results:
+                Pass or TBD
+        """
+        # Assumes dict is returned
+        _results = self.csv_manual_tests.csv_to_dict(ve_num)
+        ve_desc = _results.get('Verification Event Description', 'Tbd')
+        try:
+            Aqf.procedure(r'%s' %ve_desc)
+            assert eval(os.getenv('MANUAL_TEST', 'False'))
+        except Exception:
+            results = r'%s' % _results.get("Verification Event Results", None).capitalize()
+            if results != "Unknown":
+                Aqf.step(r'%s' % _results.get("Verification Requirement Description"))
+                Aqf.passed(r'%s' % results.replace('\n', ''))
+                perf = _results.get("Verification Event Performed By", "Unknown")
+                _date = _results.get("Date of Verification Event", "Unknown")
+                Aqf.hop(r"Test ran by: %s on %s" % (perf, _date))
+            else:
+                Aqf.tbd("This test is still to-be-done.")

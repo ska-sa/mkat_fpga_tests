@@ -231,8 +231,9 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             pass
     else:
         plt.xlabel('Channel number')
-        msg = ('CBF channel isolation: -53dB')
-        add_hxline(-53, msg)
+        if cutoff:
+            msg = ('CBF channel isolation: -53dB')
+            add_hxline(-53, msg)
 
     if plot_title:
         plt.title(plot_title)

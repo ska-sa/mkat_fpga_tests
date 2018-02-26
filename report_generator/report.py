@@ -21,7 +21,7 @@ class Report(object):
     """
     Create all the various reports.
 
-    The corelation with the CORE data is also done in the class.
+    The correlation with the CORE data is also done in the class.
 
     """
 
@@ -348,7 +348,7 @@ class Report(object):
         if results_doc:
             self.docproducer.add_include(
                 'cbf_timescale_unlinked_qualification_testing_procedure_table.inc')
-            self.docproducer.add_heading('section', 'Detailed Test Results', anchor=True)
+            self.docproducer.add_heading('chapter', 'Detailed Test Results', anchor=True)
         else:
             self.docproducer.add_heading('chapter', 'Test Procedures', anchor=True)
 
@@ -362,7 +362,9 @@ class Report(object):
             if procedure:
                 self.add_requirement_procedure(item)
             else:
+                self.add_requirement_procedure(item)
                 self.add_requirement_results(item)
+            # self.docproducer.page_break()
 
         if demo and procedure:
             self.write_script(base_dir, timescale, scheme)
@@ -562,7 +564,7 @@ class Report(object):
         """
         rft = self._requirements_from_tests()
         status = rft.get(req, {}).get('status', self.UNKNOWN).upper()
-        if status not in ['WAIVED', 'NOT_TESTED']:
+        if demo and status not in ['WAIVED', 'NOT_TESTED']:
             # For demo's we just say Exist, Not Tested or
             # say that it is WAIVED.
             #return 'Exists' if req in rft else 'Not Tested'
@@ -679,14 +681,20 @@ class Report(object):
                             if not item.startswith('CBF.V'): continue
 
                             items[item] = self.status_of_requirements(item, is_demo)
-                            if result == 'Results' and items[item] == 'Tested':
-                                items[item] = 'Tested'
+                            if result == 'Results' and items[item] == 'Test Implemented':
+                                items[item] = 'Test Implemented'
                         # title = "CBF %s %s %s %s Summary" % \
                         #         (timescale, scheme, demo, result)
                         # self.generate_include_summary(title, items, basedir)
+                        # if self.is_procedure(item):
+                        #     title = "CBF %s %s %s %s" % (timescale, scheme, demo, 'Procedure')
+                        # else:
+                        #     title = "CBF %s %s %s %s" % (timescale, scheme, demo, 'Results')
+                        # self.generate_include_table(title, items, basedir)
                         title = "CBF %s %s %s %s" % \
                                 (timescale, scheme, demo, result)
                         self.generate_include_table(title, items, basedir)
+
 
     def is_acceptance(self, req_name):
         """Check if a requirement is linked to an acceptance test."""
@@ -697,6 +705,18 @@ class Report(object):
             acceptance = self.test_data[test].get('aqf_site_acceptance', False)
             if acceptance:
                 return True
+
+    def is_procedure(self, req_name):
+        """Check if a it is just a procedure instead of test."""
+        requirements = self._requirements_from_tests()
+        requirement = requirements.get(req_name, {})
+        tests = requirement.get('tests', [])
+        for test in tests:
+            procedure = list(set([self.test_data[test].get('steps', '')[i].get('dry_run', False)
+                                 for i in self.test_data[test].get('steps', '')]))[0]
+            if procedure:
+                return True
+
 
     def generate_include_summary(self, title, items, basedir):
         # Generate the Summary.
@@ -725,32 +745,65 @@ class Report(object):
         """
         self.clear()
         if 'results' in title.lower():
-            self.docproducer.add_heading('section', 'Summary of Test Results')
             _title = 'Summary of Test Results'
+            self.docproducer.add_heading('chapter', _title)
+            reqs = self.grouped_requirements(self.status_of_requirements)
+            for ts in nsort(reqs):
+                for desc in nsort([t for t in reqs[ts]
+                                   if t in ('VerificationRequirement', 'VerificationEvent')]):
+                    _summary = [self.sum_status(reqs[ts][desc][_test])
+                                for _test in reversed(nsort(reqs[ts][desc]))]
+
+            _tests_summary = ', '.join(['%s: %s'%(i.title(), v)
+                                  for i, v in nsort(_summary[0].iteritems())])
+            self.docproducer.add_indented_raw_text("Test Summary: %s" % _tests_summary)
         else:
             self.docproducer.add_heading('chapter',
                 'CBF Array Release %s Requirements Verification Matrix' % _array_release)
             _title = 'Requirements Verification Traceability Matrix'
-            self.docproducer.add_box_note("Tests not implemented are due to the requirements "
-                                         " not being applicable to the array release under test.")
+            self.docproducer.add_box_note("`Tests not implemented` are due to the requirements "
+                                         " not being applicable to the array release under test. "
+                                         "Multiple requirements are linked to one verification event, "
+                                         "this might lead to requirements being highlighted as "
+                                         "`Test Implemented` but in reality those requirements are "
+                                         "not being Tested.")
 
         filename = title.lower().replace(" ", "_") + "_table.inc"
         table_data = []
         header_map = []
         if title.lower().endswith('procedure'):
-            header_map.append('requirements')
-        header_map.extend(['verification event', 'verification description', 'status'])
+            header_map.extend(['Requirements',
+                               'VR Number',
+                               'VR Description',])
+        header_map.extend(['VE Number',
+                           'VE Description',
+                           'Status'])
         for req in nsort(items):
             _requirements = []
             vr = self.requirements.get(req, {})
-            row = {'verification event': self.docproducer.add_link(self.short_link(title, req), req)}
-            row['status'] = self.docproducer.str_style(items[req])
-            row['verification description'] = vr.get('name', '')
+            row = {
+                    'VE Number': self.docproducer.add_link(self.short_link(title, req), req)
+                  }
+            if items[req] == 'Tbd':
+                row['Status'] = self.docproducer.str_style(items[req].upper())
+            else:
+                row['Status'] = self.docproducer.str_style(items[req])
+            row['VE Description'] = vr.get('name', '')
             if title.lower().endswith('procedure'):
                 relationship = vr.get('relationship', {})
                 relationships = set()
+                _vr_numbers = set()
                 for fulfilled_by in relationship.get('fulfills', {}):
                     _vr = self.requirements.get(fulfilled_by, {})
+                    if title.lower().endswith('procedure'):
+                        if len(relationship.get('fulfills', {})) > 1:
+                            _vr_numbers.add(_vr.get('kat_id', 'Unknown'))
+                            row['VR Number'] = ", ".join(str(x) for x in list(_vr_numbers))
+                            # row['VR Number'] = ', '.join(_vr_numbers.append(_vr.get('kat_id', 'Unknown')))
+                        else:
+                            row['VR Number'] = _vr.get('kat_id', 'Unknown')
+                        row['VR Description'] = self.requirements.get(
+                            _vr.get('kat_id', 'Unknown'), None).get('name', None)
                     for rtype in ('verifies', 'X-referenced by', 'X-references', 'referenced by',
                                   'references'):
                         _vr_relationship = _vr.get('relationship', {})
@@ -766,11 +819,18 @@ class Report(object):
                     if _requirements:
                         print ''
                         _requirements = [i for i in _requirements if i.startswith('CBF-REQ')]
-                        row['requirements'] = ', '.join(nsort(list(set(_requirements))))
+                        row['Requirements'] = ', '.join(nsort(list(set(_requirements))))
                     else:
-                        row['requirements'] = " ".join(
+                        row['Requirements'] = " ".join(
                             nsort(vr.get('relationship', {}).get('X-referenced by', [])))
+
             table_data.append(row)
+
+        try:
+            self.docproducer.add_raw_text('Verification Events: %s, Requirements: %s' % (
+                len(table_data), sum([len(i.get('Requirements').split(', ')) for i in table_data])))
+        except:
+            pass
 
         self.docproducer.add_table_ld(table_data, table_title=_title, header_map=header_map)
         with open(os.path.join(basedir, filename), 'w') as fh:
@@ -856,13 +916,9 @@ class Report(object):
             for count, rel in enumerate(nsort(relationships), 1):
                 if self.requirements.get(rel, {}).get('puid'):
                     _description = self.requirements.get(rel, {}).get('description', '')
-                    for i in ['a) ','b) ','c) ','d) ','e) ','f) ','g) ','h) ','i) ','j) ',
-                              '1)', '2)', '3)', '4)', '5)', '6)', '7)', '8)']:
-                        if i in _description:
-                            _description = _description.replace(i, '\t\t\t - ')
                     puid = self.requirements.get(rel, {}).get('puid')
                     if puid.startswith('CBF-REQ') and (puid in self._requirements_from_tests()):
-                        dp.add_line(":**%s**:   %s) %s" %(puid, count, _description))
+                        dp.add_line(":**%s**:   - %s" %(puid, _description))
         else:
             dp.add_line("No Requirements")
         self._rst_add_data(dp, req_data, fields, ['id'])
@@ -909,7 +965,7 @@ class Report(object):
     def add_requirement_results(self, req_id):
         """Add to the report the test procedures for the requirements."""
         tests = self._requirements_from_tests().get(req_id, {}).get('tests')
-        self.docproducer.add_heading('subsection', 'Test Results')
+        self.docproducer.add_heading('subsubsection', 'Test Results')
         if tests:
             for test in nsort(tests):
                 self._rst_show_test(self.docproducer, 1, test, self.test_data[test])
@@ -928,10 +984,10 @@ class Report(object):
         # for _req in sorted(_requirements):
         #     self.docproducer.add_line('' + _req)
         try:
-            desc = self.requirements.get(''.join(self.requirements.get(req_id, {}).get(
-                'relationship', {}).get('fulfills', {})), {}).get('description', {})
-            assert desc != {}
-        except:
+            _vr = self.requirements.get(req_id, {}).get('relationship', {}).get('fulfills', {})
+            assert _vr != dict()
+            desc = '\n\n'.join([self.requirements.get(i, {}).get('description', {}) for i in _vr])
+        except Exception:
             desc = 'Verification by means of test.'
 
         self.docproducer.add_heading('subsubsection', 'Verification Method')
@@ -1237,55 +1293,55 @@ class Report(object):
             test_data['label'] = _test_name
 
         # docproducer.add_heading('subsubsection', test_data.get('label', test_name))
-        test_path = test_name.split(".")
-        testfile = "Test path: {0}.py:{1}.{2}".format('/'.join(test_path[:-2]),
-                                           test_path[-2], test_path[-1])
-        cmd ='git ls-remote --get-url'
-        _link = subprocess.check_output(cmd.split())
-        test_link = "Github link: {}".format(_link)
+        # test_path = test_name.split(".")
+        # testfile = "Test path: {0}.py:{1}.{2}".format('/'.join(test_path[:-2]),
+                                           # test_path[-2], test_path[-1])
+        # cmd ='git ls-remote --get-url'
+        # _link = subprocess.check_output(cmd.split())
+        # test_link = "Github link: {}".format(_link)
         # docproducer.add_sourcecode(testfile)
         # docproducer.add_sourcecode(test_link)
-        data = {
-                'description': test_data.get('description'),
-                'group': test_data.get('group', 'Unknown'),
-                'status': docproducer.str_style(test_data.get('status', self.UNKNOWN).upper())
-                }
+        # data = {
+        #         'description': test_data.get('description'),
+        #         'group': test_data.get('group', 'Unknown'),
+        #         'status': docproducer.str_style(test_data.get('status', self.UNKNOWN).upper())
+        #         }
 
         test_status = ' '.join(['Verification Event:', docproducer.str_style(
-            test_data.get('status', self.UNKNOWN).title())])
+            test_data.get('status', self.UNKNOWN).title().replace('_', ' '))])
         if not test_data.get('success'):
            docproducer.add_box_warning(test_status)
         else:
             docproducer.add_box_note(test_status)
         ## AQF decorator info.
-        data['systems'] = ", ".join([n for n in test_data.get('aqf_systems', [])])
+        # data['systems'] = ", ".join([n for n in test_data.get('aqf_systems', [])])
 
-        aqf_vars = {'aqf_site_acceptance': "This test is part of the *Site Acceptance* tests",
-                    'aqf_intrusive': "This test has been tagged as an intrusive test.",
-                    'aqf_slow': "This test has been tagged as a slow test",
-                    'aqf_site_only': "This should run on *Site Only*",
-                    'aqf_site_test': "This is a SITE test",
-                    'aqf_demo_test': "This is a DEMO test",
-                    'aqf_auto_tests': "This is an AUTO test",
-                    'aqf_generic_test': 'This is a Generic test',
-                    'aqf_instrument_bc8n856M4k': 'This is a 4 Antenna, 4096-channel CBF test (*Only*)',
-                    'aqf_instrument_bc16n856M4k': 'This is a 8 Antenna, 4096-channel CBF test (*Only*)',
-                    'aqf_instrument_bc32n856M4k': 'This is a 16 Antenna, 4096-channel CBF test (*Only*)',
-                    'aqf_instrument_bc8n856M32k': 'This is a 4 Antenna, 32768-channel CBF test (*Only*)',
-                    'aqf_instrument_bc16n856M32k': 'This is a 8 Antenna, 32768-channel CBF test (*Only*)',
-                    'aqf_instrument_bc32n856M32k': 'This is a 16 Antenna, 32768-channel CBF test (*Only*)'
-                    }
+        # aqf_vars = {'aqf_site_acceptance': "This test is part of the *Site Acceptance* tests",
+        #             'aqf_intrusive': "This test has been tagged as an intrusive test.",
+        #             'aqf_slow': "This test has been tagged as a slow test",
+        #             'aqf_site_only': "This should run on *Site Only*",
+        #             'aqf_site_test': "This is a SITE test",
+        #             'aqf_demo_test': "This is a DEMO test",
+        #             'aqf_auto_tests': "This is an AUTO test",
+        #             'aqf_generic_test': 'This is a Generic test',
+        #             'aqf_instrument_bc8n856M4k': 'This is a 4 Antenna, 4096-channel CBF test (*Only*)',
+        #             'aqf_instrument_bc16n856M4k': 'This is a 8 Antenna, 4096-channel CBF test (*Only*)',
+        #             'aqf_instrument_bc32n856M4k': 'This is a 16 Antenna, 4096-channel CBF test (*Only*)',
+        #             'aqf_instrument_bc8n856M32k': 'This is a 4 Antenna, 32768-channel CBF test (*Only*)',
+        #             'aqf_instrument_bc16n856M32k': 'This is a 8 Antenna, 32768-channel CBF test (*Only*)',
+        #             'aqf_instrument_bc32n856M32k': 'This is a 16 Antenna, 32768-channel CBF test (*Only*)'
+        #             }
 
-        for aqf_var in aqf_vars:
-            if test_data.get(aqf_var):
-                data[aqf_var.replace('aqf_', '').replace('_', ' ')] = aqf_vars[aqf_var]
+        # for aqf_var in aqf_vars:
+        #     if test_data.get(aqf_var):
+        #         data[aqf_var.replace('aqf_', '').replace('_', ' ')] = aqf_vars[aqf_var]
 
         # Requirements already mapped from data pulled from CORE
-        #data['requirements'] = sorted(test_data.get('requirements', []))
+        # data['requirements'] = sorted(test_data.get('requirements', []))
         # self._rst_add_data(docproducer, data)
 
         ## Show the steps:
-        if len(nsort(test_data.get('steps', {}).keys())) > 2:
+        if len(nsort(test_data.get('steps', {}).keys())) >= 2:
             counter = 0
             for step in nsort(test_data.get('steps', {}).keys()):
                 this_step = test_data['steps'][step]
@@ -1305,29 +1361,48 @@ class Report(object):
                         new_desc = this_step.get('description').replace('.-.', '**')
                         docproducer.add_line("%s" % (new_desc))
                     except:
-                        counter += 1
-                        docproducer.add_line("- Step %d: %s (%s)" % (counter,
-                            this_step.get('description'), this_step.get('step_start')))
+                        if this_step.get('description'):
+                            counter += 1
+                            docproducer.add_line("- Step %d: %s (%s)" % (counter,
+                                this_step.get('description'), this_step.get('step_start')))
                 ## Show the progress:
                 for action in this_step.get('action', []):
-                    line = [" +"]
-                    line.append(action.get('time', ''))
+                    _line = [" +"]
+                    _line.append(action.get('time', ''))
                     action_type = action.get('type', '').upper()
-                    line.append(docproducer.str_style(action_type))
-                    line.append(action.get('msg', ''))
-                    # Do not write out the "CONTROL start" and "CONTROL end" lines
+                    if not action_type == 'IMAGE':
+                        _line.append(docproducer.str_style(action_type))
+                    if action.get('msg', None):
+                        _line.append(action.get('msg'))
+                    # Do not write out the "CONTROL start" and "CONTROL end" _lines
                     try:
-                        if action_type != 'CONTROL':
-                            docproducer.add_line("  ".join([l for l in line if l]))
+                        if action_type != 'CONTROL' and len(_line) > 2:
+                            docproducer.add_indented_raw_text("   ".join([l for l in _line if l]),
+                                level=4)
                         if action_type == 'CHECKBOX':
                             docproducer.add_line('        **Tested** ')
                         #if action.get('stack'):
                             #docproducer.add_sourcecode(''.join(action['stack']))
-                        if action_type == 'IMAGE':
-                            docproducer.add_figure(
-                                action['filename'], action['caption'], action['alt'])
+                        # if action_type == 'IMAGE':
+                        #     docproducer.add_figure(
+                        #         action['filename'], action['caption'], action['alt'])
                     except:
                         pass
+                # Add images at the end
+                for _action in this_step.get('action', []):
+                    action_type = _action.get('type', '').upper()
+                    if action_type == 'IMAGE':
+                        docproducer.add_figure(
+                                _action['filename'], _action['caption'], _action['alt'])
+
+        elif test_data.get('status', self.UNKNOWN).lower() == 'not_tested':
+            _reqs = ', '.join(sorted([i for i in test_data.get('requirements', '') if i.startswith('CBF-REQ')]))
+            msg = ":The following requirements will not be tested in this release.: - `%s`" % _reqs
+            docproducer.add_indented_raw_text(msg, level=4)
+        # elif test_data.get('status', self.UNKNOWN).lower() == 'tbd':
+        #     _reqs = ', '.join(sorted([i for i in test_data.get('requirements', '') if i.startswith('CBF-REQ')]))
+        #     msg = ":The following requirements are listed as TBD.: - `%s`" % _reqs
+        #     docproducer.add_indented_raw_text(msg, level=4)
 
         if not test_data.get('success'):
             docproducer.add_sourcecode(
@@ -1347,7 +1422,7 @@ class Report(object):
         # PASSED but one is WAIVED results in WAIVED)
         status = [self.UNKNOWN,   # Dont know what happened
                   self.WAIVED,    # Test is waived
-                  self.NOT_TESTED,    # Test will not run
+                  self.NOT_TESTED,# Test will not run
                   self.PASS,      # Test Passed
                   self.SKIP,      # Skip this test
                   self.TBD,       # Test is to-be-done
@@ -1386,17 +1461,22 @@ class Report(object):
         :return: Dict. Requirement is the key.
 
         """
-
         if not self._cache_requirements_from_tests:
             reqs = dict()
             for test in self.test_data:
                 if test == "Meta":
                     continue
-                test_data = {'status': self.test_data[test].get('status', self.UNKNOWN),
-                             'success': self.test_data[test].get('success', False)}
+                test_data = {
+                                'status': self.test_data[test].get('status', self.UNKNOWN),
+                                'success': self.test_data[test].get('success', False)
+                             }
                 for test_req in self.test_data[test].get('requirements', []):
                     if test_req not in reqs:
-                        reqs[test_req] = {'status': self.UNKNOWN, 'success': True, 'tests': {}}
+                        reqs[test_req] = {
+                                            'status': self.UNKNOWN,
+                                            'success': True,
+                                            'tests': {}
+                                         }
                     reqs[test_req]['tests'][test] = test_data
                     reqs[test_req]['success'] &= test_data['success']
                     reqs[test_req]['status'] = self._comp_status(reqs[test_req]['status'],

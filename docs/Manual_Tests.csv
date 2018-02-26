@@ -1,0 +1,345 @@
+Requirement Number,Requirement Name,Requirement Description,Verification Requirement Name,Verification Requirement Number,Verification Requirement Description,Verification Event Name,Verification Event Number,Verification Event Description,Verification Event Results,Verification Event Performed By,Date of Verification Event,Notes,AR3
+CBF-REQ-0137,CBF EMC Certification of Procured Items,"Commercial and non-developmental CBF electronic items shall be EMC/RFI certified according to CISPR 22 standard for Class B devices, or a SKA SA approved equivalent.",CBF Procured Items EMC Certification VR,VR.C.6,"Verify by inspection of the data sheets and/or specification of the procured item that is has been EMC/RFI certified according to CISPR 22 standard for Class B devices. If this is not the case, perform an analysis of the available EMC/RFI certification versus CISPR 22 standard for Class B devices. If equivalence can be argued, present this for approval to the SKA system engineer. Record of the motivation and the approval are to be stored in eB.",CBF Procured Items EMC Certification,CBF.V.1.11,"1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF i.e. PDU, CMC, Data Switch LRU.
+ 2. Confirm whether each has been EMC/RFI certified according to CISPR 22 standard for Class B devices.
+ 3. For each item where this is true, record the item part number and reference the item data sheets and/or specification used.
+ 4. For each item where this is not true, perform an analysis of the available EMC/RFI certification versus CISPR 22 standard for Class B devices. If equivalence can be argued, present this for approval to the SKA system engineer. If approved, attach the motivation and record the approval.
+ 5. The test is considered a pass if each item either has been EMC/RFI certified according to CISPR 22 standard for Class B devices, or has been approved as equivalent by the SKA system engineer.",,,,,
+CBF-REQ-0131,CBF supply power level variation,The CBF shall provide full capability as defined in this specification with the input power supply voltage level varying by no more than ±6% from the nominal level.,CBF Power Supply VR,VR.C.38,Verification by inspection. Inspect CBF LRU datasheets to confirm that all CBF LRUs meet the specified power supply requirements.,CBF Power Supply VE,CBF.V.3.15,"1. Confirm by inspection of the datasheets of each of the LRUs used in the CBF that the LRUs are specified to work over an input voltage range of at least 209Vrms to at most 231Vrms with a frequency range of at least 49.5Hz to at most 50.5Hz.
+2. Record the item part numbers and supply references to the item data sheets and/or specification used.
+ 
+ NOTE: Total harmonic distortion is not tested. This is considered low enough risk to be acceptable.",,,,,
+CBF-REQ-0132,CBF supply power frequency variation,The CBF shall provide full capability as defined in this specification with an input power supply frequency in the range 50Hz ±1%.,,,,,,,,,,,
+CBF-REQ-0133,CBF supply power harmonic distortion,The CBF shall provide full capability as defined in this specification with an input power supply total harmonic distortion of no greater than 4%.,,,,,,,,,,,
+CBF-REQ-0199,CBF safe design - toxic materials,"The CBF shall be ROHS compliant, with the exception that tin-lead solder may be used (ROHS exemption 7b/ROHS 5)",CBF Safe Design VR,VR.C.39,Verification by inspection. Inspect CBF LRU documentation to confirm that all CBF LRUs meet the safe design requirements.,CBF Safe Design VE,CBF.V.3.16,"1. Inspect the Bill-of-Materials of the processing nodes used in the CBF. Confirm that each part used is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this. 
+2. Inspect the datasheets of the COTS LRUs used in the CBF. Confirm that each LRU is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this. 
+3. Record the item part numbers and supply references to the item data sheets or BOM used.",,,,,
+CBF-REQ-0061,CBF LRU status and display,"Each custom designed LRU in the CBF shall determine and indicate via clear visible LED indication the state of the LRU, as either OK (indicated in green) or not OK (which shall signify either an error condition or a failure, indicated as red), located such that the LED is visible with the LRU installed.",CBF LRU Status and Display VR,VR.C.40,Verification by inspection. Inspect CBF processing node physical hardware and documentation to confirm that the processing nodes will suitably display faults.,CBF LRU Status and Display VE,CBF.V.3.17,"1. Inspect CBF processing node physical hardware to confirm the presence of a status LED that is visible with the LRU installed.
+2. Inspect CBF processing node documentation to confirm that the processing nodes will suitably display LRU status and faults - green LED for OK state, and red LED for ERROR or FAILURE state.",,,,,
+CBF-REQ-0197,CBF COTS LRU status and display,"Each COTS LRU in the CBF should determine and indicate via clear visible LED indication the state of the LRU, located such that the LED is visible with the LRU installed.",CBF COTS LRU Status and Display VR,VR.C.41,Verification by inspection. Inspect CBF COTS LRUs physical hardware and documentation to confirm that the LRU has a status LED and that faults will be suitably displayed.,CBF COTS LRU Status and Display VE,CBF.V.3.18,"1. With the CBF installed in the racks and turned on, confirm whether the COTS LRUs indicate via LEDs, visible with the LRUs installed, the state of the LRU as OK.
+ 2. Record for each COTS LRU, whether a status LED is present or not, and the LRU part number.
+ 3. Note that this test is a desirable only, not mandatory. The test status must be marked as Passed once each of the LRUs have been checked, regardless of the result.",,,,,
+CBF-REQ-0182,CBF interchangeability,"CBF LRUs and SRUs with the same part number and version shall be interchangeable with no calibration, tuning or alignment. Loading of configuration files and/or software and/or firmware to the LRU and/or SRU and/or CBF sub-system is permitted.",CBF Interchangeability VR,VR.C.42,"Verification by inspection. Inspect the the CBF physical item structure and confirm that the CBF architecture enables items with the same part number and version to be interchanged with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the item have been loaded.",CBF Interchangeability VE,CBF.V.3.19,"Confirm by inspection of the CBF physical item structure, as captured in the latest approved Correlator-Beamformer Design Document, that:
+ 1. The architecture enables Data Switch LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the switch have been loaded.
+ 2. The architecture enables processing node LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the processing node have been loaded.
+ 3. The architecture enables PDU LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the PDU have been loaded.
+ 4. The architecture enables CMC LRUs with the same part number and version to be interchangeable with no calibration, tuning or alignment, after configuration files and/or software and/or firmware to the CMC have been loaded.",,,,,
+CBF-REQ-0168,CBF serviceable LRUs storage,"All serviceable LRU’s and SRU’s (spare items) shall be packaged in such a way that they can be stored in covered facilities, in all applicable weather conditions, for a period of at least 2 years, without incurring any damage.",CBF Periodic Maintenance LRU Storage VR,VR.C.43,Verification by inspection of the the CBF physical item structure. Confirm that the CBF does not contain items which require periodic maintenance.,CBF Periodic Maintenance LRU Storage VE,CBF.V.3.20,"1. Confirm by inspection of the CBF physical item structure, as captured in the latest approved M1200-0000-003 Correlator-Beamformer Design Document, that the CBF does not contain items which require periodic maintenance.
+
+Note: If this is the case, the test can be marked as Passed, since the requirement is no longer applicable. If this is not the case, the test must be marked as Failed until a suitable test has been defined.",,,,,
+CBF-REQ-0171,CBF Periodic maintenance LRU storage,The packaging containers for LRUs and SRUs (spare items) that require periodic maintenance during storage shall be red.,,,,,,,,,,,
+CBF-REQ-0169,Unserviceable LRUs storage,"All unserviceable LRU’s and SRU’s (spare items) shall be packaged in such a way that they can be stored in covered facilities, in all applicable weather conditions, for a period of at least 6 months, without incurring any damage.",CBF LRU Storage,VR.C.44,Verification by means of Inspection. Confirm that all CBF LRUs are stored according to specifications.,CBF LRU Storage VE,CBF.V.3.21,"Confirm by inspection that:
+ 1. The transport packaging containers defined in the CBF structure are CLIP-LOCK containers.
+ 2. A label, or set of labels, for these containers have been defined, each containing at least the following information: 
+  i. “Fragile” label 
+  ii. “Careful transportation”
+  iii. “This side up” 
+  iv. Packaged Item Identification label with place for filling in of identification data
+ 3. A Packaged Item Identification label has been defined for use to carry CBF processing nodes, containing at least the following information: 
+ i. Identification “MeerKAT System Component”
+ ii. LRU Name
+ iii. LRU/SRU Part Number and Version
+ iv. Packaged weight
+ v. Container stackability (if applicable)
+ 4. A Packaged Item Identification plate has been defined for use to carry COTS LRUs containing at least the following information: 
+ i. LRU Name
+ ii. LRU/SRU Part Number and Version
+ iii. Packaged weight
+ iv. Container stackability (if applicable)
+ 5. Record the part number of the Clip-Lock container(s).
+ 6. Record the part number of the label, or labels if multiple are defined.
+ 
+Note: A single Packaged Item Identification label catering for both options is permissible.
+ A single label with space for all of the above information is also permissible.",,,,,
+CBF-REQ-0170,CBF Clip-lock containers,The packaging containers for LRUs and SRUs (spare items) shall be CLIP-LOCK containers.,,,,,,,,,,,
+CBF-REQ-0172,Container markings,"The packaging containers for LRUs and SRUs (spare items) shall have the following markings securely attached on the outside of the container: 
+ i. “Fragile” label 
+ ii. Mode of transport “careful transportation” or “very careful transportation” (ETSI Standard EN 300019-2-2 V2.1.2)
+ iii. “This side up” label 
+ iv. “Fork lift here” label, where applicable 
+ v. Centre of gravity marking, where applicable 
+ vi. Packaged Item Identification plate, with identification data completed. 
+ vii. Tamper proof labels for “wrong way up” and “excessive acceleration”, where applicable",,,,,,,,,,,
+CBF-REQ-0173,Packaged LRU identification,"The packaging containers for LRUs and SRUs (spare items) shall have the following Item Identification plate securely attached on the outside of the container: 
+ i. Identification “MeerKAT System Component” (SKA SA fabricated or subcontracted items only).
+ ii. LRU/SRU Name (supplied by MeerKAT System team) (SKA SA fabricated or subcontracted items only).
+ iii. LRU/SRU Part Number and Version (supplied by MeerKAT System team) (SKA SA fabricated or subcontracted items only).
+ iv. LRU/SRU serial number (shall be able to update this for the relevant unit). 
+ v. LRU/SRU supplier part number (where applicable).
+ vi. LRU/SRU supplier identification (where applicable).
+ vii. Bar Code data (preferred)
+ viii. Packaged weight
+ ix. Container stackability (where applicable).
+ x. Preservation date (where applicable)
+ xi. Shelf life (where applicable).",,,,,,,,,,,
+CBF-REQ-0147,CBF Carrying handles,All CBF LRU’s and SRU’s with a mass of more than 15kg and less than 40kg shall have carrying handles.,CBF Item Handling VR,VR.C.45,Verification by means of inspection. Confirm by inspection of the CBF physical item structure that all items weighing between 15kg and 40kg have handles and that those weighing over 40kg have suitable lifting arrangements.,CBF Item Handling VE,CBF.V.3.22,"Confirm by inspection of the CBF physical item structure, and supporting item documentation, that:
+1. all items weighing no less than 15kg and no more than 40kg have carrying handles
+2. all items weighing more than 40kg have suitable integral lifting arrangements",,,,,
+CBF-REQ-0148,CBF lifting arrangements,All CBF LRU’s and SRU’s with a mass of more than 40kg shall have an integral lifting arrangement such as eye-bolts.,,,,,,,,,,,
+CBF-REQ-0152,CBF Product markings,"All CBF LRUs and SRUs shall be labelled with the following information, and shall be clearly visible when installed:
+ i. Product Supplier Name.
+ ii. Product Name (supplied by MeerKAT system team for SKA SA fabricated or subcontracted items).
+ iii. Product Part Number (supplied by MeerKAT system team for SKA SA fabricated or subcontracted items).
+ iv. Product Version (supplied by MeerKAT system team for SKA SA fabricated or subcontracted items).
+ v. Product Serial Number.",CBF Item Marking and Labelling VR,VR.C.46,Verification by inspection. Inspect all CBF items to confirm they are marked and/or labelled according to specification.,CBF Item Marking and Labelling VE,CBF.V.3.23,"1. Confirm by inspection that each type of COTS LRU used in the CBF is labelled with the following information
+  i. Product Supplier Name
+  ii. Product Serial Number.
+ 2. Confirm by inspection that the above information is visible with the LRU installed in a rack. It is permissible that either the front or rear door of the CBF rack be opened to read the information.
+ 3. Confirm by inspection that Processing Node LRUs are labelled with the following information:
+  i. Product Supplier Name
+  ii. Product Name
+  iii. Product Part Number
+  iv. Product Version
+  v. Product Serial Number. 
+ 4. Confirm by inspection that the above information is visible with the processing node installed. It is permissible that either the front or rear door of the CBF rack be opened to read the information.
+ 5. Remove the top lid of a processing node.
+ 6. Confirm by inspection that each type of Mezzanine SRUs are labelled with the following information:
+  i. Product Supplier Name.
+  ii. Product Name
+  iii. Product Part Number
+  iv. Product Version
+  v. Product Serial Number. 
+ 7. Confirm by inspection that the above information is visible with the only the processing node top lid removed. It is not permissible to have to unplug the card to read the information. 
+ 8. Confirm by inspection that each port on the LRU making up the CBF Data Switch is labelled with at least the port number.
+ 9. Determine whether each CBF LRU contains any hazardous material. This would typically be lead and/or heatsink paste.
+ 10. For each identified LRU containing hazardous material, confirm by inspection that the LRU has a Hazardous Waste label.
+ 11. Confirm by inspection that each CBF internal cable (i.e. cables between CBF LRUs) is labelled.
+12. Confirm that all physical switches and control elements have their functions marked on in English.",,,,,
+CBF-REQ-0153,CBF Connector labelling,All external connectors on the CBF shall be labelled to allow for identification of the connector during installation and maintenance.,,,,,,,,,,,
+CBF-REQ-0154,CBF Safety markings,The CBF shall display warning information of dangers that may jeopardise the safety of the personnel or result in a hazardous situation.,,,,,,,,,,,
+CBF-REQ-0155,CBF Control markings,The CBF shall have the functions of all physical switches and control elements clearly marked in the English language.,,,,,,,,,,,
+CBF-REQ-0184,CBF Wiring connectors,All cabled connections internal to the CBF shall be clearly labelled to allow identification during installation.,,,,,,,,,,,
+CBF-REQ-0162,CBF use of COTS equipment,"The CBF should make maximum use of commercial off the shelf (COTS) equipment, and where possible COTS components with long support life expectancy should be chosen.",CBF Use of COTS Equipment VR,VR.C.47,Verification by inspection. Inspect the CBF physical item structure to confirm that COTS equipment with long support life expectancy is used.,CBF Use of COTS Equipment VE,CBF.V.3.24,"1. Confirm by inspection of the CBF physical item structure that the CBF design utilises largely commercial off the shelf (COTS) equipment
+2. Confirm, where possible, that the COTS equipment used have long support life expectancy. 
+Note: The second point is highly subjective and the opinion of the CBF Technical Lead or Test Engineer is sufficient to pass the test.",,,,,
+CBF-REQ-0060,CBF report logs,"The CBF shall report, via the CAM interface, CBF log messages at a configurable logging level.",CBF Logging VR,VR.C.48,Verification by demonstration. Demonstrate the CBF logging infrastructure and verify that log messages are reported at the correct level. Verify that the logging level is configurable. Confirm that logging can continue indefinitely and that log files contain more than 1000 events.,CBF Logging VE,CBF.V.3.25,"1. Turn the CBF on and wait for it to boot.
+ 2. ssh into the CMC.
+ 3. Watch the current log file using command ""tail -f <filename>.katlog""
+ 4. Via the CAM interface, request the current log level using KATCP command ""?log-level""
+ 5. Confirm the CBF replies with ""#log-level ok <>"", where <> contains one of off, fatal, error, warn, info, debug, trace, all.
+ 6. Set the log level using KATCP command ""?log-level info""
+ 7. Confirm the CBF replies with ""#log-level ok info""
+ 8. Send an invalid KATCP command eg ""?guesswhatthisis""
+ 9. Confirm that a message is logged to the log file that an unknown command was received.
+ 10. Set the log level using KATCP command ""?log-level debug""
+ 11. Confirm the CBF replies with ""#log-level ok debug""
+ 12. Confirm that messages are being logged periodically, as the CBF is being used.
+ 13. Set the log level using KATCP command ""?log-level fatal""
+ 14. Confirm the CBF replies with ""#log-level ok fatal"" 
+ 15. Set the log level back to the setting which it was at the start of the test.
+ 16. Peruse archived log files and confirm that the log file contains more than 1000 lines.",,,,,
+CBF-REQ-0177,CBF log system events,The CBF shall log system events in an internal log file with size sufficient for at least 1000 event logs.,,,,,,,,,,,
+CBF-REQ-0196,CBF event log wrap,"The CBF shall implement the event log as a circular buffer i.e. if the log is full, the oldest events shall be overwritten.",,,,,,,,,,,
+CBF-REQ-0021,CBF Full Functional mode,"In Full Functional mode of OPERATIONAL state, the CBF shall provide the full functionality as defined in this specification.",CBF Full Functional Mode VR,VR.C.37,Verification by analysis. Verify by analysing the results of CBF Functional Tests. Confirm that these tests were run in the OPERATIONAL state.,CBF Full Functional Mode VE,CBF.V.3.77,1. Refer to CBF functional tests and confirm that the tests were successfully run in the OPERATIONAL state. ,,,,,
+CBF-REQ-0011,CBF Retain configuration in OFF state,"The CBF, when in OFF state, shall retain all information previously uploaded into non-volatile memory, including but not limited to firmware images, software images, bootloaders and configuration files, with no data corruption for a period of at least 2 years.",CBF Configuration Retention in OFF State VR,VR.C.36,Verification by analysis. Verify by analysis that CBF configuration data is stored on appropriate storage devices capable of retaining configuration data when in the OFF state for a period of at least 2 years.,CBF States and Modes VE,CBF.V.3.3,"Configuration Retention
+1. Analyse the CBF storage architecture to determine whether the employed scheme is capable of retaining configuration data for a period of at least 2 years while the CBF is in the OFF state.
+
+Transition from OFF state to INITIALISATION state
+1. Start with the CBF off. Turn the CBF on by turning on power to the PDU(s). Start a stopwatch.
+2. Observe that each of the LRUs powers up, loads any boot firmware, software bootloaders and operating systems, and launches the operational state software applications. This must be done completely automatically, manual intervention is not permitted.
+3. During this boot process, send a KATCP status request message every few seconds. It is permissible for the CBF to be unresponsive while initialising.
+
+Transition from INITIALISATION state to OPERATIONAL state
+4.Continue sending status requests every few seconds, until the CBF response. This is considered to be an indication that the CBF has entered operational state. Record the time from when power was applied to when the CBF first responders to a status request. 
+5. Confirm that each of the processing nodes has been allocated an IP address, by inspecting the leases in dnsmasq. 
+6. If not, continue checking until this is the case, and record the time that it occurred. 
+
+CBF Reset and Restart
+7. Restart the CBF by issuing the appropriate command on the CAM interface.
+8. Send a status request, and confirm that the CBF does not respond.
+9. Send a status request message every few seconds. It is permissible for the CBF to be unresponsive while initialising.
+10. Continue sending status requests every few seconds, until the CBF response. Record the time taken from reboot command to CBF responding.
+
+Transition from INITIALISATION state to FAULT state
+ 1. Turn the CBF CMC on.
+ 2. After five seconds, remove the CAM network cable from the CMC.
+ 3. Verify that the CMC remains unresponsive, indicating a Fault state.
+ 4. Reconnect the CAM network cable to the port on the CMC.
+ 5. Repeatedly issue KATCP system-info request messages every few seconds.
+ 6. Continue sending system-info requests every few seconds, until the CBF response. This is considered to be an indication that the CBF has entered operational state.
+
+",state that the configuration is stored on commercial enterprise-class magnetic HDDs in redundant RAID-1 array,,,,
+CBF-REQ-0012,CBF Transition from OFF to INITIALISATION state,The CBF shall transition from OFF state to INITIALISATION state once input power is within defined operational limits.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0014,CBF Transition when power outside of limits,The CBF may transition to OFF state from any other state once input power is outside of operational limits.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0016,CBF Initialise,"On entry to INITIALISATION state, the CBF shall load all boot firmware, load all software bootloaders and operating systems, and launch any operational state software applications.",CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0017,CBF Communication during Initialise,The CBF may be unresponsive to all communication interfaces during INITIALISATION state.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0018,CBF Initialisation state to Fault state,The CBF shall transition from INITIALISATION state to FAULT state if initialisation fails.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0019,CBF Initialisation state to Operational state,The CBF shall transition from INITIALISATION state to OPERATIONAL state once hardware and software initialisation is complete.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0022,CBF Degraded mode,"In Degraded mode of OPERATIONAL state, the CBF may provide a subset of the functionality defined in this specification.",CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0024,CBF Operational state to Fault State,The OPERATIONAL state may transition to the FAULT state if a critical error occurs.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0027,CBF Fault state to Operational state,The FAULT state may transition to the OPERATIONAL state if a critical error is resolved.,CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0064,CBF reset and restart,"The CBF shall, on request via the CAM interface, reset/restart the CBF subsystem.",CBF States and Modes demonstration VR,VR.C.9,"Verification by demonstration of the transitions between OFF, INITIALISATION and OPERATIONAL state, including introducing induced failures (simulate degraded mode) and critical failures (simulate FAULT state).",CBF States and Modes VE,,,,,,,
+CBF-REQ-0103,CBF Baseline Correlation Products - accumulator dynamic range,"The CBF shall have a probability of saturation of the Baseline Correlation Products for the maximum permissible accumulation interval of $$\le 0.01\%$$, with a Gaussian noise input signal with $$\sigma <= 3 \: levels$$ (after channelisation).",CBF Accumulator Dynamic Range VR,VR.C.55,Verification by means of analysis. Verify by analysing the CBF design to confirm that the specified accumulator dynamic range criteria are met.,CBF Accumulator Dynamic Range VE,CBF.V.3.33,1. Analyse the CBF design and provide rationale that supports the notion that the accumulator dynamic range requirement criteria are met.,"The correlator vector-accumulators provide for 32-bit storage per complex component. Signed, 2's complement numbers are employed. They accumulate 9-bits values (8 bit multiplier output), where the arrival rate depends on the channeliser configuration.
+ 
+ Considering the 4096-channel configuration at L-band and 500ms accumulations, 1712e6/8192*0.5=104492 additions take place per accumulation. The bit growth would be log2(104492)=16.67 bits. Thus, even at full-scale DC input values, only 17 bits of growth takes place. 9+17 = 26 bits. It is thus impossible to overflow the 32-bit accumulators with 500ms accumulations on L-band.
+ 
+ Considering the 32768-channel configuration at L-band and 500ms accumulations, the bit growth would be log2(1712e6/65536*0.5)=13.67 bits. Thus, no overflows are possible here, either.
+ 
+ The probability of an overflow occurring in the correlator's vector accumulator output for any input signal is thus zero.",Jason Manley,14/02/2018,,
+CBF-REQ-0001,CBF Data Products Available for all Receivers,"The CBF, when requested to produce any of the defined data products, shall produce the requested data product with any one of the installed receivers.",CBF Data Products Available for All Receivers VR,VR.C.58,Verification by analysis. Verify by analysis of the CBF design that all receivers can be used as inputs to the CBF.,CBF Data Products Available for All Receivers VE,CBF.V.3.36,1. Analyse the CBF design and provide rationale to support that CBF data products can be produced with any one of the installed receivers.,"CBF incorporates a 64 port switch that will allow digitiser data to be routed to any F-Engine.
+CBF data products are generated by F- and X-engines. The CBF is interconnected by a Clos network architecture with leaf switches which connect to all possible data subscribers, thus all data subscribers may access all data products from F- or X-engines.",Alec Rust,14/02/2018,,
+CBF-REQ-0140,CBF Cooling method,The CBF shall require no external cooling besides that provided by the natural convection of air moving from the cold aisle to the hot aisle. Active cooling (e.g. fans) within the CBF is permitted.,CBF Cooling Method VR,VR.C.61,Verification by inspection. Verify by inspecting the CBF installation and confirm that the cooling method adheres to the specifications.,CBF Cooling Method VE,CBF.V.3.39,"Confirm, by inspection, that: 
+1. The front and rear doors of the CBF racks are perforated to allow natural convection of air moving from the cold aisle to the hot aisle
+2. The CBF has no external cooling besides that provided by natural convection of air moving from the cold aisle to the hot aisle, and optionally active cooling (e.g. fans) which are mounted inside the CBF and/or inside of CBF LRUs.",,,,,
+CBF-REQ-0142,CBF Humidity upper limit,The CBF shall provide full capability as defined in this specification with a Relative Humidity of $$\le60%$$ and a dew point of $$\le15{^{\circ}}C$$.,CBF Humidity VR,VR.C.62,Verification by inspection. Verify by inspection of all CBF LRU datasheets that the LRUs satisfy the upper and lower humidity limits.,CBF Humidity VE,CBF.V.3.40,"The August-Roche-Magnus approximation related temperature (T), dew point (TD) and relative humidity (RH) with the equations:
+  RH: =100*(EXP((17.625*TD)/(243.04+TD))/EXP((17.625*T)/(243.04+T))) 
+  TD: =243.04*(LN(RH/100)+((17.625*T)/(243.04+T))) /(17.625-LN(RH/100)-((17.625*T)/(243.04+T))) 
+  T: =243.04*(((17.625*TD)/(243.04+TD))-LN(RH/100)) /(17.625+LN(RH/100)-((17.625*TD)/(243.04+TD)))
+ Applying these equations to the CBF humidity requirements, over the CBF temperature range, the requirements can be satisfied by the CBF having operational humidity range between 25% and 82%, non condensing.
+ 1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+ 2. Confirm whether each has an operational humidity specification better than 25% to 82%, non condensing.
+ 3. Record the item part numbers and reference the item data sheets and/or specification used.
+
+The humidity environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the KAPB operational environment, and the result of the transport environment verification is used as verification of the humidity environment requirement.
+ 1. Inspect the verification results of the processing node.
+ 2. Confirm that the transport environment verification passed.
+",,,,,
+CBF-REQ-0143,CBF Humidity lower limit,The CBF shall provide full capability as defined in this specification with a dew point of $$\ge5.5{^{\circ}}C$$ over the entire dry bulb temperature range.,,,,,,,,,,,
+CBF-REQ-0145,CBF storage environment,"The CBF shall provide full capability as defined in this specification after storage for 2 years under conditions as defined in “Class 1.1: Weather protected, partly temperature-controlled storage locations” of the ETSI EN 300 019-1-1 standard.",CBF Storage Environment VR,VR.C.63,Verification by inspection. Verify by inspection of datasheets that all stored CBF LRU satisfy the storage environment specifications.,CBF Storage Environment VE,CBF.V.3.41,"ETSI EN 300 019-1-1, Class 1.1 specifies a storage environment of:
+  - humidity between 5% to 95%
+  - temperature between $$5^{0}C$$ and $$45^{0}C$$
+  - condensation
+  - no precipitation
+  - no icing
+ CBF items will be stored in protective boxes, which will protect against condensation. The test therefore checks just for on-operational temperature and humidity ranges of CBF LRUs.
+ 1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+ 2. Confirm whether each has storage temperature between $$5^{0}C$$ and $$45^{0}C$$ or better, and non-operational humidity between 5% to 95% or better.
+ 3. For each item where this is true, record the item part number and reference the item data sheets and/or specification used.
+
+The storage environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the storage environment, and the result of the transport environment verification is used as verification of the storage environment requirement.
+ 1. Inspect the verification results of the CBF processing node.
+ 2. Confirm that the transport environment verification passed.",,,,,
+CBF-REQ-0141,CBF Temperature range,The CBF shall provide full capability as defined in this specification with dry-bulb cold aisle environment temperatures of $$18^{\circ}C\degree\:<CBF_{temp}<\:35^{\circ}C$$.,CBF Temperature Range VR,VR.C.64,Verification by inspection. Verify by inspection of all relevant CBF LRU documentation that full capability is possible over the specified temperature range.,CBF Temperature Range VE,CBF.V.3.42,"1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+ 2. Confirm whether each has an operational temperature specification better than $$18^{0}C$$ to $$35^{0}C$$
+ 3. Record the item part number and reference the item data sheets and/or specification used.",,,,,
+CBF-REQ-0146,CBF Transportation of components,The CBF shall provide full capability as defined in this specification after transportation in an approved container under conditions as defined in “Class 2.2: careful transportation” of the ETSI EN 300 019-1-2 standard.,CBF Transportation of Components VR,VR.C.65,Verification by demonstration. Verify by demonstration that CBF LRUs transported to the KABP are fully functional.,CBF Transportation of Components VE,CBF.V.3.43,"After deployment of a number of (at least 12) processing nodes to the KAPB and other LRU infrastructure:
+ 1. If any processing nodes or LRUs failed after transportation, analyse the failure to determine whether vibration was the cause of failure.
+ 2. The test passes if no processing nodes failed, or if vibration was not the cause of any failures.",,,,,
+CBF-REQ-0156,CBF Product marking environmentals,Product Markings shall remain attached and remain legible in all environments and conditions for which the CBF is specified.,CBF Product Marking Environmentals VR,VR.C.66,Verification by inspection. Verify by inspecting that the CBF labels as installed meet the specifications.,CBF Product Marking Environmentals VE,CBF.V.3.44,"The test for the label environmental is to inspect the labels for damage at least one year after the CBF has been deployed to the KAPB. That is considered sufficient time for each of the labels to have been exposed to the storage, transport and operational environment to demonstrate the robustness of the labels. 
+ Between one year and two years after the first CBF has been deployed to the KAPB:
+ 1. Inspect the labels on each of the items making up the CBF ie PDU, CMC, Processing Nodes, Data Switch LRU.
+ 2. Confirm that the equipment labels are still attached.
+ 3. Confirm that the information on the equipment labels is still legible.
+ 4. Inspect the labels on at least one of each of the cable types in the CBF racks.
+ 5. Confirm that the cable labels are still attached.
+ 6. Confirm that the information on the cable labels is still legible.
+ 7. Record the item part numbers and versions.
+ 8. It is desirable to attach photographs of the labels.",,,,,
+CBF-REQ-0158,CBF Over Temperature Shut Down,Each LRU of the CBF shall have an over temperature protection mechanism.,CBF Fail Safe VR,VR.C.67,Verification by inspection. Verify by inspection of all CBF LRU relevant documentation that the LRUs implement overtemperature and fail safe protection mechanisms.,CBF Fail Safe VE,CBF.V.3.45,"1. Confirm by inspection of the datasheets of each of the COTS LRUs making up the CBF, that each LRU has an overtemperature protection mechanism.
+ NOTE: if this information is not contained in the datasheets, direct confirmation from the supplier is acceptable.
+ 2. Record the item part number and reference relevant page of the datasheet used, or a printout of the supplier confirmation.
+ 3. Confirm by inspection of the CBF processing node verification results that the over temperature shutdown function passed. Provide a reference to the processing node test result document.",,,,,
+CBF-REQ-0160,CBF locally fail safe,All CBF LRUs shall be designed to be locally fail safe without relying on external components.,,,,,,,,,,,
+CBF-REQ-0161,CBF safe design - external temperature,"The temperature of all external mechanical surfaces of the CBF, in all functional states and over the full operating temperature range, shall be less than 80 degrees C, provided the CBF is mounted as specified.",CBF Safe Physical Design VR,VR.C.68,Verification by inspection. Inspect the CBF system installed in the KAP and confirm that the external temperature is below the limit and that all edges adhere to the specifications.,CBF Safe Physical Design VE,CBF.V.3.47,"With the CBF installed and running in the KAPB:
+ 1. Connect to a CBF rack using an anti-static wrist strap.
+ 2. Run your hands over the accessible external edges of the rack, confirming that fingers/hands can be run lightly over all accessible edges without causing cuts.
+ 3. Confirm that accessible external edges of the rack can be touched comfortably i.e. the temperature is below 80°C.
+ 4. Open the front door of each rack. Repeat the sharp edges and surface temperature test on the installed equipment on rack internal surfaces and edges which are now accessible.
+ 5. Open the back door of each rack. Repeat the sharp edges and surface temperature test on rack internal surfaces and edges which are now accessible.
+ 6. Close the rack doors.
+ 7. Repeat for each CBF rack which is utilised.",,,,,
+CBF-REQ-0186,CBF safe design - sharp edges,External edges and corners of CBF LRUs shall be rounded to a radius not less than 0.5 mm.,,,,,,,,,,,
+CBF-REQ-0107,Route Digitisers CAM data,The CBF shall route CAM data between the DMC and all the Digitisers.,CBF Digitiser CAM Data VR,VR.C.69,Verification by demonstration. Verify by demonstrating the flow of digitiser sensor data.,CBF Digitiser CAM Data VE,CBF.V.3.48,"1. Connect to a live digitiser from the DMC host. 
+2. Request sensor information.
+3. Confirm sensor information is valid.",,,,,
+CBF-REQ-0224,Route Basic Spectrometer data,"The CBF, upon request, shall continuously route Basic Spectrometer data to the subscribed user(s) via the interface as specified in the appropriate ICD, provided that the interface has sufficient available bandwidth.",CBF Route Basic Spectrometer Data VR,VR.C.70,Verification by means of analysis. Routing of digitiser raw data is verified by VR.C.19. Show through calculation that adding basic spectrometer data will not saturate the link.,CBF Route Basic Spectrometer Data VE,CBF.V.3.49,"The generation of basic Spectrometer data and Digitisers raw data are functions of the digitiser, not the CBF. The CBF merely has to route this data to subscribed users. The test thus consists of checking that data from ports assigned to Digitiser inputs can be routed to ports assigned to SP/USE and that the added traffic load will not saturate the network links.
+1. Determine the bandwidth required for Basic Spectrometer Data.
+2. Determine the maximum bandwidth per Digitiser link during normal operation.
+3. Verify the the link will not be saturated when routing Basic Spectrometer Data.
+ 
+ ",,,,,
+CBF-REQ-0149,CBF MTBF,"The CBF shall have a mean time between critical failures of $$\ge 4$$ months, where:
+  - time is counted only when the CBF is powered on
+  - the CBF remains within operational limits (temperature, humidity, input power) at all times
+  - a critical failure is defined as the inability of the CBF to produce any of the data product set for less than 90% of the array.",CBF MTBF VR,VR.C.71,Verification by analysis. Verify by analysing the relevant CBF LRU documentation. Collate all LRU MTBF figures and confirm that the specification is met.,CBF MTBF VE,CBF.V.3.50,"1. Determine the MTBF by inspection of the datasheets of each of the LRUs used in the CBF.
+2. Collate all the MTBF figures and confirm that the full system adheres to the specification.
+3. Record all LRU MTBF figures.",,,,,
+CBF-REQ-0179,CBF mechanical interface to DMC,"The CBF shall provide a 19"" rack mounting space for the DMC, with height at least 3U, full rack width, and depth at least 1000mm.",CBF Internal Interfaces VR,VR.C.72,"Verification by inspection. Verify by inspecting that the interfaces between the CBF, DMC, Data Switches and C&M switches meet the specifications.",CBF Internal Interfaces VE,CBF.V.3.52,"1. Verify by inspection that the CBF does provide a 19"" rack mounting space for the DMC, with height at least 3U, full rack width, and depth at least 1000mm.
+2. Verify by inspection that the output power connectors between the CBF and the DMC are each located in one of the CBF racks, on flyleads with connector specification:
+ · Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+ · Quantity: Four (4)
+3. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs.
+4. Verify by inspection that the physical link between the DMC and the CBF Data Switch is via one 10GBASE-CR STP cable, QSPF+ to 4xSPF+, length =3m.
+5. Verify by inspection that the physical link between the DMC and the CBF CAM switch is via one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length =2m.
+
+1. Verify by inspection that the CBF does provide a 19"" rack mounting space for M&C switches, with height at least 3U, full rack width, and depth at least 1000mm.
+2. Verify by inspection that the output power connectors between the CBF and the M&C switches are each be located in one of the CBF racks, on fly-leads with connector specification:
+ · Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+ · Quantity: Six (6)
+3. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs.
+4. Verify by inspection that the physical link between the M&C switches and the DMC is one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length =2m.",,,,,
+CBF-REQ-0180,DMC power interface,"The output power connectors between the CBF and the DMC shall each be located in one of the CBF racks, on flyleads with connector specification:
+ $$ \bullet $$ Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+ $$ \bullet $$ Quantity: Four (4)
+ $$ \bullet $$ Each pair sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs if available",,,,,,,,,,,
+CBF-REQ-0190,DMC to CBF C&M LAN ethernet link,"The physical link between the DMC and the CBF C&M LAN shall be via one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length $$\ge$$2m.",,,,,,,,,,,
+CBF-REQ-0194,DMC to CBF Data Switch ethernet link,"The physical link between the DMC and the CBF Data Switch shall be via one 40GBASE-CR4 QSFP+ cable, length $$\le$$3m.",,,,,,,,,,,
+CBF-REQ-0201,CBF mechanical interface to CBF C&M LAN switches,"The CBF shall provide a 19"" rack mounting space for the CBF C&M LAN switches with height at least 3U, full rack width, and depth at least 1000mm.",,,,,,,,,,,
+CBF-REQ-0202,CBF C&M LAN switches power interface,"The output power connectors between the CBF and the CBF C&M LAN switches shall each be located in one of the CBF racks, on flyleads with connector specification:
+ $$ \bullet $$ Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+ $$ \bullet $$ Quantity: Six (6)
+ $$ \bullet $$ Each pair sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs if available",,,,,,,,,,,
+CBF-REQ-0136,CBF Mechanical Interface to Infrastructure,"The mechanical interface between the CBF racks and the KAPB shall be via the base of eleven (11) 19” racks, each provided as CFI.",CBF External Interfaces VR,VR.C.73,Verification by inspection. Verify by inspecting the CBF as installed in the KAPB and confirming that the space and infrastructure specifications are met.,CBF External Interfaces VE,CBF.V.3.53,"1. With the CBF installed in the KAPB, confirm that no more than 11 racks have been used to house the complete CBF.
+2. Record the number of racks used.",,,,,
+CBF-REQ-0166,CBF Space Requirement,"The CBF shall be contained in no more than eleven (11) 42U 19"" racks.",,,,,,,,,,,
+CBF-REQ-0150,CBF mean downtime,"The CBF shall have a mean time to repair of $$\le8$$ hours, where:
+  - repair consists of removing and replacing the highest level faulty assembly, and confirming full capability of the CBF has been restored
+  - time to detect the fault is excluded
+  - time to localise the fault is excluded
+  - time to source a replacement assembly and transport it to the site is excluded
+  - time to gain access to the CBF is excluded
+  - test time to confirm the repair is included.",CBF LRU Replacement VR,VR.C.74,Verification by demonstration. Verify by demonstrating the replacement of relevant CBF LRUs.,CBF LRU Replacement VE,CBF.V.3.54,"The CBF Mean Time To Repair test is accomplished by means of demonstration. This must be carried out by maintenance personnel.
+
+ 1. Select the most difficult CBF LRU to remove. The choice is left to the person conducting the test.
+ 2. Start a timer.
+ 3. Remove the selected LRU.
+ 4. Once the LRU has been completely removed, replace the LRU, including refitted all connections.
+ 5. Run tests to confirm that the CBF is operating correctly.
+ 6. Stop the timer once the CBF has been confirmed operational.
+ 7. Confirm that the elapsed time is less than 8 hours. Record the achieved MTTR.
+ 8. Repeat this procedure for a processing node and with the processing node removed confirm that the CBF is still operational by starting an instrument.",,,,,
+CBF-REQ-0151,Processing Node hot-swappable,Processing Nodes shall be hot-swappable without influencing the operation of the CBF as a whole.,,,,,,,,,,,
+CBF-REQ-0193,CBF to SP Ethernet Link,"For AR3 and beyond, the physical link between the CBF and SP shall be via sixteen (16) 40GbE QSFP+ ports provided on the CBF Data Switch.
+ 
+ In prior array releases, as applicable, this physical link may be realised via fewer ports and/or may employ 10GbE interconnects.",CBF Data Subscribers Link VR,VR.C.75,Verification by inspection. Verify by inspection that the CBF provides the correct number of 40GbE QSFP+ ports on the CBF Data Switch to all data subscriber groups.,CBF Data Subscribers Link VE,CBF.V.3.57,"1. Verify by inspection that the CBF provides the correct number of 40GbE QSFP+ ports on the CBF Data Switch to all data subscriber groups.
+2. Record the number of ports and their locations.",,,,,
+CBF-REQ-0195,CBF to IPUSE ethernet link,The physical link between the CBF and IPUSE shall be via one (1) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,
+CBF-REQ-0230,CBF to PTUSE Ethernet link,The physical link between the CBF and the PTUSE shall be via four (4) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,no
+CBF-REQ-0231,CBF to TUSE Ethernet Link,The physical link between the CBF and TUSE shall be via eight (8) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,no
+CBF-REQ-0232,CBF to APSUSE Ethernet link,The physical link between the CBF and APSUSE shall be via eight (8) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,no
+CBF-REQ-0233,CBF to FBFUSE Ethernet link,The physical link between CBF and FBFUSE shall be via sixty-four (64) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,no
+CBF-REQ-0235,CBF to SETI Ethernet link,The physical link between the CBF and SETI shall be via one-hundred and twenty-eight (128) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,no
+CBF-REQ-0237,CBF Sub-Array Data Product Sets,"Each Sub-Array of the CBF shall be independently configurable to produce one of the following data product sets:
+ a) Imaging data product set
+ b) Pulsar Timing data product set
+ c) Transient Search data product set
+ d) Fly’s Eye data product set
+ e) VLBI data product set
+ f) Generic TA data product set.",CBF Sub-Array Data Product Set VR,VR.C.84,Verification by means of analysis. Analyse test results of each data product listed and verify that these are produced.,CBF Sub-Array Data Product Set VE,CBF.V.3.58,1. Analyse test results of each CBF data product available at the time of testing and verify that these are produced.,,,,,
+CBF-REQ-0223,CBF Antenna Channelised Voltage data - data transfer,"The CBF, when requested to produce the Antenna Channelised Voltage data product, shall transfer the data continuously to the subscribed user(s) via the interface as specified in the appropriate ICD.",CBF Channelised Voltage Data Transfer,VR.C.92,Verification by means of analysis. Analyse switch infrastructure to ensure users can subscribe to channelised voltage data.,CBF Channelised Voltage Data Transfer VE,CBF.V.3.66,"1. Analyse switch infrastructure to ensure users can subscribe to channelised voltage data.
+2. Confirm that the switch infrastructure provides enough bandwidth to transport channelised voltage data.",,,,,
+CBF-REQ-0139,CBF EMC NRS code of practice,"Each CBF rack shall provide a ground connection point for connection to the KAPB earth grid.
+ Each CBF LRU shall connect its chassis, rack connection points and input power chassis pin together with a resistance of less than 0.1 ohm, as per NRS 083-2 section 5.2.4.3j.
+ The processing node LRUs shall have an integrated power filter on the input power line, with its housing connected directly to the chassis of the processing node LRU, as per NRS 083-2 section 5.3.2.
+ Each CBF cabinet shall have at least one ESD earthing point, as per NRS 083-2 section 5.2.6.2.",CBF Design to NRS 083 Standards VR,VR.C.8,"Verify by inspection that::
+ Each CBF rack has a ground connection point.
+ The processing node has an integrated power filter on the input power line.
+ Each CBF cabinet has at least one ESD earthing point.
+ 
+ Measure the resistance between the chassis, rack connection points and input power chassis pin on one of each type of LRU used on the CBF. Confirm that this is less than 0.1 ohm.
+ Measure the resistance between the housing of the processing input power filter and the processing chassis. Confirm this is less than 0.1 ohm.",CBF Design to NRS 083 Standards VE,CBF.V.6.10,"1. Verify by inspection that each CBF rack has a ground connection point.
+2. Verify by inspection that each CBF cabinet has at least one ESD earthing point.
+3. Measure the resistance between the chassis, rack connection points and input power chassis pin on one of each type of LRU used on the CBF. Confirm that this is less than 0.1 ohm. Record the measured resistance.
+4. Verify by inspection of appropriate supporting documentation that the CBF processing node has an integrated power filter on the input power line.
+5. Measure the resistance between the housing of the processing node input power filter and the processing node chassis. Confirm this is less than 0.1 ohm. Record the resistance.",,,,,
+CBF-REQ-0138,CBF EMC SANS standard,"10GbE and 40GbE Ethernet cables between the data switch and other LRUs within the CBF shall be either CAT6 or higher cables with a screen of 80% or higher optical coverage, grounded at both ends, or active optical cable, both terminating in either SPF+ 40GbE or 10GbE connectors.
+ 1GbE Ethernet cables between the Top-of-Rack switch and other LRUs within the CBF shall be CAT6 or higher cables terminating in RJ45 connectors.
+ Ethernet cables within a rack should be bundled separately from power cables, with separation distance >500mm as per NRS 083-3 section 4.4.3.
+ Cable bundles within a rack should be run closely against the rack sidewalls, with power and ethernet bundles preferably on opposite sides of the cabinet, as per NRS 083-3 section 4.4.20.
+ Where Ethernet cables and power cables cross within a rack, they should be routed to cross at right angles, as per NRS 083-3 section 4.4.9.",CBF Design to EMC SANS Standard VR,VR.C.7,"Verify by inspection that 10GbE and 40GbE Ethernet cables used in the CBF are either CAT6 or higher, or active optical cables.
+ Verify by inspection that Ethernet cables within each CBF rack have been bundled separately from power cables, with separation distance >500mm. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.
+ Verify by inspection that cable bundles within each CBF rack have been routed to run closely against the rack sidewalls, with power and Ethernet bundles preferably on opposite sides of the cabinet. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.
+ Verify by inspection that where Ethernet cables and power cables cross within each CBF rack, they have been routed to cross at right angles. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.",CBF Design to EMC SANS Standard VE,CBF.V.6.9,"Inspect that:
+1. 10GbE and 40GbE Ethernet cables used in the CBF are either CAT6 or higher, or active optical cables.
+2. Ethernet cables within each CBF rack have been bundled separately from power cables, with separation distance >500mm. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.
+3. cable bundles within each CBF rack have been routed to run closely against the rack sidewalls, with power and Ethernet bundles preferably on opposite sides of the cabinet. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.
+4. where Ethernet cables and power cables cross within each CBF rack, they have been routed to cross at right angles. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.",,,,,

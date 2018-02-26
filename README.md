@@ -113,7 +113,7 @@ Options:
 3. Whenever you find a bug, write a test case to cover it before fixing it
 4. Add edge-case tests to less critical code whenever someone has time to kil
 Credit: https://softwareengineering.stackexchange.com/a/754
-
+5. “Code is like humour. When you have to explain it, it’s bad.” – Cory House
 
 ## Contributors
 

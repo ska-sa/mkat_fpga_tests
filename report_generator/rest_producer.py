@@ -103,9 +103,10 @@ class ReStProducer(object):
                 self.output.append(self.indent + ':{}: {}'.format(option, value))
         self._ensure_empty_line()
         self.add_indented_raw_text(caption, level=1)
-        if legend:
-            self._ensure_empty_line()
-            self.add_indented_raw_text(legend, level=1)
+        # if legend:
+        #     self._ensure_empty_line()
+        #     self.add_indented_raw_text(legend, level=1)
+        self._ensure_empty_line()
         self._ensure_empty_line()
 
     def add_raw_text(self, text):
@@ -180,7 +181,9 @@ class ReStProducer(object):
                 table_header = header_map
             self._ensure_empty_line()
             self._output.append(".. csv-table:: %s" % table_title)
-            header = ['"%s"' % x.title() for x in table_header]
+
+            # header = ['"%s"' % x.title() for x in table_header]
+            header = ['"%s"' % x for x in table_header]
             if hide_first_header:
                 header[0] = " "
             self._output.append("   :header: %s" % ",".join(header))
@@ -262,8 +265,13 @@ class ReStProducer(object):
         self._output = []
         self._header = set()
 
+    def page_break(self):
+        """Add page break on the current document"""
+        self._ensure_empty_line()
+        self._output.append(r".. raw:: latex \clearpage")
+
     def clean_text_block(self, text):
-        """Atempt to cleanup a text block to be better displayed in RST.
+        """Attempt to cleanup a text block to be better displayed in RST.
 
         :param text: String,
         :return: String.
@@ -307,7 +315,7 @@ class ReStProducer(object):
                      'passed': 'green',
                      'tested': 'green',
                      'test implemented': 'green',
-                     'waived': 'fuchsia',
+                     'waived': 'red',
                      'control': 'gray',
                      'checkbox': 'lime',
                      'not_tested': 'red',

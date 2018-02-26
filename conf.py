@@ -16,6 +16,8 @@ import subprocess
 import sys
 import time
 
+from colors.colors import css_colors
+
 sys.path.append(os.path.abspath('.'))
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -175,14 +177,16 @@ except Exception:
 else:
     with open(_json_file) as _data:
         _document_data = json.load(_data)
+try:
+    _document_number, _document_info  = _document_data['document_number'].get(
+        _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
 
-_document_number, _document_info  = _document_data['document_number'].get(
-    _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
-
-_document_type = ' '.join(['Qualification Test',
-    _document_data.get('document_type')[_document_data.get('document_type').keys()[0]]])
-_filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
-    time.strftime('%Y%m%d', time.localtime()))
+    _document_type = ' '.join(['Qualification Test',
+        _document_data.get('document_type')[_document_data.get('document_type').keys()[0]]])
+    _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
+        time.strftime('%Y%m%d', time.localtime()))
+except Exception as e:
+    print '%s' % e.message
 
 # http://www.sphinx-doc.org/en/1.4.9/config.html#confval-latex_elements
 latex_elements = {
@@ -251,7 +255,11 @@ def replaceAll(_file, searchExp, replaceExp):
     with open(_file, 'r') as f:
         newlines = []
         for line in f.readlines():
-            newlines.append(line.replace(searchExp, replaceExp))
+            if searchExp in line:
+                newlines.append(line.replace(searchExp, replaceExp))
+            else:
+                newlines.append(line)
+
     with open(_file, 'w') as f:
         for line in newlines:
             f.write(line)
@@ -259,39 +267,70 @@ def replaceAll(_file, searchExp, replaceExp):
 def exit_handler():
     """Will execute upon script exit"""
     try:
-        colors = ['red', 'green', 'gray', 'orange']
+        _colors = css_colors.keys()
         curpath = os.path.dirname(os.path.realpath(__file__))
         tex_path = '/'.join([curpath, 'build/latex'])
         if os.path.isdir(tex_path):
             tex_file = ''.join(glob.glob('%s/*.tex' % tex_path))
             # Change/ force color change
-            for color in colors:
+            for color in _colors:
                 replaceAll(tex_file, "DUrole{%s}" % color, "textcolor{%s}" % color)
 
-            old_tags = ["{tabulary}{\linewidth}[t]{|T|T|T|T|}",
-                        "{tabulary}{\linewidth}[t]{|T|T|T|}",
-                        "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
-                        "end{tabulary}","\item[",
-                        "\item{", "] \leavevmode", "sphinxstylestrong{",
-                        "\end{savenotes}", "\chapter{TP", "\chapter{AQF",
-                        "\section{Test Configuration}", "\section{Requirements Verified}",
-                        "\section{Test Procedure}",
-                        r'\sphinxatlongtablestart\begin{longtable}{|l|l|l|l|}',
-                        r'\caption{Requirements', r'\strut}',
-                        r'\\*[\sphinxlongtablecapskipadjust]',
+            old_tags = [
+                        # r'\section{',
+                        # r"\bigskip\hrule\bigskip",
+                        r"{longtable}{|l|l|l|l|l|l|}",
+                        r'{} \(',
+                        r'$C\)',
+                        "\item[",
+                        "] \leavevmode",
+                        "sphinxstylestrong{",
+                        r'\strut}',
+                        r'\caption{Summary of Test',
+                        r'\caption{Requirements',
+                        r'\section{Test Procedure}',
+                        # "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
+                        # "{tabulary}{\linewidth}[t]{|T|T|T|}",
+                        # "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
+                        # "end{tabulary}",
+                        # "\item{",
+                        # "\end{savenotes}",
+                        # "\chapter{TP",
+                        # "\chapter{AQF",
+                        # "\section{Test Configuration}",
+                        # "\section{Requirements Verified}",
+                        # "\section{Test Procedure}",
+                        # r'\sphinxatlongtablestart\begin{longtable}{|l|l|l|l|}',
+                        # # r'\\*[\sphinxlongtablecapskipadjust]',
+                        # r"\sphinxcaption{Requirements Verification Traceability Matrix}",
                         ]
 
-            new_tags = ["{longtable}[c]{|p{1.2in}|p{.7in}|p{2in}|p{.8in}|}",
-                        "{longtable}[c]{|l|l|l|}",
-                        "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
-                        "end{longtable}",  "\item", "\item\hspace{-0.15cm}{",
-                        " \leavevmode", "sphinxstylestrong{\small ",
-                        "\end{savenotes}\\newpage", "\section{TP",
-                        "\section{AQF", "\subsection{Test Configuration}",
-                        "\subsection{Requirements Verified}", "\subsection{Test Procedure}",
-                        r"\sphinxattablestart\centering\sphinxcapstartof{table}",
-                        r'\sphinxcaption{Requirements', '}',
-                        r'\sphinxaftercaption\begin{longtable}[c]{|p{1.2in}|p{.7in}|p{2in}|p{.8in}|}',
+            new_tags = [
+                        # r'\newpage\section{',
+                        # r"\vspace{5mm}\bigskip\hrule\bigskip",
+                        r"{longtable}[l]{|p{1in}|p{0.6in}|p{1.3in}|p{0.6in}|p{1.3in}|p{0.6in}|}",
+                        "{} (",
+                        "$C)",
+                        "\item\hspace{-0.15cm}",
+                        " \leavevmode",
+                        "sphinxstylestrong{\small ",
+                        r"% \sphinxcaption{Requirements Verification Traceability Matrix}",
+                        r'% \caption{Summary of Test',
+                        r'% \caption{Requirements',
+                        r'\subsection{Test Procedure}',
+                        # "{longtable}[c]{|l|l|l|}",
+                        # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
+                        # "end{longtable}",
+                        # "\item",
+                        # "\end{savenotes}\\newpage",
+                        # "\section{TP",
+                        # "\section{AQF",
+                        # "\subsection{Test Configuration}",
+                        # "\subsection{Requirements Verified}",
+                        # "\subsection{Test Procedure}",
+                        # r"\sphinxattablestart\centering\sphinxcapstartof{table}",
+                        #  '}',
+                        # # r'\sphinxaftercaption\begin{longtable}[l]{|p{0.95in}|p{0.6in}|p{1.3in}|p{1.5in}|p{1in}|p{0.6in}|}',
                         ]
 
             for _old_tags, _new_tags in zip(old_tags, new_tags):

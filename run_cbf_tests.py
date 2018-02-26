@@ -88,6 +88,12 @@ def option_parser():
                       help="Do a dry run. Print commands that would be called as well as generate"
                            "test procedures")
 
+    parser.add_option("--manual-test",
+                      dest="manual_test",
+                      action="store_true",
+                      default=False,
+                      help="Run manual tests and generate report if applicable")
+
     parser.add_option("--available-tests",
                       dest="available-tests",
                       action="store_true",
@@ -158,7 +164,7 @@ def option_parser():
                       dest="gen_qtr",
                       action="store_true",
                       default=False,
-                      help="Generate PDF report output with Qualification Test Results")
+                      help="Generate PDF report output with Qualification Test Report")
 
     parser.add_option("--no_slow",
                       dest="slow_test",
@@ -224,9 +230,11 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
                     cmd[item] = cmd[item].replace('-A(', '-A"(') + '"'
 
     if settings.get('dry_run'):
-        # Just print the command
         os.environ['DRY_RUN'] = 'True'
         # settings['gen_qtp'] = True
+
+    if settings.get('manual_test'):
+        os.environ['MANUAL_TEST'] = 'True'
 
     if settings.get('available-tests'):
         # nosetests -vv collect-only
@@ -563,8 +571,8 @@ def generate_sphinx_docs(settings):
             document_data['document_type'] = {'QTP': 'Procedure'}
             generate_index(_Index_QTP)
         elif settings.get('gen_qtr'):
-            logger.info("Generating Qualification Test Results (PDF) document.")
-            document_data['document_type'] = {'QTR': 'Results'}
+            logger.info("Generating Qualification Test Report (PDF) document.")
+            document_data['document_type'] = {'QTR': 'Report'}
             generate_index(_Index_QTR)
         else:
             logger.error('You need to specify which document you need to produce')
@@ -601,13 +609,11 @@ def generate_sphinx_docs(settings):
             orig_names = ['Doctype', 'DocNumber', 'DocRevision', 'DocumentTitle']
             if settings.get('gen_qtr', False):
                 logger.debug('Making fixes for QTR on Cover page')
-                num_antennas = ''.join(['(',document_data['document_number'].get(
-                    document_data.get('documented_instrument', 'Unknown'), 'Unknown')[-1].split(
-                    'Antenna')[0],  'A Fully Tested) '])
+                _system_type = ' (%s) ' % settings.get('system_type', 'Unknown')
                 _document_num = document_data['document_number'].get(
                     document_data.get('documented_instrument', 'Unknown'), 'Unknown')[0]
                 _document_title = _document_title.replace('Qualification',
-                    num_antennas + 'Qualification')
+                    _system_type + 'Qualification')
                 # TODO (MM) Find a way not to hardcode this info
                 replaceAll(latex_file, '{Performed by}{}{}',
                     '{Performed by}{M. Mphego}{Test \& Verification Engineer}')
@@ -708,7 +714,7 @@ def run_nose_test(settings):
            # Include site_only tests if in the Karoo
            condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
        else:
-           condition['AND'].append("aqf_site_acceptance")
+           condition['AND'].append("aqf_site_acceptance or aqf_manual_test")
 
     if settings.get('mode'):
         _instrument = settings.get('mode')
@@ -717,10 +723,11 @@ def run_nose_test(settings):
             # For Acceptance
             # run tests decorated with aqf_instrument_MODE and site_acceptance
             # and aqf_site_tests
-            _conditions = '(aqf_site_test or (aqf_site_acceptance and %s))' % _decorated_instrument
+            _conditions = '(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))' % _decorated_instrument
             condition['AND'].append(_conditions)
-        elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32')) and \
-            settings['system_location'].lower() == 'lab'):
+        elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32') \
+                or _instrument.startswith('bc64')or _instrument.startswith('bc128')) and \
+                settings['system_location'].lower() == 'lab'):
             logger.error("Test can ONLY be ran on SITE!!!!!!!!")
             sys.exit(1)
         else:
@@ -733,11 +740,11 @@ def run_nose_test(settings):
             # run aqf_auto_test decorated with site_acceptance
             # and aqf_demo_tests decorated with site_acceptance
             # and aqf_site_tests
-            condition['AND'].append('(aqf_site_test or aqf_site_acceptance)')
+            condition['AND'].append('(aqf_site_test or aqf_site_acceptance or aqf_manual_test)')
         else:
             # For Qualification Testing:
             # run all tests except site_tests
-            condition['AND'].append('(not aqf_site_test)')
+            condition['AND'].append('(not aqf_site_test or aqf_manual_test)')
             pass
 
     if not settings.get('slow_test'):
@@ -790,9 +797,9 @@ def run_nose_test(settings):
         for arg in nose_args.split():
             cmd.append(arg)
         # Run with --logging-level WARN if logging-level not passed in with nose_args
-        cmd.append("--logging-level=WARN")
-    else:
         cmd.append("--logging-level=INFO")
+    else:
+        cmd.append("--logging-level=WARN")
 
     # Let the output log be written into the katreport_dir
     cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
@@ -1305,12 +1312,12 @@ if __name__ == "__main__":
     if settings['report'] in ['results']:
         show_test_results(settings)
     elif settings['report'] not in ['skip']:
-        try:
-            if settings.get('gen_html', False) or settings.get('gen_qtp', False) or settings.get(
-                'gen_qtr', False):
-                generate_report(settings)
-                generate_sphinx_docs(settings)
-        except Exception as e:
-            errmsg = "Experienced some issues: %s" % str(e)
-            logger.error(errmsg)
-            sys.exit(errmsg)
+        # try:
+          if settings.get('gen_html', False) or settings.get('gen_qtp', False) or settings.get(
+              'gen_qtr', False):
+              generate_report(settings)
+              generate_sphinx_docs(settings)
+        # except Exception as e:
+        #     errmsg = "Experienced some issues: %s" % str(e)
+        #     logger.error(errmsg)
+        #     sys.exit(errmsg)
