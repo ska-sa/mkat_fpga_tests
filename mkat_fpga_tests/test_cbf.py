@@ -281,6 +281,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success and _running_inst:
                 n_chans = self.corr_freqs.n_chans
                 test_chan = random.randrange(start=n_chans % 100, stop=n_chans - 1)
+                test_heading("CBF Channelisation Wideband Coarse L-band")
                 self._test_channelisation(test_chan, no_channels=4096, req_chan_spacing=250e3)
             else:
                 Aqf.failed(self.errmsg)
@@ -299,6 +300,7 @@ class test_CBF(unittest.TestCase):
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 test_chan = random.randrange(self.corr_freqs.n_chans)
+                test_heading("CBF Channelisation Wideband Fine L-band")
                 self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
             else:
                 Aqf.failed(self.errmsg)
@@ -317,6 +319,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument(instrument, acc_time=0.2)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
+                test_heading("CBF Channelisation Wideband Coarse SFDR L-band")
                 self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=4096)  # Hz
             else:
                 Aqf.failed(self.errmsg)
@@ -335,6 +338,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument(instrument, acc_time=0.2)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
+                test_heading("CBF Channelisation Wideband Fine SFDR L-band")
                 self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=32768)  # Hz
             else:
                 Aqf.failed(self.errmsg)
@@ -1517,6 +1521,7 @@ class test_CBF(unittest.TestCase):
                 end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime('%Y-%m-%d %H:%M:%S')
                 ru_smpls = np.asarray(rolled_up_samples)
                 tot_power = ru_smpls[:, 1:4].sum(axis=1)
+                Aqf.step("Compile Power consumption report while running SFDR test.")
                 Aqf.progress('Power report from {} to {}'.format(start_time, end_time))
                 Aqf.progress('Average sample time: {}s'.format(int(np.diff(ru_smpls[:, 0]).mean())))
                 # Add samples for pdus in same rack
@@ -1533,17 +1538,20 @@ class test_CBF(unittest.TestCase):
                     curr = val[:, 0]
                     power = val[:, 1]
                     watts = power.sum(axis=1).mean()
+                    Aqf.step("Measure CBF Power rack and confirm power consumption is less than 6.25kW")
                     msg = ('Measured power for rack {} ({:.2f}kW) is less than {}kW'.format(
                             rack, watts, max_power_per_rack))
                     Aqf.less(watts, max_power_per_rack, msg)
                     phase = np.zeros(3)
                     for i, x in enumerate(phase):
                         phase[i] = curr[:, i].mean()
+                    Aqf.step("Measure CBF Power and confirm power consumption is less than 60kW")
                     Aqf.progress('Average current per phase for rack {}: P1={:.2f}A, P2={:.2f}A, '
                             'P3={:.2f}A'.format(rack, phase[0], phase[1], phase[2]))
                     ph_m = np.max(phase)
                     max_diff = np.max([100 * (x / ph_m) for x in ph_m - phase])
                     max_diff = float('{:.1f}'.format(max_diff))
+                    Aqf.step("Measure CBF Peak Power and confirm power consumption is less than 60kW")
                     msg = ('Maximum difference in current per phase for rack {} ({:.1f}%) is '
                            'less than {}%'.format(rack, max_diff, max_power_diff_per_rack))
                     # Aqf.less(max_diff,max_power_diff_per_rack,msg)
@@ -2112,6 +2120,7 @@ class test_CBF(unittest.TestCase):
             power_log_file = power_logger.log_file_name
             power_logger.join()
             try:
+                test_heading("CBF Power Consumption")
                 self._process_power_log(start_timestamp, power_log_file)
             except Exception:
                 msg = 'Failed to read/decode the PDU log.'
@@ -2840,7 +2849,7 @@ class test_CBF(unittest.TestCase):
                         Aqf.step('Delay #%s will be applied with the following parameters:' %count)
                         msg = ('On baseline %s and input %s, Current epoch time: %s (%s)'
                               ', Current Dump timestamp: %s (%s), '
-                              'Time delays will be applied: %s (%s), Delay to be applied: %s' %(
+                              'Delay(s) will be applied @ %s (%s), Delay to be applied: %s' %(
                             setup_data['baseline_index'], setup_data['test_source'],
                             time.time(), time.strftime("%H:%M:%S"), this_freq_dump['dump_timestamp'],
                             this_freq_dump['dump_timestamp_readable'], t_apply, t_apply_readable,
@@ -3886,7 +3895,7 @@ class test_CBF(unittest.TestCase):
                         return
                     else:
                         Aqf.is_true(reply.reply_ok(), 'CAM Reply: {}'.format(str(reply)))
-                        Aqf.passed('Delays were applied on input: {} successfully'.format(delayed_input))
+                        Aqf.passed('Delays where successfully applied on input: {}'.format(delayed_input))
                     try:
                         Aqf.step('Getting SPEAD accumulation (while discarding subsequent dumps) containing '
                                  'the change in delay(s) on input: %s.'%(test_source_idx))
