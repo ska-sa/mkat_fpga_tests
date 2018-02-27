@@ -180,6 +180,10 @@ class TestProcedure:
             - Capture a correlator SPEAD accumulation.
             - Confirm that auto-correlation in baseline 1 contains non-Zeros and
             - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
+            
+        **Route Digitisers Raw Data Verification**
+        1. The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.
+        2. The baseline correlation test proves that the CBF ingests raw digitser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
 
         """
         return _description
@@ -335,7 +339,7 @@ class TestProcedure:
             - Confirm the number of calculated channel frequency step is within requirement.
             - Determine the number of channels and processing bandwidth
         6. Sweep the digitiser simulator over the all channels that fall within the complete L-band.
-            - Capture SPEAD accumulation for every frequency channel and,
+            - Capture SPEAD accumulation for every frequ0ency channel and,
         7. Calculate and check that the correct channels have the peak response to each frequency
             - Confirm that the correct channels have the peak response to each frequency
             - Check that no other channels response more than -53 dB.
@@ -351,26 +355,15 @@ class TestProcedure:
         _description = """
         **CBF Power Consumption**
 
-        1. Request power consumption of each PDU via telnet interface at 1 minute intervals.
-        2. Repeat for each PDU.
-        3. Exercise each of the available CBF data product sets for 10 minutes or more. The total time must be more than 60 minutes.
-        4. After >60 minutes, log in to each CBF PDU in turn. Click Logs->Data->log. Copy and paste the data log into a text file. Import that file as a space delimited file into a spreadsheet, with a worksheet per PDU.
-        5. Make a column in each worksheet which computes for each entry the percentage instantaneous current drawn per phase i.e. I Ph1/(I Ph1+I Ph2+I Ph3).
-        6. Make a column in each worksheet which computes for each entry the max of the percentage instantaneous current drawn per phase divided by the min of the percentage instantaneous current drawn per phase (=MAX(T5:V5)/MIN(T5:V5)).
-        7. Compute the maximum of that ratio.
-        8. Repeat for each PDU in each worksheet. The load balance test passes if the maximum ratio is less than 1.33 in each worksheet.
-            - In each worksheet, make a column which computes total instantaneous power by multiplying current drawn over the three phases, multiplied by 220 i.e. (I Ph1+I Ph2+I Ph3)*220.
-            -  In each worksheet, compute the average of the power.
-        9. The average power per rack test passes if the average peak power in each of the spreadsheets is <= 6.25kW.
-        10. Sum the average power per rack to get a CBF average peak power.
-        11. The CBF average peak power test passes if the CBF average power is <= 60kW.
-        12. Divide the CBF average power by the number of CBF racks that are actually used, to get a CBF average power per rack.
-        13. The CBF maximum heat generation test passes that the CBF average power per rack is <= 5kW.
-
-            - In each worksheet, make a column which computes peak power by multiplying peak current drawn over the three phases,
-                multiplied by 220 i.e. (Imax Ph1+Imax Ph2+Imax Ph3)*220.
-            - Sum the peak power of each rack to get a CBF peak power.
-            - The CBF peak power test passes if the maximum CBF peak power is <= 60kW.
+        1. Configure the CBF to produce the imaging data product.
+        2. Record power consumption for all relevant PDUs over a period of more than 60 minutes.
+        3. Check that the difference in current per phase is less than 5A.
+        4. If the difference is more than 5A check that all phase currents are within 15% of each other.  
+        5. The average power per rack test passes if the average peak power is <= 6.25kW.
+        6. Sum the average power per rack to get a CBF average peak power.
+        7. The CBF peak and average power test passes if the CBF power is <= 60kW.
+        8. Divide the CBF average power by the number of CBF racks that are actually used, to get a CBF average power per rack.
+        9. The CBF maximum heat generation test passes that the CBF average power per rack is <= 5kW.
         """
         return _description
 
