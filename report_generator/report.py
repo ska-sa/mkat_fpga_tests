@@ -13,7 +13,7 @@ import zlib
 
 from report_generator.rest_producer import ReStProducer
 
-_array_release = '2/3'
+_array_release = '3'
 
 
 class Report(object):

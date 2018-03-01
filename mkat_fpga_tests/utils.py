@@ -18,9 +18,7 @@ import time
 import warnings
 
 from collections import Mapping
-from concurrent.futures import TimeoutError
 from Crypto.Cipher import AES
-from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
 # MEMORY LEAKS DEBUGGING
@@ -414,128 +412,128 @@ def clear_all_delays(self, num_int=10):
     return False
 
 
-def get_fftoverflow_qdrstatus(correlator):
-    """Get dict of all roaches present in the correlator
-    Param: Correlator object
-    Return: Dict:
-        Roach, QDR status, PFB counts
-    """
-    fhosts = {}
-    xhosts = {}
-    dicts = {'fhosts': {}, 'xhosts': {}}
-    fengs = correlator.fhosts
-    xengs = correlator.xhosts
-    for fhost in fengs:
-        fhosts[fhost.host] = {}
-        try:
-            fhosts[fhost.host]['QDR_okay'] = fhost.ct_okay()
-        except Exception:
-            return False
-        for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
-            fhosts[fhost.host][pfb] = value
-        for xhost in xengs:
-            xhosts[xhost.host] = {}
-            try:
-                xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
-            except Exception:
-                return False
-    dicts['fhosts'] = fhosts
-    dicts['xhosts'] = xhosts
-    return dicts
+# def get_fftoverflow_qdrstatus(correlator):
+#     """Get dict of all roaches present in the correlator
+#     Param: Correlator object
+#     Return: Dict:
+#         Roach, QDR status, PFB counts
+#     """
+#     fhosts = {}
+#     xhosts = {}
+#     dicts = {'fhosts': {}, 'xhosts': {}}
+#     fengs = correlator.fhosts
+#     xengs = correlator.xhosts
+#     for fhost in fengs:
+#         fhosts[fhost.host] = {}
+#         try:
+#             fhosts[fhost.host]['QDR_okay'] = fhost.ct_okay()
+#         except Exception:
+#             return False
+#         for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
+#             fhosts[fhost.host][pfb] = value
+#         for xhost in xengs:
+#             xhosts[xhost.host] = {}
+#             try:
+#                 xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
+#             except Exception:
+#                 return False
+#     dicts['fhosts'] = fhosts
+#     dicts['xhosts'] = xhosts
+#     return dicts
 
 
-def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
-    """Checks if FFT overflows and QDR status on roaches
-    Param: Correlator object, last known pfb counts
-    Return: list:
-        Roaches with QDR status errors
-    """
-    qdr_error_roaches = set()
-    try:
-        fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
-    except Exception:
-        return False
-    if fftoverflow_qdrstatus is not False:
-        curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
-    else:
-        curr_pfb_counts = False
-    if curr_pfb_counts is not False:
-        for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
-                last_pfb_counts.items(), curr_pfb_counts.items()):
-            if curr_pfb_host is curr_pfb_host_x:
-                if curr_pfb_value != last_pfb_value:
-                    if status:
-                        Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
+# def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
+#     """Checks if FFT overflows and QDR status on roaches
+#     Param: Correlator object, last known pfb counts
+#     Return: list:
+#         Roaches with QDR status errors
+#     """
+#     qdr_error_roaches = set()
+#     try:
+#         fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
+#     except Exception:
+#         return False
+#     if fftoverflow_qdrstatus is not False:
+#         curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
+#     else:
+#         curr_pfb_counts = False
+#     if curr_pfb_counts is not False:
+#         for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
+#                 last_pfb_counts.items(), curr_pfb_counts.items()):
+#             if curr_pfb_host is curr_pfb_host_x:
+#                 if curr_pfb_value != last_pfb_value:
+#                     if status:
+#                         Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
 
-        for hosts_status in fftoverflow_qdrstatus.values():
-            for host, _hosts_status in hosts_status.items():
-                if _hosts_status['QDR_okay'] is False:
-                    if status:
-                        Aqf.failed('QDR status on {} not Okay.'.format(host))
-                    qdr_error_roaches.add(host)
+#         for hosts_status in fftoverflow_qdrstatus.values():
+#             for host, _hosts_status in hosts_status.items():
+#                 if _hosts_status['QDR_okay'] is False:
+#                     if status:
+#                         Aqf.failed('QDR status on {} not Okay.'.format(host))
+#                     qdr_error_roaches.add(host)
 
-        return list(qdr_error_roaches)
+#         return list(qdr_error_roaches)
 
-def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
-            LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
-            for _sensor in list_sensor:
-                try:
-                    _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
-                    if _status_hosts is not (True or None):
-                        for _status in _status_hosts:
-                            LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                except Exception as e:
-                    errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
-                    LOGGER.exception(errmsg)
+# def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
+#             LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
+#             for _sensor in list_sensor:
+#                 try:
+#                     _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
+#                     if _status_hosts is not (True or None):
+#                         for _status in _status_hosts:
+#                             LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
+#                                  getframeinfo(currentframe()).filename.split('/')[-1],
+#                                  getframeinfo(currentframe()).lineno))
+#                 except Exception as e:
+#                     errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
+#                     LOGGER.exception(errmsg)
 
 
 
-def check_host_okay(self, engine=None, sensor=None):
-    """
-    Function retrieves PFB, LRU, QDR, PHY and reorder status on all F/X-Engines via Cam interface.
-    :param: Object: self
-    :param: Str: F/X-engine
-    :param: Str: sensor
-    :rtype: Boolean or List
-    """
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=cam_timeout)
-        assert reply.reply_ok()
-    except Exception:
-        LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
-        return None
-    else:
-        if engine == 'feng':
-            hosts = [_i.host.lower() for _i in self.correlator.fhosts]
-        elif engine == 'xeng':
-            hosts = [_i.host.lower() for _i in self.correlator.xhosts]
-        else:
-            LOGGER.error('Engine cannot be None')
-            return None
+# def check_host_okay(self, engine=None, sensor=None):
+#     """
+#     Function retrieves PFB, LRU, QDR, PHY and reorder status on all F/X-Engines via Cam interface.
+#     :param: Object: self
+#     :param: Str: F/X-engine
+#     :param: Str: sensor
+#     :rtype: Boolean or List
+#     """
+#     try:
+#         reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=cam_timeout)
+#         assert reply.reply_ok()
+#     except Exception:
+#         LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
+#         return None
+#     else:
+#         if engine == 'feng':
+#             hosts = [_i.host.lower() for _i in self.correlator.fhosts]
+#         elif engine == 'xeng':
+#             hosts = [_i.host.lower() for _i in self.correlator.xhosts]
+#         else:
+#             LOGGER.error('Engine cannot be None')
+#             return None
 
-        sensor_status = [[' '.join(i.arguments[2:]) for i in informs
-                         if i.arguments[2].endswith('ok') and not i.arguments[2].startswith('antenna')]
-                         for host in hosts]
-        _errors_list = []
-        for i in sensor_status:
-            try:
-                assert str(i[0].split()[-2]) == 'nominal'
-                return True
-            except AssertionError:
-                if sensor in i[0]:
-                    errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
-                    LOGGER.error(errmsg)
-                    _errors_list.append(errmsg)
-            except IndexError:
-                LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
-                             'File: %s line: %s' % (
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                return None
+#         sensor_status = [[' '.join(i.arguments[2:]) for i in informs
+#                          if i.arguments[2].endswith('ok') and not i.arguments[2].startswith('antenna')]
+#                          for host in hosts]
+#         _errors_list = []
+#         for i in sensor_status:
+#             try:
+#                 assert str(i[0].split()[-2]) == 'nominal'
+#                 return True
+#             except AssertionError:
+#                 if sensor in i[0]:
+#                     errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
+#                     LOGGER.error(errmsg)
+#                     _errors_list.append(errmsg)
+#             except IndexError:
+#                 LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
+#                              'File: %s line: %s' % (
+#                                  getframeinfo(currentframe()).filename.split('/')[-1],
+#                                  getframeinfo(currentframe()).lineno))
+#                 return None
 
-        return _errors_list
+#         return _errors_list
 
 
 def get_vacc_offset(xeng_raw):
@@ -823,9 +821,6 @@ class Text_Style(object):
         self.GREEN = '\033[92m'
         self.YELLOW = '\033[93m'
         self.RED = '\033[91m'
-
-    def Bold(self, msg=None):
-        return (self.BOLD + msg + self.END)
 
     def Red(self, msg=None):
         return (self.RED + msg + self.END)
@@ -1550,9 +1545,9 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         with h5py.File(newest_f, 'r') as fin:
             data = fin['Data'].values()
             for element in data:
-                if element.name.find('captured_timestamps') > -1:
-                    cap_ts = np.array(element.value)
-                elif element.name.find('bf_raw') > -1:
+                # if element.name.find('captured_timestamps') > -1:
+                #     cap_ts = np.array(element.value)
+                if element.name.find('bf_raw') > -1:
                     bf_raw = np.array(element.value)
                 elif element.name.find('timestamps') > -1:
                     bf_ts = np.array(element.value)
@@ -1575,17 +1570,15 @@ def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
 def set_beam_quant_gain(self, beam, gain):
     try:
         reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(beam, gain)
-        if reply.reply_ok():
-            actual_beam_gain = float(reply.arguments[1])
-            msg = ('Requested beamformer level adjust gain of {:.2f}, '
-                   'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
-            Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
-        else:
-            raise Exception
+        assert reply.reply_ok()
+        actual_beam_gain = float(reply.arguments[1])
+        msg = ('Requested beamformer level adjust gain of {:.2f}, '
+               'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
+        Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
+        return actual_beam_gain
     except Exception, e:
         Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
         return 0
-    return actual_beam_gain
 
 
 class DictEval(object):
@@ -1668,11 +1661,12 @@ class CSV_Reader(object):
         try:
             assert self.csv_filename
             df = pd.read_csv(self.csv_filename)
-            df = df.replace(np.nan, "Unknown", regex=True)
+            df = df.replace(np.nan, "TBD", regex=True)
+            df = df.fillna(method='ffill')
         except:
             return False
         else:
-            return df.set_index(self.set_index) if self.set_index else df1
+            return df.set_index(self.set_index) if self.set_index else df
 
     def csv_to_dict(self, ve_number=None):
         """

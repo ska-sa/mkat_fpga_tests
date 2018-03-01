@@ -213,7 +213,7 @@ latex_elements = {
     \let\cleardoublepage\clearpage
     """,
     'fontpkg': r'\usepackage{times}',
-    'releasename': 'Array Release 2/3',
+    'releasename': 'Array Release 3',
     'maketitle': '',
     }
 
@@ -289,6 +289,9 @@ def exit_handler():
                         r'\caption{Summary of Test',
                         r'\caption{Requirements',
                         r'\section{Test Procedure}',
+                        r'\(\phi_{TA}(f\) = -2*\pi*f_{RF}*\tau_{TA}\)',
+                        r'Fly’92s',
+                        r'19‘94 racks',
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
@@ -318,6 +321,9 @@ def exit_handler():
                         r'% \caption{Summary of Test',
                         r'% \caption{Requirements',
                         r'\subsection{Test Procedure}',
+                        r'$\phi${\footnotesize TA}(f) = -2 * $\pi$ * f{\footnotesize RF} * $\tau{\footnotesize TA}$',
+                        r"Fly's",
+                        r'19" racks',
                         # "{longtable}[c]{|l|l|l|}",
                         # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
                         # "end{longtable}",

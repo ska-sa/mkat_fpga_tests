@@ -180,34 +180,64 @@ class TestProcedure:
             - Capture a correlator SPEAD accumulation.
             - Confirm that auto-correlation in baseline 1 contains non-Zeros and
             - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
-            
-        **Route Digitisers Raw Data Verification**
-        1. The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.
-        2. The baseline correlation test proves that the CBF ingests raw digitser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
 
+        **Route Digitisers Raw Data Verification**
+
+        1. The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.
+        2. The baseline correlation test proves that the CBF ingests raw digitiser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
+
+        """
+        return _description
+
+
+    @property
+    def ImagingDataProductSet(self):
+        _description = """
+
+        1. Configure a digitiser simulator to be used as input source to F-Engines and generate correlated noise.
+        2. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        4. Configure the CBF to generate Baseline Correlation Products (If available)
+        5. Capture Correlation Data and,
+            - Confirm the number of channels in the SPEAD data.
+            - Check that data product has the number of frequency channels corresponding to the instrument.
+            - Confirm that data products were captured.
         """
         return _description
 
     @property
-    def DataProduct(self):
+    def TiedArrayAuxBaselineCorrelationProducts(self):
         _description = """
-        **Data Product**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated noise.
-        3. Set a predetermined accumulation period
+        1. Configure a digitiser simulator to be used as input source to F-Engines and generate correlated noise.
+        2. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Configure the CBF to simultaneously generate Baseline Correlation Products and Tied-Array Voltage Data Products (If available)
-        6. Capture Tied-Array Data and,
+        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        4. Configure the CBF to simultaneously generate Baseline Correlation Products and Tied-Array Voltage Data Products (If available)
+        5. Capture Tied-Array Data and,
             - Confirm that the tide-array data were captured.
-        7. Capture Correlation Data and,
+        6. Capture Correlation Data and,
             - Confirm the number of channels in the SPEAD data.
             - Check that data product has the number of frequency channels corresponding to the instrument.
             - Confirm that data products were captured.
-        8. Confirm that imaging data product set has been implemented for the instrument
         """
         return _description
+
+    @property
+    def TiedArrayVoltageDataProductSet(self):
+        _description = """
+
+        1. Configure a digitiser simulator to be used as input source to F-Engines and generate correlated noise.
+        2. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        4. Configure the CBF to generate Tied-Array Voltage Data Products (If available)
+        5. Capture Tied-Array Data and,
+            - Confirm that the tide-array data were captured.
+        """
+        return _description
+
 
     @property
     def Control(self):
@@ -238,7 +268,6 @@ class TestProcedure:
     @property
     def VoltageBuffer(self):
         _description = """
-        **Voltage Buffer Data Product**
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate continuous wave
@@ -283,8 +312,8 @@ class TestProcedure:
         2. Configure the CBF to generate a data product, using the noise source. Which specific data product is chosen is irrelevant.
         3. Confirm that SPEAD packets are being produced, with the selected data product(s).
         4. Start timer.
-        5. De-program CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
-        6. Verify by setting up multiple sub-arrays (repeat step 2 and 3) and verify that they operate independently without interference..
+        5. Halt the CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
+        6. Re-initialise the CBF and,
             - Confirm that SPEAD packets are being produced, with the selected data product(s).
         7. Stop timer and
             - Confirm data product switching time is less than 60 seconds (Data Product switching time = End time - Start time.)
@@ -339,7 +368,7 @@ class TestProcedure:
             - Confirm the number of calculated channel frequency step is within requirement.
             - Determine the number of channels and processing bandwidth
         6. Sweep the digitiser simulator over the all channels that fall within the complete L-band.
-            - Capture SPEAD accumulation for every frequ0ency channel and,
+            - Capture SPEAD accumulation for every frequency channel and,
         7. Calculate and check that the correct channels have the peak response to each frequency
             - Confirm that the correct channels have the peak response to each frequency
             - Check that no other channels response more than -53 dB.
@@ -358,7 +387,7 @@ class TestProcedure:
         1. Configure the CBF to produce the imaging data product.
         2. Record power consumption for all relevant PDUs over a period of more than 60 minutes.
         3. Check that the difference in current per phase is less than 5A.
-        4. If the difference is more than 5A check that all phase currents are within 15% of each other.  
+        4. If the difference is more than 5A check that all phase currents are within 15% of each other.
         5. The average power per rack test passes if the average peak power is <= 6.25kW.
         6. Sum the average power per rack to get a CBF average peak power.
         7. The CBF peak and average power test passes if the CBF power is <= 60kW.
@@ -376,9 +405,9 @@ class TestProcedure:
         3. Set a predetermined accumulation period, and
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm the CBF output product.
-        5. Confirm that the user can disable and/or enable delays and/or phase via CAM interface.
-        6. Set delays via CAM interface, and
-            - Confirm that the time it takes to set the delays is below 1 seconds
+        5. Confirm that the user can disable and/or enable Delays and/or Phase changes via CAM interface.
+        6. Set delays/phase changes via CAM interface, and
+            - Confirm that the time it takes to set the delays/phases is below 1 seconds.
         """
         return _description
 
@@ -546,7 +575,7 @@ class TestProcedure:
     @property
     def PowerSupply(self):
         _description = """
-        1. Confirm by inspection of the datasheets of each of the LRUs used in the CBF that the LRUs are specified to work over an input voltage range of at least 209Vrms to 231Vrms, frequency range at least 49.5Hz to 50.5Hz.
+        1. Confirm by inspection of the data sheets of each of the LRUs used in the CBF that the LRUs are specified to work over an input voltage range of at least 209Vrms to 231Vrms, frequency range at least 49.5Hz to 50.5Hz.
         2. Record the item part numbers and supply references to the item data sheets and/or specification used.
 
         NOTE: Total harmonic distortion is not tested. This is considered low enough risk to be acceptable.
@@ -976,4 +1005,3 @@ class TestProcedure:
 
 
 TestProcedure = TestProcedure()
-
