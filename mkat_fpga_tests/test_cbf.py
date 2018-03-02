@@ -42,9 +42,6 @@ from katcp.testutils import start_thread_with_cleanup
 # from memory_profiler import profile as DetectMemLeaks
 from datetime import datetime
 
-# Todo MM 07-09-2017
-# perhaps import mkat_fpga_tests.utils as Utils
-# and mkat_fpga_tests.aqf_utils as AQF_Utils instead
 from mkat_fpga_tests import correlator_fixture
 
 from mkat_fpga_tests.aqf_utils import *
@@ -697,11 +694,18 @@ class test_CBF(unittest.TestCase):
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.3")
-    @aqf_requirements("CBF-REQ-0018", "CBF-REQ-0019", "CBF-REQ-0021", "CBF-REQ-0022", "CBF-REQ-0024")
+    @aqf_requirements("CBF-REQ-0018", "CBF-REQ-0019", "CBF-REQ-0022", "CBF-REQ-0024")
     @aqf_requirements("CBF-REQ-0011", "CBF-REQ-0012", "CBF-REQ-0014", "CBF-REQ-0016", "CBF-REQ-0017")
     @aqf_requirements("CBF-REQ-0027", "CBF-REQ-0064")
     def test__states_and_modes_ve(self):
         self._test_global_manual("CBF.V.3.3")
+
+    @manual_test
+    @generic_test
+    @aqf_vr("CBF.V.3.77")
+    @aqf_requirements("CBF-REQ-0021")
+    def test__full_fucnctional_mode_ve(self):
+        self._test_global_manual("CBF.V.3.77")
 
     @manual_test
     @generic_test
@@ -894,8 +898,9 @@ class test_CBF(unittest.TestCase):
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.57")
-    @aqf_requirements("CBF-REQ-0193", "CBF-REQ-0195", "CBF-REQ-0230", "CBF-REQ-0231")
-    @aqf_requirements("CBF-REQ-0232", "CBF-REQ-0233", "CBF-REQ-0235")
+    @aqf_requirements("CBF-REQ-0193")
+    # @aqf_requirements("CBF-REQ-0195", "CBF-REQ-0230", "CBF-REQ-0231", "CBF-REQ-0232",)
+    # @aqf_requirements("CBF-REQ-0233", "CBF-REQ-0235")
     def test__data_subscribers_link_ve(self):
         self._test_global_manual("CBF.V.3.57")
 
@@ -938,136 +943,136 @@ class test_CBF(unittest.TestCase):
 #----------------------------------------------NOT TESTED-----------------------------------------
 #---------------------------------------------------------------------------------------------------
 
-    @untested
-    @generic_test
-    @aqf_vr('CBF.V.3.61')
-    @aqf_requirements("CBF-REQ-0007")
-    def test__vlbi_data_product(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be qualified on AR3.")
+    # @untested
+    # @generic_test
+    # @aqf_vr('CBF.V.3.61')
+    # @aqf_requirements("CBF-REQ-0007")
+    # def test__vlbi_data_product(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be qualified on AR3.")
 
-    @untested
-    @generic_test
-    @aqf_vr('CBF.V.3.68')
-    @aqf_requirements("CBF-REQ-0025.1")
-    def test__data_product_xband(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be qualified on AR3.")
+    # @untested
+    # @generic_test
+    # @aqf_vr('CBF.V.3.68')
+    # @aqf_requirements("CBF-REQ-0025.1")
+    # def test__data_product_xband(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be qualified on AR3.")
 
-    @untested
-    @generic_test
-    @aqf_vr('CBF.V.3.30')
-    @aqf_requirements("CBF-REQ-0035", "CBF-REQ-0036", "CBF-REQ-0039")
-    @aqf_requirements("CBF-REQ-0041", "CBF-REQ-0044", "CBF-REQ-0050")
-    @aqf_requirements("CBF-REQ-0051", "CBF-REQ-0052", "CBF-REQ-0054", "CBF-REQ-0198", "CBF-REQ-0226")
-    @aqf_requirements("CBF-REQ-0227", "CBF-REQ-0236", "CBF-REQ-0243")
-    def test__channelisation(self):
-        # Aqf.procedure(TestProcedure.Channelisation)
-        Aqf.not_tested("This requirement will not be qualified on AR3.")
+    # @untested
+    # @generic_test
+    # @aqf_vr('CBF.V.3.30')
+    # @aqf_requirements("CBF-REQ-0035", "CBF-REQ-0036", "CBF-REQ-0039")
+    # @aqf_requirements("CBF-REQ-0041", "CBF-REQ-0044", "CBF-REQ-0050")
+    # @aqf_requirements("CBF-REQ-0051", "CBF-REQ-0052", "CBF-REQ-0054", "CBF-REQ-0198", "CBF-REQ-0226")
+    # @aqf_requirements("CBF-REQ-0227", "CBF-REQ-0236", "CBF-REQ-0243")
+    # def test__channelisation(self):
+    #     # Aqf.procedure(TestProcedure.Channelisation)
+    #     Aqf.not_tested("This requirement will not be qualified on AR3.")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.71")
-    @aqf_requirements("CBF-REQ-0076")
-    def test__tied_array_repoint_time(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.71")
+    # @aqf_requirements("CBF-REQ-0076")
+    # def test__tied_array_repoint_time(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.76")
-    @aqf_requirements("CBF-REQ-0081", "CBF-REQ-0082")
-    def test__incoherent_beam_total_power_ve(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.76")
+    # @aqf_requirements("CBF-REQ-0081", "CBF-REQ-0082")
+    # def test__incoherent_beam_total_power_ve(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.7.11")
-    @aqf_requirements("CBF-REQ-0088", "CBF-REQ-0089", "CBF-REQ-0090", "CBF-REQ-0091")
-    def test__antenna_correlation_products(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.7.11")
+    # @aqf_requirements("CBF-REQ-0088", "CBF-REQ-0089", "CBF-REQ-0090", "CBF-REQ-0091")
+    # def test__antenna_correlation_products(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.69")
-    @aqf_requirements("CBF-REQ-0093", "CBF-REQ-0042")
-    def test__vlbi_channelisation(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.69")
+    # @aqf_requirements("CBF-REQ-0093", "CBF-REQ-0042")
+    # def test__vlbi_channelisation(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.63")
-    @aqf_requirements("CBF-REQ-0095", "CBF-REQ-0030")
-    def test__pulsar_timing_data_product_set(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.63")
+    # @aqf_requirements("CBF-REQ-0095", "CBF-REQ-0030")
+    # def test__pulsar_timing_data_product_set(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.75")
-    @aqf_requirements("CBF-REQ-0114", "CBF-REQ-0115")
-    def test__polarisation_correction_ve(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.75")
+    # @aqf_requirements("CBF-REQ-0114", "CBF-REQ-0115")
+    # def test__polarisation_correction_ve(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.72")
-    @aqf_requirements("CBF-REQ-0121")
-    def test__ta_antenna_delay_correction(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.72")
+    # @aqf_requirements("CBF-REQ-0121")
+    # def test__ta_antenna_delay_correction(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.73")
-    @aqf_requirements("CBF-REQ-0122")
-    def test__ta_beam_pointing(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.73")
+    # @aqf_requirements("CBF-REQ-0122")
+    # def test__ta_beam_pointing(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.70")
-    @aqf_requirements("CBF-REQ-0220")
-    def test__beam_pointing_polynomial(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.70")
+    # @aqf_requirements("CBF-REQ-0220")
+    # def test__beam_pointing_polynomial(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.74")
-    @aqf_requirements("CBF-REQ-0229")
-    def test__incoherent_summation(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.74")
+    # @aqf_requirements("CBF-REQ-0229")
+    # def test__incoherent_summation(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.65")
-    @aqf_requirements("CBF-REQ-0239")
-    def test__transient_search_data_product_set(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.65")
+    # @aqf_requirements("CBF-REQ-0239")
+    # def test__transient_search_data_product_set(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.59")
-    @aqf_requirements("CBF-REQ-0240")
-    def test__flys_eye_data_product_set(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.59")
+    # @aqf_requirements("CBF-REQ-0240")
+    # def test__flys_eye_data_product_set(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @untested
-    @generic_test
-    @aqf_vr("CBF.V.3.60")
-    @aqf_requirements("CBF-REQ-0241")
-    def test__generic_tiedarray_data_product_set(self):
-        Aqf.procedure("TBD")
-        Aqf.not_tested("This requirement will not be tested on AR3")
+    # @untested
+    # @generic_test
+    # @aqf_vr("CBF.V.3.60")
+    # @aqf_requirements("CBF-REQ-0241")
+    # def test__generic_tiedarray_data_product_set(self):
+    #     Aqf.procedure("TBD")
+    #     Aqf.not_tested("This requirement will not be tested on AR3")
 
     @generic_test
     @aqf_vr("CBF.V.A.IF")
@@ -3273,7 +3278,6 @@ class test_CBF(unittest.TestCase):
 
     def _test_vacc(self, test_chan, chan_index=None, acc_time=0.998):
         """Test vector accumulator"""
-        MAX_VACC_SYNCH_ATTEMPTS = corr2.fxcorrelator_xengops.MAX_VACC_SYNCH_ATTEMPTS
         # Choose a test frequency around the centre of the band.
         test_freq = self.corr_freqs.bandwidth / 2.
         _parameters = parameters(self)
@@ -3363,8 +3367,8 @@ class test_CBF(unittest.TestCase):
                     reply = self.corr_fix.katcp_rct.req.accumulation_length(acc_time, timeout=60)
                     self.assertIsInstance(reply, katcp.resource.KATCPReply)
                 except (TimeoutError, VaccSynchAttemptsMaxedOut):
-                    Aqf.failed('Failed to set accumulation length of {} after {} maximum vacc '
-                               'sync attempts.'.format(vacc_accumulations, MAX_VACC_SYNCH_ATTEMPTS))
+                    Aqf.failed('Failed to set accumulation length of {} after maximum vacc '
+                               'sync attempts.'.format(vacc_accumulations))
                 else:
                     accum_len = int(np.ceil(
                             (acc_time * self.corr_freqs.sample_freq) / (2 * internal_accumulations *
