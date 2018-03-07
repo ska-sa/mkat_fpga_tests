@@ -20,6 +20,8 @@ import logging
 import os
 import Queue
 import random
+import scipy.interpolate
+import scipy.signal
 import socket
 import subprocess
 import sys
@@ -355,7 +357,13 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            Aqf.waived("This requirement is currently not being tested.")
+            instrument_success = self.set_instrument(instrument)
+            _running_inst = self.corr_fix.get_running_instrument()
+            if instrument_success and _running_inst:
+                self._test_efficiency()
+            else:
+                Aqf.failed(self.errmsg)
+
 
     @aqf_vr('CBF.V.4.10')
     @aqf_requirements("CBF-REQ-0127")
@@ -364,7 +372,12 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            Aqf.waived("This requirement is currently not being tested.")
+            instrument_success = self.set_instrument(instrument)
+            _running_inst = self.corr_fix.get_running_instrument()
+            if instrument_success and _running_inst:
+                self._test_efficiency()
+            else:
+                Aqf.failed(self.errmsg)
 
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
@@ -1077,7 +1090,9 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr("CBF.V.A.IF")
     def test__informal(self):
-        Aqf.procedure("TBD")
+        Aqf.procedure("This verification event pertains to tests that are executed, "
+                      "but do not verify any formal requirements."
+                      "The procedures and results shall be available in the Qualification Test Report.")
         self._test_informal()
 
 #-----------------------------------------------------------------------------------------------------
@@ -1647,8 +1662,6 @@ class test_CBF(unittest.TestCase):
                    'channel spacing.')
             Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
 
-        sync_time = _parameters['synch_epoch']
-        int_time = _parameters['int_time']
         Aqf.step('Sweep the digitiser simulator over the centre frequencies of at '
                  'least all the channels that fall within the complete L-band')
 
@@ -1760,6 +1773,9 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         else:
+            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
+                requested_test_freqs), delimiter=",")
+
             plt_filename = '{}/{}_Channel_Response.png'.format(self.logs_path,
                 self._testMethodName)
             plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True)
@@ -6247,7 +6263,7 @@ class test_CBF(unittest.TestCase):
         msg = ('Confirm that the expected frequency: {}Hz and measured frequency: '
                '{}Hz matches to within a channel bandwidth: {:.3f}Hz'.format(cw_freq_found,
                     cw_freq, ch_bw))
-        Aqf.almost_equals(cw_freq_found, cw_freq, ch_bw, msg)
+        Aqf.almost_equals(cw_fr, cw_freq, ch_bw, msg)
         aqf_plot_channels(np.log10(fft_pos),
                           plot_filename='{}/{}_fft_{}.png'.format(self.logs_path,
                                 self._testMethodName, label),
@@ -6289,3 +6305,263 @@ class test_CBF(unittest.TestCase):
                     Aqf.hop(r"Test ran by: %s on %s" % (perf, _date))
             else:
                 Aqf.tbd("This test results outstanding.")
+
+
+    def _test_efficiency(self):
+
+        _parameters = parameters(self)
+        csv_filename = r"CBF_Efficiency_Data.csv"
+
+        def get_samples():
+
+            test_chan = random.randrange(start=self.corr_freqs.n_chans % 100,
+                stop=self.corr_freqs.n_chans - 1)
+            requested_test_freqs = self.corr_freqs.calc_freq_samples(test_chan, samples_per_chan=101,
+                                                                     chans_around=2)
+            expected_fc = self.corr_freqs.chan_freqs[test_chan]
+            # Get baseline 0 data, i.e. auto-corr of m000h
+            test_baseline = 0
+            # [CBF-REQ-0053]
+            min_bandwithd_req = 770e6
+            # [CBF-REQ-0126] CBF channel isolation
+            cutoff = 53  # dB
+            # Channel magnitude responses for each frequency
+            chan_responses = []
+            last_source_freq = None
+            print_counts = 3
+            spead_failure_counter = 0
+            req_chan_spacing=250e3
+
+            if self.corr_freqs.n_chans == 4096:
+                # 4K
+                cw_scale = 0.675
+                awgn_scale = 0.05
+                gain = '11+0j'
+                fft_shift = 8191
+            else:
+                # 32K
+                cw_scale = 0.375
+                awgn_scale = 0.085
+                gain = '11+0j'
+                fft_shift = 32767
+
+            Aqf.step('Digitiser simulator configured to generate a continuous wave, '
+                     'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
+                                                                                            awgn_scale,
+                                                                                            gain,
+                                                                                            fft_shift))
+            dsim_set_success = False
+            with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
+                dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+                                                freq=expected_fc, fft_shift=fft_shift, gain=gain)
+            if not dsim_set_success:
+                Aqf.failed('Failed to configure digitise simulator levels')
+                return False
+            try:
+                Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
+                         'SPEAD accumulation, determine the number of frequency channels')
+                initial_dump = get_clean_dump(self)
+                self.assertIsInstance(initial_dump, dict)
+            except Exception:
+                errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
+            else:
+                _parameters = parameters(self)
+                bls_to_test = _parameters['bls_ordering'][test_baseline]
+                Aqf.progress('Randomly selected frequency channel to test: {} and '
+                             'selected baseline {} / {} to test.'.format(test_chan, test_baseline,
+                                bls_to_test))
+                Aqf.equals(np.shape(initial_dump['xeng_raw'])[0], self.corr_freqs.n_chans,
+                           'Confirm that the number of channels in the SPEAD accumulation, is equal '
+                           'to the number of frequency channels as calculated: {}'.format(
+                               np.shape(initial_dump['xeng_raw'])[0]))
+
+                Aqf.is_true(_parameters['bandwidth'] >= min_bandwithd_req,
+                            'Channelise total bandwidth {}Hz shall be >= {}Hz.'.format(
+                                _parameters['bandwidth'], min_bandwithd_req))
+                chan_spacing = _parameters['bandwidth'] / initial_dump['xeng_raw'].shape[0]
+                chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
+                                    chan_spacing + (chan_spacing * 1 / 100)]
+                Aqf.step('Confirm that the number of calculated channel '
+                         'frequency step is within requirement.')
+                msg = ('Verify that the calculated channel '
+                       'frequency ({} Hz)step size is between {} and {} Hz'.format(chan_spacing,
+                        req_chan_spacing / 2, req_chan_spacing))
+                Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
+
+                Aqf.step('Confirm that the channelisation spacing and confirm that it is '
+                         'within the maximum tolerance.')
+                msg = ('Channelisation spacing is within maximum tolerance of 1% of the '
+                       'channel spacing.')
+                Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
+
+            Aqf.step('Sweep the digitiser simulator over the centre frequencies of at '
+                     'least all the channels that fall within the complete L-band')
+
+            for i, freq in enumerate(requested_test_freqs):
+                if i < print_counts:
+                    Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
+                        i + 1, len(requested_test_freqs), freq / 1e6))
+                elif i == print_counts:
+                    Aqf.progress('.' * print_counts)
+                elif i >= (len(requested_test_freqs) - print_counts):
+                    Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
+                        i + 1, len(requested_test_freqs), freq / 1e6))
+                else:
+                    LOGGER.debug('Getting channel response for freq %s @ %s: %s MHz.' % (
+                        i + 1, len(requested_test_freqs), freq / 1e6))
+
+                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+                this_source_freq = self.dhost.sine_sources.sin_0.frequency
+
+                if this_source_freq == last_source_freq:
+                    LOGGER.debug('Skipping channel response for freq %s @ %s: %s MHz.\n'
+                                'Digitiser frequency is same as previous.' % (
+                                    i + 1, len(requested_test_freqs), freq / 1e6))
+                    continue  # Already calculated this one
+                else:
+                    last_source_freq = this_source_freq
+
+                try:
+                    this_freq_dump = self.receiver.get_clean_dump()
+                    #get_clean_dump(self)
+                    self.assertIsInstance(this_freq_dump, dict)
+                except AssertionError:
+                    errmsg = ('Could not retrieve clean SPEAD accumulation')
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
+                    return False
+                else:
+                    # No of spead heap discards relevant to vacc
+                    discards = 0
+                    max_wait_dumps = 100
+                    deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+                    while True:
+                        try:
+                            queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
+                            self.assertIsInstance(queued_dump, dict)
+                        except Exception:
+                            errmsg = 'Could not retrieve clean accumulation.'
+                            LOGGER.exception(errmsg)
+                            Aqf.failed(errmsg)
+                        else:
+                            timestamp_diff = np.abs(queued_dump['dump_timestamp'] - deng_timestamp)
+                            if (timestamp_diff < 0.5):
+                                msg = ('Received correct accumulation timestamp: %s, relevant to '
+                                       'DEngine timestamp: %s (Difference %.2f)' % (
+                                        queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                                LOGGER.info(msg)
+                                break
+
+                            if discards > max_wait_dumps:
+                                errmsg = ('Could not get accumulation with correct timestamp within %s '
+                                           'accumulation periods.' % max_wait_dumps)
+                                Aqf.failed(errmsg)
+                                LOGGER.error(errmsg)
+                                break
+                            else:
+                                msg = ('Discarding subsequent dumps (%s) with dump timestamp (%s) '
+                                       'and DEngine timestamp (%s) with difference of %s.' %(discards,
+                                        queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                                LOGGER.info(msg)
+                        discards += 1
+
+
+                    this_freq_response = normalised_magnitude(
+                        queued_dump['xeng_raw'][:, test_baseline, :])
+                    chan_responses.append(this_freq_response)
+
+            chan_responses = np.array(chan_responses)
+            requested_test_freqs = np.asarray(requested_test_freqs)
+            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
+                requested_test_freqs), delimiter=",")
+
+        def efficiency_calc(f, P_dB, binwidth, debug=False):
+            # Adapted from SSalie
+            # Sidelobe & scalloping loss requires f to be normalized to bins
+            # Normalize the filter response
+            Aqf.step("Measure/record the filter-bank spectral response from a channel")
+            P_dB -= P_dB.max()
+            f = f - f[P_dB>-3].mean() # CHANGED: center on zero
+
+            # It's critical to get precise estimates of critical points so to minimize measurement resolution impact, up-sample!
+            _f_, _P_dB_ = f, P_dB
+            _f10_ = np.linspace(f[0], f[-1], len(f)*10) # up-sample 10x
+            # CHANGED: slightly better than np.interp(_f10_, f, P_dB) e.g. for poorly sampled data
+            P_dB = scipy.interpolate.interp1d(f, P_dB, "quadratic", bounds_error=False)(_f10_)
+            f = _f10_
+
+            # Measure critical bandwidths
+            f_HPBW = f[P_dB >= -3.0];
+            f_HABW = f[P_dB >= -6.0] # CHANGED: with better interpolation don't need earlier "fudged" 3.05 & 6.05
+            HPBW = (f_HPBW[-1] - f_HPBW[0])/binwidth
+            HABW = (f_HABW[-1] - f_HABW[0])/binwidth
+            h = 10**(P_dB / 10.)
+            NEBW = np.sum(h[:-1] * np.diff(f)) / binwidth # Noise Equivalent BW
+            Aqf.step("Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth "
+                      "for each swept channel")
+            Aqf.progress("Half Power Bandwidth: %s, Noise Equivalent Bandwidth: %s" % (HPBW, NEBW))
+
+            Aqf.step("Compute the efficiency as the ratio of Half Power Bandwidth to the Noise "
+                     "Equivalent Bandwidth: efficiency = HPBW/NEBW")
+            _efficiency = HPBW / NEBW
+            Aqf.more(_efficiency, .98, "Efficiency factor = {:.3f}".format(_efficiency))
+
+            # Measure critical points
+            pk = f.searchsorted(f[P_dB > -6].mean()) # The peak
+            ch = f.searchsorted(f[0] + binwidth) # Channel-to-channel separation intervals
+            SL = P_dB[pk+ch//2-1] # Scalloping loss at mid-point between channel peaks
+            SL80 = P_dB[pk:pk + int((0.8*ch)//2-1)].min() # Max scalloping loss within 80% of a channel
+            DDP = np.diff( scipy.signal.medfilt(np.diff(P_dB), (ch//16)*2+1) ) # Smooth it over 1/8th of a bin width to get rid of main lobe ripples
+            mn = pk+ch//2 + (DDP[pk+ch//2:]>0.01).argmax() # The first large inflection point after the peak is the null
+            SLL = P_dB[mn:].max() # The nearest one is typically the peak sidelobe
+            # Upper half of the channel & the excluding main lobe
+            plt.figure()
+            plt.subplot(211);
+            plt.title("Efficiency factor = {:.3f}".format(_efficiency))
+            plt.plot(_f_, _P_dB_, label='Channel Response');
+            plt.plot(f[pk:], P_dB[pk:], 'g.', label='Peak')
+            plt.plot(f[mn:], P_dB[mn:], 'r.', label='After Null')
+            plt.legend()
+            plt.grid(True);
+            plt.subplot(212, sharex=plt.gca());
+            plt.plot(f[1:-1], DDP, label='Data diff');
+            plt.grid(True)
+            plt.legend()
+            if debug:
+                plt.show()
+
+
+            cap = ("SLL = %.f, SL = %.1f(%.f), NE/3dB/6dB BW = %.2f/%.2f/%.2f, HPBW/NEBW = %4f, "% (
+                SLL, SL, SL80, NEBW, HPBW, HABW, HPBW/NEBW))
+            filename ='{}/{}.png'.format(self.logs_path, self._testMethodName)
+            Aqf.matplotlib_fig(filename, caption=cap, autoscale=True)
+
+        try:
+            pfb_data = np.loadtxt(csv_filename, delimiter=",", unpack=False)
+            Aqf.step("Retrieve channelisation (Frequencies and Power_dB) data results from CSV file")
+        except IOError:
+            try:
+                get_samples()
+                csv_file = max(glob.iglob('*.csv'), key=os.path.getctime)
+                assert 'CBF' in csv_file
+                pfb_data = np.loadtxt(csv_file, delimiter=',', unpack=False)
+            except Exception:
+                msg = 'Failed to load CBF_Efficiency_Data.csv file'
+                LOGGER.exception(msg)
+                Aqf.failed(msg)
+                return
+
+        chan_responses, requested_test_freqs = pfb_data[:,1][1:], pfb_data[:,0][1:]
+        # Summarize isn't clever enough to cope with the spurious spike in first sample
+        chan_responses = np.asarray(chan_responses)
+        requested_test_freqs = 10*np.log10(np.abs(np.asarray(requested_test_freqs)))
+        binwidth = _parameters.get('bandwidth', self.corr_freqs.bandwidth)/_parameters.get('n_chans',
+                                                                        self.corr_freqs.n_chans)
+        try:
+            efficiency_calc(chan_responses, requested_test_freqs, binwidth)
+        except Exception:
+            Aqf.failed("Could not compute the data, rerun test")
+        else:
+            subprocess.check_call(["rm", csv_filename])

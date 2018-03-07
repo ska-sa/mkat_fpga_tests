@@ -178,13 +178,21 @@ else:
     with open(_json_file) as _data:
         _document_data = json.load(_data)
 try:
-    _document_number, _document_info  = _document_data['document_number'].get(
-        _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
+    _document_type = _document_data.get('document_type').keys()[0]
+    if _document_type == 'QTR':
+        _document_number, _document_info  = _document_data['document_number'].get(
+            _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
+    else:
+        _document_number = _document_data.get('document_number').get(_document_type).replace(' ', '')
 
     _document_type = ' '.join(['Qualification Test',
         _document_data.get('document_type')[_document_data.get('document_type').keys()[0]]])
-    _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
-        time.strftime('%Y%m%d', time.localtime()))
+    _array_release = _document_data.get('array_release', 3)
+
+    _filename = "%s_MeerKat_Correlator_Beamformer_Array_Release_%s_%s.tex" %(
+        _document_number, _array_release, _document_type.replace(' ', '_'))
+    # _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
+    #     time.strftime('%Y%m%d', time.localtime()))
 except Exception as e:
     print '%s' % e.message
 
