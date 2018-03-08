@@ -793,7 +793,7 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     if spead2_warn:
         logging.getLogger('spead2').setLevel(logging.ERROR)
     if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.INFO)
         logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
         logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
         logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
@@ -801,7 +801,10 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
         logging.getLogger('fhost_fpga').setLevel(logging.ERROR)
     if casperfpga_debug:
         logging.getLogger("casperfpga").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.FATAL)
+        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.ERROR)
+        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.FATAL)
+        logging.getLogger("casperfpga.register ").setLevel(logging.FATAL)
+        logging.getLogger("casperfpga.bitfield").setLevel(logging.FATAL)
     if katcp_warn:
         logging.getLogger('katcp').setLevel(logging.ERROR)
         logging.getLogger('tornado.application').setLevel(logging.FATAL)

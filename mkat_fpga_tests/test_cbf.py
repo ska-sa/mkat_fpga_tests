@@ -109,11 +109,6 @@ class test_CBF(unittest.TestCase):
             self._hosts = list(np.concatenate(
                 [i.get('hosts', None).split(',') for i in self.corr_fix.corr_config.values()
                 if i.get('hosts')]))
-            if have_subscribed is False:
-                subscribed = self.corr_fix.subscribe_multicast
-                if subscribed:
-                    LOGGER.info('Multicast subscription successful.')
-                    have_subscribed = True
             if set_dsim_epoch is False:
                 try:
                     assert isinstance(self.corr_fix.instrument, str)
@@ -227,7 +222,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     servlet_ip = str(self.conf_file['inst_param']['corr2_servlet_ip'])
                     servlet_port = int(self.corr_fix.katcp_rct.port)
-                    LOGGER.info('Running site testing and listening to corr2_servlet on %s' %servlet_ip)
+                    LOGGER.info('Running `On-Site Testing`, listening to corr2_servlet on %s' % servlet_ip)
                     self.receiver = CorrRx(product_name=output_product, servlet_ip=servlet_ip,
                         servlet_port=servlet_port, port=corrRx_port, queue_size=queue_size)
 
@@ -1102,15 +1097,19 @@ class test_CBF(unittest.TestCase):
         # ---------------------------------------------------------------
         try:
             Aqf.step('Checking system stability(sensors OK status) before and after testing')
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
-            _errored_sensors_ = ', '.join([i.arguments[2] for i in informs if 'error' in i.arguments[-2]])
+            for i in xrange(3):
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
+                time.sleep(10)
+
+            _errored_sensors_ = ', '.join(sorted(list(set([i.arguments[2] for i in informs
+                                                           if 'error' in i.arguments[-2]]))))
         except Exception:
             Aqf.note("Could not retrieve sensors via CAM interface.")
         else:
             if _errored_sensors_:
                 Aqf.note('Following sensors FAILED: %s' % _errored_sensors_)
-            pfb_errors = ''.join([i.arguments[2] for i in informs
-                                  if ('pfb' in i.arguments[2]) and ('error' in i.arguments[-2])])
+            pfb_errors = ''.join(sorted(list(set([i.arguments[2] for i in informs
+                                  if ('pfb' in i.arguments[2]) and ('error' in i.arguments[-2])]))))
             if pfb_errors:
                 Aqf.note("PFB Overflows: %s" % pfb_errors)
 
@@ -1574,6 +1573,7 @@ class test_CBF(unittest.TestCase):
 
         print_counts = 3
         spead_failure_counter = 0
+        _new_offset = 0
 
         if self.corr_freqs.n_chans == 4096:
             # 4K
@@ -1652,21 +1652,25 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Sweep the digitiser simulator over the centre frequencies of at '
                  'least all the channels that fall within the complete L-band')
 
+        _expected_freq_res_bin = np.argmax(normalised_magnitude(
+            initial_dump['xeng_raw'][:, test_baseline, :]))
+        Aqf.step("Channel Response is expected on channel: %s" % _expected_freq_res_bin)
+
         for i, freq in enumerate(requested_test_freqs):
+            _msg = ('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(i + 1,
+                    len(requested_test_freqs), freq / 1e6))
             if i < print_counts:
-                Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
-                    i + 1, len(requested_test_freqs), freq / 1e6))
+                Aqf.progress(_msg)
             elif i == print_counts:
                 Aqf.progress('.' * print_counts)
             elif i >= (len(requested_test_freqs) - print_counts):
-                Aqf.progress('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
-                    i + 1, len(requested_test_freqs), freq / 1e6))
+                Aqf.progress(_msg)
             else:
-                LOGGER.debug('Getting channel response for freq %s @ %s: %s MHz.' % (
-                    i + 1, len(requested_test_freqs), freq / 1e6))
+                LOGGER.debug(_msg)
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
-            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
+            this_source_freq = self.dhost.sine_sources.sin_1.frequency
 
             if this_source_freq == last_source_freq:
                 LOGGER.debug('Skipping channel response for freq %s @ %s: %s MHz.\n'
@@ -1678,7 +1682,6 @@ class test_CBF(unittest.TestCase):
 
             try:
                 this_freq_dump = self.receiver.get_clean_dump()
-                #get_clean_dump(self)
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 errmsg = ('Could not retrieve clean SPEAD accumulation')
@@ -1746,6 +1749,12 @@ class test_CBF(unittest.TestCase):
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title, caption=caption,
                                   ylimits=y_axis_limits, cutoff=new_cutoff)
 
+        if not  _expected_freq_res_bin == test_chan:
+            Aqf.note("We expect the channel response at %s, but in essence it is in channel %s, ie "
+                     "There's a channel offset of %s" % (test_chan, _expected_freq_res_bin,
+                        np.abs(test_chan - _expected_freq_res_bin)))
+            test_chan += np.abs(test_chan - _expected_freq_res_bin)
+
         clear_host_status(self)
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -1762,7 +1771,8 @@ class test_CBF(unittest.TestCase):
         else:
             plt_filename = '{}/{}_Channel_Response.png'.format(self.logs_path,
                 self._testMethodName)
-            plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True)
+            plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90,
+                normalise=True)
             plt_caption = ('Frequency channel {} @ {}MHz response vs source frequency and '
                            'selected baseline {} / {} to test.'.format(test_chan, expected_fc / 1e6,
                             test_baseline, bls_to_test))
@@ -2038,6 +2048,7 @@ class test_CBF(unittest.TestCase):
                 pass
 
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
+            self.dhost.sine_sources.sin_1.set(frequency=channel_f0, scale=cw_scale)
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)

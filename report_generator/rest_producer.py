@@ -305,24 +305,26 @@ class ReStProducer(object):
         elif style.lower() == 'italics':
             return "*%s*" % text
         else:
-            style = {'error': 'red',
+            style = {
+                     'checkbox': 'lime',
+                     'control': 'gray',
+                     'error': 'red',
                      'fail': 'red',
                      'failed': 'red',
+                     'not tested': 'red',
+                     'not_tested': 'red',
+                     'pass': 'green',
+                     'passed': 'green',
+                     'progress': 'gray',
+                     'note': 'yellow',
                      'skip': 'blue',
                      'skipped': 'blue',
                      'tbd': 'blue',
-                     'pass': 'green',
-                     'passed': 'green',
-                     'tested': 'green',
                      'test implemented': 'green',
-                     'waived': 'red',
-                     'control': 'gray',
-                     'checkbox': 'lime',
-                     'not_tested': 'red',
-                     'not tested': 'red',
                      'test not implemented': 'red',
+                     'tested': 'green',
                      'unknown': 'gray',
-                     'progress': 'gray',
+                     'waived': 'red',
                      }.get(style.lower())
             if style:
                 style_line = ".. role:: %s" % style

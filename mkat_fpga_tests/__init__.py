@@ -126,7 +126,9 @@ class CorrelatorFixture(object):
         if self._dhost is not None:
             return self._dhost
         else:
-            self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+            # self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+            self.config_filename = '/'.join(['/etc/corr',
+                max(iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]])
             if os.path.exists(self.config_filename):
                 LOGGER.info('Retrieving dsim engine info from config file: %s' % self.config_filename)
                 self.corr_config = parse_ini_file(self.config_filename)
@@ -176,8 +178,6 @@ class CorrelatorFixture(object):
             # We assume either start_correlator() above has been called, or the
             # instrument was started with the name contained in self.array_name
             # before running the test.
-
-            self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
             _retries = 3
             if os.path.exists(self.config_filename):
                 LOGGER.info('Making new correlator instance')
@@ -417,7 +417,12 @@ class CorrelatorFixture(object):
         :param force_reinit: Force an instrument re-initialisation
         :rtype: Boolean
         """
-        self.instrument = instrument
+        try:
+            assert '_' in self.instrument
+            self.instrument = self.instrument.split('_')[0]
+        except AssertionError:
+            pass
+
         if force_reinit:
             LOGGER.info('Forcing an instrument(%s) re-initialisation' %self.instrument)
             corr_success = self.start_correlator(self.instrument, **kwargs)
@@ -430,7 +435,7 @@ class CorrelatorFixture(object):
             LOGGER.info(msg)
             if check_ins is True:
                 success = True
-                LOGGER.info('Named instrument (%s) is currently running' % instrument)
+                LOGGER.info('Named instrument (%s) is currently running' % self.instrument)
                 return success
             retries -= 1
 
@@ -472,7 +477,8 @@ class CorrelatorFixture(object):
             try:
                 reply, informs = self.katcp_rct.req.instrument_list()
                 assert reply.reply_ok()
-                instruments_available = [instrument_avail.arguments[0] for instrument_avail in informs]
+                instruments_available = [instrument_avail.arguments[0].split('_')[0]
+                                         for instrument_avail in informs]
                 # Test to see if requested instrument is available on the instrument list
                 assert instrument in instruments_available
             except Exception:
@@ -493,12 +499,11 @@ class CorrelatorFixture(object):
                 return False
 
             else:
-                running_intrument = reply.value
+                running_intrument = reply.value.split('_')[0]
                 instrument_present = instrument == running_intrument
                 if instrument_present:
                     self.instrument = instrument
-                    LOGGER.info('Confirmed that the named instrument %s is enabled on '
-                                'correlator %s.' % (self.instrument, self.array_name))
+                    LOGGER.info('Confirmed that the named instrument %s is running' % self.instrument)
                 return instrument_present
 
     @property
@@ -511,10 +516,16 @@ class CorrelatorFixture(object):
             # ToDo (MM) 06-10-2017 Hardcoded array, fix it
             running_instr = max(iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]
             self.array_name, self.instrument = running_instr.split('-')
+            try:
+                assert '_' in self.instrument
+                self.instrument = self.instrument.split('_')[0]
+            except AssertionError:
+                pass
+
             if (self.instrument.startswith('bc') or self.instrument.startswith('c')) and \
                 self.array_name.startswith('array'):
-                LOGGER.info('Currently running instrument %s as per /etc/corr' % running_instr)
-                return running_instr.split('-')
+                LOGGER.info('Currently running instrument %s as per /etc/corr' % self.instrument)
+                return [self.array_name, self.instrument]
         except Exception:
             LOGGER.exception('Could not retrieve information from config file, resorting to default')
             return ['array0', 'bc8n856M4k']
@@ -559,8 +570,12 @@ class CorrelatorFixture(object):
         if self.instrument is None:
             return False
         try:
-            multicast_ip_inp = (
-                self.test_config['inst_param']['source_mcast_ips'].split(','))
+            multicast_ip_inp = [self.corr_config['dsimengine'].get('pol0_destination_start_ip',
+                                                                   '239.101.0.64'),
+                                self.corr_config['dsimengine'].get('pol1_destination_start_ip',
+                                                                    '239.101.0.66')
+                                ]
+
         except TypeError:
             msg = ('Could not read and split the multicast IPs in the test config file')
             LOGGER.exception(msg)
@@ -585,68 +600,6 @@ class CorrelatorFixture(object):
                         LOGGER.error('Could not calculate multicast IPs from config file')
                         return False
 
-
-    @property
-    def subscribe_multicast(self):
-        """Automated multicasting subscription"""
-        parse_address = StreamAddress._parse_address_string
-        try:
-            n_xengs = self.katcp_rct.sensor.n_xengs.get_value()
-        except Exception:
-            n_xengs = len(self.get_multicast_ips) * 2
-
-        if self.config_filename is None:
-            return
-        config = self.corr_config
-        if config is None:
-            LOGGER.error('Failed to retrieve correlator config file, ensure that the cbf is running')
-            return False
-
-        def confirm_multicast_subs(mul_ip='239.100.0.10'):
-            """"""
-            # or use [netstat -g | grep eth2]
-            list_inets = subprocess.check_output(['ip', 'maddr', 'show'])
-            return True if mul_ip in list_inets else False
-
-        outputIPs = {}
-        for i in [key for key, value in config.items() if 'output_destinations_base' in value]:
-            _IP, _num, _Port = list(parse_address(config[i]['output_destinations_base']))
-            outputIPs[i] = [tengbe.IpAddress(_IP), int(_Port)]
-        if outputIPs.get('xengine'):
-            LOGGER.info('Multicast subscription is only valid for xengines')
-            multicastIP, DataPort = outputIPs.get('xengine')
-            if multicastIP.is_multicast():
-                LOGGER.info('source is multicast %s.' % (multicastIP))
-                # look up multicast group address in name server and find out IP version
-                addrinfo = socket.getaddrinfo(str(multicastIP), None)[0]
-                # create a socket
-                try:
-                    mcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                except Exception:
-                    mcast_sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
-                mcast_sock.setblocking(False)
-                # Do not bind as this will cause a conflict when instantiating a receiver on the main script
-                # Join group
-                # mcast_sock.bind(('', DataPort))
-                add_cleanup(mcast_sock.close)
-                def join_mcast_group(address):
-                    group_bin = socket.inet_pton(socket.AF_INET, address)
-                    if addrinfo[0] == socket.AF_INET:  # IPv4
-                        mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-                        mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-                        LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
-                    else:
-                        mreq = group_bin + struct.pack('@I', 0)
-                        mcast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
-                        LOGGER.info('Successfully subscribed to %s:%s.' % (str(multicastIP), DataPort))
-                for addcntr in range(n_xengs):
-                    _address = tengbe.IpAddress(multicastIP.ip_int + addcntr)
-                    join_mcast_group(str(_address))
-            else:
-                mcast_sock = None
-                LOGGER.info('Source is not multicast: %s:%s' % (str(multicastIP), DataPort))
-                return False
-        return confirm_multicast_subs(mul_ip=str(_address))
 
     def start_correlator(self, instrument=None, retries=10):
         LOGGER.debug('CBF instrument(%s) re-initialisation.' %instrument)

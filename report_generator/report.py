@@ -32,6 +32,7 @@ class Report(object):
         self.NOT_TESTED = 'not_tested'
         self.PASS = 'passed'
         self.PROGRESS = 'progress'
+        self.NOTE = 'note'
         self.SKIP = 'skipped'
         self.TBD = 'tbd'
         self.FAIL = 'failed'
@@ -495,6 +496,10 @@ class Report(object):
             self.ERROR = error
         if tbd:
             self.TBD = tbd
+        if note:
+            self.NOTE = note
+        if progress:
+            self.PROGRESS = progress
         if skipped:
             self.SKIP = skipped
 
@@ -1426,6 +1431,8 @@ class Report(object):
                   self.PASS,      # Test Passed
                   self.SKIP,      # Skip this test
                   self.TBD,       # Test is to-be-done
+                  self.PROGRESS,  #
+                  self.NOTE,      #
                   self.FAIL,      # Test Failed
                   self.ERROR]     # Something went wrong
         try:
