@@ -4215,9 +4215,9 @@ class test_CBF(unittest.TestCase):
                 beam_ip, beam_port = _parameters[beam+'_destination'].split(':')
                 beam_ip = beam_ip.split('+')[0]
                 beam_name = beam.replace('-','_').replace('.','_')
-                substrm_to_process = int(self.conf_file['beamformer']['substreams_to_capture'])
-                strt_substrm_idx = int(self.conf_file['beamformer']['start_substream_idx'])
-                if strt_substrm_idx+substrm_to_process > substreams:
+                substrms_to_cap = int(self.conf_file['beamformer']['substreams_to_capture'])
+                start_substream = int(self.conf_file['beamformer']['start_substream_idx'])
+                if start_substream+substrms_to_cap > substreams:
                     errmsg = ('Substream start + substreams to process '
                               'is more than substreams available: {}. '
                               'Fix in test configuration file'.format(substeams))
@@ -4243,10 +4243,9 @@ class test_CBF(unittest.TestCase):
                 return False
             else:
                 # Compute the start IP address according to substream start index
-                beam_ip = int2ip(ip2int(beam_ip) + strt_substrm_idx)
+                beam_ip = int2ip(ip2int(beam_ip) + start_substream)
                 # Compute spectrum parameters
-                nr_ch_captured = substrm_to_process * ch_per_substream
-                strt_ch_idx = strt_substrm_idx * ch_per_substream
+                strt_ch_idx = start_substream * ch_per_substream
                 strt_freq = _parameters['ch_center_freqs'][strt_ch_idx]*dsim_factor
 
                 Aqf.step("Set beamformer quantiser gain for selected beam to 1")
@@ -4266,7 +4265,7 @@ class test_CBF(unittest.TestCase):
 
                     try:
                         docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
-                                                              substrm_to_process, nr_ch,
+                                                              substrms_to_cap, nr_ch,
                                                               ticks_between_spectra,
                                                               ch_per_substream, spectra_per_heap)
                         assert docker_status
@@ -4309,8 +4308,10 @@ class test_CBF(unittest.TestCase):
                     np.square(cap_avg),
                     plot_filename='{}/{}_beam_resp_{}.png'.format(self.logs_path,
                                                                   self._testMethodName, beam),
-                    plot_title=('Beam = {}, Spectrum Start Frequency = {} MHz\nNumber of Channels Captured = {}'
-                                '\nIntegrated over {} captures'.format(beam, strt_freq / 1e6, nr_ch_captured, nc)),
+                    plot_title=('Beam = {}, Spectrum Start Frequency = {} MHz\n'
+                                'Number of Channels Captured = {}\n'
+                                'Integrated over {} captures'.format(beam, strt_freq / 1e6, 
+                                                substrms_to_cap*ch_per_substream, nc)),
                     log_dynamic_range=90,
                     log_normalise_to=1,
                     caption=('Tied Array Beamformer data captured during Baseline Correlation '
@@ -4522,7 +4523,7 @@ class test_CBF(unittest.TestCase):
             labels = reply.arguments[1:]
             beam0_output_product = _parameters['beam0_output_product']
             beam1_output_product = _parameters['beam1_output_product']
-            beams = [[beam0_output_product],[beam1_output_product]]
+            beams = [beam0_output_product,beam1_output_product]
             running_instrument = self.corr_fix.get_running_instrument()
             assert running_instrument is not False
             msg = 'Running instrument currently does not have beamforming capabilities.'
@@ -4557,15 +4558,15 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
 
-        for beam in beams[1]:
+        for beam in beams:
             try:
                 beam_ip, beam_port = _parameters[beam+'_destination'].split(':')
                 beam_ip = beam_ip.split('+')[0]
                 start_beam_ip = beam_ip
                 beam_name = beam.replace('-','_').replace('.','_')
-                substrm_to_process = int(self.conf_file['beamformer']['substreams_to_capture'])
-                strt_substrm_idx = int(self.conf_file['beamformer']['start_substream_idx'])
-                if strt_substrm_idx+substrm_to_process > substreams:
+                substrms_to_cap = int(self.conf_file['beamformer']['substreams_to_capture'])
+                start_substream = int(self.conf_file['beamformer']['start_substream_idx'])
+                if start_substream+substrms_to_cap > substreams:
                     errmsg = ('Substream start + substreams to process '
                               'is more than substreams available: {}. '
                               'Fix in test configuration file'.format(substeams))
@@ -4591,19 +4592,18 @@ class test_CBF(unittest.TestCase):
                 return False
 
             # Compute the start IP address according to substream start index
-            beam_ip = int2ip(ip2int(beam_ip) + strt_substrm_idx)
+            beam_ip = int2ip(ip2int(beam_ip) + start_substream)
             # Compute spectrum parameters
-            nr_ch_captured = substrm_to_process * ch_per_substream
-            strt_ch_idx = strt_substrm_idx * ch_per_substream
+            strt_ch_idx = start_substream * ch_per_substream
             strt_freq = ch_list[strt_ch_idx]*dsim_factor
             Aqf.step('Start a KAT SDP docker inject node for beam captures')
             docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
-                                                      substrm_to_process, nr_ch,
+                                                      substrms_to_cap, nr_ch,
                                                       ticks_between_spectra,
                                                       ch_per_substream, spectra_per_heap)
             if docker_status:
                 Aqf.progress('KAT SDP Ingest Node started. Capturing {} substream/s '
-                             'starting at {}'.format(substrm_to_process, beam_ip))
+                             'starting at {}'.format(substrms_to_cap, beam_ip))
             else:
                 Aqf.failed('KAT SDP Ingest Node failed to start')
 
@@ -4635,12 +4635,15 @@ class test_CBF(unittest.TestCase):
                 return False
 
 
-            def get_beam_data(beam, beam_dict=None, inp_ref_lvl=0, beam_quant_gain=1, exp_cw_ch=-1, s_ch_idx=0,
+            def get_beam_data(beam, beam_dict=None, inp_ref_lvl=0, beam_quant_gain=1, 
+                exp_cw_ch=-1, s_ch_idx=0, 
+                s_substream= start_substream,
+                subs_to_cap = substrms_to_cap,
                 max_cap_retries=5, conf_data_type=False):
 
                 # Determine slice of valid data in bf_raw
-                bf_raw_str = strt_substrm_idx * ch_per_substream
-                bf_raw_end = bf_raw_str + nr_ch_captured
+                bf_raw_str = s_substream*ch_per_substream
+                bf_raw_end = bf_raw_str + ch_per_substream*subs_to_cap
 
                 # Capture beam data, retry if more than 20% of heaps dropped or empty data
                 retries = 0
@@ -4664,10 +4667,8 @@ class test_CBF(unittest.TestCase):
                         return False
 
                     data_type = bf_raw.dtype.name
-                    #for heaps in bf_flags:
                     # Cut selected partitions out of bf_flags
-                    flags = bf_flags[strt_substrm_idx:strt_substrm_idx+substrm_to_process]
-                    idx = strt_substrm_idx
+                    flags = bf_flags[s_substream:s_substream+subs_to_cap]
                     #Aqf.step('Finding missed heaps for all partitions.')
                     if flags.size == 0:
                         LOGGER.warning('Beam data empty. Capture failed. Retrying...')
@@ -4677,7 +4678,7 @@ class test_CBF(unittest.TestCase):
                         for part in flags:
                             missed_heaps = np.where(part>0)[0]
                             missed_perc = missed_heaps.size/part.size
-                            perc = 0.95
+                            perc = 0.50
                             if missed_perc > perc:
                                 Aqf.progress('Missed heap percentage = {}%%'.format(missed_perc*100))
                                 Aqf.progress('Missed heaps = {}'.format(missed_heaps))
@@ -4690,12 +4691,11 @@ class test_CBF(unittest.TestCase):
                             break
 
                 # Print missed heaps
-                idx = strt_substrm_idx
-
+                idx = s_substream
                 for part in flags:
                     missed_heaps = np.where(part>0)[0]
                     if missed_heaps.size > 0:
-                        LOGGER.info('Missed heaps for partition {} at heap indexes {}'.format(idx,
+                        LOGGER.info('Missed heaps for substream {} at heap indexes {}'.format(idx,
                             missed_heaps))
                     idx += 1
                 # Combine all missed heap flags. These heaps will be discarded
@@ -4756,7 +4756,7 @@ class test_CBF(unittest.TestCase):
                              'Reference level = {:.3f}dB'.format(20*np.log10(inp_ref_lvl)))
                     Aqf.step('Reference level averaged over {} channels. '
                              'Channel averages determined over {} '
-                             'samples.'.format(nr_ch_captured, cap_idx))
+                             'samples.'.format(substrms_to_cap*ch_per_substream, cap_idx))
                     expected = 0
                 else:
                     delta = 0.2
@@ -4827,99 +4827,100 @@ class test_CBF(unittest.TestCase):
                 LOGGER.error(errmsg)
                 return
             else:
-                #beam_data.append(d)
-                #beam_lbls.append(l)
-                #
-                #weight = 1.0 / ants
-                #beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-                #try:
-                #    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx)
-                #except IndexError, e:
-                #    errmsg = 'Failed to retrieve beamformer data'
-                #    Aqf.failed(errmsg)
-                #    LOGGER.error(errmsg)
-                #    return
-                #beam_data.append(d)
-                #beam_lbls.append(l)
+                beam_data.append(d)
+                beam_lbls.append(l)
+                
+                weight = 1.0 / ants
+                beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+                try:
+                    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx)
+                except IndexError, e:
+                    errmsg = 'Failed to retrieve beamformer data'
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return
+                beam_data.append(d)
+                beam_lbls.append(l)
 
-                #weight = 2.0 / ants
-                #beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-                #try:
-                #    d, l, rl, exp1, nc = get_beam_data(beam, beam_dict, rl)
-                #except Exception as e:
-                #    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
-                #    Aqf.failed(errmsg)
-                #    LOGGER.error(errmsg)
-                #    return
-                #beam_data.append(d)
-                #beam_lbls.append(l)
-                ## Square the voltage data. This is a hack as aqf_plot expects squared
-                ## power data
-                #aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                #                  plot_filename='{}/{}_chan_resp_{}.png'.format(self.logs_path,
-                #                    self._testMethodName, beam),
-                #                  plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
-                #                    'Number of Channels Captured = {}'
-                #                    '\nIntegrated over {} captures'.format(beam, 
-                #                        strt_freq / 1e6, nr_ch_captured, nc)),
-                #                  log_dynamic_range=90, log_normalise_to=1,
-                #                  caption='Captured beamformer data', hlines=[exp0, exp1],
-                #                  plot_type='bf', hline_strt_idx=1)
+                weight = 2.0 / ants
+                beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+                try:
+                    d, l, rl, exp1, nc = get_beam_data(beam, beam_dict, rl)
+                except Exception as e:
+                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return
+                beam_data.append(d)
+                beam_lbls.append(l)
+                # Square the voltage data. This is a hack as aqf_plot expects squared
+                # power data
+                aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
+                                  plot_filename='{}/{}_chan_resp_{}.png'.format(self.logs_path,
+                                    self._testMethodName, beam),
+                                  plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
+                                    'Number of Channels Captured = {}'
+                                    '\nIntegrated over {} captures'.format(beam, 
+                                        strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
+                                  log_dynamic_range=90, log_normalise_to=1,
+                                  caption='Captured beamformer data', hlines=[exp0, exp1],
+                                  plot_type='bf', hline_strt_idx=1)
 
-                Aqf.waived('Testing quantiser gain adjustment.')
-                #beam_data = []
-                #beam_lbls = []
-                ## Set beamformer quantiser gain for selected beam to 1/number inputs
-                #gain = 1.0
-                #gain = set_beam_quant_gain(self, beam, gain)
-                #weight = 1.0 / ants
-                #beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-                #rl = 0
+                Aqf.step('Testing quantiser gain adjustment.')
+                beam_data = []
+                beam_lbls = []
+                # Set beamformer quantiser gain for selected beam to 1/number inputs
+                gain = 1.0
+                gain = set_beam_quant_gain(self, beam, gain)
+                weight = 1.0 / ants
+                beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+                rl = 0
 
-                #try:
-                #    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
-                #except Exception as e:
-                #    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
-                #    Aqf.failed(errmsg)
-                #    LOGGER.error(errmsg)
-                #    return
-                #beam_data.append(d)
-                #l += '\nLevel adjust gain={}'.format(gain)
-                #beam_lbls.append(l)
+                try:
+                    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
+                except Exception as e:
+                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return
+                beam_data.append(d)
+                l += '\nLevel adjust gain={}'.format(gain)
+                beam_lbls.append(l)
 
-                #gain = 0.5
-                #gain = set_beam_quant_gain(self, beam, gain)
+                gain = 0.5
+                gain = set_beam_quant_gain(self, beam, gain)
 
-                #try:
-                #    d, l, rl, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
-                #except Exception as e:
-                #    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
-                #    Aqf.failed(errmsg)
-                #    LOGGER.error(errmsg)
-                #    return
-                #beam_data.append(d)
-                #l += '\nLevel adjust gain={}'.format(gain)
-                #beam_lbls.append(l)
+                try:
+                    d, l, rl, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
+                except Exception as e:
+                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return
+                beam_data.append(d)
+                l += '\nLevel adjust gain={}'.format(gain)
+                beam_lbls.append(l)
 
-                ## Square the voltage data. This is a hack as aqf_plot expects squared
-                ## power data
-                #aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                #                  plot_filename='{}/{}_level_adjust_after_bf_{}.png'.format(self.logs_path,
-                #                    self._testMethodName, beam),
-                #                  plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
-                #                    'Number of Channels Captured = {}'
-                #                    '\nIntegrated over {} captures'.format(beam, 
-                #                        strt_freq / 1e6, nr_ch_captured, nc)),
-                #                  log_dynamic_range=90, log_normalise_to=1,
-                #                  caption='Captured beamformer data with level adjust after beam-forming gain set.',
-                #                  hlines=exp1, plot_type='bf', hline_strt_idx=1)
+                # Square the voltage data. This is a hack as aqf_plot expects squared
+                # power data
+                aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
+                                  plot_filename='{}/{}_level_adjust_after_bf_{}.png'.format(self.logs_path,
+                                    self._testMethodName, beam),
+                                  plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
+                                    'Number of Channels Captured = {}'
+                                    '\nIntegrated over {} captures'.format(beam, 
+                                        strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
+                                  log_dynamic_range=90, log_normalise_to=1,
+                                  caption='Captured beamformer data with level adjust after beam-forming gain set.',
+                                  hlines=exp1, plot_type='bf', hline_strt_idx=1)
+
                 Aqf.step('Checking beamformer substream alignment by injecting a CW in each substream.')
                 Aqf.step('Stepping through {} substreams and checking that the CW is in the correct '
                          'position.'.format(substreams))
-                for substream in range(substreams-1):
-                    stop_katsdpingest_docker(self)
+                for substream in range(substreams):
                     # Get substream start channel index
                     strt_ch_idx = substream*ch_per_substream
+                    substrms_to_cap = 1
                     # Compute the start IP address according to substream
                     beam_ip = int2ip(ip2int(start_beam_ip) + substream)
 
@@ -4936,7 +4937,7 @@ class test_CBF(unittest.TestCase):
 
                     # Start docker with the correct substream (only one substream)
                     docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
-                                                              1, nr_ch,
+                                                              substrms_to_cap, nr_ch,
                                                               ticks_between_spectra,
                                                               ch_per_substream, spectra_per_heap)
                     if docker_status:
@@ -4944,9 +4945,11 @@ class test_CBF(unittest.TestCase):
                                      'at {}'.format(beam_ip))
                     else:
                         Aqf.failed('KAT SDP Ingest Node failed to start')
-                    time.sleep(30)
                     try:
-                        d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, inp_ref_lvl=rl, exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx)
+                        d, l, rl, exp0, nc = get_beam_data(beam, inp_ref_lvl=rl, 
+                                exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx,
+                                s_substream = substream,
+                                subs_to_cap = substrms_to_cap)
                     except IndexError, e:
                         errmsg = 'Failed to retrieve beamformer data'
                         Aqf.failed(errmsg)

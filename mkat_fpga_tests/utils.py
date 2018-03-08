@@ -1515,7 +1515,7 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
     else:
         LOGGER.info('Capture-init successfully issued on %s and Data transmission for '
                     'beam %s started'%(ingst_nd, beam))
-    Aqf.wait(capture_time, 'Capturing beam data for ')
+    LOGGER.info(capture_time, 'Capturing beam data for ')
     try:
         LOGGER.info('Issue data capture stop via CAM int')
         reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
