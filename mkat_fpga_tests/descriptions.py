@@ -563,21 +563,19 @@ class TestProcedure:
         4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
         5. Retrieve current instrument parameters.
         6. Request beamformer level adjust gain
-        7. Configure beam tied-array-channelised-voltage.0y passband and set to desired center frequency
-            - Confirm that beam tied-array-channelised-voltage.0y passband has been set
-        8. Set inputs to desired weights and,
+        7. Set inputs to desired weights and,
             - Confirm that the input weight has been set to the desired weight.
-        9. Capture beam tied-array data and,
-            - Read and extract beam data from h5py data file in /ramdisk/epoch_time
+        8. Capture beam tied-array data and,
+            - Read and extract beam data from h5py data file in /ramdisk/
             - List missed heaps on partitions
             - Confirm the data type of the beamforming data for one channel.
-        11. Expected value is calculated by taking the reference input level and multiplying by the channel weights and quantiser gain.
+        9. Expected value is calculated by taking the reference input level and multiplying by the channel weights and quantiser gain.
 
             - Capture reference level measured by setting the gain for one antenna to 1 and the rest to 0.
             - Capture reference level averaged over x channels. Channel averages determined over x samples.
             - Confirm that the expected voltage level is within 0.2dB of the measured mean value.
 
-        12. Repeat above for different beam weights
+        10. Repeat above for different beam weights
         """
         return _description
 

@@ -16,6 +16,8 @@ import signal
 import subprocess
 import time
 import warnings
+import struct
+import socket
 
 from collections import Mapping
 from Crypto.Cipher import AES
@@ -47,6 +49,9 @@ VACC_FULL_RANGE = float(2 ** 31)
 
 cam_timeout = 60
 
+# Define lambda functions to convert ip to int and back
+ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
+int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
 
 def complexise(input_data):
     """Convert input data shape (X,2) to complex shape (X)
@@ -1160,6 +1165,8 @@ def parameters(self):
                 'baseline_correlation_products').replace('-', '_')
             beam0_output_product = self.correlator.configd['beam0'].get('output_products')
             beam1_output_product = self.correlator.configd['beam1'].get('output_products')
+            beam0_output_product_ = beam0_output_product.replace('-','_').replace('.','_')
+            beam1_output_product_ = beam1_output_product.replace('-','_').replace('.','_')
         except KeyError:
             msg = 'Instrument does not contain beamforming capabilities'
             LOGGER.info(msg)
@@ -1229,6 +1236,18 @@ def parameters(self):
         destination = None
 
     try:
+        beam0_destination = getattr(katcp_rct, '{}_destination'.format(beam0_output_product_)).get_value()
+    except Exception:
+        LOGGER.exception('Failed to retrieve beam0 destination via CAM int.')
+        beam0_destination = None
+
+    try:
+        beam1_destination = getattr(katcp_rct, '{}_destination'.format(beam1_output_product_)).get_value()
+    except Exception:
+        LOGGER.exception('Failed to retrieve beam1 destination via CAM int.')
+        beam1_destination = None
+
+    try:
         n_bls = getattr(katcp_rct, '{}_n_bls'.format(output_product_)).get_value()
     except Exception:
         LOGGER.exception('Failed to retrieve n_bls via CAM int.')
@@ -1289,15 +1308,25 @@ def parameters(self):
         LOGGER.exception('Failed not connected to katcp')
         katcp_host, katcp_port = [0]*2
 
+    # Spacing between frequency channels
+    ch_bandwidth = bandwidth / n_chans
+    f_start = 0.  # Center freq of the first bin
+    # Channel center frequencies
+    ch_center_freqs = f_start + np.arange(n_chans) * ch_bandwidth
+
     return {
         'adc_sample_rate': adc_sample_rate,
         'bandwidth': bandwidth,
         'beam0_output_product': beam0_output_product,
         'beam1_output_product': beam1_output_product,
         'bls_ordering': bls_ordering,
+        'ch_bandwidth': ch_bandwidth,
+        'ch_center_freqs':ch_center_freqs,
         'clock_rate': clock_rate,
         'custom_src_names': custom_src_names,
         'destination': destination,
+        beam0_output_product+'_destination': beam0_destination,
+        beam1_output_product+'_destination': beam1_destination,
         'input_labelling': input_labelling,
         'input_labels': input_labels,
         'int_time': int_time,
@@ -1394,7 +1423,7 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
     """ Capture beamformer data
 
     Parameters
@@ -1404,10 +1433,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
     beam_dict:
         Dictionary containing input:weight key pairs e.g.
         beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
-    target_pb:
-        Target passband in Hz
-    target_cfreq:
-        Target center frequency in Hz
+        If beam_dict = None weights will not be set
     capture_time:
         Number of seconds to capture beam data
 
@@ -1433,43 +1459,28 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
 
     ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
 
-    dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
-    Aqf.step('Configure beam %s passband and set to desired center frequency(%s).'%(beam,
-        target_cfreq))
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.beam_passband(beam, target_pb, target_cfreq)
-        assert reply.reply_ok()
-    except AssertionError:
-        Aqf.failed('Beam passband not successfully set (requested cf = {}, pb = {}): {}'.format(
-            target_cfreq, target_pb, reply.arguments))
-        return
-    else:
-        pb = float(reply.arguments[2]) * dsim_clk_factor
-        cf = float(reply.arguments[3]) * dsim_clk_factor
-        Aqf.progress('Beam {} passband set to {} at center frequency {}'.format(
-            reply.arguments[1], pb, cf))
-
     # Build new dictionary with only the requested beam keys:value pairs
     in_wgts = {}
     beam_pol = beam[-1]
-    for key in beam_dict:
-        if key.find(beam_pol) != -1:
-            in_wgts[key] = beam_dict[key]
+    if beam_dict:
+        for key in beam_dict:
+            if key.find(beam_pol) != -1:
+                in_wgts[key] = beam_dict[key]
 
-    for key in in_wgts:
-        Aqf.step('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
-            key))
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
-            assert reply.reply_ok()
-        except AssertionError:
-            Aqf.failed('Beam weights not successfully set')
-        except Exception as e:
-            errmsg = 'Test failed due to %s'%str(e)
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-        else:
-            Aqf.passed('Antenna input {} weight set to {}\n'.format(key, reply.arguments[1]))
+        for key in in_wgts:
+            LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+                key))
+            try:
+                reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
+                assert reply.reply_ok()
+            except AssertionError:
+                Aqf.failed('Beam weights not successfully set')
+            except Exception as e:
+                errmsg = 'Test failed due to %s'%str(e)
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+            else:
+                Aqf.passed('Antenna input {} weight set to {}'.format(key, reply.arguments[1]))
 
     try:
         import katcp
@@ -1540,7 +1551,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         Aqf.failed('Failed to get the latest beamformer data: %s'%str(e))
         return
     else:
-        Aqf.progress('Reading h5py data file(%s)[%s] and extracting the beam data.\n'%(newest_f,
+        LOGGER.info('Reading h5py data file(%s)[%s] and extracting the beam data.\n'%(newest_f,
             newest_f_timestamp))
         with h5py.File(newest_f, 'r') as fin:
             data = fin['Data'].values()
@@ -1554,7 +1565,7 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
                 elif element.name.find('flags') > -1:
                     bf_flags = np.array(element.value)
         os.remove(newest_f)
-        return bf_raw, bf_flags, bf_ts, in_wgts, pb, cf
+        return bf_raw, bf_flags, bf_ts, in_wgts 
 
 def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
     """
@@ -1565,6 +1576,18 @@ def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
         if ctr < num_wgts_to_set or num_wgts_to_set == -1:
             beam_dict[key] = value
             ctr += 1
+    return beam_dict
+
+def populate_beam_dict_idx(self, index, value, beam_dict):
+    """
+        Set specified beam index to weight, all other values to 0
+    """
+    for key in beam_dict:
+        key_idx = int(filter(str.isdigit, key))
+        if key_idx == index:
+            beam_dict[key] = value
+        else:
+            beam_dict[key] = 0
     return beam_dict
 
 def set_beam_quant_gain(self, beam, gain):
