@@ -151,18 +151,18 @@ class test_CBF(unittest.TestCase):
             self.receiver = None
             del self.receiver
 
-        for retry in retryloop(3, timeout=30):
-            try:
-                instrument_state = self.corr_fix.ensure_instrument(instrument, **kwargs)
-                self.errmsg = ('Could not initialise instrument or ensure running instrument: %s'
-                    %instrument)
-                assert instrument_state, self.errmsg
-            except AssertionError:
-                LOGGER.error(self.errmsg)
-                try:
-                    retry()
-                except RetryError:
-                    return False
+        #for retry in retryloop(3, timeout=30):
+        #    try:
+        #        instrument_state = self.corr_fix.ensure_instrument(instrument, **kwargs)
+        #        self.errmsg = ('Could not initialise instrument or ensure running instrument: %s'
+        #            %instrument)
+        #        assert instrument_state, self.errmsg
+        #    except AssertionError:
+        #        LOGGER.error(self.errmsg)
+        #        try:
+        #            retry()
+        #        except RetryError:
+        #            return False
 
         if self._dsim_set:
                 Aqf.step('Configure a digitiser simulator to be used as input source to F-Engines.')
@@ -172,8 +172,8 @@ class test_CBF(unittest.TestCase):
                 timeout=acc_timeout)
             assert reply.reply_ok()
         except (TimeoutError, VaccSynchAttemptsMaxedOut):
-            self.corr_fix.halt_array
-            self.corr_fix.ensure_instrument(instrument)
+            #self.corr_fix.halt_array
+            #self.corr_fix.ensure_instrument(instrument)
             self.errmsg = ('Timed-Out/VACC did not trigger: Failed to set accumulation time within '
                            '%s, SubArray will be halted and restarted with next test' % (acc_timeout))
             LOGGER.error(self.errmsg)
@@ -181,14 +181,14 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             self.errmsg = ('%s, Will try to re-initialise instrument: %s' % (str(reply), instrument))
             LOGGER.error(self.errmsg)
-            self.corr_fix.halt_array
-            self.corr_fix.ensure_instrument(instrument)
+            #self.corr_fix.halt_array
+            #self.corr_fix.ensure_instrument(instrument)
             with ignored(Exception):
                 reply, informs = self.corr_fix.katcp_rct.req.accumulation_length(acc_time,
                 timeout=acc_timeout)
         except Exception as e:
             self.errmsg = ('Failed to set accumulation time due to :%s' % str(e))
-            self.corr_fix.halt_array
+            #self.corr_fix.halt_array
             LOGGER.exception(self.errmsg)
             return False
         else:
