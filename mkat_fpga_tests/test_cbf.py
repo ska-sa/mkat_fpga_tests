@@ -4641,9 +4641,7 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
 
-        #for beam in beams:
-        for beam in range(1):
-            beam = beams[0]
+        for beam in beams:
             try:
                 beam_name = beam.replace('-','_').replace('.','_')
                 beam_ip, beam_port = self.cam_sensors.get_value(
