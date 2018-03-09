@@ -342,7 +342,7 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         correlator dump's baselines
     """
     try:
-        bls_ordering = parameters(self)['bls_ordering']
+        bls_ordering = eval(self.cam_sensors.get_value('bls_ordering'))
         LOGGER.info('Retrieved bls ordering via CAM Interface')
     except Exception:
         bls_ordering = None
@@ -369,9 +369,8 @@ def clear_all_delays(self, num_int=10):
     Return: Boolean
     """
     try:
-        _parameters = parameters(self)
-        no_fengines = _parameters['no_fengines']
-        int_time = _parameters['int_time']
+        no_fengines = self.cam_sensors.get_value('no_fengines')
+        int_time = self.cam_sensors.get_value('int_time')
         LOGGER.info('Retrieving test parameters via CAM Interface')
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
@@ -445,7 +444,7 @@ def get_and_restore_initial_eqs(self):
         LOGGER.exception('Failed to retrieve gains via CAM int.')
         return
     else:
-        input_labels = parameters(self)['input_labels']
+        input_labels = self.cam_sensors.input_labels
         gain = reply.arguments[-1]
         initial_equalisations = {}
         for label in input_labels:
@@ -576,7 +575,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
-    sources = parameters(self)['input_labels']
+    sources = self.cam_sensors.input_labels
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
         LOGGER.info('Setting desired gain/eq via CAM interface.')
