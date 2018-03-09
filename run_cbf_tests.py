@@ -222,7 +222,7 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
         # Fundge the command to add " when the command is
         # printed or run as string in shell.
         # if sh.which('nosetests') in cmd:
-        if '/usr/local/bin/nosetests' in cmd:
+        if 'nosetests' in cmd:
             for item in range(len(cmd)):
                 if cmd[item].startswith("-A"):
                     # break
@@ -683,8 +683,8 @@ def run_nose_test(settings):
     #     cmd = [sh.which('nosetests')]
     #     assert cmd is not None
     # except Exception as e:
-    #     cmd = ['/usr/local/bin/nosetests']
-    cmd = ['/usr/local/bin/nosetests']
+    #     cmd = ['nosetests']
+    cmd = ['nosetests']
     katreport_dir = settings.get('katreport_dir')
 
     if settings.get('log_level'):
@@ -889,7 +889,7 @@ def show_test_results(settings):
         {u'end': u'2015-08-18 05:30:17.308133',
          u'sitename': u'devl_mkat',
          u'start': u'2015-08-18 04:33:30.186272',
-         u'sys_args': [u'/usr/local/bin/nosetests',
+         u'sys_args': [u'nosetests',
          u'--with-katreport',
          u'--katreport-requirements=/tmp/CORE_EXPORT/M.json',
          u'-A((not aqf_site_only) and (not aqf_site_test) and (aqf_system_all or aqf_system_mkat))',
