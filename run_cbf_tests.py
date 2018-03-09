@@ -689,10 +689,12 @@ def run_nose_test(settings):
         cmd.append('-v')
         cmd.append('-s')
         cmd.append("--with-xunit")
+        cmd.append("--logging-level=INFO")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
     cmd.append("--with-katreport")
     if settings.get('use_core_json') and settings.get('json_file'):
         cmd.append("--katreport-requirements=%s" % settings['json_file'])
+        cmd.append("--logging-level=DEBUG")
 
     # Build the nosetests filter.
     condition = {'OR': ['aqf_system_all'], 'AND': []}
@@ -796,9 +798,6 @@ def run_nose_test(settings):
         for arg in nose_args.split():
             cmd.append(arg)
         # Run with --logging-level WARN if logging-level not passed in with nose_args
-        cmd.append("--logging-level=INFO")
-    else:
-        cmd.append("--logging-level=WARN")
 
     # Let the output log be written into the katreport_dir
     cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
@@ -1055,7 +1054,7 @@ def verify_dependecies(module_name):
         logger.debug("%s has been installed, and can be located in %s" % (module_name, _module_loc))
     except ImportError:
         logger.error("Test dependency module missing, please reinstall %s." % module_name)
-        sys.exit(1)
+    #    sys.exit(1)
 
 def kill_pid(proc_name):
     """

@@ -336,7 +336,7 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
     """Get list of all the baselines present in the correlator output.
     Param:
         self: object
-    Return: dict:
+        Return: dict:
         baseline lookup with tuple of input label strings keys
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
         correlator dump's baselines
@@ -380,160 +380,42 @@ def clear_all_delays(self, num_int=10):
     delay_coefficients = ['0,0:0,0'] * no_fengines
     _retries = 10
     errmsg = ''
+    _delays_set = False
     while _retries:
         _retries -= 1
         try:
+            if not _delays_set:
+                dump = self.receiver.get_clean_dump(discard=10)
+                dump_timestamp = dump['dump_timestamp']
+                time_now = time.time()
+                time_diff = dump_timestamp - time_now
+                errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
+                    dump_timestamp, time_now, time_diff))
+                assert int(time_diff) in [-1, 0], errmsg
+                t_apply = dump_timestamp + (num_int * int_time)
+                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+                errmsg = 'Delays command could not be executed in the given time'
+                assert reply.reply_ok(), errmsg
+                _delays_set = reply.reply_ok()
+                time.sleep(5)
+
             dump = self.receiver.get_clean_dump(discard=10)
-            dump_timestamp = dump['dump_timestamp']
-            time_now = time.time()
-            time_diff = dump_timestamp - time_now
-            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
-                dump_timestamp, time_now, time_diff))
-            assert int(time_diff) in [-1, 0], errmsg
-            t_apply = dump_timestamp + (num_int * int_time)
-            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-            errmsg = 'Delays command could not be executed in the given time'
-            assert reply.reply_ok(), errmsg
-            dump = self.receiver.get_clean_dump(discard=10)
-            _max = int(np.max(np.angle(dump['xeng_raw'])))
-            _min = int(np.min(np.angle(dump['xeng_raw'])))
-            errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (_max, _min)
+            _max = int(np.max(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
+            _min = int(np.min(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
+            errmsg = 'Max(%s)/Min(%s) delays found, not cleared' % (_max, _min)
             assert _min ==_max == 0, errmsg
             LOGGER.info(
                 'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
             return True
         except AssertionError:
-            LOGGER.warning(errmsg)
+            LOGGER.warning(errmsg + ', within %s retries.' % _retries)
         except TypeError:
             LOGGER.exception("Object has no attributes")
             return False
         except Exception:
-            LOGGER.exception(errmsg)
+            LOGGER.exception(errmsg + ', within %s retries.' % _retries)
     return False
 
-
-# def get_fftoverflow_qdrstatus(correlator):
-#     """Get dict of all roaches present in the correlator
-#     Param: Correlator object
-#     Return: Dict:
-#         Roach, QDR status, PFB counts
-#     """
-#     fhosts = {}
-#     xhosts = {}
-#     dicts = {'fhosts': {}, 'xhosts': {}}
-#     fengs = correlator.fhosts
-#     xengs = correlator.xhosts
-#     for fhost in fengs:
-#         fhosts[fhost.host] = {}
-#         try:
-#             fhosts[fhost.host]['QDR_okay'] = fhost.ct_okay()
-#         except Exception:
-#             return False
-#         for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
-#             fhosts[fhost.host][pfb] = value
-#         for xhost in xengs:
-#             xhosts[xhost.host] = {}
-#             try:
-#                 xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
-#             except Exception:
-#                 return False
-#     dicts['fhosts'] = fhosts
-#     dicts['xhosts'] = xhosts
-#     return dicts
-
-
-# def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
-#     """Checks if FFT overflows and QDR status on roaches
-#     Param: Correlator object, last known pfb counts
-#     Return: list:
-#         Roaches with QDR status errors
-#     """
-#     qdr_error_roaches = set()
-#     try:
-#         fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
-#     except Exception:
-#         return False
-#     if fftoverflow_qdrstatus is not False:
-#         curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
-#     else:
-#         curr_pfb_counts = False
-#     if curr_pfb_counts is not False:
-#         for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
-#                 last_pfb_counts.items(), curr_pfb_counts.items()):
-#             if curr_pfb_host is curr_pfb_host_x:
-#                 if curr_pfb_value != last_pfb_value:
-#                     if status:
-#                         Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
-
-#         for hosts_status in fftoverflow_qdrstatus.values():
-#             for host, _hosts_status in hosts_status.items():
-#                 if _hosts_status['QDR_okay'] is False:
-#                     if status:
-#                         Aqf.failed('QDR status on {} not Okay.'.format(host))
-#                     qdr_error_roaches.add(host)
-
-#         return list(qdr_error_roaches)
-
-# def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
-#             LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
-#             for _sensor in list_sensor:
-#                 try:
-#                     _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
-#                     if _status_hosts is not (True or None):
-#                         for _status in _status_hosts:
-#                             LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
-#                                  getframeinfo(currentframe()).filename.split('/')[-1],
-#                                  getframeinfo(currentframe()).lineno))
-#                 except Exception as e:
-#                     errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
-#                     LOGGER.exception(errmsg)
-
-
-
-# def check_host_okay(self, engine=None, sensor=None):
-#     """
-#     Function retrieves PFB, LRU, QDR, PHY and reorder status on all F/X-Engines via Cam interface.
-#     :param: Object: self
-#     :param: Str: F/X-engine
-#     :param: Str: sensor
-#     :rtype: Boolean or List
-#     """
-#     try:
-#         reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=cam_timeout)
-#         assert reply.reply_ok()
-#     except Exception:
-#         LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
-#         return None
-#     else:
-#         if engine == 'feng':
-#             hosts = [_i.host.lower() for _i in self.correlator.fhosts]
-#         elif engine == 'xeng':
-#             hosts = [_i.host.lower() for _i in self.correlator.xhosts]
-#         else:
-#             LOGGER.error('Engine cannot be None')
-#             return None
-
-#         sensor_status = [[' '.join(i.arguments[2:]) for i in informs
-#                          if i.arguments[2].endswith('ok') and not i.arguments[2].startswith('antenna')]
-#                          for host in hosts]
-#         _errors_list = []
-#         for i in sensor_status:
-#             try:
-#                 assert str(i[0].split()[-2]) == 'nominal'
-#                 return True
-#             except AssertionError:
-#                 if sensor in i[0]:
-#                     errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
-#                     LOGGER.error(errmsg)
-#                     _errors_list.append(errmsg)
-#             except IndexError:
-#                 LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
-#                              'File: %s line: %s' % (
-#                                  getframeinfo(currentframe()).filename.split('/')[-1],
-#                                  getframeinfo(currentframe()).lineno))
-#                 return None
-
-#         return _errors_list
 
 
 def get_vacc_offset(xeng_raw):
@@ -788,7 +670,7 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     if spead2_warn:
         logging.getLogger('spead2').setLevel(logging.ERROR)
     if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.INFO)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
         logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
         logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
         logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
@@ -923,21 +805,6 @@ def restore_src_names(self):
             orig_src_names)))
     except Exception:
         LOGGER.exception('Failed to restore CBF source names back to default.')
-        return False
-
-
-def deprogram_hosts(self, timeout=60):
-    """Function that de-programs F and X Engines
-    :param: Object
-    :rtype: None
-    """
-    try:
-        hosts = self.correlator.xhosts + self.correlator.fhosts
-        threaded_fpga_function(hosts, timeout, 'deprogram')
-        LOGGER.info('F/X-engines deprogrammed successfully .')
-        return True
-    except Exception:
-        LOGGER.error('Failed to de-program all connected hosts.')
         return False
 
 
@@ -1078,39 +945,6 @@ def decode_passwd(pw_decrypt, key=None):
         _cipher = AES.new(key, AES.MODE_ECB)
         decoded = _cipher.decrypt(base64.b64decode(pw_decrypt))
         return decoded.strip()
-
-
-class GracefullInterruptHandler(object):
-    """
-    Control-C keyboard interrupt handler.
-    :param: Signal type
-    :rtype: None
-    """
-
-    def __init__(self, sig=signal.SIGINT):
-        self.sig = sig
-
-    def __enter__(self):
-        self.interrupted = False
-        self.released = False
-
-        self.original_handler = signal.getsignal(self.sig)
-
-        def handler(signum, frame):
-            self.release()
-            self.interrupted = True
-        signal.signal(self.sig, handler)
-        return self
-
-    def __exit__(self, type, value, to):
-        self.release()
-
-    def release(self):
-        if self.released:
-            return False
-        signal.signal(self.sig, self.original_handler)
-        self.released = True
-        return True
 
 def create_logs_directory(self):
     """
@@ -1613,6 +1447,7 @@ def get_clean_dump(self, discards=10, retries=20):
         errmsg = ''
         try:
             dump = self.receiver.get_clean_dump(discard=discards)
+            assert dump
             dump_timestamp = dump['dump_timestamp']
             time_now = time.time()
             time_diff = dump_timestamp - time_now

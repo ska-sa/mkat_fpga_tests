@@ -179,7 +179,7 @@ else:
         _document_data = json.load(_data)
 try:
     _document_number, _document_info  = _document_data['document_number'].get(
-        _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
+        _document_data.get('documented_instrument', 'Unknown').split('_')[0], 'Unknown')
 
     _document_type = ' '.join(['Qualification Test',
         _document_data.get('document_type')[_document_data.get('document_type').keys()[0]]])
