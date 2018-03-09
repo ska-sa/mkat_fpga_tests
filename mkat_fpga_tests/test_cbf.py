@@ -5021,10 +5021,60 @@ class test_CBF(unittest.TestCase):
                                   caption='Captured beamformer data', hlines=[exp0, exp1],
                                   plot_type='bf', hline_strt_idx=1)
 
+                Aqf.step('Testing quantiser gain adjustment.')
+                beam_data = []
+                beam_lbls = []
+                # Set beamformer quantiser gain for selected beam to 1/number inputs
+                gain = 1.0
+                gain = set_beam_quant_gain(self, beam, gain)
+                weight = 1.0 / ants
+                beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+                rl = 0
+
+                try:
+                    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
+                except Exception as e:
+                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return
+                beam_data.append(d)
+                l += '\nLevel adjust gain={}'.format(gain)
+                beam_lbls.append(l)
+
+                gain = 0.5
+                gain = set_beam_quant_gain(self, beam, gain)
+
+                try:
+                    d, l, rl, exp1, nc = get_beam_data(beam, inp_ref_lvl=rl, beam_quant_gain=gain)
+                except Exception as e:
+                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.error(errmsg)
+                    return
+                beam_data.append(d)
+                l += '\nLevel adjust gain={}'.format(gain)
+                beam_lbls.append(l)
+
+                # Square the voltage data. This is a hack as aqf_plot expects squared
+                # power data
+                aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
+                                  plot_filename='{}/{}_level_adjust_after_bf_{}.png'.format(self.logs_path,
+                                    self._testMethodName, beam),
+                                  plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
+                                    'Number of Channels Captured = {}'
+                                    '\nIntegrated over {} captures'.format(beam, 
+                                        strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
+                                  log_dynamic_range=90, log_normalise_to=1,
+                                  caption='Captured beamformer data with level adjust after beam-forming gain set.',
+                                  hlines=exp1, plot_type='bf', hline_strt_idx=1)
 
                 Aqf.step('Checking beamformer substream alignment by injecting a CW in each substream.')
                 Aqf.step('Stepping through {} substreams and checking that the CW is in the correct '
                          'position.'.format(substreams))
+                # Reset quantiser gain
+                gain = 1.0
+                gain = set_beam_quant_gain(self, beam, gain)
                 for substream in range(substreams):
                     # Get substream start channel index
                     strt_ch_idx = substream*ch_per_substream
@@ -5064,53 +5114,6 @@ class test_CBF(unittest.TestCase):
                         LOGGER.error(errmsg)
                         return
 
-                Aqf.step('Testing quantiser gain adjustment.')
-                beam_data = []
-                beam_lbls = []
-                # Set beamformer quantiser gain for selected beam to 1/number inputs
-                gain = 1.0
-                gain = set_beam_quant_gain(self, beam, gain)
-                weight = 1.0 / ants
-                beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
-                rl = 0
-
-                try:
-                    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, gain)
-                except Exception as e:
-                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
-                    Aqf.failed(errmsg)
-                    LOGGER.error(errmsg)
-                    return
-                beam_data.append(d)
-                l += '\nLevel adjust gain={}'.format(gain)
-                beam_lbls.append(l)
-
-                gain = 0.5
-                gain = set_beam_quant_gain(self, beam, gain)
-
-                try:
-                    d, l, rl, exp1, nc = get_beam_data(beam, beam_dict, rl, gain)
-                except Exception as e:
-                    errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
-                    Aqf.failed(errmsg)
-                    LOGGER.error(errmsg)
-                    return
-                beam_data.append(d)
-                l += '\nLevel adjust gain={}'.format(gain)
-                beam_lbls.append(l)
-
-                # Square the voltage data. This is a hack as aqf_plot expects squared
-                # power data
-                aqf_plot_channels(zip(np.square(beam_data), beam_lbls),
-                                  plot_filename='{}/{}_level_adjust_after_bf_{}.png'.format(self.logs_path,
-                                    self._testMethodName, beam),
-                                  plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
-                                    'Number of Channels Captured = {}'
-                                    '\nIntegrated over {} captures'.format(beam, 
-                                        strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
-                                  log_dynamic_range=90, log_normalise_to=1,
-                                  caption='Captured beamformer data with level adjust after beam-forming gain set.',
-                                  hlines=exp1, plot_type='bf', hline_strt_idx=1)
 
         # Close any KAT SDP ingest nodes
         stop_katsdpingest_docker(self)
