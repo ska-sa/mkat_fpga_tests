@@ -6,8 +6,8 @@ bokeh
 breathe
 chainmap
 click
-coverage
 coloredlogs
+coverage
 crypto
 cryptography
 dpkt
@@ -18,6 +18,7 @@ flake8-html
 h5py
 idna==2.5
 iniparse
+ipdb
 ipynose
 ipython[all]
 jenkinsapi
@@ -50,7 +51,6 @@ sphinx
 sphinxcontrib-napoleon
 traceback2
 trollius
-
 
 # Uncomment below if not installing these packages from a local source
 # git+https://github.com/ska-sa/casperfpga#egg=casperfpga

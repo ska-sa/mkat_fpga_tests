@@ -37,9 +37,8 @@ from signal import SIGKILL
 # List all core test python module dependencies
 _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
 
-# TODO (MM) perhaps implement a config file
 _revision ='1.0'
-_release = '2/3'
+_release = '3'
 
 def option_parser():
     usage = """
@@ -533,9 +532,11 @@ def generate_sphinx_docs(settings):
     else:
         logger.info("Generating LATEX/PDF document from reST")
         document_data = {
-                'project': 'MeerKAT Correlator-Beamformer Array Release 2/3 Qualification Test ',
+                'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test ' % _release,
                 'documented_instrument': settings.get('system_type', 'Unknown'),
-                'document_number': {'QTP': 'M1200-0000-054 ',
+                'array_release': _release,
+                'document_number': {
+                                    'QTP': 'M1200-0000-054 ',
                                     'QTR': 'M1200-0000-055',
                                     'bc8n856M4k': ['M1200-0000-055-1',
                                                    '4 Antenna System running in Wideband Coarse (4K) mode'

@@ -649,7 +649,6 @@ class CorrelatorFixture(object):
         return confirm_multicast_subs(mul_ip=str(_address))
 
     def start_correlator(self, instrument=None, retries=10):
-        from mkat_fpga_tests.utils import RunTestWithTimeout
         LOGGER.debug('CBF instrument(%s) re-initialisation.' %instrument)
         success = False
         self.katcp_array_port = None

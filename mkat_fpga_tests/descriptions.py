@@ -181,29 +181,63 @@ class TestProcedure:
             - Confirm that auto-correlation in baseline 1 contains non-Zeros and
             - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
 
+        **Route Digitisers Raw Data Verification**
+
+        1. The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.
+        2. The baseline correlation test proves that the CBF ingests raw digitiser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
+
+        """
+        return _description
+
+
+    @property
+    def ImagingDataProductSet(self):
+        _description = """
+
+        1. Configure a digitiser simulator to be used as input source to F-Engines and generate correlated noise.
+        2. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        4. Configure the CBF to generate Baseline Correlation Products (If available)
+        5. Capture Correlation Data and,
+            - Confirm the number of channels in the SPEAD data.
+            - Check that data product has the number of frequency channels corresponding to the instrument.
+            - Confirm that data products were captured.
         """
         return _description
 
     @property
-    def DataProduct(self):
+    def TiedArrayAuxBaselineCorrelationProducts(self):
         _description = """
-        **Data Product**
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated noise.
-        3. Set a predetermined accumulation period
+        1. Configure a digitiser simulator to be used as input source to F-Engines and generate correlated noise.
+        2. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Configure the CBF to simultaneously generate Baseline Correlation Products and Tied-Array Voltage Data Products (If available)
-        6. Capture Tied-Array Data and,
+        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        4. Configure the CBF to simultaneously generate Baseline Correlation Products and Tied-Array Voltage Data Products (If available)
+        5. Capture Tied-Array Data and,
             - Confirm that the tide-array data were captured.
-        7. Capture Correlation Data and,
+        6. Capture Correlation Data and,
             - Confirm the number of channels in the SPEAD data.
             - Check that data product has the number of frequency channels corresponding to the instrument.
             - Confirm that data products were captured.
-        8. Confirm that imaging data product set has been implemented for the instrument
         """
         return _description
+
+    @property
+    def TiedArrayVoltageDataProductSet(self):
+        _description = """
+
+        1. Configure a digitiser simulator to be used as input source to F-Engines and generate correlated noise.
+        2. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        3. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        4. Configure the CBF to generate Tied-Array Voltage Data Products (If available)
+        5. Capture Tied-Array Data and,
+            - Confirm that the tide-array data were captured.
+        """
+        return _description
+
 
     @property
     def Control(self):
@@ -234,7 +268,6 @@ class TestProcedure:
     @property
     def VoltageBuffer(self):
         _description = """
-        **Voltage Buffer Data Product**
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate continuous wave
@@ -279,8 +312,8 @@ class TestProcedure:
         2. Configure the CBF to generate a data product, using the noise source. Which specific data product is chosen is irrelevant.
         3. Confirm that SPEAD packets are being produced, with the selected data product(s).
         4. Start timer.
-        5. De-program CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
-        6. Verify by setting up multiple sub-arrays (repeat step 2 and 3) and verify that they operate independently without interference..
+        5. Halt the CBF and confirm that SPEAD packets are either no longer being produced, or that the data content is at least affected.
+        6. Re-initialise the CBF and,
             - Confirm that SPEAD packets are being produced, with the selected data product(s).
         7. Stop timer and
             - Confirm data product switching time is less than 60 seconds (Data Product switching time = End time - Start time.)
@@ -351,26 +384,15 @@ class TestProcedure:
         _description = """
         **CBF Power Consumption**
 
-        1. Request power consumption of each PDU via telnet interface at 1 minute intervals.
-        2. Repeat for each PDU.
-        3. Exercise each of the available CBF data product sets for 10 minutes or more. The total time must be more than 60 minutes.
-        4. After >60 minutes, log in to each CBF PDU in turn. Click Logs->Data->log. Copy and paste the data log into a text file. Import that file as a space delimited file into a spreadsheet, with a worksheet per PDU.
-        5. Make a column in each worksheet which computes for each entry the percentage instantaneous current drawn per phase i.e. I Ph1/(I Ph1+I Ph2+I Ph3).
-        6. Make a column in each worksheet which computes for each entry the max of the percentage instantaneous current drawn per phase divided by the min of the percentage instantaneous current drawn per phase (=MAX(T5:V5)/MIN(T5:V5)).
-        7. Compute the maximum of that ratio.
-        8. Repeat for each PDU in each worksheet. The load balance test passes if the maximum ratio is less than 1.33 in each worksheet.
-            - In each worksheet, make a column which computes total instantaneous power by multiplying current drawn over the three phases, multiplied by 220 i.e. (I Ph1+I Ph2+I Ph3)*220.
-            -  In each worksheet, compute the average of the power.
-        9. The average power per rack test passes if the average peak power in each of the spreadsheets is <= 6.25kW.
-        10. Sum the average power per rack to get a CBF average peak power.
-        11. The CBF average peak power test passes if the CBF average power is <= 60kW.
-        12. Divide the CBF average power by the number of CBF racks that are actually used, to get a CBF average power per rack.
-        13. The CBF maximum heat generation test passes that the CBF average power per rack is <= 5kW.
-
-            - In each worksheet, make a column which computes peak power by multiplying peak current drawn over the three phases,
-                multiplied by 220 i.e. (Imax Ph1+Imax Ph2+Imax Ph3)*220.
-            - Sum the peak power of each rack to get a CBF peak power.
-            - The CBF peak power test passes if the maximum CBF peak power is <= 60kW.
+        1. Configure the CBF to produce the imaging data product.
+        2. Record power consumption for all relevant PDUs over a period of more than 60 minutes.
+        3. Check that the difference in current per phase is less than 5A.
+        4. If the difference is more than 5A check that all phase currents are within 15% of each other.
+        5. The average power per rack test passes if the average peak power is <= 6.25kW.
+        6. Sum the average power per rack to get a CBF average peak power.
+        7. The CBF peak and average power test passes if the CBF power is <= 60kW.
+        8. Divide the CBF average power by the number of CBF racks that are actually used, to get a CBF average power per rack.
+        9. The CBF maximum heat generation test passes that the CBF average power per rack is <= 5kW.
         """
         return _description
 
@@ -383,9 +405,9 @@ class TestProcedure:
         3. Set a predetermined accumulation period, and
             - Confirm it has been set via CAM interface.
         4. Initiate SPEAD receiver, enable data to flow and confirm the CBF output product.
-        5. Confirm that the user can disable and/or enable delays and/or phase via CAM interface.
-        6. Set delays via CAM interface, and
-            - Confirm that the time it takes to set the delays is below 1 seconds
+        5. Confirm that the user can disable and/or enable Delays and/or Phase changes via CAM interface.
+        6. Set delays/phase changes via CAM interface, and
+            - Confirm that the time it takes to set the delays/phases is below 1 seconds.
         """
         return _description
 
@@ -477,25 +499,53 @@ class TestProcedure:
     @property
     def BeamformerEfficiency(self):
         _description = """
-        **Beamformer Efficiency**
+        **CBF Beamformer Efficiency**
 
-        TBD
+        1. Configure the beam former with zero delays and uniform taper (i.e. straight sum of N inputs per polarisation)
+        2. Configure a digitiser simulator to be used as input source to F-Engines
+        3. Configure a digitiser simulator to generate continuous wave (inject a frequency-swept tone)
+        4. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        5. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        **Missing**
+        10. Measure/record the filter-bank spectral response from a channel from the output of the beamformer
+        11. Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth for each swept channel
+        12. Compute the efficiency as the ratio of Half Power Bandwidth to the Noise Equivalent Bandwidth: efficiency = HPBW/NEBW
         """
         return _description
 
     @property
     def LBandEfficiency(self):
         _description = """
-        **L-Band Efficiency**
+        **CBF L-band Correlator Efficiency**
 
-        TBD
+        1. Configure a digitiser simulator to be used as input source to F-Engines
+        2. Configure a digitiser simulator to generate continuous wave (inject a frequency-swept tone)
+        3. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        5. Retrieve channelisation test results from CSV file, if available and go to step 9.
+        6. Else, calculate number of frequencies to iterate on
+        7. Randomly select a frequency channel to test.
+        8. Capture an initial correlator SPEAD accumulation and,
+            - Determine the number of frequency channels
+            - Confirm that the number of channels in the SPEAD accumulation, is equal to the number of frequency channels as calculated
+            - Confirm that the Channelise total bandwidth is >= 770000000.0Hz.
+            - Confirm the number of calculated channel frequency step is within requirement.
+            - Verify that the calculated channel frequency step size is within requirement
+            - Confirm the channelisation spacing and confirm that it is within the maximum tolerance.
+        9. Sweep the digitiser simulator over the centre frequencies of at least all the channels that fall within the complete L-band
+            - Capture channel response for every frequency channel in the selected frequencies calculated
+        10. Measure/record the filter-bank spectral response from a channel
+        11. Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth for each swept channel
+        12. Compute the efficiency as the ratio of Half Power Bandwidth to the Noise Equivalent Bandwidth: efficiency = HPBW/NEBW
         """
         return _description
 
     @property
     def Beamformer(self):
         _description = """
-        **Beamformer functionality**
+        **Beamformer Functionality**
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate correlated Gaussian noise
@@ -553,7 +603,7 @@ class TestProcedure:
     @property
     def PowerSupply(self):
         _description = """
-        1. Confirm by inspection of the datasheets of each of the LRUs used in the CBF that the LRUs are specified to work over an input voltage range of at least 209Vrms to 231Vrms, frequency range at least 49.5Hz to 50.5Hz.
+        1. Confirm by inspection of the data sheets of each of the LRUs used in the CBF that the LRUs are specified to work over an input voltage range of at least 209Vrms to 231Vrms, frequency range at least 49.5Hz to 50.5Hz.
         2. Record the item part numbers and supply references to the item data sheets and/or specification used.
 
         NOTE: Total harmonic distortion is not tested. This is considered low enough risk to be acceptable.
@@ -983,4 +1033,3 @@ class TestProcedure:
 
 
 TestProcedure = TestProcedure()
-

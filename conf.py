@@ -178,13 +178,21 @@ else:
     with open(_json_file) as _data:
         _document_data = json.load(_data)
 try:
-    _document_number, _document_info  = _document_data['document_number'].get(
-        _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
+    _document_type = _document_data.get('document_type').keys()[0]
+    if _document_type == 'QTR':
+        _document_number, _document_info  = _document_data['document_number'].get(
+            _document_data.get('documented_instrument', 'Unknown'), 'Unknown')
+    else:
+        _document_number = _document_data.get('document_number').get(_document_type).replace(' ', '')
 
     _document_type = ' '.join(['Qualification Test',
         _document_data.get('document_type')[_document_data.get('document_type').keys()[0]]])
-    _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
-        time.strftime('%Y%m%d', time.localtime()))
+    _array_release = _document_data.get('array_release', 3)
+
+    _filename = "%s_MeerKat_Correlator_Beamformer_Array_Release_%s_%s.tex" %(
+        _document_number, _array_release, _document_type.replace(' ', '_'))
+    # _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
+    #     time.strftime('%Y%m%d', time.localtime()))
 except Exception as e:
     print '%s' % e.message
 
@@ -213,7 +221,7 @@ latex_elements = {
     \let\cleardoublepage\clearpage
     """,
     'fontpkg': r'\usepackage{times}',
-    'releasename': 'Array Release 2/3',
+    'releasename': 'Array Release 3',
     'maketitle': '',
     }
 
@@ -289,6 +297,9 @@ def exit_handler():
                         r'\caption{Summary of Test',
                         r'\caption{Requirements',
                         r'\section{Test Procedure}',
+                        r'\(\phi_{TA}(f\) = -2*\pi*f_{RF}*\tau_{TA}\)',
+                        r'Fly’92s',
+                        r'19‘94 racks',
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
@@ -318,6 +329,9 @@ def exit_handler():
                         r'% \caption{Summary of Test',
                         r'% \caption{Requirements',
                         r'\subsection{Test Procedure}',
+                        r'$\phi${\footnotesize TA}(f) = -2 * $\pi$ * f{\footnotesize RF} * $\tau{\footnotesize TA}$',
+                        r"Fly's",
+                        r'19" racks',
                         # "{longtable}[c]{|l|l|l|}",
                         # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
                         # "end{longtable}",

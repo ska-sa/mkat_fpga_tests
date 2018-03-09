@@ -1,6 +1,5 @@
 import functools
 import logging
-import textwrap
 
 from Tkinter import tkinter
 import matplotlib.pyplot as plt
@@ -362,7 +361,8 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
         plt.cla()
         plt.clf()
 
+
 def test_heading(heading):
-    Aqf.hop('-'*50)
+    Aqf.hop('-' * 50)
     Aqf.stepBold(heading)
-    Aqf.hop('-'*50)
+    Aqf.hop('-' * 50)
