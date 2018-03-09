@@ -1157,7 +1157,7 @@ class test_CBF(unittest.TestCase):
             return False
 
 
-        local_src_names = self.cam_sensors.customs_input_labels
+        local_src_names = self.cam_sensors.custom_input_labels
         network_latency = 0.03
         self.corr_fix.issue_metadata
         source_names = self.cam_sensors.input_labels
@@ -3852,7 +3852,9 @@ class test_CBF(unittest.TestCase):
             # input1 has been statically assigned to be the testing input
             Aqf.step("The test will sweep through four(4) randomly selected baselines, select and "
                     "set a delay value, Confirm if the delay set is as expected.")
-            input_labels = random.shuffle(self.cam_sensors.input_labels)[4:]
+            input_labels = self.cam_sensors.input_labels
+            random.shuffle(input_labels)
+            input_labels = input_labels[4:]
             for delayed_input in input_labels:
                 test_delay_val = random.randrange(self.corr_freqs.sample_period, step=.83e-10,
                     int=float)

@@ -369,7 +369,7 @@ def clear_all_delays(self, num_int=10):
     Return: Boolean
     """
     try:
-        no_fengines = self.cam_sensors.get_value('no_fengines')
+        no_fengines = self.cam_sensors.get_value('n_fengs')
         int_time = self.cam_sensors.get_value('int_time')
         LOGGER.info('Retrieving test parameters via CAM Interface')
     except Exception:
