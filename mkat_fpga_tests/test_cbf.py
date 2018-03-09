@@ -218,8 +218,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
             try:
-
-                output_product = parameters(self)['output_product']
+                output_product = 'baseline_correlation_products'
                 Aqf.step('Initiate SPEAD receiver on port %s, and CBF output product %s' % (
                     corrRx_port, output_product))
                 if corrRx_port == 8888:
@@ -250,6 +249,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception('%s' % str(e))
                 return False
             else:
+                self.sensors = GetSensors(self.corr_fix)
                 self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                 self.corr_fix.start_x_data
                 self.addCleanup(self.corr_fix.stop_x_data)
@@ -1154,10 +1154,10 @@ class test_CBF(unittest.TestCase):
             return False
 
         _parameters = parameters(self)
-        local_src_names = _parameters['custom_src_names']
-        network_latency = _parameters['network_latency']
+        local_src_names = self.sensors.customs_input_labels
+        network_latency = 0.03
         self.corr_fix.issue_metadata
-        source_names = _parameters['input_labels']
+        source_names = self.sensors.input_labels
         # Get name for test_source_idx
         test_source = source_names[test_source_idx]
         ref_source = source_names[0]
@@ -1181,10 +1181,10 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             Aqf.progress('Successfully retrieved initial spead accumulation')
-            int_time = _parameters['int_time']
-            synch_epoch = _parameters['synch_epoch']
-            # n_accs = _parameters['n_accs']
-            no_chans = range(_parameters['n_chans'])
+            int_time = self.sensors.get_value('int_time')
+            synch_epoch = self.sensors.get_value('synch_epoch')
+            # n_accs = self.sensors.get_value('n_accs')]
+            no_chans = range(self.sensors.get_value('n_chans'))
             time_stamp = initial_dump['timestamp']
             # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
             # int_time_ticks = n_accs * ticks_between_spectra
@@ -1626,7 +1626,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
         else:
             _parameters = parameters(self)
-            bls_to_test = _parameters['bls_ordering'][test_baseline]
+            bls_to_test = self.sensors.get_value('bls_ordering')[test_baseline]
             Aqf.progress('Randomly selected frequency channel to test: {} and '
                          'selected baseline {} / {} to test.'.format(test_chan, test_baseline,
                             bls_to_test))
@@ -1635,9 +1635,9 @@ class test_CBF(unittest.TestCase):
                        'to the number of frequency channels as calculated: {}'.format(
                            np.shape(initial_dump['xeng_raw'])[0]))
 
-            Aqf.is_true(_parameters['bandwidth'] >= min_bandwithd_req,
+            Aqf.is_true(self.sensors.get_value('bandwidth') >= min_bandwithd_req,
                         'Channelise total bandwidth {}Hz shall be >= {}Hz.'.format(
-                            _parameters['bandwidth'], min_bandwithd_req))
+                            self.sensors.get_value('bandwidth'), min_bandwithd_req))
             # TODO (MM) 2016-10-27, As per JM
             # Channel spacing is reported as 209.266kHz. This is probably spot-on, considering we're
             # using a dsim that's not actually sampling at 1712MHz. But this is problematic for the
@@ -1646,7 +1646,7 @@ class test_CBF(unittest.TestCase):
             # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
             # chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
 
-            chan_spacing = _parameters['bandwidth'] / initial_dump['xeng_raw'].shape[0]
+            chan_spacing = self.sensors.get_value('bandwidth') / initial_dump['xeng_raw'].shape[0]
             chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
                                 chan_spacing + (chan_spacing * 1 / 100)]
             Aqf.step('Confirm that the number of calculated channel '
@@ -1766,10 +1766,10 @@ class test_CBF(unittest.TestCase):
         df = self.corr_freqs.delta_f
         try:
             rand_chan_response = len(chan_responses[random.randrange(len(chan_responses))])
-            assert rand_chan_response == _parameters['n_chans']
+            assert rand_chan_response == self.sensors.get_value('n_chans')
         except AssertionError:
             errmsg = ('Number of channels (%s) found on the spead data is inconsistent with the '
-                      'number of channels (%s) expected.' %(rand_chan_response, _parameters['n_chans']))
+                      'number of channels (%s) expected.' %(rand_chan_response, self.sensors.get_value('n_chans')))
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         else:
@@ -2024,8 +2024,8 @@ class test_CBF(unittest.TestCase):
             Aqf.equals(np.shape(initial_dump['xeng_raw'])[0], no_channels,
                        'Captured an initial correlator SPEAD accumulation, '
                        'determine the number of channels and processing bandwidth: '
-                       '{}Hz.'.format(_parameters['bandwidth']))
-            chan_spacing = (_parameters['bandwidth'] / np.shape(initial_dump['xeng_raw'])[0])
+                       '{}Hz.'.format(self.sensors.get_value('bandwidth')))
+            chan_spacing = (self.sensors.get_value('bandwidth') / np.shape(initial_dump['xeng_raw'])[0])
             # [CBF-REQ-0043]
             calc_channel = ((required_chan_spacing / 2) <= chan_spacing <= required_chan_spacing)
             Aqf.step('Confirm that the number of calculated channel '
@@ -2145,7 +2145,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             vacc_offset = get_vacc_offset(dump['xeng_raw'])
-            msg = ('Confirm that theauto-correlation in baseline 0 contains Non-Zeros, '
+            msg = ('Confirm that the auto-correlation in baseline 0 contains Non-Zeros, '
                    'and baseline 1 is Zeros, when cw tone is only outputted on input 0.')
             Aqf.equals(vacc_offset, 0, msg)
             # TODO Plot baseline
@@ -2157,7 +2157,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Capture a correlator SPEAD accumulation.')
             dump = get_clean_dump(self)
             vacc_offset = get_vacc_offset(dump['xeng_raw'])
-            msg = ('Confirm that theauto-correlation in baseline 1 contains non-Zeros, '
+            msg = ('Confirm that the auto-correlation in baseline 1 contains non-Zeros, '
                    'and baseline 0 is Zeros, when cw tone is only outputted on input 1.')
             Aqf.equals(vacc_offset, 1, msg)
             init_dsim_sources(self.dhost)
@@ -2198,7 +2198,7 @@ class test_CBF(unittest.TestCase):
             time.sleep(5)
             _parameters = parameters(self)
             self.corr_fix.issue_metadata
-            local_src_names = _parameters['custom_src_names']
+            local_src_names = self.sensors.get_value('custom_src_names')
             reply, _informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names, timeout=60)
             assert reply.reply_ok()
         except Exception:
@@ -2222,8 +2222,8 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Get list of all possible baselines (including redundant baselines) present '
                      'in the correlator output from SPEAD accumulation')
             _parameters = parameters(self)
-            bls_ordering = _parameters['bls_ordering']
-            input_labels = sorted(_parameters['input_labels'])
+            bls_ordering = self.sensors.get_value('bls_ordering')
+            input_labels = sorted(self.sensors.get_value('input_labels'))
             baselines_lookup = get_baselines_lookup(self)
             present_baselines = sorted(baselines_lookup.keys())
 
@@ -2701,7 +2701,7 @@ class test_CBF(unittest.TestCase):
                     try:
                         self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
                         freq_dump = get_clean_dump(self)
-                        assert np.shape(freq_dump['xeng_raw'])[0] == _parameters['n_chans']
+                        assert np.shape(freq_dump['xeng_raw'])[0] == self.sensors.get_value('n_chans')
                     except Queue.Empty:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                         Aqf.failed(errmsg)
@@ -2711,7 +2711,7 @@ class test_CBF(unittest.TestCase):
                         errmsg = ('Correlator Receiver could not be instantiated or No of channels '
                                   '(%s) in the spead data is inconsistent with the no of'
                                   ' channels (%s) expected' %(np.shape(freq_dump['xeng_raw'])[0],
-                                     _parameters['n_chans']))
+                                     self.sensors.get_value('n_chans')))
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
                         return False
@@ -2834,8 +2834,8 @@ class test_CBF(unittest.TestCase):
             def get_actual_phases(_parameters):
                 actual_phases_list = []
                 # chan_responses = []
-                int_time = _parameters['int_time']
-                katcp_port = _parameters['katcp_port']
+                int_time = self.sensors.get_value('int_time')
+                katcp_port = self.sensors.get_value('katcp_port')
                 for count, delay in enumerate(test_delays, 1):
                     delays[setup_data['test_source_ind']] = delay
                     delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
@@ -3297,13 +3297,13 @@ class test_CBF(unittest.TestCase):
         # Choose a test frequency around the centre of the band.
         test_freq = self.corr_freqs.bandwidth / 2.
         _parameters = parameters(self)
-        test_input = _parameters['input_labels'][0]
+        test_input = self.sensors.get_value('input_labels')[0]
         eq_scaling = 30
         acc_times = [acc_time / 2, acc_time]
         #acc_times = [acc_time/2, acc_time, acc_time*2]
         n_chans = self.corr_freqs.n_chans
         try:
-            internal_accumulations = int(_parameters['xeng_acc_len'])
+            internal_accumulations = int(self.sensors.get_value('xeng_acc_len'))
             acc_len = int(self.corr_freqs.xeng_accumulation_len)
         except Exception as e:
             errmsg = 'Failed to retrieve X-engine accumulation length: %s.' %str(e)
@@ -3849,7 +3849,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step("The test will sweep through all baselines, randomly select and set a delay value,"
                      " Confirm if the delay set is as expected.")
             _parameters = parameters(self)
-            source_names = _parameters['input_labels']
+            source_names = self.sensors.get_value('input_labels')
             for delayed_input in source_names:
                 test_delay_val = random.randrange(self.corr_freqs.sample_period, step=.83e-10, int=float)
                 # test_delay_val = self.corr_freqs.sample_period  # Pi
@@ -3929,7 +3929,7 @@ class test_CBF(unittest.TestCase):
         setup_data = self._delays_setup()
         _parameters = parameters(self)
         num_int = 30
-        int_time = _parameters['int_time']
+        int_time = self.sensors.get_value('int_time')
         if setup_data:
             Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
             if not delays_cleared:
@@ -4174,10 +4174,10 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                no_channels = _parameters['n_chans']
+                no_channels = self.sensors.get_value('n_chans')
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0
-                test_bls = _parameters['bls_ordering'][test_baseline]
+                test_bls = self.sensors.get_value('bls_ordering')[test_baseline]
                 Aqf.equals(test_dump['xeng_raw'].shape[0], no_channels,
                            'Confirm that the baseline-correlation-products has the same number of '
                            'frequency channels ({no_channels}) corresponding to the {instrument} '
@@ -4207,7 +4207,7 @@ class test_CBF(unittest.TestCase):
                 return
 
             Aqf.step('Check if Tied-Array Data capture is available.')
-            labels = _parameters['input_labels']
+            labels = self.sensors.get_value('input_labels')
             beam0_output_product = _parameters.get('beam0_output_product',
                                                    'tied-array-channelised-voltage.0x')
             beam1_output_product = _parameters.get('beam1_output_product',
@@ -4340,41 +4340,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(str(e))
 
 
-    def _test_control_vr(self):
-        """
-        CBF Control
-        Test confirms all available CAM commands, executes a handful commands to confirm is the command
-        is usable.
-        """
-        replies = self.corr_fix.katcp_rct.req.help()
-        replies_str = str(replies).replace('\_',' ').splitlines()
-        Aqf.step('List of available CAM commands, current status(executable or abandoned),'
-                 'replies(if any)\n')
-        requests_test = ['accumulation_length','capture_list','client_list','delays',
-                         'group_list', 'instrument_list', 'log_default', 'log_level', 'log_limit',
-                         'log_local', 'log_override', 'system_info', 'transient_buffer_trigger',
-                         'watchdog']
-
-        for reply in replies.informs:
-            req_name = str(reply.arguments[0].replace('-', '_'))
-            req_name_status = getattr(self.corr_fix.katcp_rct.req, req_name).is_active()
-            if req_name in requests_test:
-                try:
-                    reply, informs = getattr(self.corr_fix.katcp_rct.req, req_name)()
-                    assert reply.reply_ok()
-                    msg = ('%s: Available and executable via CAM interface, '
-                           'reply from CAM interface: %s.' % (req_name.upper(), str(reply)))
-                except:
-                    msg = 'Failed to retrieve reply from: %s via CAM Interface.' % req_name.upper()
-            else:
-                msg = '%s: Available and executable via CAM interface.' % req_name.upper()
-            Aqf.progress(msg)
-
-        Aqf.progress('Down-conversion frequency has not been implemented '
-                     'in this release.')
-        Aqf.progress('CBF Polarisation Correction has not been implemented '
-                    'in this release.')
-
     def _test_time_sync(self):
         Aqf.step('Request NTP pool address used.')
         try:
@@ -4425,15 +4390,15 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
         else:
             _parameters = parameters(self)
-            test_input = random.choice(_parameters['input_labels'])
+            test_input = random.choice(self.sensors.get_value('input_labels'))
             Aqf.step('Randomly selected input to test: {}'.format(test_input))
             # Get auto correlation index of the selected input
-            bls_order = _parameters['bls_ordering']
+            bls_order = self.sensors.get_value('bls_ordering')
             for idx, val in enumerate(bls_order):
                 if val[0] == test_input and val[1] == test_input:
                     auto_corr_idx = idx
 
-            n_chans = _parameters['n_chans']
+            n_chans = self.sensors.get_value('n_chans')
             rand_ch = random.randrange(n_chans)
             gain_vector = [gain] * n_chans
             base_gain = gain
@@ -4593,7 +4558,7 @@ class test_CBF(unittest.TestCase):
 
         # Set source names and stop all streams
         _parameters = parameters(self)
-        local_src_names = _parameters['custom_src_names']
+        local_src_names = self.sensors.get_value('custom_src_names')
         try:
             reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam_x)
             assert reply.reply_ok()
@@ -5099,7 +5064,7 @@ class test_CBF(unittest.TestCase):
 
     def _bf_efficiency(self):
 
-        local_src_names = parameters(self)['custom_src_names']
+        local_src_names = self.sensors.custom_src_names
         try:
             reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0x')
             reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0y')
@@ -5308,17 +5273,17 @@ class test_CBF(unittest.TestCase):
         self.dhost.outputs.out_1.scale_output(0)
         dump = get_clean_dump(self)
         baseline_lookup = get_baselines_lookup(self, dump)
-        sync_time = parameters(self)['synch_epoch']
-        scale_factor_timestamp = parameters(self)['scale_factor_timestamp']
-        inp = parameters(self)['input_labels'][0][0]
+        sync_time = self.sensors.get_values('synch_epoch')
+        scale_factor_timestamp = self.sensors.get_values('scale_factor_timestamp')
+        inp = self.sensors.get_values('input_labels')[0][0]
         inp_autocorr_idx = baseline_lookup[(inp, inp)]
         # FFT input sliding window size = 8 spectra
         fft_sliding_window = dump['n_chans'].value * 2 * 8
         # Get number of ticks per dump and ensure it is divisible by 8 (FPGA
         # clock runs 8 times slower)
-        dump_ticks = parameters(self)['int_time'] * parameters(self)['adc_sample_rate']
+        dump_ticks = self.sensors.get_values('int_time') * self.sensors.get_values('adc_sample_rate')
         # print dump_ticks
-        dump_ticks = parameters(self)['n_accs'] * parameters(self)['n_chans'] * 2
+        dump_ticks = self.sensors.get_values('n_accs') * self.sensors.get_values('n_chans') * 2
         # print dump_ticks
         # print ['adc_sample_rate'].value
         # print dump['timestamp']
@@ -6234,7 +6199,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            labels = parameters(self)['input_labels']
+            labels = self.sensors.input_labels
             assert labels
         except AssertionError:
             Aqf.failed('Failed to retrieve input labels via CAM interface')
@@ -6368,7 +6333,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
             else:
                 _parameters = parameters(self)
-                bls_to_test = _parameters['bls_ordering'][test_baseline]
+                bls_to_test = self.sensors.get_value('bls_ordering')[test_baseline]
                 Aqf.progress('Randomly selected frequency channel to test: {} and '
                              'selected baseline {} / {} to test.'.format(test_chan, test_baseline,
                                 bls_to_test))
@@ -6377,10 +6342,10 @@ class test_CBF(unittest.TestCase):
                            'to the number of frequency channels as calculated: {}'.format(
                                np.shape(initial_dump['xeng_raw'])[0]))
 
-                Aqf.is_true(_parameters['bandwidth'] >= min_bandwithd_req,
+                Aqf.is_true(self.sensors.get_value('bandwidth') >= min_bandwithd_req,
                             'Channelise total bandwidth {}Hz shall be >= {}Hz.'.format(
-                                _parameters['bandwidth'], min_bandwithd_req))
-                chan_spacing = _parameters['bandwidth'] / initial_dump['xeng_raw'].shape[0]
+                                self.sensors.get_value('bandwidth'), min_bandwithd_req))
+                chan_spacing = self.sensors.get_value('bandwidth') / initial_dump['xeng_raw'].shape[0]
                 chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
                                     chan_spacing + (chan_spacing * 1 / 100)]
                 Aqf.step('Confirm that the number of calculated channel '
@@ -6557,9 +6522,8 @@ class test_CBF(unittest.TestCase):
         # Summarize isn't clever enough to cope with the spurious spike in first sample
         chan_responses = np.asarray(chan_responses)
         requested_test_freqs = 10*np.log10(np.abs(np.asarray(requested_test_freqs)))
-        binwidth = _parameters.get('bandwidth', self.corr_freqs.bandwidth)/_parameters.get('n_chans',
-                                                                        self.corr_freqs.n_chans)
         try:
+            binwidth = self.sensors.get_value('bandwidth') / self.sensors.get_value('n_chans')
             efficiency_calc(chan_responses, requested_test_freqs, binwidth)
         except Exception:
             Aqf.failed("Could not compute the data, rerun test")
