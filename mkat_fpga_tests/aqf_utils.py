@@ -95,7 +95,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="",
                       log_dynamic_range=90, log_normalise_to=1, normalise=False, hlines=None,
                       vlines=None, ylimits=None, xlabel=None, ylabel=None, plot_type='channel',
-                      hline_strt_idx=0, cutoff=None, show=False, ):
+                      hline_strt_idx=0, cutoff=None, show=False, xvals=None):
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -131,6 +131,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             Horisontal line colour will be matched to the actual line colour. If multiple
             hlines will be plotted, use this index to indicate at which actual line to
             start matching colours.
+        xvals: Array containing x-axis values to plot
     """
 
     def add_hxline(cutoff, msg):
@@ -186,7 +187,10 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
 
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
-            plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
+            if xvals:
+                plt_line_obj = plt.plot(xvals, plot_data, color=plt_color, **kwargs)
+            else:
+                plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
         except tkinter.TclError:
             LOGGER.exception('No display on $DISPLAY environment variable, check matplotlib backend')
             return False

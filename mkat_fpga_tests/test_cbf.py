@@ -4523,7 +4523,7 @@ class test_CBF(unittest.TestCase):
             labels = reply.arguments[1:]
             beam0_output_product = _parameters['beam0_output_product']
             beam1_output_product = _parameters['beam1_output_product']
-            beams = [beam0_output_product,beam1_output_product]
+            beams = [[beam0_output_product],[beam1_output_product]]
             running_instrument = self.corr_fix.get_running_instrument()
             assert running_instrument is not False
             msg = 'Running instrument currently does not have beamforming capabilities.'
@@ -4558,7 +4558,7 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
 
-        for beam in beams:
+        for beam in beams[0]:
             try:
                 beam_ip, beam_port = _parameters[beam+'_destination'].split(':')
                 beam_ip = beam_ip.split('+')[0]
@@ -4639,7 +4639,7 @@ class test_CBF(unittest.TestCase):
                 exp_cw_ch=-1, s_ch_idx=0, 
                 s_substream= start_substream,
                 subs_to_cap = substrms_to_cap,
-                max_cap_retries=5, conf_data_type=False):
+                max_cap_retries=5, conf_data_type=False, data_only=False):
 
                 # Determine slice of valid data in bf_raw
                 bf_raw_str = s_substream*ch_per_substream
@@ -4732,6 +4732,8 @@ class test_CBF(unittest.TestCase):
                 cap_avg = cap_mag.sum(axis=0) / cap_idx
                 cap_db = 20 * np.log10(cap_avg)
                 cap_db_mean = np.mean(cap_db)
+                if data_only:
+                    return cap_avg
                 # NOT WORKING
                 # labels = ''
                 # lbls = self.parameters(self)
@@ -4811,16 +4813,25 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Beam dictionary not created, beam labels or beam name incorrect')
                 return False
 
+
+
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
             # Set beamformer quantiser gain for selected beam to 1
-            Aqf.step('Testing individual beam weights.')
             set_beam_quant_gain(self, beam, 1)
+            Aqf.step('Testing individual beam weights.')
             weight = 1.0
-            beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
+            ref_input = 0
+            # Find reference input label
+            for key in beam_dict:
+                if int(filter(str.isdigit,key)) == ref_input:
+                    ref_input_label = key
+                    break
+            beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
             rl = 0
             try:
                 d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, conf_data_type=True)
+                pass
             except TypeError, e:
                 errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
@@ -4829,11 +4840,71 @@ class test_CBF(unittest.TestCase):
             else:
                 beam_data.append(d)
                 beam_lbls.append(l)
+
+                # Characterise beam weight application:
+                Aqf.step('Characterising beam weight application.')
+                Aqf.step('Step weight for one input and plot the mean value for all channels against expected value.')
+                Aqf.step('Expected value calculated by multiplying reference value with weight.')
+                weight = 0.1
+                mean_vals = []
+                exp_mean_vals = []
+                weight_lbls = []
                 
+                while weight < 2:
+                    # Set weight for reference input, the rest are all zero
+                    LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+                        key))
+                    try:
+                        reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+                            beam, ref_input_label, round(weight,1))
+                        assert reply.reply_ok()
+                        actual_weight = float(reply.arguments[1])
+                    except AssertionError:
+                        Aqf.failed('Beam weight not successfully set')
+                    except Exception as e:
+                        errmsg = 'Test failed due to %s'%str(e)
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+                    else:
+                        Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
+                    
+                    # Get mean beam data
+                    try:
+                        cap_data = get_beam_data(beam, data_only=True)
+                        cap_mean = np.mean(cap_data)
+                        exp_mean = rl * actual_weight
+                        mean_vals.append(cap_mean)
+                        exp_mean_vals.append(exp_mean)
+                        weight_lbls.append(weight)
+                        Aqf.progress('Captured mean value = {:.2f}dB, Calculated mean value '
+                                '(using reference value) = {:.2f}dB'.format(
+                                    20*np.log10(cap_mean),20*np.log10(exp_mean)))
+                    except TypeError, e:
+                        errmsg = 'Failed to retrieve beamformer data'
+                        Aqf.failed(errmsg)
+                        LOGGER.error(errmsg)
+                        return
+                    if round(weight,1) < 1:
+                        weight += 0.1
+                    else:
+                        weight += 1 
+                # Square the voltage data. This is a hack as aqf_plot expects squared
+                # power data
+                aqf_plot_channels(((np.square(mean_vals), 'Captured Mean Beam Power'),(np.square(exp_mean_vals), 'Calculated Mean from Refrence')),
+                                  plot_filename='{}/{}_weight_application_{}.png'.format(self.logs_path,
+                                    self._testMethodName, beam),
+                                  plot_title=('Beam = {}\n'
+                                    'Expected vs Actual Mean Beam power for input weight.'.format(beam)),
+                                  log_dynamic_range=90, log_normalise_to=1, 
+                                  ylabel='Mean Beam Power [dB]',
+                                  xlabel='{} Weight'.format(ref_input_label), xvals=weight_lbls)
+                return True
+
+                # Test weight appication across all antennas
                 weight = 1.0 / ants
                 beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
                 try:
-                    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl, exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx)
+                    d, l, rl, exp0, nc = get_beam_data(beam, beam_dict, rl)
                 except IndexError, e:
                     errmsg = 'Failed to retrieve beamformer data'
                     Aqf.failed(errmsg)
@@ -4842,7 +4913,7 @@ class test_CBF(unittest.TestCase):
                 beam_data.append(d)
                 beam_lbls.append(l)
 
-                weight = 2.0 / ants
+                weight = 0.6 / ants
                 beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
                 try:
                     d, l, rl, exp1, nc = get_beam_data(beam, beam_dict, rl)
