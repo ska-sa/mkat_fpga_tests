@@ -766,12 +766,12 @@ class Report(object):
             self.docproducer.add_heading('chapter',
                 'CBF Array Release %s Requirements Verification Matrix' % _array_release)
             _title = 'Requirements Verification Traceability Matrix'
-            self.docproducer.add_box_note("`Tests not implemented` are due to the requirements "
-                                         " not being applicable to the array release under test. "
-                                         "Multiple requirements are linked to one verification event, "
-                                         "this might lead to requirements being highlighted as "
-                                         "`Test Implemented` but in reality those requirements are "
-                                         "not being Tested.")
+            # self.docproducer.add_box_note("`Tests not implemented` are due to the requirements "
+            #                              " not being applicable to the array release under test. "
+            #                              "Multiple requirements are linked to one verification event, "
+            #                              "this might lead to requirements being highlighted as "
+            #                              "`Test Implemented` but in reality those requirements are "
+            #                              "not being Tested.")
 
         filename = title.lower().replace(" ", "_") + "_table.inc"
         table_data = []

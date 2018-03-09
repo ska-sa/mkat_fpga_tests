@@ -534,7 +534,9 @@ def generate_sphinx_docs(settings):
         document_data = {
                 'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test ' % _release,
                 'documented_instrument': settings.get('system_type', 'Unknown'),
-                'document_number': {'QTP': 'M1200-0000-054 ',
+                'array_release': _release,
+                'document_number': {
+                                    'QTP': 'M1200-0000-054 ',
                                     'QTR': 'M1200-0000-055',
                                     'bc8n856M4k': ['M1200-0000-055-1',
                                                    '4 Antenna System running in Wideband Coarse (4K) mode'

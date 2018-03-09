@@ -976,183 +976,57 @@ def which_instrument(self, instrument):
         _running_inst = instrument
     return _running_inst
 
-def parameters(self):
-    """
-    Get all parameters you need to calculate dump time stamp or related.
-    param: self: object
-    param: spead: xeng_raw
-    rtype: dict : int time, scale factor timestamp, sync time, n accs, and etc
-    """
-    LOGGER.info("Getting all parameters needed to calculate dump time stamp and etc via CAM int.")
-    _errmsg = ('Timed out when retrieving capture lists, using default capture as: '
-               'baseline_correlation_products')
-    # Default output product for instrument.
-    output_product_ = 'baseline_correlation_products'
-    with RunTestWithTimeout(cam_timeout, _errmsg):
+
+
+class GetSensors(object):
+    """Easily get sensor values without much work"""
+    def __init__(self, corr_fix):
+        self.req = corr_fix.katcp_rct.req
+        self.sensors = corr_fix.katcp_rct.sensor
+
+    def get_value(self, _name):
+        """
+        Get sensor Value(s)
+
+        Parameters
+        ----------
+        str: sensor name e.g. n_bls
+
+        Return
+        ---------
+        List or Str or None: sensor value"""
+        if any(_name in s for s in dir(self.sensors)):
+            _attribute = [s for s in dir(self.sensors) if _name in s][0]
+            return getattr(self.sensors, _attribute).get_value()
+
+    @property
+    def input_labels(self):
+        """
+        Simplified input labels(s)
+
+        Return
+        ---------
+        List: simplified input labels
+        """
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=cam_timeout)
-            assert reply.reply_ok()
-            output_product = 'baseline-correlation-products'
-            output_product_ = self.correlator.configd['xengine'].get('output_products',
-                'baseline_correlation_products').replace('-', '_')
-            beam0_output_product = self.correlator.configd['beam0'].get('output_products')
-            beam1_output_product = self.correlator.configd['beam1'].get('output_products')
-        except KeyError:
-            msg = 'Instrument does not contain beamforming capabilities'
-            LOGGER.info(msg)
-            beam0_output_product = beam1_output_product = None
-        except Exception as e:
-            msg = 'Failed to retrieve output products: %s'%str(e)
-            LOGGER.exception(msg)
+            input_labelling = eval(self.sensors.input_labelling.get_value())
+            input_labels = [x[0] for x in [list(i) for i in input_labelling]]
+        except Exception:
+            input_labels = str(self.req.input_labels()).split()[2:]
+        return input_labels
 
-    katcp_rct = self.corr_fix.katcp_rct.sensor
-    try:
-        int_time = getattr(katcp_rct, '{}_int_time'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve integration time via CAM int')
-        int_time = None
+    @property
+    def custom_input_labels(self):
+        """
+        Simplified custom input labels(s)
 
-    try:
-        scale_factor_timestamp = katcp_rct.scale_factor_timestamp.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve scale_factor_timestamp via CAM int')
-        scale_factor_timestamp = None
+        Return
+        ---------
+        List: simplified custom input labels
+        """
+        n_ants = int(self.get_value('n_ants'))
+        return ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
 
-    try:
-        synch_epoch = katcp_rct.sync_time.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve synch_epoch via CAM int')
-        synch_epoch = None
-
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
-        n_accs = [i.arguments[2::2] for i in informs if 'accs' in i.arguments[2]][0][-1]
-        n_accs = float(n_accs)
-    except Exception:
-        LOGGER.exception('Failed to retrieve n_accs via CAM int')
-        n_accs = None
-
-    try:
-        bandwidth = katcp_rct.bandwidth.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve bandwidth via CAM int.')
-        bandwidth = None
-
-    try:
-        bls_ordering = eval(getattr(katcp_rct, '{}_bls_ordering'.format(output_product_)).get_value())
-    except Exception:
-        LOGGER.exception('Failed to retrieve bls_ordering via CAM int.')
-        bls_ordering = None
-
-    try:
-        input_labelling = eval(katcp_rct.input_labelling.get_value())
-        input_labels = [x[0] for x in [list(i) for i in input_labelling]]
-    except Exception:
-        LOGGER.exception('Failed to retrieve input labels via CAM int.')
-        reply, informs = self.corr_fix.katcp_rct.req.input_labels()
-        if reply.reply_ok():
-            input_labels = reply.arguments[1:]
-
-    try:
-        clock_rate = getattr(katcp_rct, '{}_clock_rate'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve clock_rate via CAM int.')
-        clock_rate = None
-
-    try:
-        destination = getattr(katcp_rct, '{}_destination'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve destination via CAM int.')
-        destination = None
-
-    try:
-        n_bls = getattr(katcp_rct, '{}_n_bls'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve n_bls via CAM int.')
-        n_bls = None
-
-    try:
-        n_chans = getattr(katcp_rct, 'n_chans').get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve n_chans via CAM int.')
-        n_chans = None
-
-    try:
-        xeng_acc_len = getattr(katcp_rct, '{}_xeng_acc_len'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve xeng_acc_len via CAM int.')
-        xeng_acc_len = None
-
-    try:
-        xeng_out_bits_per_sample = getattr(
-            katcp_rct, '{}_xeng_out_bits_per_sample'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve xeng_out_bits_per_sample via CAM int.')
-        xeng_out_bits_per_sample = None
-
-    try:
-        no_fengines = katcp_rct.n_fengs.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of fengines via CAM int.')
-        no_fengines = None
-
-    try:
-        no_xengines = katcp_rct.n_xengs.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
-        no_xengines = None
-
-    try:
-        adc_sample_rate = katcp_rct.adc_sample_rate.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
-        adc_sample_rate = None
-
-    try:
-        n_ants = int(katcp_rct.n_ants.get_value())
-        custom_src_names = ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
-        n_ants = None
-        custom_src_names = None
-    try:
-        network_latency = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
-    except Exception:
-        LOGGER.exception('Failed to retrieve network latency')
-        network_latency = None
-    try:
-        katcp_host, katcp_port = self.corr_fix.katcp_rct.address
-    except Exception:
-        LOGGER.exception('Failed not connected to katcp')
-        katcp_host, katcp_port = [0]*2
-
-    return {
-        'adc_sample_rate': adc_sample_rate,
-        'bandwidth': bandwidth,
-        'beam0_output_product': beam0_output_product,
-        'beam1_output_product': beam1_output_product,
-        'bls_ordering': bls_ordering,
-        'clock_rate': clock_rate,
-        'custom_src_names': custom_src_names,
-        'destination': destination,
-        'input_labelling': input_labelling,
-        'input_labels': input_labels,
-        'int_time': int_time,
-        'katcp_host': katcp_host,
-        'katcp_port': katcp_port,
-        'n_accs': n_accs,
-        'n_ants': n_ants,
-        'n_bls': n_bls,
-        'n_chans': n_chans,
-        'network_latency': network_latency,
-        'no_fengines': no_fengines,
-        'no_xengines': no_xengines,
-        'output_product': output_product,
-        'scale_factor_timestamp': scale_factor_timestamp,
-        'synch_epoch': synch_epoch,
-        'xeng_acc_len': xeng_acc_len,
-        'xeng_out_bits_per_sample': xeng_out_bits_per_sample,
-        }
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
                               ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):

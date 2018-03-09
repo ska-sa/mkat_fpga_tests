@@ -499,25 +499,53 @@ class TestProcedure:
     @property
     def BeamformerEfficiency(self):
         _description = """
-        **Beamformer Efficiency**
+        **CBF Beamformer Efficiency**
 
-        TBD
+        1. Configure the beam former with zero delays and uniform taper (i.e. straight sum of N inputs per polarisation)
+        2. Configure a digitiser simulator to be used as input source to F-Engines
+        3. Configure a digitiser simulator to generate continuous wave (inject a frequency-swept tone)
+        4. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        5. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        **Missing**
+        10. Measure/record the filter-bank spectral response from a channel from the output of the beamformer
+        11. Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth for each swept channel
+        12. Compute the efficiency as the ratio of Half Power Bandwidth to the Noise Equivalent Bandwidth: efficiency = HPBW/NEBW
         """
         return _description
 
     @property
     def LBandEfficiency(self):
         _description = """
-        **L-Band Efficiency**
+        **CBF L-band Correlator Efficiency**
 
-        TBD
+        1. Configure a digitiser simulator to be used as input source to F-Engines
+        2. Configure a digitiser simulator to generate continuous wave (inject a frequency-swept tone)
+        3. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        5. Retrieve channelisation test results from CSV file, if available and go to step 9.
+        6. Else, calculate number of frequencies to iterate on
+        7. Randomly select a frequency channel to test.
+        8. Capture an initial correlator SPEAD accumulation and,
+            - Determine the number of frequency channels
+            - Confirm that the number of channels in the SPEAD accumulation, is equal to the number of frequency channels as calculated
+            - Confirm that the Channelise total bandwidth is >= 770000000.0Hz.
+            - Confirm the number of calculated channel frequency step is within requirement.
+            - Verify that the calculated channel frequency step size is within requirement
+            - Confirm the channelisation spacing and confirm that it is within the maximum tolerance.
+        9. Sweep the digitiser simulator over the centre frequencies of at least all the channels that fall within the complete L-band
+            - Capture channel response for every frequency channel in the selected frequencies calculated
+        10. Measure/record the filter-bank spectral response from a channel
+        11. Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth for each swept channel
+        12. Compute the efficiency as the ratio of Half Power Bandwidth to the Noise Equivalent Bandwidth: efficiency = HPBW/NEBW
         """
         return _description
 
     @property
     def Beamformer(self):
         _description = """
-        **Beamformer functionality**
+        **Beamformer Functionality**
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate correlated Gaussian noise
