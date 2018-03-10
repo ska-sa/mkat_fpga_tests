@@ -261,6 +261,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
     @instrument_bc32n856M4k
+    # @instrument_bc64n856M4k
+    # @instrument_bc128n856M4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_course(self, instrument='bc8n856M4k'):
@@ -282,6 +284,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M32k
     @instrument_bc16n856M32k
     @instrument_bc32n856M32k
+    # @instrument_bc64n856M32k
+    # @instrument_bc128n856M32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_fine(self, instrument='bc8n856M32k'):
@@ -302,6 +306,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
     @instrument_bc32n856M4k
+    # @instrument_bc64n856M4k
+    # @instrument_bc128n856M4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_course_sfdr_peaks(self, instrument='bc8n856M4k'):
@@ -321,6 +327,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M32k
     @instrument_bc16n856M32k
     @instrument_bc32n856M32k
+    # @instrument_bc64n856M32k
+    # @instrument_bc128n856M32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_fine_sfdr_peaks(self, instrument='bc8n856M32k'):
@@ -336,7 +344,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-
+    @generic_test
     @aqf_vr('CBF.V.3.46')
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
     def test__power_consumption(self, instrument='bc8n856M4k'):
@@ -346,6 +354,7 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             Aqf.step("Test is being qualified by CBF.V.3.30")
 
+    @generic_test
     @aqf_vr('CBF.V.3.35')
     @aqf_requirements("CBF-REQ-0124")
     def test__beamformer_efficiency(self, instrument='bc8n856M4k'):
@@ -360,7 +369,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-
+    @generic_test
     @aqf_vr('CBF.V.4.10')
     @aqf_requirements("CBF-REQ-0127")
     def test__lband_efficiency(self, instrument='bc8n856M4k'):
@@ -378,6 +387,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
     @instrument_bc32n856M4k
+    # @instrument_bc64n856M4k
+    # @instrument_bc128n856M4k
     @aqf_vr('CBF.V.3.34')
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
     def test__beamforming(self, instrument='bc8n856M4k'):
@@ -2352,8 +2363,8 @@ class test_CBF(unittest.TestCase):
             bls_msg = ('Iterate through input combinations, verifying for each that '
                        'the correct output appears in the correct baseline product.\n')
             Aqf.step(bls_msg)
-            dataFrame = pd.DataFrame(index=sorted(input_labels),
-                                     columns=list(sorted(present_baselines)))
+            # dataFrame = pd.DataFrame(index=sorted(input_labels),
+            #                          columns=list(sorted(present_baselines)))
 
             for count, inp in enumerate(input_labels, start=1):
                 old_eq = complex(initial_equalisations[inp])
@@ -2398,15 +2409,13 @@ class test_CBF(unittest.TestCase):
 
                         _caption = ('Baseline channel response on input:{} {} with the following non-zero'
                                    ' inputs:\n {} \n and\nzero inputs:\n {}'.format(inp, bls_msg,
-                                        sorted(', '.join(nonzero_inputs)), sorted(', '.join(zero_inputs))))
-                        print _caption
+                                   ', '.join(sorted(nonzero_inputs)), ', '.join(sorted(zero_inputs))))
 
                         aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
                                           plot_title, log_dynamic_range=None, log_normalise_to=1,
-                                          caption=plot_title, ylimits=(-0.1, np.max(plot_data) + 0.1))
+                                          caption=_caption, ylimits=(-0.1, np.max(plot_data) + 0.1))
                         actual_nz_bls_indices = all_nonzero_baselines(test_data)
                         actual_nz_bls = set([tuple(bls_ordering[i]) for i in actual_nz_bls_indices])
-
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i]) for i in actual_z_bls_indices])
@@ -2423,10 +2432,10 @@ class test_CBF(unittest.TestCase):
                              for expected_bl in [baselines_lookup[expected_nz_bl_ind]
                                                  for expected_nz_bl_ind in sorted(expected_nz_bls)]])
                         test_data = None
-                        dataFrame.loc[inp][sorted(
-                            [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
+                        # dataFrame.loc[inp][sorted(
+                        #     [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
 
-            dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
+            # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
 
     def _test_back2back_consistency(self):
@@ -3360,8 +3369,8 @@ class test_CBF(unittest.TestCase):
             informs = informs[0]
             assert reply.reply_ok()
         except Exception:
-            errmsg = ('REPLY: %s: Failed to retrieve quantiser snapshot of input %s via '
-                      'CAM Interface' %(str(reply), test_input))
+            errmsg = ('Failed to retrieve quantiser snapshot of input %s via '
+                      'CAM Interface: \nReply %s' %(test_input, str(reply).replace('_',' ')))
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return
@@ -6506,7 +6515,8 @@ class test_CBF(unittest.TestCase):
             assert reply.reply_ok()
             Aqf.passed('Transient buffer trigger present.')
         except Exception:
-            Aqf.failed('Transient buffer trigger failed.')
+            Aqf.failed('Transient buffer trigger failed. \nReply: %s' % str(
+                reply).replace('_', ' '))
 
         try:
             Aqf.step('Capture an ADC snapshot and confirm the fft length')
@@ -6514,7 +6524,7 @@ class test_CBF(unittest.TestCase):
             assert reply.reply_ok()
         except Exception:
             LOGGER.exception('Failed to capture ADC snapshot.')
-            Aqf.failed('Failed to capture ADC snapshot. reply: %s' % str(reply).replace('_',' '))
+            Aqf.failed('Failed to capture ADC snapshot. \nReply: %s' % str(reply).replace('_',' '))
             return
         else:
             fpga = self.correlator.fhosts[0]
