@@ -24,9 +24,9 @@ libssl-dev
 pkg-config
 python-dev
 python-scipy
-shellcheck
 smcroute
 swig
+latexmk
 texlive-base
 texlive-font-utils
 texlive-fonts-extra

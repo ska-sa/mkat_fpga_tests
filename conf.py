@@ -181,7 +181,7 @@ try:
     _document_type = _document_data.get('document_type').keys()[0]
     if _document_type == 'QTR':
         _document_number, _document_info  = _document_data['document_number'].get(
-            _document_data.get('documented_instrument', 'Unknown')bc8n856M4k_test, 'Unknown')
+            _document_data.get('documented_instrument', 'Unknown').split('_')[0], 'Unknown')
     else:
         _document_number = _document_data.get('document_number').get(_document_type).replace(' ', '')
 
