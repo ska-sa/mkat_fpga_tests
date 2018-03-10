@@ -5020,7 +5020,7 @@ class test_CBF(unittest.TestCase):
                 beam_data.append(d)
                 beam_lbls.append(l)
 
-                weight = 0.6 / ants
+                weight = 0.8 / ants
                 beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
                 try:
                     d, l, rl, exp1, nc, act_wgts = get_beam_data(beam, beam_dict, rl)
