@@ -4957,7 +4957,7 @@ class test_CBF(unittest.TestCase):
                 exp_mean_vals = []
                 weight_lbls = []
                 
-                while weight < 3:
+                while weight <= 3:
                     # Set weight for reference input, the rest are all zero
                     LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
                         key))
@@ -4994,7 +4994,7 @@ class test_CBF(unittest.TestCase):
                     if round(weight,1) < 1:
                         weight += 0.1
                     else:
-                        weight += 1 
+                        weight += 0.5
                 # Square the voltage data. This is a hack as aqf_plot expects squared
                 # power data
                 aqf_plot_channels(((np.square(mean_vals), 'Captured Mean Beam Power'),(np.square(exp_mean_vals), 'Calculated Mean from Refrence')),
