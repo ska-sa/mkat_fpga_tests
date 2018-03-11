@@ -373,13 +373,9 @@ def clear_all_delays(self, num_int=10):
                     spead accumulation discards.
     Return: Boolean
     """
-    try:
-        no_fengines = self.cam_sensors.get_value('n_fengs')
-        int_time = self.cam_sensors.get_value('int_time')
-        LOGGER.info('Retrieving test parameters via CAM Interface')
-    except Exception:
-        no_fengines = len(self.correlator.fops.fengines)
-        LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
+    no_fengines = self.cam_sensors.get_value('n_fengs')
+    int_time = self.cam_sensors.get_value('int_time')
+    LOGGER.info('Clearing all delays and phases')
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
     _retries = 10
@@ -389,7 +385,7 @@ def clear_all_delays(self, num_int=10):
         _retries -= 1
         try:
             if not _delays_set:
-                dump = self.receiver.get_clean_dump(discard=10)
+                dump = self.receiver.get_clean_dump()
                 dump_timestamp = dump['dump_timestamp']
                 time_now = time.time()
                 time_diff = dump_timestamp - time_now
@@ -403,7 +399,7 @@ def clear_all_delays(self, num_int=10):
                 _delays_set = reply.reply_ok()
                 time.sleep(5)
 
-            dump = self.receiver.get_clean_dump(discard=10)
+            dump = self.receiver.get_clean_dump()
             _max = int(np.max(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
             _min = int(np.min(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
             errmsg = 'Max(%s)/Min(%s) delays found, not cleared' % (_max, _min)
@@ -1267,7 +1263,7 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
                 elif element.name.find('flags') > -1:
                     bf_flags = np.array(element.value)
         os.remove(newest_f)
-        return bf_raw, bf_flags, bf_ts, in_wgts 
+        return bf_raw, bf_flags, bf_ts, in_wgts
 
 def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
     """

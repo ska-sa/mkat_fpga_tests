@@ -561,7 +561,7 @@ class test_CBF(unittest.TestCase):
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
             _running_inst = which_instrument(self, instrument)
-            instrument_success = self.set_instrument(_running_inst)
+            instrument_success = self.set_instrument(_running_inst, )
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_delay_tracking()
@@ -1239,44 +1239,17 @@ class test_CBF(unittest.TestCase):
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=50):
         cam_max_load_time = 1
         try:
-            # Max time it takes to resync katcp (client connection)
-            katcp_rsync_time = 0.9
-            # Max network latency
-            network_roundtrip = setup_data['network_latency'] + katcp_rsync_time
-
-            # katcp_host = self.corr_fix.katcp_rct.host
-            # katcp_port = self.corr_fix.katcp_rct.port
-            # cmd_start_time = time.time()
-            # os.system("/usr/local/bin/kcpcmd -s {}:{} delays {} {}".format(katcp_host, katcp_port,
-            # setup_data['t_apply'] + 5, ' '.join(delay_coefficients)))
-            # final_cmd_time = time.time() - cmd_start_time
-
-            ### TODO MM 2016-07-05
-            ## Disabled katcp resource client setting delays, instead setting them
-            ## via telnet kcs interface.
             Aqf.step('Request Fringe/Delay(s) Corrections via CAM interface.')
             katcp_conn_time = time.time()
             reply, _informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
                                                                  *delay_coefficients, timeout=30)
-            time.sleep(5)
             cmd_end_time = time.time()
             assert reply.reply_ok()
             actual_delay_coef = reply.arguments[1:]
-            try:
-                assert setup_data['num_inputs'] == len(actual_delay_coef)
-            except:
-                actual_delay_coef = None
-
-            cmd_tot_time = katcp_conn_time + network_roundtrip
-            final_cmd_time = abs(cmd_end_time - cmd_tot_time - katcp_rsync_time)
-        except AssertionError:
-            errmsg = str(reply).replace('\_', ' ')
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-            return
+            final_cmd_time = abs(cmd_end_time - katcp_conn_time)
         except Exception:
             errmsg = ('%s: Failed to set delays via CAM interface with load-time: %s, '
-                      'Delay coefficients: %s' % (str(reply), setup_data['t_apply'],
+                      'Delay coefficients: %s' % (str(reply).replace('\_', ' '), setup_data['t_apply'],
                         delay_coefficients))
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
@@ -1286,7 +1259,7 @@ class test_CBF(unittest.TestCase):
             Aqf.is_true(reply.reply_ok(), msg)
             msg = ('Time it takes to load delay/fringe(s) is less than %s with integration time '
                    'of %s seconds\n' % (cam_max_load_time, setup_data['int_time']))
-            Aqf.less(final_cmd_time, cam_max_load_time, msg)
+            # Aqf.less(final_cmd_time, cam_max_load_time, msg)
 
         last_discard = setup_data['t_apply'] - setup_data['int_time']
         num_discards = 0
@@ -1294,7 +1267,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Getting SPEAD accumulation containing the change in fringes(s) on input: %s '
                  'baseline: %s, and discard all irrelevant accumulations.' % (
                   setup_data['test_source'], setup_data['baseline_index']))
-        while True:
+            while True:
             num_discards += 1
             try:
                 dump = self.receiver.data_queue.get()
@@ -1303,10 +1276,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                # print np.max(
-                #     np.angle(complexise(dump['xeng_raw'][:, setup_data['baseline_index'], :])))
-                #Aqf.hop('Dump timestamp in ticks: {:20d}'.format(dump['timestamp']))
-
+#                print (np.abs(dump['dump_timestamp'] - last_discard)), 0.01 * setup_data['int_time']
                 if (np.abs(dump['dump_timestamp'] - last_discard) < 0.1 * setup_data['int_time']):
                     Aqf.passed('Received final accumulation before fringe '
                              'application with dump timestamp: %s, relevant to time apply: %s '
@@ -1318,13 +1288,14 @@ class test_CBF(unittest.TestCase):
                 if num_discards > max_wait_dumps:
                     Aqf.failed('Could not get accumulation with correct timestamp within %s '
                                'accumulation periods.' % max_wait_dumps)
-                    break
+                    # break
+                    return
                 else:
                     difference = setup_data['t_apply'] - dump['dump_timestamp']
                     msg = ("Discarding (#%d) Spead accumulation with dump timestamp: %s"
-                           "(and timestamp in ticks: %s), relevant to time to apply: %s"
+                           ", relevant to time to apply: %s"
                            "(Difference %.2f), Current epoch time: %s." % (num_discards,
-                            dump['dump_timestamp'], dump['timestamp'], setup_data['t_apply'],
+                            dump['dump_timestamp'], setup_data['t_apply'],
                             difference, time.time()))
                     if num_discards <= 3:
                         Aqf.progress(msg)
@@ -1332,6 +1303,8 @@ class test_CBF(unittest.TestCase):
                         Aqf.progress(msg)
                     elif num_discards == 4:
                         Aqf.progress('...')
+                    else:
+                        LOGGER.info(msg)
 
         for i in xrange(dump_counts - 1):
             Aqf.progress('Getting subsequent SPEAD accumulation {}.'.format(i + 1))
@@ -1352,7 +1325,6 @@ class test_CBF(unittest.TestCase):
             dval = acc['xeng_raw']
             freq_response = normalised_magnitude(dval[:, setup_data['baseline_index'], :])
             chan_resp.append(freq_response)
-
             data = complexise(dval[:, setup_data['baseline_index'], :])
             #print np.max(np.angle(data))
             phases.append(np.angle(data))
@@ -4428,7 +4400,7 @@ class test_CBF(unittest.TestCase):
                 # baseline_ch_bw = bw * dsim_clk_factor / response.shape[0]
 
                 # hardcoded the bandwidth value due to a custom dsim frequency used in the config file
-                nominal_bw = float(self.conf_file['inst_param']['sample_freq'])/2.0 
+                nominal_bw = float(self.conf_file['inst_param']['sample_freq'])/2.0
                 baseline_ch_bw = nominal_bw / test_dump['xeng_raw'].shape[0]
                 beam_ch_bw = nominal_bw / len(cap_mag[0])
                 msg = ('Confirm that the baseline-correlation-product channel width'
