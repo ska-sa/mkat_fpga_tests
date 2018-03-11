@@ -33,7 +33,7 @@ nose
 nose-testconfig
 nosexcover
 ntplib
-numpy
+numpy==1.13.3
 pandas
 pandas
 parameterized

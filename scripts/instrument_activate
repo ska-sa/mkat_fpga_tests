@@ -106,7 +106,7 @@ sleep 0.5;
 ${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
 sleep 2;
 
-if [ $(echo ${MACHINE::4}) == "cmc3" ]; then
-    printf "${GREEN} Copying config file over to CMC2${NORMAL}\n"
-    scp /etc/corr/${ARRAY_NAME}-* ${USER}@10.103.254.3:/etc/corr
-fi
+#if [ $(echo ${MACHINE::4}) == "cmc3" ]; then
+#    printf "${GREEN} Copying config file over to CMC2${NORMAL}\n"
+#    scp /etc/corr/${ARRAY_NAME}-* ${USER}@10.103.254.3:/etc/corr
+#fi

@@ -261,6 +261,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
     @instrument_bc32n856M4k
+    # @instrument_bc64n856M4k
+    # @instrument_bc128n856M4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_course(self, instrument='bc8n856M4k'):
@@ -282,6 +284,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M32k
     @instrument_bc16n856M32k
     @instrument_bc32n856M32k
+    # @instrument_bc64n856M32k
+    # @instrument_bc128n856M32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_fine(self, instrument='bc8n856M32k'):
@@ -302,6 +306,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
     @instrument_bc32n856M4k
+    # @instrument_bc64n856M4k
+    # @instrument_bc128n856M4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_course_sfdr_peaks(self, instrument='bc8n856M4k'):
@@ -321,6 +327,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M32k
     @instrument_bc16n856M32k
     @instrument_bc32n856M32k
+    # @instrument_bc64n856M32k
+    # @instrument_bc128n856M32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_fine_sfdr_peaks(self, instrument='bc8n856M32k'):
@@ -336,7 +344,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-
+    @generic_test
     @aqf_vr('CBF.V.3.46')
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
     def test__power_consumption(self, instrument='bc8n856M4k'):
@@ -346,6 +354,7 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             Aqf.step("Test is being qualified by CBF.V.3.30")
 
+    @generic_test
     @aqf_vr('CBF.V.3.35')
     @aqf_requirements("CBF-REQ-0124")
     def test__beamformer_efficiency(self, instrument='bc8n856M4k'):
@@ -360,7 +369,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-
+    @generic_test
     @aqf_vr('CBF.V.4.10')
     @aqf_requirements("CBF-REQ-0127")
     def test__lband_efficiency(self, instrument='bc8n856M4k'):
@@ -378,6 +387,8 @@ class test_CBF(unittest.TestCase):
     @instrument_bc8n856M4k
     @instrument_bc16n856M4k
     @instrument_bc32n856M4k
+    # @instrument_bc64n856M4k
+    # @instrument_bc128n856M4k
     @aqf_vr('CBF.V.3.34')
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
     def test__beamforming(self, instrument='bc8n856M4k'):
@@ -1629,7 +1640,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
         else:
 
-            bls_to_test = self.cam_sensors.get_value('bls_ordering')[test_baseline]
+            bls_to_test = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
             Aqf.progress('Randomly selected frequency channel to test: {} and '
                          'selected baseline {} / {} to test.'.format(test_chan, test_baseline,
                             bls_to_test))
@@ -2352,8 +2363,8 @@ class test_CBF(unittest.TestCase):
             bls_msg = ('Iterate through input combinations, verifying for each that '
                        'the correct output appears in the correct baseline product.\n')
             Aqf.step(bls_msg)
-            dataFrame = pd.DataFrame(index=sorted(input_labels),
-                                     columns=list(sorted(present_baselines)))
+            # dataFrame = pd.DataFrame(index=sorted(input_labels),
+            #                          columns=list(sorted(present_baselines)))
 
             for count, inp in enumerate(input_labels, start=1):
                 old_eq = complex(initial_equalisations[inp])
@@ -2398,14 +2409,13 @@ class test_CBF(unittest.TestCase):
 
                         _caption = ('Baseline channel response on input:{} {} with the following non-zero'
                                    ' inputs:\n {} \n and\nzero inputs:\n {}'.format(inp, bls_msg,
-                                        sorted(', '.join(nonzero_inputs)), sorted(', '.join(zero_inputs))))
+                                   ', '.join(sorted(nonzero_inputs)), ', '.join(sorted(zero_inputs))))
 
                         aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
                                           plot_title, log_dynamic_range=None, log_normalise_to=1,
                                           caption=_caption, ylimits=(-0.1, np.max(plot_data) + 0.1))
                         actual_nz_bls_indices = all_nonzero_baselines(test_data)
                         actual_nz_bls = set([tuple(bls_ordering[i]) for i in actual_nz_bls_indices])
-
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i]) for i in actual_z_bls_indices])
@@ -2422,10 +2432,10 @@ class test_CBF(unittest.TestCase):
                              for expected_bl in [baselines_lookup[expected_nz_bl_ind]
                                                  for expected_nz_bl_ind in sorted(expected_nz_bls)]])
                         test_data = None
-                        dataFrame.loc[inp][sorted(
-                            [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
+                        # dataFrame.loc[inp][sorted(
+                        #     [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
 
-            dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
+            # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
 
     def _test_back2back_consistency(self):
@@ -3160,12 +3170,12 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed(msg)
                 else:
                     Aqf.failed('Could not retrieve PFB sensor status')
-
-        confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
-        confirm_pfb_status(self, get_pfb_status)
+        Aqf.note('Debug test')
+        # confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
+        # confirm_pfb_status(self, get_pfb_status)
         Aqf.step('Restoring previous FFT Shift values')
-        confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
-        clear_host_status(self)
+        # confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
+        # clear_host_status(self)
 
     def _test_memory_error(self):
         pass
@@ -3262,22 +3272,22 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.failed('Multicast destination address of %s'% (fhost.host))
 
+        Aqf.note('Debug code')
         # report_lru_status(self, xhost, get_lru_status)
-        get_spead_data(self)
-        import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
+        # get_spead_data(self)
 
-        write_new_ip(fhost, ip_new, current_ip)
-        time.sleep(self.correlator.sensor_poll_time / 2)
-        report_lru_status(self, xhost, get_lru_status)
-        get_spead_data(self)
+        # write_new_ip(fhost, ip_new, current_ip)
+        # time.sleep(self.correlator.sensor_poll_time / 2)
+        # report_lru_status(self, xhost, get_lru_status)
+        # get_spead_data(self)
 
-        Aqf.step('Restoring the multicast destination from %s to the original %s' % (
-            human_readable_ip(ip_new), human_readable_ip(current_ip)))
+        # Aqf.step('Restoring the multicast destination from %s to the original %s' % (
+        #     human_readable_ip(ip_new), human_readable_ip(current_ip)))
 
-        write_new_ip(fhost, current_ip, ip_new, get_host_ip, human_readable_ip)
-        report_lru_status(self, xhost, get_lru_status)
-        get_spead_data(self)
-        clear_host_status(self)
+        # write_new_ip(fhost, current_ip, ip_new, get_host_ip, human_readable_ip)
+        # report_lru_status(self, xhost, get_lru_status)
+        # get_spead_data(self)
+        # clear_host_status(self)
 
     def _test_host_sensors_status(self):
         test_heading('Monitor Sensors: Processing Node\'s Sensor Status')
@@ -3359,8 +3369,8 @@ class test_CBF(unittest.TestCase):
             informs = informs[0]
             assert reply.reply_ok()
         except Exception:
-            errmsg = ('REPLY: %s: Failed to retrieve quantiser snapshot of input %s via '
-                      'CAM Interface' %(str(reply), test_input))
+            errmsg = ('Failed to retrieve quantiser snapshot of input %s via '
+                      'CAM Interface: \nReply %s' %(test_input, str(reply).replace('_',' ')))
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return
@@ -4265,7 +4275,7 @@ class test_CBF(unittest.TestCase):
                 no_channels = self.cam_sensors.get_value('n_chans')
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0
-                test_bls = self.cam_sensors.get_value('bls_ordering')[test_baseline]
+                test_bls = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
                 Aqf.equals(test_dump['xeng_raw'].shape[0], no_channels,
                            'Confirm that the baseline-correlation-products has the same number of '
                            'frequency channels ({no_channels}) corresponding to the {instrument} '
@@ -4291,7 +4301,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.error(errmsg)
                 Aqf.failed(errmsg)
                 return False
-            
+
             try:
                 #Set custom source names
                 local_src_names = self.cam_sensors.custom_input_labels
@@ -4308,14 +4318,14 @@ class test_CBF(unittest.TestCase):
                 assert reply.reply_ok(), str(reply)
                 reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[1])
                 assert reply.reply_ok(), str(reply)
-                
+
                 # Get instrument parameters
                 bw =      self.cam_sensors.get_value('bandwidth')
                 nr_ch =   self.cam_sensors.get_value('n_chans')
                 ants =    self.cam_sensors.get_value('n_ants')
                 ch_list = self.cam_sensors.ch_center_freqs
                 ch_bw = ch_list[1]
-                dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/ 
+                dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/
                                self.cam_sensors.get_value('scale_factor_timestamp'))
                 substreams = self.cam_sensors.get_value('n_xengs')
             except AssertionError:
@@ -4434,7 +4444,7 @@ class test_CBF(unittest.TestCase):
                                                                   self._testMethodName, beam),
                     plot_title=('Beam = {}, Spectrum Start Frequency = {} MHz\n'
                                 'Number of Channels Captured = {}\n'
-                                'Integrated over {} captures'.format(beam, strt_freq / 1e6, 
+                                'Integrated over {} captures'.format(beam, strt_freq / 1e6,
                                                 substrms_to_cap*ch_per_substream, nc)),
                     log_dynamic_range=90,
                     log_normalise_to=1,
@@ -4498,7 +4508,7 @@ class test_CBF(unittest.TestCase):
             test_input = random.choice(self.cam_sensors.input_labels)
             Aqf.step('Randomly selected input to test: {}'.format(test_input))
             # Get auto correlation index of the selected input
-            bls_order = self.cam_sensors.get_value('bls_ordering')
+            bls_order = eval(self.cam_sensors.get_value('bls_ordering'))
             for idx, val in enumerate(bls_order):
                 if val[0] == test_input and val[1] == test_input:
                     auto_corr_idx = idx
@@ -4600,7 +4610,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.error(errmsg)
             Aqf.failed(errmsg)
             return False
-        
+
         try:
             #Set custom source names
             local_src_names = self.cam_sensors.custom_input_labels
@@ -4617,14 +4627,14 @@ class test_CBF(unittest.TestCase):
             assert reply.reply_ok(), str(reply)
             reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[1])
             assert reply.reply_ok(), str(reply)
-            
+
             # Get instrument parameters
             bw =      self.cam_sensors.get_value('bandwidth')
             nr_ch =   self.cam_sensors.get_value('n_chans')
             ants =    self.cam_sensors.get_value('n_ants')
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]
-            dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/ 
+            dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/
                            self.cam_sensors.get_value('scale_factor_timestamp'))
             substreams = self.cam_sensors.get_value('n_xengs')
         except AssertionError:
@@ -4720,9 +4730,10 @@ class test_CBF(unittest.TestCase):
                 return False
 
 
-            def get_beam_data(beam, beam_dict=None, inp_ref_lvl=0, beam_quant_gain=1, 
+
+            def get_beam_data(beam, beam_dict=None, inp_ref_lvl=0, beam_quant_gain=1,
                 act_wgts = None,
-                exp_cw_ch=-1, s_ch_idx=0, 
+                exp_cw_ch=-1, s_ch_idx=0,
                 s_substream= start_substream,
                 subs_to_cap = substrms_to_cap,
                 max_cap_retries=5, conf_data_type=False, data_only=False):
@@ -4761,7 +4772,7 @@ class test_CBF(unittest.TestCase):
                     try:
                         bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam,
                             beam_dict)
-                        # Set beamdict to None in case the capture needs to be retried. 
+                        # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
                         if len(in_wgts) == 0:
@@ -4855,7 +4866,7 @@ class test_CBF(unittest.TestCase):
                 for key in in_wgts:
                     labels += (key + "= {}\n").format(in_wgts[key])
                 labels += 'Mean = {:0.2f}dB\n'.format(cap_db_mean)
-                
+
                 if inp_ref_lvl == 0:
                     # Get the voltage level for one antenna. Gain for one input
                     # should be set to 1, the rest should be 0
@@ -4889,7 +4900,7 @@ class test_CBF(unittest.TestCase):
                                        'Maximum value of {}dB found in channel {}. '
                                        'Mean spectrum value = {}dB'.format(
                                            ch_list[exp_cw_ch]/1e6,
-                                           exp_cw_ch, 
+                                           exp_cw_ch,
                                            max_val,
                                            max_val_ch+s_ch_idx,
                                            cap_db_mean))
@@ -4957,7 +4968,7 @@ class test_CBF(unittest.TestCase):
                 mean_vals = []
                 exp_mean_vals = []
                 weight_lbls = []
-                
+
                 while weight <= 3:
                     # Set weight for reference input, the rest are all zero
                     LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
@@ -4975,7 +4986,7 @@ class test_CBF(unittest.TestCase):
                         LOGGER.exception(errmsg)
                     else:
                         Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
-                    
+
                     # Get mean beam data
                     try:
                         cap_data = get_beam_data(beam, data_only=True)
@@ -5003,7 +5014,7 @@ class test_CBF(unittest.TestCase):
                                     self._testMethodName, beam),
                                   plot_title=('Beam = {}\n'
                                     'Expected vs Actual Mean Beam power for input weight.'.format(beam)),
-                                  log_dynamic_range=90, log_normalise_to=1, 
+                                  log_dynamic_range=90, log_normalise_to=1,
                                   ylabel='Mean Beam Power [dB]',
                                   xlabel='{} Weight'.format(ref_input_label), xvals=weight_lbls)
 
@@ -5039,7 +5050,7 @@ class test_CBF(unittest.TestCase):
                                     self._testMethodName, beam),
                                   plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
                                     'Number of Channels Captured = {}'
-                                    '\nIntegrated over {} captures'.format(beam, 
+                                    '\nIntegrated over {} captures'.format(beam,
                                         strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
                                   log_dynamic_range=90, log_normalise_to=1,
                                   caption='Captured beamformer data', hlines=[exp0, exp1],
@@ -5086,7 +5097,7 @@ class test_CBF(unittest.TestCase):
                                     self._testMethodName, beam),
                                   plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
                                     'Number of Channels Captured = {}'
-                                    '\nIntegrated over {} captures'.format(beam, 
+                                    '\nIntegrated over {} captures'.format(beam,
                                         strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
                                   log_dynamic_range=90, log_normalise_to=1,
                                   caption='Captured beamformer data with level adjust after beam-forming gain set.',
@@ -6505,7 +6516,8 @@ class test_CBF(unittest.TestCase):
             assert reply.reply_ok()
             Aqf.passed('Transient buffer trigger present.')
         except Exception:
-            Aqf.failed('Transient buffer trigger failed.')
+            Aqf.failed('Transient buffer trigger failed. \nReply: %s' % str(
+                reply).replace('_', ' '))
 
         try:
             Aqf.step('Capture an ADC snapshot and confirm the fft length')
@@ -6513,7 +6525,7 @@ class test_CBF(unittest.TestCase):
             assert reply.reply_ok()
         except Exception:
             LOGGER.exception('Failed to capture ADC snapshot.')
-            Aqf.failed('Failed to capture ADC snapshot. reply: %s' % str(reply).replace('_',' '))
+            Aqf.failed('Failed to capture ADC snapshot. \nReply: %s' % str(reply).replace('_',' '))
             return
         else:
             fpga = self.correlator.fhosts[0]
@@ -6632,7 +6644,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
             else:
 
-                bls_to_test = self.cam_sensors.get_value('bls_ordering')[test_baseline]
+                bls_to_test = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
                 Aqf.progress('Randomly selected frequency channel to test: {} and '
                              'selected baseline {} / {} to test.'.format(test_chan, test_baseline,
                                 bls_to_test))
