@@ -6810,5 +6810,5 @@ class test_CBF(unittest.TestCase):
             efficiency_calc(chan_responses, requested_test_freqs, binwidth)
         except Exception:
             Aqf.failed("Could not compute the data, rerun test")
-        else:
-            subprocess.check_call(["rm", csv_filename])
+        # else:
+        #     subprocess.check_call(["rm", csv_filename])
