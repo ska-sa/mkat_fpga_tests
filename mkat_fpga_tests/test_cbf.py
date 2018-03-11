@@ -4428,8 +4428,9 @@ class test_CBF(unittest.TestCase):
                 # baseline_ch_bw = bw * dsim_clk_factor / response.shape[0]
 
                 # hardcoded the bandwidth value due to a custom dsim frequency used in the config file
-                baseline_ch_bw = 856e6 / test_dump['xeng_raw'].shape[0]
-                beam_ch_bw = pb / len(cap_mag[0])
+                nominal_bw = float(self.conf_file['inst_param']['sample_freq'])/2.0 
+                baseline_ch_bw = nominal_bw / test_dump['xeng_raw'].shape[0]
+                beam_ch_bw = nominal_bw / len(cap_mag[0])
                 msg = ('Confirm that the baseline-correlation-product channel width'
                        ' {}Hz is the same as the tied-array-channelised-voltage channel width '
                        '{}Hz'.format(baseline_ch_bw, beam_ch_bw))
