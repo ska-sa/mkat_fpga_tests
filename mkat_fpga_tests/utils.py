@@ -1053,7 +1053,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         True if katsdpingest docker started
     """
     user_id = pwd.getpwuid(os.getuid()).pw_uid
-    cmd = ['sudo', 'docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
+    cmd = ['docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
            '/ramdisk:/ramdisk', 'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
            'bf_ingest.py', '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
            '--channels={}'.format(channels), '--ticks-between-spectra={}'.format(ticks_between_spectra),
@@ -1073,7 +1073,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
 
     time.sleep(5)
     try:
-        output = subprocess.check_output(['sudo', 'docker', 'ps'])
+        output = subprocess.check_output(['docker', 'ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1093,7 +1093,7 @@ def stop_katsdpingest_docker(self):
         True if katsdpingest docker container found and stopped
     """
     try:
-        output = subprocess.check_output(['sudo', 'docker','ps'])
+        output = subprocess.check_output(['docker','ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1103,7 +1103,7 @@ def stop_katsdpingest_docker(self):
     if sdp_instance:
         for idx in sdp_instance:
             try:
-                kill_output = subprocess.check_output(['sudo', 'docker', 'kill', output[idx-1]])
+                kill_output = subprocess.check_output(['docker', 'kill', output[idx-1]])
             except subprocess.CalledProcessError:
                 errmsg = 'Could not kill sdp-docker-registry container'
                 Aqf.failed(errmsg)

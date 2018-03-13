@@ -24,7 +24,6 @@ ipynose
 ipython[all]
 jenkinsapi
 lxml
-matplotlib==2.0.2
 memory_profiler
 mock
 mpld3
@@ -33,7 +32,6 @@ nose
 nose-testconfig
 nosexcover
 ntplib
-numpy==1.13.3
 pandas
 pandas
 parameterized

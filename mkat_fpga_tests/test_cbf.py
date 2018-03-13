@@ -4908,8 +4908,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
                 return False
-            import IPython;IPython.embed()
-            return True
 
             # Setting DSIM to generate noise
             if nr_ch == 4096:
@@ -5012,12 +5010,14 @@ class test_CBF(unittest.TestCase):
                     weight += 0.5
             # Square the voltage data. This is a hack as aqf_plot expects squared
             # power data
-            aqf_plot_channels(((np.square(mean_vals), 'Captured Mean Beam Power'),(np.square(exp_mean_vals), 'Calculated Mean from Refrence')),
+            aqf_plot_channels(((mean_vals, 
+                'Captured Mean Beam Power\nStepping one input weight\nRemaining input weigths = 0'),
+                (exp_mean_vals, 'Calculated Mean from Refrence')),
                               plot_filename='{}/{}_weight_application_{}.png'.format(self.logs_path,
                                 self._testMethodName, beam),
                               plot_title=('Beam = {}\n'
                                 'Expected vs Actual Mean Beam power for input weight.'.format(beam)),
-                              log_dynamic_range=90, log_normalise_to=1,
+                              #log_dynamic_range=90, log_normalise_to=1,
                               ylabel='Mean Beam Power [dB]',
                               xlabel='{} Weight'.format(ref_input_label), xvals=weight_lbls)
 
