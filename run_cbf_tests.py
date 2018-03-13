@@ -99,47 +99,19 @@ def option_parser():
                       default=False,
                       help="Do a dry run. Print all tests available")
 
-    parser.add_option("--4A4k",
+    parser.add_option("--4k",
                       action="store_const",
-                      const='bc8n856M4k',
+                      const='4k',
                       dest="mode",
                       default=None,
                       help="Run the tests decorated with @instrument_bc8n856M4k")
 
-    parser.add_option("--4A32k",
+    parser.add_option("--32k",
                       action="store_const",
-                      const='bc8n856M32k',
+                      const='32k',
                       dest="mode",
                       default=None,
                       help="Run the tests decorated with @instrument_bc8n856M32k")
-
-    parser.add_option("--8A4k",
-                      action="store_const",
-                      const='bc16n856M4k',
-                      dest="mode",
-                      default=None,
-                      help="Run the tests decorated with @instrument_bc16n856M4")
-
-    parser.add_option("--8A32k",
-                      action="store_const",
-                      const='bc16n856M32k',
-                      dest="mode",
-                      default=None,
-                      help="Run the tests decorated with @instrument_bc16n856M32k")
-
-    parser.add_option("--16A4k",
-                      action="store_const",
-                      const='bc32n856M4k',
-                      dest="mode",
-                      default=None,
-                      help="Run the tests decorated with @instrument_bc32n856M4k")
-
-    parser.add_option("--16A32k",
-                      action="store_const",
-                      const='bc32n856M32k',
-                      dest="mode",
-                      default=None,
-                      help="Run the tests decorated with @instrument_bc32n856M32k")
 
     parser.add_option("--quick",
                       dest="katreport_quick",
@@ -782,9 +754,9 @@ def run_nose_test(settings):
     if katreport_control:
         cmd.append("--katreport-control=%s" % ','.join(katreport_control))
 
-    if settings.get('site_acceptance') or settings.get('site'):
-        # Use different directory for acceptance results, so as not to overwrite qualification results
-        cmd.append("--katreport-name=katreport_acceptance") # Using default "katreport" for qualification
+    # if settings.get('site_acceptance') or settings.get('site'):
+    #     # Use different directory for acceptance results, so as not to overwrite qualification results
+    #     cmd.append("--katreport-name=katreport_acceptance") # Using default "katreport" for qualification
 
     # if settings.get('jenkins'):
     #     cmd.append("--with-xunit")
@@ -1219,10 +1191,11 @@ if __name__ == "__main__":
     except Exception:
         settings['tests'] = os.path.join(settings['me_dir'], settings['test_dir'], 'test_cbf.py')
 
-    if settings["site_acceptance"]:
-        settings['katreport_dir'] = "katreport_acceptance"
-    else:
-        settings['katreport_dir'] = "katreport"
+    # if settings["site_acceptance"]:
+    #     settings['katreport_dir'] = "katreport_acceptance"
+    # else:
+    settings['katreport_dir'] = "katreport"
+
     if 'base_dir' not in settings:
         settings['base_dir'] = os.getcwdu()
 
@@ -1261,7 +1234,7 @@ if __name__ == "__main__":
         cmdPath = ''.join([i for i in glob.glob('scripts/*') if 'instrument_activate' in i])
         if settings['mode'] and settings['instrument_activate'] and os.path.isfile(cmdPath):
             logger.info('Starting and instrument: %s' %settings['mode'])
-            cmd = ['bash', 'scripts/instrument_activate', settings.get('mode')]
+            cmd = ['bash', 'scripts/instrument_activate', 'localhost', settings.get('mode')]
             # Allow instrument to be activated in 200 seconds
             timeout = 200
             initInstrument = RunCmdTimeout(settings, cmd, timeout)

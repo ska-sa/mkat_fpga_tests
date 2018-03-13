@@ -1328,10 +1328,10 @@ def FPGA_Connect(hosts, _timeout=30):
 def get_clean_dump(self, discards=10, retries=20):
     while retries:
         retries -= 1
-        errmsg = ''
         try:
+            errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
             dump = self.receiver.get_clean_dump(discard=discards)
-            assert dump
+            assert isinstance(dump, dict), errmsg
             dump_timestamp = dump['dump_timestamp']
             time_now = time.time()
             time_diff = dump_timestamp - time_now
@@ -1343,7 +1343,8 @@ def get_clean_dump(self, discards=10, retries=20):
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             LOGGER.exception(errmsg)
-            return False
+            if retries < 15:
+                return False
         else:
             LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with epoch (%s) [diff: %s] '
                         'within %s retries' % (dump_timestamp, time_now, time_diff, retries))
