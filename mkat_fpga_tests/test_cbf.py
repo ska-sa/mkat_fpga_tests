@@ -1267,7 +1267,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Getting SPEAD accumulation containing the change in fringes(s) on input: %s '
                  'baseline: %s, and discard all irrelevant accumulations.' % (
                   setup_data['test_source'], setup_data['baseline_index']))
-            while True:
+        while True:
             num_discards += 1
             try:
                 dump = self.receiver.data_queue.get()
