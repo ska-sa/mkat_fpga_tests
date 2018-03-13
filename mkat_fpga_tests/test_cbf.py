@@ -1772,9 +1772,18 @@ class test_CBF(unittest.TestCase):
             aqf_plot_and_save(freqs=actual_test_freqs, data=plot_data, df=df, expected_fc=expected_fc,
                               plot_filename=plt_filename, plt_title=plt_title, caption=plt_caption,
                               cutoff=-cutoff)
-            # #
-            # att_band = np.argwhere((plot_data <= -3.0) & (plot_data >= -3.1))
-            # att_band = float(np.abs(actual_test_freqs[att_band[0]] - actual_test_freqs[att_band[1]]))
+            # CBF-REQ-0126
+            pass_bw_min_max = np.argwhere((plot_data <= -3.0) & (plot_data >= -3.1))
+            pass_bw = float(np.abs(
+                    actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[1]]))
+
+            att_bw_min_max = [np.argwhere(plot_data==i)[0][0] for i in plot_data
+                     if (abs(i) >= (cutoff-1)) and (abs(i) <= (cutoff+1))]
+            att_bw = actual_test_freqs[att_bw_min_max[-1]] - actual_test_freqs[att_bw_min_max[0]]
+
+            msg = ('The CBF shall perform channelisation such that the 53dB attenuation bandwidth(%s)'
+                   'is less/equal to 2x the pass band width(%s)' %(att_bw, pass_bw))
+            Aqf.is_true(att_bw >= pass_bw, msg)
 
             # Get responses for central 80% of channel
             df = self.corr_freqs.delta_f
