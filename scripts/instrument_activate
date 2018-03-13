@@ -1,20 +1,22 @@
 #!/bin/bash
 # Automated instrument activation
 # Mpho Mphego
-set -x
-
+set -x 
 if [ -z "$*" ];
-    then echo -e "Usage: $0 KATCP_HOST_IP INSTRUMENT ARRAY_NAME INSTRUMENT_OPTS START_DSIM CONF_PATH \n
+    then echo -e "Usage: $0 INSTRUMENT KATCP_HOST_IP ARRAY_NAME START_DSIM INSTRUMENT_OPS CONF_PATH \n
 
-    KATCP_HOST_IP: localhost (Default)/IP
     INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)
-    INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
-                                     [program, configure, require synchronisation epoch, monitor vector accumulators]
+    KATCP_HOST_IP: localhost (Default)/IP
     ARRAY_NAME: array0 (Default)
     START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)
+    INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
+                                     [program, configure, require synchronisation epoch, monitor vector accumulators]
     CONF_PATH: /etc/corr/templates/ (Default)"
     exit 1;
 fi
+
+# Convert variable contents to lower case
+declare -l DSIM
 
 export TERM=xterm
 PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
@@ -24,18 +26,16 @@ RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 NORMAL=$(tput sgr0)
 
+INSTRUMENT=$1
 MACHINE=$(hostname)
-KATCP_HOST_IP=${1:-${MACHINE}}
-INSTRUMENT=$2
-ARRAY_NAME=$3
-INSTRUMENT_OPTS=${4:-1110}
+KATCP_HOST_IP=${2:-${MACHINE}}
+ARRAY_NAME=${3:-array0}
+START_DSIM=${4:-n}
+INSTRUMENT_OPTS=${5:-1110}
 PROG=${INSTRUMENT_OPTS:0:1}
 CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
 MVACC=${INSTRUMENT_OPTS:3:1}
-
-START_DSIM=${5:-n}
-
 
 CONF_PATH=${6:-'/etc/corr/templates/'}
 CONF_PATH=${CONF_PATH}${INSTRUMENT}
@@ -59,6 +59,7 @@ ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUT
 printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
 
 export CORR2INI=${CONF_PATH};
+DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
 if [ ${START_DSIM} == y ]; then
     #printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
     #if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
@@ -67,30 +68,33 @@ if [ ${START_DSIM} == y ]; then
     #    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
     #fi
 
-    DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
     while true; do
-        #StopDMC="/usr/local/bin/stop-pseudo-dmc";
-        #StartDMC="/usr/local/bin/start-pseudo-dmc";
-
-        #if [ -x "$(command -v ${StopDMC})" ]; then
-        #    ${StopDMC} || ${KCPCMD} -t 30 -s localhost:9010 halt
-        #    sleep 10;
-        #fi
-
-        #if [ -x "$(command -v ${StartDMC})" ]; then
-        #    ${StartDMC} ${DSIM}
-        #    sleep 10;
-        #fi
-
         printf "${GREEN}Starting DEngine...${NORMAL}\n"
+        if [[ $DSIM = *"roach"* ]]; then
+            StopDMC="/usr/local/bin/stop-pseudo-dmc";
+            StartDMC="/usr/local/bin/start-pseudo-dmc";
+
+            if [ -x "$(command -v ${StopDMC})" ]; then
+                ${StopDMC} || ${KCPCMD} -t 30 -s localhost:9010 halt
+                sleep 10;
+            fi
+
+            if [ -x "$(command -v ${StartDMC})" ]; then
+                ${StartDMC} ${DSIM}
+                sleep 10;
+            fi
+        fi
         corr2_dsim_control.py --loglevel INFO --program --start --zeros-sine --zeros-noise && break;
     done;
 else
     printf "${GREEN}Assuming DEngine is currently running...${NORMAL}\n"
 fi
 
-SYNC_EPOCH=$(corr2_dsim_control.py --loglevel INFO --resync | grep ^Reset | cut -f7 -d ' ')
-# SYNC_EPOCH=$($KCPCMD -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
+if [[ $DSIM = *"roach"* ]]; then
+    SYNC_EPOCH=$($KCPCMD -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
+else
+    SYNC_EPOCH=$(corr2_dsim_control.py --loglevel INFO --resync | grep ^Reset | cut -f7 -d ' ')
+fi
 SYNC_TIME=$(date -d @${SYNC_EPOCH})
 printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n"
 sleep 1;

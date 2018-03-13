@@ -258,11 +258,7 @@ class test_CBF(unittest.TestCase):
                 # self._systems_tests()
                 return True
 
-    @instrument_bc8n856M4k
-    @instrument_bc16n856M4k
-    @instrument_bc32n856M4k
-    # @instrument_bc64n856M4k
-    # @instrument_bc128n856M4k
+    @instrument_4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_course(self, instrument='bc8n856M4k'):
@@ -281,11 +277,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    @instrument_bc8n856M32k
-    @instrument_bc16n856M32k
-    @instrument_bc32n856M32k
-    # @instrument_bc64n856M32k
-    # @instrument_bc128n856M32k
+    @instrument_32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_fine(self, instrument='bc8n856M32k'):
@@ -303,11 +295,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(self.errmsg)
 
     @slow
-    @instrument_bc8n856M4k
-    @instrument_bc16n856M4k
-    @instrument_bc32n856M4k
-    # @instrument_bc64n856M4k
-    # @instrument_bc128n856M4k
+    @instrument_4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_course_sfdr_peaks(self, instrument='bc8n856M4k'):
@@ -324,11 +312,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(self.errmsg)
 
     @slow
-    @instrument_bc8n856M32k
-    @instrument_bc16n856M32k
-    @instrument_bc32n856M32k
-    # @instrument_bc64n856M32k
-    # @instrument_bc128n856M32k
+    @instrument_32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test__channelisation_wideband_fine_sfdr_peaks(self, instrument='bc8n856M32k'):
@@ -365,7 +349,8 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument(instrument)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
-                self._test_efficiency()
+                # self._test_efficiency()
+                pass
             else:
                 Aqf.failed(self.errmsg)
 
@@ -384,11 +369,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    @instrument_bc8n856M4k
-    @instrument_bc16n856M4k
-    @instrument_bc32n856M4k
-    # @instrument_bc64n856M4k
-    # @instrument_bc128n856M4k
+    @instrument_4k
     @aqf_vr('CBF.V.3.34')
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
     def test__beamforming(self, instrument='bc8n856M4k'):
@@ -419,7 +400,6 @@ class test_CBF(unittest.TestCase):
                 self._test_back2back_consistency()
                 self._test_freq_scan_consistency()
                 self._test_spead_verify()
-                # self._test_restart_consistency(instrument, no_channels=4096)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -569,7 +549,7 @@ class test_CBF(unittest.TestCase):
                 self._test_fringe_rate()
                 self._test_fringe_offset()
                 self._test_delay_inputs()
-                self._test_min_max_delays()
+                # self._test_min_max_delays()
                 clear_all_delays(self)
                 restore_src_names(self)
             else:
@@ -1607,9 +1587,10 @@ class test_CBF(unittest.TestCase):
             initial_dump = get_clean_dump(self)
             self.assertIsInstance(initial_dump, dict)
         except Exception:
-            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+            errmsg = 'Could not retrieve initial clean SPEAD accumulation: Queue is Empty.'
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
+            return
         else:
 
             bls_to_test = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
@@ -1676,8 +1657,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.progress('.' * print_counts)
             elif i >= (len(requested_test_freqs) - print_counts):
                 Aqf.progress(_msg)
-            else:
-                LOGGER.debug(_msg)
+            # else:
+            #     LOGGER.debug(_msg)
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             # self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
@@ -1695,35 +1676,38 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump()
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
-                errmsg = ('Could not retrieve clean SPEAD accumulation')
+                errmsg = ('Could not retrieve clean accumulation for freq (%s @ %s: %sMHz).'%(
+                            i + 1, len(requested_test_freqs), freq/1e6))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
-                return False
             else:
                 # No of spead heap discards relevant to vacc
                 discards = 0
-                max_wait_dumps = 100
+                max_wait_dumps = 50
                 deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
                 while True:
                     try:
                         queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
                         self.assertIsInstance(queued_dump, dict)
                     except Exception:
-                        errmsg = 'Could not retrieve clean accumulation.'
+                        errmsg = ('Could not retrieve clean queued accumulation for freq(%s @ %s: '
+                                  '%s MHz).'%(i + 1, len(requested_test_freqs), freq/1e6))
                         LOGGER.exception(errmsg)
                         Aqf.failed(errmsg)
+                        break
                     else:
                         timestamp_diff = np.abs(queued_dump['dump_timestamp'] - deng_timestamp)
-                        if (timestamp_diff < 0.5):
+                        if (timestamp_diff < 1):
                             msg = ('Received correct accumulation timestamp: %s, relevant to '
                                    'DEngine timestamp: %s (Difference %.2f)' % (
                                     queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                            LOGGER.info(_msg)
                             LOGGER.info(msg)
                             break
 
                         if discards > max_wait_dumps:
                             errmsg = ('Could not get accumulation with correct timestamp within %s '
-                                       'accumulation periods.' % max_wait_dumps)
+                                      'accumulation periods.' % max_wait_dumps)
                             Aqf.failed(errmsg)
                             LOGGER.error(errmsg)
                             if discards > 10:
@@ -1799,6 +1783,9 @@ class test_CBF(unittest.TestCase):
             aqf_plot_and_save(freqs=actual_test_freqs, data=plot_data, df=df, expected_fc=expected_fc,
                               plot_filename=plt_filename, plt_title=plt_title, caption=plt_caption,
                               cutoff=-cutoff)
+            # #
+            # att_band = np.argwhere((plot_data <= -3.0) & (plot_data >= -3.1))
+            # att_band = float(np.abs(actual_test_freqs[att_band[0]] - actual_test_freqs[att_band[1]]))
 
             # Get responses for central 80% of channel
             df = self.corr_freqs.delta_f
@@ -1908,6 +1895,8 @@ class test_CBF(unittest.TestCase):
                        test_baseline, bls_to_test, chan_spacing / 1e3, cw_scale, awgn_scale, gain,
                        fft_shift))
 
+            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
+                requested_test_freqs), delimiter=",")
             aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
                               normalise=True, caption=caption, cutoff=-cutoff_edge, vlines=center_bin,
                               xlabel='Sample Steps', ylimits=y_axis_limits)
@@ -4590,10 +4579,10 @@ class test_CBF(unittest.TestCase):
             assert reply.reply_ok()
             labels = reply.arguments[1:]
             beams = ['tied-array-channelised-voltage.0x','tied-array-channelised-voltage.0y']
-            running_instrument = self.corr_fix.get_running_instrument()
-            assert running_instrument is not False
-            msg = 'Running instrument currently does not have beamforming capabilities.'
-            assert running_instrument.endswith('4k'), msg
+            # running_instrument = self.corr_fix.get_running_instrument()
+            # assert running_instrument is not False
+            # msg = 'Running instrument currently does not have beamforming capabilities.'
+            # assert running_instrument.endswith('4k'), msg
             Aqf.step('Discontinue any capturing of %s and %s, if active.' %(beams[0],beams[1]))
             reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[0])
             assert reply.reply_ok(), str(reply)
@@ -4988,7 +4977,7 @@ class test_CBF(unittest.TestCase):
             while weight <= 3:
                 # Set weight for reference input, the rest are all zero
                 LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
-                    key))
+                    ref_input_label))
                 try:
                     reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
                         beam, ref_input_label, round(weight,1))
@@ -6799,7 +6788,7 @@ class test_CBF(unittest.TestCase):
                      "Equivalent Bandwidth: efficiency = HPBW/NEBW")
             _efficiency = HPBW / NEBW
             Aqf.more(_efficiency, .98, "Efficiency factor = {:.3f}".format(_efficiency))
-
+            import IPython; globals().update(locals()); IPython.embed(header='inside function')
             # Measure critical points
             pk = f.searchsorted(f[P_dB > -6].mean()) # The peak
             ch = f.searchsorted(f[0] + binwidth) # Channel-to-channel separation intervals
@@ -6836,7 +6825,7 @@ class test_CBF(unittest.TestCase):
         except IOError:
             try:
                 get_samples()
-                csv_file = max(glob.iglob('*.csv'), key=os.path.getctime)
+                csv_file = max(glob.iglob(csv_filename), key=os.path.getctime)
                 assert 'CBF' in csv_file
                 pfb_data = np.loadtxt(csv_file, delimiter=',', unpack=False)
             except Exception:
@@ -6845,13 +6834,13 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(msg)
                 return
 
-        chan_responses, requested_test_freqs = pfb_data[:,1][1:], pfb_data[:,0][1:]
+        chan_responses, requested_test_freqs = pfb_data[:,0][1:], pfb_data[:,1][1:]
         # Summarize isn't clever enough to cope with the spurious spike in first sample
         chan_responses = np.asarray(chan_responses)
         requested_test_freqs = 10*np.log10(np.abs(np.asarray(requested_test_freqs)))
         try:
-            binwidth = self.cam_sensors.get_value('bandwidth') / self.cam_sensors.get_value('n_chans')
-            efficiency_calc(chan_responses, requested_test_freqs, binwidth)
+            binwidth = self.cam_sensors.get_value('bandwidth') / (self.cam_sensors.get_value('n_chans') - 1)
+            efficiency_calc(requested_test_freqs, chan_responses, binwidth)
         except Exception:
             Aqf.failed("Could not compute the data, rerun test")
         # else:
