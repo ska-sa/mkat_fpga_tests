@@ -92,6 +92,9 @@ class CorrelatorFixture(object):
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
         self.test_config = self._test_config_file
+        self.subarray = self.test_config['inst_param']['subarray']
+        # self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+        self.config_filename = max(iglob('/etc/corr/{}-*'.format(self.subarray)), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument
 
     @property
@@ -126,9 +129,6 @@ class CorrelatorFixture(object):
         if self._dhost is not None:
             return self._dhost
         else:
-            # self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
-            self.config_filename = '/'.join(['/etc/corr',
-                max(iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]])
             if os.path.exists(self.config_filename):
                 LOGGER.info('Retrieving dsim engine info from config file: %s' % self.config_filename)
                 self.corr_config = parse_ini_file(self.config_filename)
@@ -513,8 +513,7 @@ class CorrelatorFixture(object):
         return: List
         """
         try:
-            # ToDo (MM) 06-10-2017 Hardcoded array, fix it
-            running_instr = max(iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]
+            running_instr = self.config_filename.split('/')[-1]
             self.array_name, self.instrument = running_instr.split('-')
             try:
                 assert '_' in self.instrument
@@ -524,7 +523,7 @@ class CorrelatorFixture(object):
 
             if (self.instrument.startswith('bc') or self.instrument.startswith('c')) and \
                 self.array_name.startswith('array'):
-                LOGGER.info('Currently running instrument %s as per /etc/corr' % self.instrument)
+                Aqf.progress('Currently running instrument %s as per /etc/corr' % self.instrument)
                 return [self.array_name, self.instrument]
         except Exception:
             LOGGER.exception('Could not retrieve information from config file, resorting to default')

@@ -84,7 +84,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix = correlator_fixture
         try:
             self.conf_file = self.corr_fix.test_config
-            self.corr_fix.katcp_clt = self.conf_file['inst_param']['katcp_client']
+            self.corr_fix.katcp_clt  = self.conf_file['inst_param']['katcp_client']
         except Exception:
             errmsg = 'Failed to read test config file.'
             LOGGER.exception(errmsg)
@@ -204,33 +204,23 @@ class test_CBF(unittest.TestCase):
             try:
                 self.correlator = self.corr_fix.correlator
                 self.assertIsInstance(self.correlator, corr2.fxcorrelator.FxCorrelator)
+                self.cam_sensors = GetSensors(self.corr_fix)
             except AssertionError, e:
                 self.errmsg = 'Failed to instantiate a correlator object: %s' % str(e)
                 LOGGER.error(self.errmsg)
                 return False
             try:
-                corrRx_port = int(self.conf_file['inst_param']['corr_rx_port'])
-            except Exception:
-                corrRx_port = 8888
-                errmsg = ('Failed to retrieve corr rx port from config file.'
-                          'Setting it to default port: %s' % (corrRx_port))
-                LOGGER.exception(errmsg)
-                Aqf.failed(errmsg)
-            try:
                 output_product = 'baseline-correlation-products'
+                output_product_ = output_product.replace('-','_')
+                baselinecorr_ip, baselinecorr_port = self.cam_sensors.get_value(
+                        output_product_+'_destination').split(':')
                 Aqf.step('Initiate SPEAD receiver on port %s, and CBF output product %s' % (
-                    corrRx_port, output_product))
-                if corrRx_port == 8888:
-                    self.receiver = CorrRx(product_name=output_product,
-                        port=corrRx_port, queue_size=queue_size)
-                    LOGGER.info('Running lab testing and listening to corr2_servlet on localhost')
-                else:
-                    servlet_ip = str('10.103.254.6')
-                    servlet_port = int(self.corr_fix.katcp_rct.port)
-                    LOGGER.info('Running `On-Site Testing`, listening to corr2_servlet on %s' % servlet_ip)
-                    self.receiver = CorrRx(product_name=output_product, servlet_ip=servlet_ip,
-                        servlet_port=servlet_port, port=corrRx_port, queue_size=queue_size)
-
+                    baselinecorr_port, output_product))
+                katcp_ip = self.corr_fix.katcp_clt
+                katcp_port = int(self.corr_fix.katcp_rct.port)
+                LOGGER.info('Connecting to katcp on %s' % katcp_ip)
+                self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
+                    katcp_port=katcp_port, port=baselinecorr_port, queue_size=queue_size)
                 self.receiver.setName('CorrRx Thread')
                 self.errmsg = 'Failed to create SPEAD data receiver'
                 self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
@@ -245,7 +235,6 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception('%s' % str(e))
                 return False
             else:
-                self.cam_sensors = GetSensors(self.corr_fix)
                 self.corr_freqs = CorrelatorFrequencyInfo(self.correlator.configd)
                 self.corr_fix.start_x_data
                 self.addCleanup(self.corr_fix.stop_x_data)
@@ -377,7 +366,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(instrument)
+            instrument_success = self.set_instrument(instrument, acc_time = 2)
             _running_inst = self.corr_fix.get_running_instrument()
             if instrument_success and _running_inst:
                 self._test_beamforming()
