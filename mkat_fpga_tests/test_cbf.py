@@ -4928,7 +4928,7 @@ class test_CBF(unittest.TestCase):
                 fft_shift = 4095
             
             Aqf.progress('Digitiser simulator configured to generate Gaussian noise: '
-                        ('Noise scale: {}, eq gain: {}, fft shift: {}'.format(
+                         'Noise scale: {}, eq gain: {}, fft shift: {}'.format(
                          awgn_scale, gain, fft_shift))
             dsim_set_success = False
             with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
