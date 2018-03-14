@@ -1164,6 +1164,8 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
             if key.find(beam_pol) != -1:
                 in_wgts[key] = beam_dict[key]
 
+        Aqf.step('Setting input weights, this may take a long time, check log output for progress...')
+        print_list = ''
         for key in in_wgts:
             LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
                 key))
@@ -1177,8 +1179,10 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                Aqf.passed('Antenna input {} weight set to {}'.format(key, reply.arguments[1]))
-
+                LOGGER.info('Antenna input {} weight set to {}'.format(key, reply.arguments[1]))
+                print_list += ('{}:{}, '.format(key,reply.arguments[1]))
+                in_wgts[key] = float(reply.arguments[1])
+        Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
     try:
         import katcp
         kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)

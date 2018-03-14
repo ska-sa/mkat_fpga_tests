@@ -4596,6 +4596,8 @@ class test_CBF(unittest.TestCase):
             dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/
                            self.cam_sensors.get_value('scale_factor_timestamp'))
             substreams = self.cam_sensors.get_value('n_xengs')
+            # For substream alignment test only print out 5 results
+            align_print_modulo = int(substreams/4)
         except AssertionError:
             errmsg = '%s'%str(reply).replace('\_', ' ')
             LOGGER.exception(errmsg)
@@ -4612,6 +4614,9 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
 
         for beam in beams:
+            Aqf.hop('')
+            Aqf.hop('')
+            Aqf.step('Testing beam: {}'.format(beam))
             try:
                 beam_name = beam.replace('-','_').replace('.','_')
                 beam_ip, beam_port = self.cam_sensors.get_value(
@@ -4707,8 +4712,8 @@ class test_CBF(unittest.TestCase):
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
-                        if len(in_wgts) == 0:
-                            in_wgts = act_wgts
+                        if (len(in_wgts) == 0) and (type(act_wgts)==dict):
+                            in_wgts = act_wgts.copy()
                     except Exception as e:
                         Aqf.failed('Confirm that the Docker container is running and also confirm the '
                             'igmp version = 2')
@@ -4797,10 +4802,24 @@ class test_CBF(unittest.TestCase):
                 # print lbl, wght
                 #        labels += (lbl+"={} ").format(wght)
                 labels = ''
-                for key in in_wgts:
-                    labels += (key + "= {}\n").format(in_wgts[key])
+                label_values = in_wgts.values()
+                if label_values[1:] == label_values[:-1]:
+                    labels += ("All inputs = {}\n".format(label_values[0]))
+                else:
+                    tmp = {}
+                    for key,val in in_wgts.items():
+                        if val not in tmp.values():
+                            tmp[key] = val
+                        else:
+                            for k,v in tmp.items():
+                                if val == v:
+                                    tmp.pop(k)
+                            tmp['Multiple Inputs'] = val
+                    for key in tmp:
+                        labels += (key + " = {}\n").format(tmp[key])
                 labels += 'Mean = {:0.2f}dB\n'.format(cap_db_mean)
 
+                failed = False
                 if inp_ref_lvl == 0:
                     # Get the voltage level for one antenna. Gain for one input
                     # should be set to 1, the rest should be 0
@@ -4819,17 +4838,22 @@ class test_CBF(unittest.TestCase):
                     expected = 20 * np.log10(expected)
 
                     if exp_cw_ch != -1:
+                        local_substream = s_ch_idx/ch_per_substream
                         # Find cw in expected channel, all other channels must be at expected level
                         max_val_ch = np.argmax(cap_db)
                         max_val = np.max(cap_db)
                         if max_val_ch == (exp_cw_ch-s_ch_idx):
-                            Aqf.passed('CW at {:.3f}MHz found in channel {}, magnitude = {:.1f}dB, '
-                                       'spectrum mean = {:.1f}dB'.format(
-                                           ch_list[exp_cw_ch]/1e6,
-                                           exp_cw_ch,
-                                           max_val,
-                                           cap_db_mean))
+                            msg = ('CW at {:.3f}MHz found in channel {}, magnitude = {:.1f}dB, '
+                                   'spectrum mean = {:.1f}dB'.format(
+                                    ch_list[exp_cw_ch]/1e6,
+                                    exp_cw_ch,
+                                    max_val,
+                                    cap_db_mean))
+                            LOGGER.info(msg)
+                            if local_substream % align_print_modulo == 0:
+                                Aqf.passed(msg)
                         else:
+                            failed = True
                             Aqf.failed('CW at {:.3f}MHz not found in channel {}. '
                                        'Maximum value of {}dB found in channel {}. '
                                        'Mean spectrum value = {}dB'.format(
@@ -4838,19 +4862,24 @@ class test_CBF(unittest.TestCase):
                                            max_val,
                                            max_val_ch+s_ch_idx,
                                            cap_db_mean))
+
                         spikes = np.where(cap_db > expected + delta)[0]
                         if len(spikes == 1):
-                            Aqf.passed('No spikes found in sub spectrum.')
+                            msg = ('No spikes found in sub spectrum.')
+                            LOGGER.info(msg)
+                            if local_substream % align_print_modulo == 0:
+                                Aqf.passed(msg)
                         else:
+                            failed = True
                             Aqf.failed('Spikes found at: {}'.format(spikes))
                     else:
                         Aqf.step('Expected value is calculated by taking the reference input level '
                                  'and multiplying by the channel weights and quantiser gain.')
-                        labels += 'Expected = {:.2f}dB'.format(expected)
+                        labels += 'Expected = {:.2f}dB\n'.format(expected)
                         msg = ('Confirm that the expected voltage level ({:.3f}dB) is within '
                             '{}dB of the measured mean value ({:.3f}dB)'.format(expected,delta, cap_db_mean))
                         Aqf.almost_equals(cap_db_mean, expected, delta, msg)
-                return cap_avg, labels, inp_ref_lvl, expected, cap_idx, in_wgts
+                return cap_avg, labels, inp_ref_lvl, expected, cap_idx, in_wgts, failed
 
             # Reset quantiser gain
             bq_gain = set_beam_quant_gain(self, beam, 1)
@@ -4899,8 +4928,14 @@ class test_CBF(unittest.TestCase):
             if not dsim_set_success:
                 Aqf.failed('Failed to configure digitise simulator levels')
                 return False
+            ref_input = np.random.randint(ants)
+            # Find reference input label
+            for key in beam_dict:
+                if int(filter(str.isdigit,key)) == ref_input:
+                    ref_input_label = key
+                    break
             weight = 1.0
-            beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
+            beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
             try:
                 beam_data, act_wgts = get_beam_data(beam, beam_dict=beam_dict, data_only=True)
             except IndexError, e:
@@ -4908,6 +4943,15 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
                 return False
+            aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
+                              plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
+                                self._testMethodName, beam),
+                              plot_title=('Beam = {}\n'
+                                'Input = CW offset by {} Hz from the center of bin {}'
+                                .format(beam, center_bin_offset_freq, cw_ch)),
+                              log_dynamic_range=None, #90, log_normalise_to=1,
+                              ylabel='Beam Output',
+                              xlabel='Samples')
 
             # Setting DSIM to generate noise
             if nr_ch == 4096:
@@ -4944,7 +4988,7 @@ class test_CBF(unittest.TestCase):
             try:
                 # Calculate reference level by not specifying ref level
                 # Use weights from previous test
-                d, l, rl, exp0, nc, act_wgts = get_beam_data(
+                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(
                         beam, act_wgts=act_wgts, conf_data_type=True)
             except TypeError, e:
                 errmsg = 'Failed to retrieve beamformer data'
@@ -4974,10 +5018,12 @@ class test_CBF(unittest.TestCase):
                     actual_weight = float(reply.arguments[1])
                 except AssertionError:
                     Aqf.failed('Beam weight not successfully set')
+                    return False
                 except Exception as e:
                     errmsg = 'Test failed due to %s'%str(e)
                     Aqf.failed(errmsg)
                     LOGGER.exception(errmsg)
+                    return False
                 else:
                     Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
 
@@ -4989,9 +5035,8 @@ class test_CBF(unittest.TestCase):
                     mean_vals.append(cap_mean)
                     exp_mean_vals.append(exp_mean)
                     weight_lbls.append(weight)
-                    Aqf.progress('Captured mean value = {:.2f}dB, Calculated mean value '
-                            '(using reference value) = {:.2f}dB'.format(
-                                20*np.log10(cap_mean),20*np.log10(exp_mean)))
+                    Aqf.progress('Captured mean value = {:.2f}, Calculated mean value '
+                            '(using reference value) = {:.2f}'.format(cap_mean,exp_mean))
                 except TypeError, e:
                     errmsg = 'Failed to retrieve beamformer data'
                     Aqf.failed(errmsg)
@@ -5004,12 +5049,12 @@ class test_CBF(unittest.TestCase):
             # Square the voltage data. This is a hack as aqf_plot expects squared
             # power data
             aqf_plot_channels(((mean_vals, 
-                'Captured mean beam power.\nStepping one input weight,\nwith remaining weigths set to 0.'),
-                (exp_mean_vals, 'Value calculated from refrence,\nreference measured at input\nweight of 1.')),
+                'Captured mean beam output.\nStepping one input weight,\nwith remaining weigths set to 0.'),
+                (exp_mean_vals, 'Value calculated from refrence,\nwhere reference measured at\nan input weight of 1.')),
                               plot_filename='{}/{}_weight_application_{}.png'.format(self.logs_path,
                                 self._testMethodName, beam),
                               plot_title=('Beam = {}\n'
-                                'Expected vs Actual Mean Beam power for input weight.'.format(beam)),
+                                'Expected vs Actual Mean Beam Output for Input Weight.'.format(beam)),
                               log_dynamic_range=None, #90, log_normalise_to=1,
                               ylabel='Mean Beam Output',
                               xlabel='{} Weight'.format(ref_input_label), xvals=weight_lbls)
@@ -5019,7 +5064,7 @@ class test_CBF(unittest.TestCase):
             weight = 0.8 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
-                d, l, rl, exp1, nc, act_wgts = get_beam_data(beam, beam_dict, rl)
+                d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
             except Exception as e:
                 errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
                 Aqf.failed(errmsg)
@@ -5030,7 +5075,7 @@ class test_CBF(unittest.TestCase):
             weight = 1.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
-                d, l, rl, exp0, nc, act_wgts = get_beam_data(beam, beam_dict, rl)
+                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
             except IndexError, e:
                 errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
@@ -5059,7 +5104,7 @@ class test_CBF(unittest.TestCase):
             try:
                 # Recalculate reference level by not specifying ref level
                 # Use weights from previous test
-                d, l, rl, exp0, nc, act_wgts = get_beam_data(
+                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(
                         beam, beam_quant_gain=bq_gain, act_wgts=act_wgts)
             except Exception as e:
                 errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
@@ -5067,13 +5112,13 @@ class test_CBF(unittest.TestCase):
                 LOGGER.error(errmsg)
                 return
             beam_data.append(d)
-            l += '\nLevel adjust gain={}'.format(bq_gain)
+            l += 'Level adjust gain={}'.format(bq_gain)
             beam_lbls.append(l)
 
             # Set level adjust after beamforming gain to 0.5
             bq_gain = set_beam_quant_gain(self, beam, 0.5)
             try:
-                 d, l, rl, exp1, nc, act_wgts = get_beam_data(
+                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(
                     beam, inp_ref_lvl=rl, beam_quant_gain=bq_gain, act_wgts=act_wgts)
             except Exception as e:
                 errmsg = 'Failed to retrieve beamformer data: %s'%str(e)
@@ -5081,7 +5126,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.error(errmsg)
                 return
             beam_data.append(d)
-            l += '\nLevel adjust gain={}'.format(bq_gain)
+            l += 'Level adjust gain={}'.format(bq_gain)
             beam_lbls.append(l)
 
             # Square the voltage data. This is a hack as aqf_plot expects squared
@@ -5119,7 +5164,10 @@ class test_CBF(unittest.TestCase):
                          'Constant Wave and Gaussian noise, '
                          'CW scale: {}, Noise scale: {}, eq gain: {}, fft shift: {}'.format(
                          cw_scale, awgn_scale, gain, fft_shift))
-
+            Aqf.step('This test will take a long time... check log for progress.')
+            Aqf.step('Only 5 results will be printed, all {} substreams will be tested. '
+                     'All errors will be displayed'.format(substreams))
+            aligned_failed = False
             for substream in range(substreams):
                 # Get substream start channel index
                 strt_ch_idx = substream*ch_per_substream
@@ -5144,21 +5192,30 @@ class test_CBF(unittest.TestCase):
                                                           ticks_between_spectra,
                                                           ch_per_substream, spectra_per_heap)
                 if docker_status:
-                    Aqf.progress('KAT SDP Ingest Node started. Capturing 1 substream '
-                                 'at {}'.format(beam_ip))
+                    msg = ('KAT SDP Ingest Node started. Capturing 1 substream '
+                           'at {}'.format(beam_ip))
+                    LOGGER.info(msg)
+                    if substream % align_print_modulo == 0:
+                        Aqf.passed(msg)
                 else:
                     Aqf.failed('KAT SDP Ingest Node failed to start')
                 try:
-                    d, l, rl, exp0, nc, act_wgts = get_beam_data(
+                    d, l, rl, exp0, nc, act_wgts, failed = get_beam_data(
                             beam, inp_ref_lvl=rl, act_wgts=act_wgts,
                             exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx,
                             s_substream = substream,
                             subs_to_cap = substrms_to_cap)
+                    if failed:
+                        aligned_failed = True
                 except IndexError, e:
                     errmsg = 'Failed to retrieve beamformer data'
                     Aqf.failed(errmsg)
                     LOGGER.error(errmsg)
-                    return
+                    return False
+            if aligned_failed:
+                Aqf.failed('Beamformer substream alignment test failed.')
+            else:
+                Aqf.passed('All beamformer substreams correctly aligned.')
 
 
         # Close any KAT SDP ingest nodes
