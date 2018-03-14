@@ -10,7 +10,7 @@ from corr2.dsimhost_fpga import FpgaDsimHost
 import numpy as np
 from optparse import OptionParser
 
-LOGGER = logging.getLogger(__name__)
+#LOGGER = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     print 'Initialising correlator'
     correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
-    correlator.initialise(program=False)
+    #correlator.initialise(program=False)
 
     # Done during correlator init
     #for fpga in correlator.fhosts + correlator.xhosts:
@@ -48,6 +48,7 @@ if __name__ == "__main__":
     print 'correlator is running'
 
     f = correlator.fhosts[0]
+    f.get_system_info(filename='/srv/bofs/feng/s_ct_2018-03-06_1933.fpg')
 
     try:
         #20ms in clock ticks
