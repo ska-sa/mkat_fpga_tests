@@ -45,7 +45,7 @@ from corr2.data_stream import StreamAddress
 LOGGER = logging.getLogger('mkat_fpga_tests')
 
 # Max range of the integers coming out of VACC
-VACC_FULL_RANGE = float(2 ** 31)
+VACC_FULL_RANGE = float(2**31)
 
 cam_timeout = 60
 
@@ -145,6 +145,7 @@ def init_dsim_sources(dhost):
                     sin_source.set(repeat_n=0)
             except NotImplementedError:
                     LOGGER.exception('Failed to reset repeat on sin_%s' %sin_source.name)
+                    import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
             LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
     except Exception:
         LOGGER.error('Failed to reset sine sources on dhost.')
@@ -668,19 +669,19 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     :rtype: None
     """
     if spead2_warn:
-        logging.getLogger('spead2').setLevel(logging.CRITICAL)
+        logging.getLogger('spead2').setLevel(logging.INFO)
     if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.DEBUG)
         logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
         logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
         logging.getLogger('fxcorrelator_fengops').setLevel(logging.CRITICAL)
         logging.getLogger('fhost_fpga').setLevel(logging.CRITICAL)
     if casperfpga_debug:
-        logging.getLogger("casperfpga").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.register ").setLevel(logging.CRITICAL)
         logging.getLogger("casperfpga.bitfield").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.memory").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.register ").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
     if katcp_warn:
         logging.getLogger('katcp').setLevel(logging.CRITICAL)
         logging.getLogger('tornado.application').setLevel(logging.CRITICAL)
@@ -906,19 +907,6 @@ def executed_by():
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
 
-def cbf_title_report(instrument):
-    """Automagiccaly edit Sphinx index.rst file with title + instrument"""
-
-    # Use file to refer to the file object
-    with io.open("index.rst", "r+") as file:
-        data = file.read()
-    title = data[data.find('yellow')+len('yellow'):data.find('==')]
-    data = data.replace(title, '\n\n\nCBF Qualification and Acceptance Reports (%s)\n'%instrument)
-    new_data = data
-
-    with io.open("index.rst", "w+") as file:
-        file.write(new_data)
-
 def encode_passwd(pw_encrypt, key=None):
     """This function encrypts a string with base64 algorithm
     :param: pw_encrypt: Str
@@ -958,22 +946,6 @@ def create_logs_directory(self):
         os.makedirs(path)
     return path
 
-def which_instrument(self, instrument):
-    """Get running instrument, and if not instrument is running return default
-    :param: str:- instrument e.g. bc8n856M4k
-    :rtype: str:- instrument
-    """
-    running_inst = self.corr_fix.get_running_instrument()
-    try:
-        assert running_inst is not False
-        _running_inst = running_inst
-    except AssertionError:
-        _running_inst = instrument
-    except AttributeError:
-        LOGGER.exception('Something horribly went wrong, Failed to retrieve running instrument. '
-                         'Returning default instrument %s'%instrument)
-        _running_inst = instrument
-    return _running_inst
 
 class GetSensors(object):
     """Easily get sensor values without much work"""
@@ -1047,6 +1019,13 @@ class GetSensors(object):
         Get sample rate and return sample period
         """
         return 1/float(self.get_value('adc_sample_rate'))
+
+    @property
+    def fft_period(self):
+        """
+        Get FFT Period
+        """
+        return self.sample_period * 2 * float(self.get_value('n_chans'))
 
     @property
     def delta_f(self):

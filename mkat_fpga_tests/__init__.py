@@ -76,8 +76,8 @@ def teardown_package():
 
 
 class CorrelatorFixture(object):
-    def __init__(self, katcp_clt=None, product_name=None):
-        self.katcp_clt = katcp_clt
+    def __init__(self, katcp_client=None, product_name=None):
+        self.katcp_client = katcp_client
         self.corr_config = None
         self.corr2ini_path = None
         self._correlator = None
@@ -109,8 +109,8 @@ class CorrelatorFixture(object):
             self.io_wrapper.default_timeout = _timeout
             self.io_manager.start()
             self.rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.katcp_clt),
-                     address=('{}'.format(self.katcp_clt),
+                dict(name='{}'.format(self.katcp_client),
+                     address=('{}'.format(self.katcp_client),
                               '7147'),
                      controlled=True))
             self.rc.set_ioloop(self.io_manager.get_ioloop())
@@ -304,8 +304,8 @@ class CorrelatorFixture(object):
                             sys.exit(errmsg)
 
             katcp_rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.katcp_clt),
-                     address=('{}'.format(self.katcp_clt), '{}'.format(self.katcp_array_port)),
+                dict(name='{}'.format(self.katcp_client),
+                     address=('{}'.format(self.katcp_client), '{}'.format(self.katcp_array_port)),
                      preset_protocol_flags=protocol_flags,
                      controlled=True))
             katcp_rc.set_ioloop(self.io_manager.get_ioloop())
@@ -523,7 +523,7 @@ class CorrelatorFixture(object):
 
             if (self.instrument.startswith('bc') or self.instrument.startswith('c')) and \
                 self.array_name.startswith('array'):
-                Aqf.progress('Currently running instrument %s as per /etc/corr' % self.instrument)
+                LOGGER.info('Currently running instrument %s as per /etc/corr' % self.instrument)
                 return [self.array_name, self.instrument]
         except Exception:
             LOGGER.exception('Could not retrieve information from config file, resorting to default')
