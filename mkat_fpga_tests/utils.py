@@ -385,13 +385,13 @@ def clear_all_delays(self, num_int=10):
         _retries -= 1
         try:
             if not _delays_set:
-                dump = self.receiver.get_clean_dump()
+                dump = self.receiver.get_clean_dump(discard=0)
                 dump_timestamp = dump['dump_timestamp']
                 time_now = time.time()
                 time_diff = dump_timestamp - time_now
                 errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
                     dump_timestamp, time_now, time_diff))
-                assert int(time_diff) in [-1, 0], errmsg
+                # assert int(time_diff) in [-1, 0], errmsg
                 t_apply = dump_timestamp + (num_int * int_time)
                 reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
                 errmsg = 'Delays command could not be executed in the given time'
@@ -668,23 +668,22 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     :rtype: None
     """
     if spead2_warn:
-        logging.getLogger('spead2').setLevel(logging.ERROR)
+        logging.getLogger('spead2').setLevel(logging.CRITICAL)
     if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
-        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
-        logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('fxcorrelator_fengops').setLevel(logging.ERROR)
-        logging.getLogger('fhost_fpga').setLevel(logging.ERROR)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
+        logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
+        logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
+        logging.getLogger('fxcorrelator_fengops').setLevel(logging.CRITICAL)
+        logging.getLogger('fhost_fpga').setLevel(logging.CRITICAL)
     if casperfpga_debug:
-        logging.getLogger("casperfpga").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.ERROR)
-        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.register ").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.bitfield").setLevel(logging.FATAL)
+        logging.getLogger("casperfpga").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.register ").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.bitfield").setLevel(logging.CRITICAL)
     if katcp_warn:
-        logging.getLogger('katcp').setLevel(logging.ERROR)
-        logging.getLogger('tornado.application').setLevel(logging.FATAL)
+        logging.getLogger('katcp').setLevel(logging.CRITICAL)
+        logging.getLogger('tornado.application').setLevel(logging.CRITICAL)
     if plt_warn:
         import matplotlib
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
@@ -1042,6 +1041,55 @@ class GetSensors(object):
         f_start = 0. # Center freq of the first channel
         return f_start + np.arange(n_chans) * ch_bandwidth
 
+    @property
+    def sample_period(self):
+        """
+        Get sample rate and return sample period
+        """
+        return 1/float(self.get_value('adc_sample_rate'))
+
+    @property
+    def delta_f(self):
+        """
+        Get Correlator bandwidth
+        """
+        return float(self.get_value('bandwidth')/self.get_value('n_chans'))
+
+    def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
+        """Calculate frequency points to sweep over a test channel.
+
+        Parameters
+        =========
+        chan : int
+           Channel number around which to place frequency samples
+        samples_per_chan: int
+           Number of frequency points per channel
+        chans_around: int
+           Number of channels to include around the test channel. I.e. value 1 will
+           include one extra channel above and one below the test channel.
+
+        Will put frequency sample on channel boundary if 2 or more points per channel are
+        requested, and if will place a point in the centre of the channel if an odd number
+        of points are specified.
+
+        """
+        assert samples_per_chan > 0
+        assert chans_around > 0
+        assert 0 <= chan < self.get_value('n_chans')
+        assert 0 <= chan + chans_around < self.get_value('n_chans')
+        assert 0 <= chan - chans_around < self.get_value('n_chans')
+
+        start_chan = chan - chans_around
+        end_chan = chan + chans_around
+        if samples_per_chan == 1:
+            return self.ch_center_freqs[start_chan:end_chan + 1]
+        start_freq = self.ch_center_freqs[start_chan] - self.delta_f / 2
+        end_freq = self.ch_center_freqs[end_chan] + self.delta_f / 2
+        sample_spacing = self.delta_f / (samples_per_chan - 1)
+        num_samples = int(np.round((end_freq - start_freq) / sample_spacing)) + 1
+        return np.linspace(start_freq, end_freq, num_samples)
+
+
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
                               ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
@@ -1329,19 +1377,27 @@ def FPGA_Connect(hosts, _timeout=30):
                 return False
     return fpgas
 
-def get_clean_dump(self, discards=10, retries=20):
+def get_clean_dump(self, retries=20):
+    _captured = False
     while retries:
         retries -= 1
         try:
             errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
-            dump = self.receiver.get_clean_dump(discard=discards)
-            assert isinstance(dump, dict), errmsg
+            discards = 0
+            if not _captured:
+                dump = self.receiver.get_clean_dump(discard=discards)
+                assert isinstance(dump, dict), errmsg
+                _captured = True
+
+            dump = self.receiver.data_queue.get(timeout=10)
             dump_timestamp = dump['dump_timestamp']
-            time_now = time.time()
-            time_diff = dump_timestamp - time_now
-            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
-            dump_timestamp, time_now, time_diff))
-            assert int(time_diff) in [-1, 0], errmsg
+            dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+            time_diff = np.abs(dump_timestamp - dhost_timestamp)
+            errmsg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
+                        dump_timestamp, dhost_timestamp, time_diff))
+            if time_diff > 10:
+                raise AssertionError
+            # assert int(time_diff) in [-1, 0], errmsg
         except AssertionError:
             LOGGER.warning(errmsg)
         except Queue.Empty:
@@ -1350,8 +1406,8 @@ def get_clean_dump(self, discards=10, retries=20):
             if retries < 15:
                 return False
         else:
-            LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with epoch (%s) [diff: %s] '
-                        'within %s retries' % (dump_timestamp, time_now, time_diff, retries))
+            LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s) [diff: %s] '
+                        'within %s retries' % (dump_timestamp, dhost_timestamp, time_diff, retries))
             return dump
 
 
