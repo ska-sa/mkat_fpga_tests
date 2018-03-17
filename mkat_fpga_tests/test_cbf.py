@@ -4312,9 +4312,9 @@ class test_CBF(unittest.TestCase):
                         beam_name+'_destination').split(':')
                 beam_ip = beam_ip.split('+')[0]
                 start_beam_ip = beam_ip
-                substrms_to_cap = int(self.conf_file['beamformer']['substreams_to_capture'])
-                start_substream = int(self.conf_file['beamformer']['start_substream_idx'])
-                if start_substream+substrms_to_cap > substreams:
+                n_substrms_to_cap_m = int(self.conf_file['beamformer']['substreams_to_capture'])
+                start_substream     = int(self.conf_file['beamformer']['start_substream_idx'])
+                if start_substream+n_substrms_to_cap_m > substreams:
                     errmsg = ('Substream start + substreams to process '
                               'is more than substreams available: {}. '
                               'Fix in test configuration file'.format(substeams))
@@ -4344,14 +4344,14 @@ class test_CBF(unittest.TestCase):
             # Compute spectrum parameters
             strt_ch_idx = start_substream * ch_per_substream
             strt_freq = ch_list[strt_ch_idx]*dsim_factor
-            Aqf.step('Start a KAT SDP docker inject node for beam captures')
+            Aqf.step('Start a KAT SDP docker ingest node for beam captures')
             docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
-                                                      substrms_to_cap, nr_ch,
+                                                      n_substrms_to_cap_m, nr_ch,
                                                       ticks_between_spectra,
                                                       ch_per_substream, spectra_per_heap)
             if docker_status:
                 Aqf.progress('KAT SDP Ingest Node started. Capturing {} substream/s '
-                             'starting at {}'.format(substrms_to_cap, beam_ip))
+                             'starting at {}'.format(n_substrms_to_cap_m, beam_ip))
             else:
                 Aqf.failed('KAT SDP Ingest Node failed to start')
 
@@ -4407,7 +4407,7 @@ class test_CBF(unittest.TestCase):
                     plot_title=('Beam = {}, Spectrum Start Frequency = {} MHz\n'
                                 'Number of Channels Captured = {}\n'
                                 'Integrated over {} captures'.format(beam, strt_freq / 1e6,
-                                                substrms_to_cap*ch_per_substream, nc)),
+                                                n_substrms_to_cap_m*ch_per_substream, nc)),
                     log_dynamic_range=90,
                     log_normalise_to=1,
                     caption=('Tied Array Beamformer data captured during Baseline Correlation '
@@ -4616,64 +4616,116 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
 
+        
+        beam = beams[0]
+        try:
+            beam_name = beam.replace('-','_').replace('.','_')
+            beam_ip, beam_port = self.cam_sensors.get_value(
+                    beam_name+'_destination').split(':')
+            beam_ip = beam_ip.split('+')[0]
+            start_beam_ip = beam_ip
+            n_substrms_to_cap_m = int(self.conf_file['beamformer']['substreams_to_capture'])
+            start_substream     = int(self.conf_file['beamformer']['start_substream_idx'])
+            if start_substream+n_substrms_to_cap_m > substreams:
+                errmsg = ('Substream start + substreams to process '
+                          'is more than substreams available: {}. '
+                          'Fix in test configuration file'.format(substeams))
+                LOGGER.error(errmsg)
+                Aqf.failed(errmsg)
+                return False
+            ticks_between_spectra = self.cam_sensors.get_value(
+                    'antenna_channelised_voltage_n_samples_between_spectra')
+            assert isinstance(ticks_between_spectra,int)
+            spectra_per_heap = self.cam_sensors.get_value(beam_name+'_spectra_per_heap')
+            assert isinstance(spectra_per_heap,int)
+            ch_per_substream = self.cam_sensors.get_value(beam_name+'_n_chans_per_substream')
+            assert isinstance(ch_per_substream, int)
+        except AssertionError:
+            errmsg = '%s'%str(reply).replace('\_', ' ')
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+        # Compute the start IP address according to substream start index
+        beam_ip = int2ip(ip2int(beam_ip) + start_substream)
+        # Compute spectrum parameters
+        strt_ch_idx = start_substream * ch_per_substream
+        strt_freq = ch_list[strt_ch_idx]*dsim_factor
+        Aqf.step('Start a KAT SDP docker ingest node for beam captures')
+        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                  n_substrms_to_cap_m, nr_ch,
+                                                  ticks_between_spectra,
+                                                  ch_per_substream, spectra_per_heap)
+        if docker_status:
+            Aqf.progress('KAT SDP Ingest Node started. Capturing {} substream/s '
+                         'starting at {}'.format(n_substrms_to_cap_m, beam_ip))
+        else:
+            Aqf.failed('KAT SDP Ingest Node failed to start')
+
+        # Create a katcp client to connect to katcpingest 
+        if os.uname()[1] == 'cmc2':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
+        elif os.uname()[1] == 'cmc3':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
+        else:
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+        ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+        _timeout = 10
+        try:
+            import katcp
+            ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
+            ingest_kcp_client.setDaemon(True)
+            ingest_kcp_client.start()
+            self.addCleanup(ingest_kcp_client.stop)
+            is_connected = ingest_kcp_client.wait_connected(_timeout)
+            if not is_connected:
+                errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
+                ingest_kcp_client.stop()
+                raise RuntimeError(errmsg)
+        except Exception as e:
+            LOGGER.exception(str(e))
+            Aqf.failed(str(e))
+        def substreams_to_capture(lbeam, lbeam_ip, lsubstrms_to_cap, lbeam_port):
+            """ Set ingest node capture substreams """
+            try:
+                LOGGER.info('Setting ingest node to capture beam, substreams: {}, {}+{}:{}'
+                            .format(lbeam,lbeam_ip,lsubstrms_to_cap-1,lbeam_port))
+                reply, informs = ingest_kcp_client.blocking_request(
+                    katcp.Message.request(
+                    'substreams-to-capture', 
+                    '{}+{}:{}'.format(lbeam_ip,lsubstrms_to_cap-1,lbeam_port)),
+                    timeout=_timeout)
+                assert reply.reply_ok()
+            except Exception as e:
+                print e
+                errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
+
         for beam in beams:
+            beam_name = beam.replace('-','_').replace('.','_')
+            beam_ip, beam_port = self.cam_sensors.get_value(
+                    beam_name+'_destination').split(':')
+            beam_ip = beam_ip.split('+')[0]
+            start_beam_ip = beam_ip
+            n_substrms_to_cap = n_substrms_to_cap_m
+            # Compute the start IP address according to substream start index
+            beam_ip = int2ip(ip2int(beam_ip) + start_substream)
+            substreams_to_capture(beam, beam_ip, n_substrms_to_cap, beam_port)
             Aqf.hop('')
             Aqf.hop('')
             Aqf.step('Testing beam: {}'.format(beam))
-            try:
-                beam_name = beam.replace('-','_').replace('.','_')
-                beam_ip, beam_port = self.cam_sensors.get_value(
-                        beam_name+'_destination').split(':')
-                beam_ip = beam_ip.split('+')[0]
-                start_beam_ip = beam_ip
-                substrms_to_cap = int(self.conf_file['beamformer']['substreams_to_capture'])
-                start_substream = int(self.conf_file['beamformer']['start_substream_idx'])
-                if start_substream+substrms_to_cap > substreams:
-                    errmsg = ('Substream start + substreams to process '
-                              'is more than substreams available: {}. '
-                              'Fix in test configuration file'.format(substeams))
-                    LOGGER.error(errmsg)
-                    Aqf.failed(errmsg)
-                    return False
-                ticks_between_spectra = self.cam_sensors.get_value(
-                        'antenna_channelised_voltage_n_samples_between_spectra')
-                assert isinstance(ticks_between_spectra,int)
-                spectra_per_heap = self.cam_sensors.get_value(beam_name+'_spectra_per_heap')
-                assert isinstance(spectra_per_heap,int)
-                ch_per_substream = self.cam_sensors.get_value(beam_name+'_n_chans_per_substream')
-                assert isinstance(ch_per_substream, int)
-            except AssertionError:
-                errmsg = '%s'%str(reply).replace('\_', ' ')
-                LOGGER.exception(errmsg)
-                Aqf.failed(errmsg)
-                return False
-            except Exception as e:
-                errmsg = 'Exception: {}'.format(str(e))
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
-                return False
-
-            # Compute the start IP address according to substream start index
-            beam_ip = int2ip(ip2int(beam_ip) + start_substream)
-            # Compute spectrum parameters
-            strt_ch_idx = start_substream * ch_per_substream
-            strt_freq = ch_list[strt_ch_idx]*dsim_factor
-            Aqf.step('Start a KAT SDP docker inject node for beam captures')
-            docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
-                                                      substrms_to_cap, nr_ch,
-                                                      ticks_between_spectra,
-                                                      ch_per_substream, spectra_per_heap)
-            if docker_status:
-                Aqf.progress('KAT SDP Ingest Node started. Capturing {} substream/s '
-                             'starting at {}'.format(substrms_to_cap, beam_ip))
-            else:
-                Aqf.failed('KAT SDP Ingest Node failed to start')
 
             def get_beam_data(beam, beam_dict=None, inp_ref_lvl=0, beam_quant_gain=1,
                 act_wgts = None,
                 exp_cw_ch=-1, s_ch_idx=0,
                 s_substream= start_substream,
-                subs_to_cap = substrms_to_cap,
+                subs_to_cap = n_substrms_to_cap,
                 max_cap_retries=5, conf_data_type=False, avg_only=False, data_only=False):
                 """
                     beam - beam name
@@ -4711,7 +4763,7 @@ class test_CBF(unittest.TestCase):
                     retries += 1
                     try:
                         bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam,
-                            beam_dict)
+                            beam_dict, ingest_kcp_client)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
@@ -4787,6 +4839,7 @@ class test_CBF(unittest.TestCase):
                         data_type, cap[0][0]))
                     Aqf.equals(data_type, 'int8', msg)
 
+                
                 cap_mag = np.abs(cap)
                 if data_only:
                     return cap_mag, in_wgts
@@ -4833,7 +4886,7 @@ class test_CBF(unittest.TestCase):
                              'Reference level = {:.3f}dB'.format(20*np.log10(inp_ref_lvl)))
                     Aqf.step('Reference level averaged over {} channels. '
                              'Channel averages determined over {} '
-                             'samples.'.format(substrms_to_cap*ch_per_substream, cap_idx))
+                             'samples.'.format(n_substrms_to_cap*ch_per_substream, cap_idx))
                     expected = 0
                 else:
                     delta = 0.2
@@ -5094,7 +5147,7 @@ class test_CBF(unittest.TestCase):
                               plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
                                 'Number of Channels Captured = {}'
                                 '\nIntegrated over {} captures'.format(beam,
-                                    strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
+                                    strt_freq / 1e6, n_substrms_to_cap*ch_per_substream, nc)),
                               log_dynamic_range=90, log_normalise_to=1,
                               caption='Captured beamformer data', hlines=[exp0, exp1],
                               plot_type='bf', hline_strt_idx=1)
@@ -5140,7 +5193,7 @@ class test_CBF(unittest.TestCase):
                               plot_title=('Beam = {}\nSpectrum Start Frequency = {} MHz\n'
                                 'Number of Channels Captured = {}'
                                 '\nIntegrated over {} captures'.format(beam,
-                                    strt_freq / 1e6, substrms_to_cap*ch_per_substream, nc)),
+                                    strt_freq / 1e6, n_substrms_to_cap*ch_per_substream, nc)),
                               log_dynamic_range=90, log_normalise_to=1,
                               caption='Captured beamformer data with level adjust after beam-forming gain set.',
                               hlines=exp1, plot_type='bf', hline_strt_idx=1)
@@ -5174,9 +5227,14 @@ class test_CBF(unittest.TestCase):
             for substream in range(substreams):
                 # Get substream start channel index
                 strt_ch_idx = substream*ch_per_substream
-                substrms_to_cap = 1
+                n_substrms_to_cap = 1
                 # Compute the start IP address according to substream
                 beam_ip = int2ip(ip2int(start_beam_ip) + substream)
+                substreams_to_capture(beam, beam_ip, n_substrms_to_cap, beam_port)
+                msg = ('Capturing 1 substream at {}'.format(beam_ip))
+                LOGGER.info(msg)
+                if substream % align_print_modulo == 0:
+                    Aqf.passed(msg)
 
                 # Step dsim CW
                 dsim_set_success = False
@@ -5189,25 +5247,12 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed('Failed to configure digitise simulator levels')
                     return False
 
-                # Start docker with the correct substream (only one substream)
-                docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
-                                                          substrms_to_cap, nr_ch,
-                                                          ticks_between_spectra,
-                                                          ch_per_substream, spectra_per_heap)
-                if docker_status:
-                    msg = ('KAT SDP Ingest Node started. Capturing 1 substream '
-                           'at {}'.format(beam_ip))
-                    LOGGER.info(msg)
-                    if substream % align_print_modulo == 0:
-                        Aqf.passed(msg)
-                else:
-                    Aqf.failed('KAT SDP Ingest Node failed to start')
                 try:
                     d, l, rl, exp0, nc, act_wgts, failed = get_beam_data(
                             beam, inp_ref_lvl=rl, act_wgts=act_wgts,
                             exp_cw_ch=cw_ch, s_ch_idx = strt_ch_idx,
                             s_substream = substream,
-                            subs_to_cap = substrms_to_cap)
+                            subs_to_cap = n_substrms_to_cap)
                     if failed:
                         aligned_failed = True
                 except IndexError, e:

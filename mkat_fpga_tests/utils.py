@@ -1147,7 +1147,7 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict, ingest_kcp_client, capture_time=0.1):
     """ Capture beamformer data
 
     Parameters
@@ -1158,6 +1158,8 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
         Dictionary containing input:weight key pairs e.g.
         beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
         If beam_dict = None weights will not be set
+    ingest_kcp_client:
+        katcp client for ingest node
     capture_time:
         Number of seconds to capture beam data
 
@@ -1173,15 +1175,7 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
 
     """
     beamdata_dir = '/ramdisk'
-    _timeout = 60
-    if os.uname()[1] == 'cmc2':
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
-    elif os.uname()[1] == 'cmc3':
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
-    else:
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
-
-    ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+    _timeout = 10
 
     # Build new dictionary with only the requested beam keys:value pairs
     in_wgts = {}
@@ -1210,66 +1204,51 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
                 print_list += ('{}:{}, '.format(key,reply.arguments[1]))
                 in_wgts[key] = float(reply.arguments[1])
         Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
-    try:
-        import katcp
-        kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
-        kcp_client.setDaemon(True)
-        kcp_client.start()
-        self.addCleanup(kcp_client.stop)
-        is_connected = kcp_client.wait_connected(_timeout)
-        if not is_connected:
-            errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
-            kcp_client.stop()
-            raise RuntimeError(errmsg)
-        LOGGER.info('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
-        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
-            timeout=_timeout)
-        errmsg = 'Failed to issues capture-init on %s:%s'%(ingst_nd, ingst_nd_p)
-        assert reply.reply_ok(), errmsg
-    except Exception:
-        LOGGER.exception(errmsg)
-        Aqf.failed(errmsg)
 
 
+    import katcp
     try:
+        LOGGER.info('Issue {} capture start via CAM int'.format(beam))
         for i in xrange(2):
             reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
         errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
         assert reply.reply_ok(), errmsg
         reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+        errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam,str(reply))
+        assert reply.reply_ok(), errmsg
     except AssertionError:
         errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
         Aqf.failed(errmsg)
-    else:
-        LOGGER.info('Capture-init successfully issued on %s and Data transmission for '
-                    'beam %s started'%(ingst_nd, beam))
+    try:
+        LOGGER.info('Issue ingest node capture-init.')
+        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
+            timeout=_timeout)
+        errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
+    except Exception as e:
+        print e
+        LOGGER.exception(e)
+        LOGGER.exception(errmsg)
+        Aqf.failed(errmsg)
     LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
     time.sleep(capture_time)
     try:
-        LOGGER.info('Issue data capture stop via CAM int')
-        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
-        assert reply.reply_ok()
-    except AssertionError:
-        errmsg = 'Failed to stop Data transmission.'
-        Aqf.failed(errmsg)
-        LOGGER.exception(errmsg)
-
-    try:
-        if not is_connected:
-            kcp_client.stop()
-            raise RuntimeError('Could not connect to corr2_servlet, timed out.')
-
-        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-done'),
+        LOGGER.info('Issue ingest node capture-done.')
+        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-done'),
             timeout=_timeout)
-        assert reply.reply_ok()
+        errmsg = 'Failed to issues ingest node capture-done: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
     except Exception:
-        errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
         Aqf.failed(errmsg)
         LOGGER.error(errmsg)
-        return
-    else:
-        LOGGER.info('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
-            ingst_nd, beam))
+    try:
+        LOGGER.info('Issue {} capture stop via CAM int'.format(beam))
+        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+        errmsg = 'Failed to issue capture_stop for beam {}: {}'.format(beam,str(reply))
+        assert reply.reply_ok(), errmsg
+    except AssertionError:
+        Aqf.failed(errmsg)
+        LOGGER.exception(errmsg)
 
     try:
         LOGGER.info('Getting latest beam data captured in %s'%beamdata_dir)
