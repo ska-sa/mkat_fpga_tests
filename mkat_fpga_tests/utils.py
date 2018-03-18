@@ -1147,7 +1147,7 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict, ingest_kcp_client, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_time=0.1):
     """ Capture beamformer data
 
     Parameters
@@ -1159,7 +1159,7 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client, capture_time=0.1
         beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
         If beam_dict = None weights will not be set
     ingest_kcp_client:
-        katcp client for ingest node
+        katcp client for ingest node, if None one will be created.
     capture_time:
         Number of seconds to capture beam data
 
@@ -1176,6 +1176,30 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client, capture_time=0.1
     """
     beamdata_dir = '/ramdisk'
     _timeout = 10
+    
+    import katcp
+    # Create a katcp client to connect to katcpingest if one not specified
+    if ingest_kcp_client == None:
+        if os.uname()[1] == 'cmc2':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
+        elif os.uname()[1] == 'cmc3':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
+        else:
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+        ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+        try:
+            ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
+            ingest_kcp_client.setDaemon(True)
+            ingest_kcp_client.start()
+            self.addCleanup(ingest_kcp_client.stop)
+            is_connected = ingest_kcp_client.wait_connected(_timeout)
+            if not is_connected:
+                errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
+                ingest_kcp_client.stop()
+                raise RuntimeError(errmsg)
+        except Exception as e:
+            LOGGER.exception(str(e))
+            Aqf.failed(str(e))
 
     # Build new dictionary with only the requested beam keys:value pairs
     in_wgts = {}
@@ -1205,8 +1229,6 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client, capture_time=0.1
                 in_wgts[key] = float(reply.arguments[1])
         Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
-
-    import katcp
     try:
         LOGGER.info('Issue {} capture start via CAM int'.format(beam))
         for i in xrange(2):
