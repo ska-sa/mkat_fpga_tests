@@ -1364,17 +1364,15 @@ def get_clean_dump(self, retries=20):
         try:
             errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
             discards = 10
-            if not _captured:
-                dump = self.receiver.get_clean_dump(discard=discards)
-                assert isinstance(dump, dict), errmsg
-                _captured = True
-
+            dump = self.receiver.get_clean_dump(discard=discards)
+            assert isinstance(dump, dict), errmsg
             dump = self.receiver.data_queue.get(timeout=10)
             dump_timestamp = dump['dump_timestamp']
             dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
             time_diff = np.abs(dump_timestamp - dhost_timestamp)
             errmsg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
                         dump_timestamp, dhost_timestamp, time_diff))
+            # print errmsg
             # if time_diff > 10:
             #     raise AssertionError
             # # assert int(time_diff) in [-1, 0], errmsg

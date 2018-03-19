@@ -173,7 +173,8 @@ class CorrelatorFixture(object):
         else:  # include a check, if correlator is running else start it.
             if not self._correlator_started:
                 LOGGER.info('Correlator not running, now starting.')
-                self.start_correlator()
+                print 'Correlator not running: This shouldnt happen, fix it\n'*10
+                #self.start_correlator()
 
             # We assume either start_correlator() above has been called, or the
             # instrument was started with the name contained in self.array_name

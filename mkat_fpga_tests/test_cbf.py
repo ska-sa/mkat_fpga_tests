@@ -265,10 +265,10 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                test_chan = random.randrange(start=self.n_chans_selected % 100,
-                    stop=self.n_chans_selected - 1)
+                n_chans = self.cam_sensors.get_value('n_chans')
+                test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Coarse L-band")
-                self._test_channelisation(1005, no_channels=2048, req_chan_spacing=250e3)
+                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -282,7 +282,8 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                test_chan = random.randrange(self.n_chans_selected)
+                n_chans = self.cam_sensors.get_value('n_chans')
+                test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Fine L-band")
                 self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
             else:
@@ -373,17 +374,18 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    @instrument_4k
-    def test__beamforming_timeseries(self):
-        #Aqf.procedure(TestProcedure.Beamformer)
-        try:
-            assert eval(os.getenv('DRY_RUN', 'False'))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_beamforming_timeseries()
-            else:
-                Aqf.failed(self.errmsg)
+    # Test still under development, Alec will put it under test__informal
+    # @instrument_4k
+    # def test__beamforming_timeseries(self):
+    #     #Aqf.procedure(TestProcedure.Beamformer)
+    #     try:
+    #         assert eval(os.getenv('DRY_RUN', 'False'))
+    #     except AssertionError:
+    #         instrument_success = self.set_instrument()
+    #         if instrument_success:
+    #             self._test_beamforming_timeseries()
+    #         else:
+    #             Aqf.failed(self.errmsg)
 
     @generic_test
     @aqf_vr('CBF.V.4.4')
@@ -457,11 +459,11 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                Aqf.step('Testing maximum channels to 4096 due to quantiser snap-block limitations.')
+                if '32k' in self.instrument:
+                    Aqf.step('Testing maximum channels to 4096 due to quantiser snap-block limitations.')
                 chan_index = 4096
-                # test_timeout = 600
-                test_chan = random.randrange(chan_index)
-                # with RunTestWithTimeout(test_timeout):
+                n_chans = self.cam_sensors.get_value('n_chans')
+                test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 self._test_vacc(test_chan, chan_index)
             else:
                 Aqf.failed(self.errmsg)
@@ -570,7 +572,6 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument()
             if instrument_success:
                 self._test_fft_overflow()
-
             else:
                 Aqf.failed(self.errmsg)
 
@@ -1527,10 +1528,9 @@ class test_CBF(unittest.TestCase):
         spead_failure_counter = 0
 
         if '4k' in self.instrument:
-            # 4K
-            cw_scale = 0.875
-            awgn_scale = 0.07
-            gain = '5+0j'
+            cw_scale = 0.675
+            awgn_scale = 0.08
+            gain = '7+0j'
             fft_shift = 8191
         else:
             # 32K
@@ -2396,8 +2396,8 @@ class test_CBF(unittest.TestCase):
         """
         test_heading("Spead Accumulation Back-to-Back Consistency")
         Aqf.step('Randomly select a channel to test.')
-        # test_chan = random.randrange(self.n_chans_selected)
-        test_chan = 501
+        n_chans = self.cam_sensors.get_value('n_chans')
+        test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
         test_baseline = 0  # auto-corr
         Aqf.progress('Randomly selected test channel %s and bls %s'%(test_chan, test_baseline))
         Aqf.step('Calculate a list of frequencies to test')
@@ -2500,8 +2500,8 @@ class test_CBF(unittest.TestCase):
         """This test confirms if the identical frequency scans produce equal results."""
         test_heading("Spead Accumulation Frequency Consistency")
         Aqf.step('Randomly select a channel to test.')
-        # test_chan = random.randrange(self.n_chans_selected)
-        test_chan = 501
+        n_chans = self.cam_sensors.get_value('n_chans')
+        test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         Aqf.step('Randomly selected Frequency channel {} @ {:.3f}MHz for testing, and calculate a '
                  'list of frequencies to test'.format(test_chan, expected_fc / 1e6))
@@ -2602,10 +2602,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step(self._testMethodDoc)
         threshold = 1.0e1  #
         test_baseline = 0
-
-        test_chan = random.randrange(self.n_chans_selected)
-        requested_test_freqs = self.cam_sensors.calc_freq_samples(
-            test_chan, samples_per_chan=3, chans_around=1)
+        n_chans = self.cam_sensors.get_value('n_chans')
+        test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
+        requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan,
+            samples_per_chan=3, chans_around=1)
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         Aqf.step('Sweeping the digitiser simulator over {:.3f}MHz of the channels that '
                  'fall within {} complete L-band'.format(np.max(requested_test_freqs) / 1e6,
@@ -3071,77 +3071,70 @@ class test_CBF(unittest.TestCase):
     def _test_fft_overflow(self):
         """Sensor PFB error"""
         test_heading("Systematic Errors Reporting: FFT Overflow")
-        if '4k' in self.instrument:
-            # 4K
-            cw_scale = 0.675
-            awgn_scale = 0.05
-            gain = '11+0j'
-            fft_shift = 8191
-        else:
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = '11+0j'
-            fft_shift = 32767
-
-        dsim_set_success = False
-        with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
-            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
-                                            freq=self.cam_sensors.get_value('bandwidth') / 2,
-                                            fft_shift=fft_shift, gain=gain)
-        if not dsim_set_success:
-            Aqf.failed('Failed to configure digitise simulator levels')
-            return False
-        else:
-            Aqf.step('Digitiser simulator configured to generate a continuous wave, '
-                     'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(
-                        cw_scale, awgn_scale, gain, fft_shift))
-
         sensor_poll_time = self.correlator.sensor_poll_time
-        Aqf.progress('Sensor poll time: {} seconds '.format(sensor_poll_time))
+        # TODO MM, Simplify the test
+        try:
+            Aqf.step('Get the current FFT Shift before manipulation.')
+            reply, informs = self.corr_fix.katcp_rct.req.fft_shift()
+            assert reply.reply_ok()
+            fft_shift = int(reply.arguments[-1])
+            Aqf.progress('Current system FFT Shift: %s' % fft_shift)
+        except Exception:
+            LOGGER.exception()
+            Aqf.failed('Could not get the F-Engine FFT Shift value')
+            return
 
-        def get_pfb_status(self):
-            """Retrieve F-Engines PFB status
-            :param: Object
-            :rtype: digit 1/0
-            """
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
-                assert reply.reply_ok()
-            except Exception:
-                LOGGER.exception('Failed to retrieve sensor values via CAM interface')
-                return False
-            else:
-                return list(set([int(inform.arguments[-1]) for inform in informs
-                              if [s for s in inform.arguments if 'pfb.device' in s]]))[0]
+        try:
+            Aqf.step('Confirm all F-engines do not contain PFB errors/warnings')
+            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+            assert reply.reply_ok()
+        except Exception:
+            msg = 'Failed to retrieve sensor values via CAM interface'
+            LOGGER.exception(msg)
+            Aqf.failed(msg)
+            return
+        else:
+            pfb_status = list(set([i.arguments[-2] for i in informs
+                                    if 'pfb.or0-err-cnt' in i.arguments[2]]))[0]
+            Aqf.equals(pfb_status, 'nominal', 'Confirm that all F-Engines report nominal PFB status')
 
-        def confirm_pfb_status(self, get_pfb_status, fft_shift=0):
-            Aqf.step('Set an FFT shift on all f-engines.')
-            fft_shift_val = self.corr_fix.katcp_rct.req.fft_shift(shift_value=fft_shift)
-            if fft_shift_val is None:
-                Aqf.failed('Could not set FFT shift for all F-Engine hosts')
-            else:
-                msg = ('{} was set on all F-Engines.'.format(str(fft_shift_val)))
-                Aqf.wait(self.correlator.sensor_poll_time * 2, msg)
-                pfb_status = get_pfb_status(self)
-                Aqf.step('Confirm that the sensors indicated that the F-Eng PFB has been set')
-                if pfb_status == 1:
-                    msg = ('Sensors indicate that F-Eng PFB status is OKAY')
-                    Aqf.passed(msg)
-                elif pfb_status == 0 and fft_shift == 0:
-                    msg = ('Sensors indicate that there is an ERROR on the F-Eng PFB status.\n')
-                    Aqf.passed(msg)
-                elif pfb_status == 1 and fft_shift == 0:
-                    msg = ('Sensors indicate that there is an ERROR on the F-Eng PFB status.\n')
-                    Aqf.failed(msg)
-                else:
-                    Aqf.failed('Could not retrieve PFB sensor status')
-        Aqf.note('Debug test')
-        # confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
-        # confirm_pfb_status(self, get_pfb_status)
-        Aqf.step('Restoring previous FFT Shift values')
-        # confirm_pfb_status(self, get_pfb_status, fft_shift=fft_shift)
-        #
+        try:
+            Aqf.step('Set an FFT shift of 0 on all f-engines, and confirm if system integrity is affected')
+            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(0)
+            assert reply.reply_ok()
+        except AssertionError:
+            msg = 'Could not set FFT shift for all F-Engine hosts'
+            Aqf.failed(msg)
+            LOGGER.exception(msg)
+            return
+
+        try:
+            msg = ('Waiting for sensors to trigger.')
+            Aqf.wait(self.correlator.sensor_poll_time * 2, msg)
+
+            Aqf.step('Check if all F-engines contain(s) PFB errors/warnings')
+            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+            assert reply.reply_ok()
+        except Exception:
+            msg = 'Failed to retrieve sensor values via CAM interface'
+            LOGGER.exception(msg)
+            Aqf.failed(msg)
+            return
+        else:
+            pfb_status = list(set([i.arguments[-2] for i in informs
+                                    if 'pfb.or0-err-cnt' in i.arguments[2]]))[0]
+            Aqf.equals(pfb_status, 'warn',
+                'Confirm that all F-Engines report warnings/errors PFB status')
+
+        try:
+            Aqf.step('Restore original FFT Shift values')
+            reply, informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift)
+            assert reply.reply_ok()
+            Aqf.passed('FFT Shift: %s restored.' % fft_shift)
+        except Exception:
+            LOGGER.exception()
+            Aqf.failed('Could not set the F-Engine FFT Shift value')
+            return
 
     def _test_memory_error(self):
         pass
@@ -3293,7 +3286,6 @@ class test_CBF(unittest.TestCase):
         try:
             initial_dump = get_clean_dump(self)
             assert isinstance(initial_dump, dict)
-            chan_index = initial_dump.get('n_chans_selected', n_chans)
         except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             Aqf.failed(errmsg)
@@ -4059,36 +4051,38 @@ class test_CBF(unittest.TestCase):
                         pass
 
         def get_package_versions():
+            corr2_name = corr2.__name__
+            corr2_version = corr2.__version__
+            corr2_pn = "M1200-0046"
             try:
-                corr2_name = corr2.__name__
-                corr2_version = corr2.__version__
-                corr2_pn = "M1200-0046"
                 assert 'devel' in corr2_version
                 corr2_version = ''.join([i for i in corr2_version.split('.') if len(i) == 7])
                 corr2_link = ("https://github.com/ska-sa/%s/commit/%s" % (corr2_name, corr2_version))
             except Exception:
                 corr2_link = "Not Version Controlled at this time."
 
+            casper_name = casperfpga.__name__
+            casper_version = casperfpga.__version__
+            casper_pn = "M1200-0055"
             try:
-                casper_name = casperfpga.__name__
-                casper_version = casperfpga.__version__
-                casper_pn = "M1200-0055"
                 assert 'dev' in casper_version
                 casper_version = ''.join([i for i in casper_version.split('.') if len(i) == 7])
                 casper_link = ("https://github.com/ska-sa/%s/commit/%s" % (casper_name, casper_version))
             except Exception:
                 casper_link = "Not Version Controlled at this time."
 
+            katcp_name = katcp.__name__
+            katcp_version = katcp.__version__
+            katcp_pn = "M1200-0053"
             try:
-                katcp_name = katcp.__name__
-                katcp_pn = "M1200-0053"
-                katcp_version = katcp.__version__
                 assert 'dev' in katcp_version
                 katcp_version = ''.join([i for i in katcp_version.split('.') if len(i) == 7])
                 assert len(katcp_version) == 7
-                katcp_link = ("https://github.com/ska-sa/%s-python/commit/%s" % (katcp_name, katcp_version))
+                katcp_link = ("https://github.com/ska-sa/%s-python/commit/%s" % (katcp_name,
+                    katcp_version))
             except Exception:
-                katcp_link = "Not Version Controlled at this time."
+                katcp_link = ("https://github.com/ska-sa/%s/releases/tag/v%s" % (katcp_name,
+                    katcp_version))
 
             spead2_name = spead2.__name__
             spead2_version = spead2.__version__
@@ -4107,10 +4101,12 @@ class test_CBF(unittest.TestCase):
                 mkat_dir, _ = os.path.split(os.path.split(os.path.dirname(
                     os.path.realpath(bitstream_dir)))[0])
                 _, mkat_name = os.path.split(mkat_dir)
+                assert mkat_name
                 mkat_version = git_revision_short_hash(dir_name=mkat_dir,mod_name=mkat_name)
                 assert len(mkat_version) == 7
                 mkat_link = ("https://github.com/ska-sa/%s/commit/%s" % (mkat_name, mkat_version))
             except Exception:
+                mkat_name = 'mkat_fpga'
                 mkat_link = "Not Version Controlled at this time."
                 mkat_version = "Not Version Controlled at this time."
 
@@ -4141,7 +4137,6 @@ class test_CBF(unittest.TestCase):
                 config_dir_name = "mkat_config_templates"
                 config_version = 'Not Version Controlled'
                 config_link = 'Not Version Controlled'
-            #     cmc configuration files                     m1200-0063
 
             return {
                     corr2_name: [corr2_version, corr2_link, corr2_pn],
@@ -4167,22 +4162,18 @@ class test_CBF(unittest.TestCase):
                         _hash = ''.join([i.replace('[','').replace(']', '')
                                         for i in _hash if 40 < len(i) < 42])
                         Aqf.progress('%s: %s' %(inform.arguments[0], _hash))
+                        Aqf.progress("X/B-ENGINE (CBF) : M1200-0067")
                     elif [s for s in inform.arguments if 'fengine-firmware' in s]:
                         _hash = inform.arguments[-1].split(' ')
                         _hash = ''.join([i.replace('[','').replace(']', '')
                                         for i in _hash if 40 < len(i) < 42])
                         Aqf.progress('%s: %s' %(inform.arguments[0], _hash))
+                        Aqf.progress("F-ENGINE (CBF) : M1200-0064")
                     else:
                         Aqf.progress(': '.join(inform.arguments))
-
-        test_heading("CMC Part Numbers (others):")
-        Aqf.progress("CORRELATOR MASTER CONTROLLER (CMC) : M1200-0012")
-        Aqf.progress("CMC KATCP_C : M1200-0047")
-        Aqf.progress("CMC CBF SCRIPTS : M1200-0048")
-        Aqf.progress("F-ENGINE (CBF) : M1200-0064")
-        Aqf.progress("X-ENGINE (CBF) : M1200-0065")
-        Aqf.progress("B-ENGINE (CBF) : M1200-0066")
-        Aqf.progress("X/B-ENGINE (CBF) : M1200-0067")
+                Aqf.progress("CMC KATCP_C : M1200-0047")
+                Aqf.progress("CMC CBF SCRIPTS : M1200-0048")
+                Aqf.progress("CORRELATOR MASTER CONTROLLER (CMC) : M1200-0012")
 
         test_heading('CBF CMC Operating System.')
         Aqf.progress("CBF OS: %s | CMC OS P/N: M1200-0045" % ' '.join(os.uname()))
@@ -4463,7 +4454,7 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.063
             gain = 344
             fft_shift = 4095
-        import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
+
         Aqf.step('Configure a digitiser simulator to generate correlated noise.')
         Aqf.progress('Digitiser simulator configured to generate Gaussian noise, '
                  'with scale: %s, eq gain: %s, fft shift: %s' % (awgn_scale, gain, fft_shift))
@@ -4477,10 +4468,11 @@ class test_CBF(unittest.TestCase):
 
         self.addCleanup(set_default_eq, self)
         source = random.randrange(len(self.cam_sensors.input_labels))
-        _discards = 40
+        _discards = 50
         try:
             initial_dump = self.receiver.get_clean_dump(discard=_discards)
             self.assertIsInstance(initial_dump, dict)
+            assert np.any(initial_dump['xeng_raw'])
         except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
@@ -4496,10 +4488,9 @@ class test_CBF(unittest.TestCase):
                     auto_corr_idx = idx
 
             n_chans = self.cam_sensors.get_value('n_chans')
-            rand_ch = random.randrange(n_chans)
+            rand_ch = random.choice(range(n_chans)[:self.n_chans_selected])
             gain_vector = [gain] * n_chans
             base_gain = gain
-            initial_dump = self.receiver.data_queue.get(timeout=10)
             initial_resp = np.abs(complexise(initial_dump['xeng_raw'][:, auto_corr_idx, :]))
             initial_resp = 10 * np.log10(initial_resp)
             chan_resp = []
@@ -4521,7 +4512,6 @@ class test_CBF(unittest.TestCase):
                 try:
                     reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, *gain_vector,
                         timeout=60)
-
                     assert reply.reply_ok()
                 except Exception as e:
                         Aqf.failed('Gain correction on %s could not be set to %s.: '
@@ -4539,10 +4529,8 @@ class test_CBF(unittest.TestCase):
                         Aqf.failed(errmsg)
                         LOGGER.exception(errmsg)
                     else:
-                        dump = self.receiver.data_queue.get(timeout=10)
                         response = np.abs(complexise(dump['xeng_raw'][:, auto_corr_idx, :]))
                         response = 10 * np.log10(response)
-                        import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
                         resp_diff = response[rand_ch] - initial_resp[rand_ch]
                         if resp_diff < target:
                             msg = ('Output power increased by less than 1 dB '
@@ -6737,8 +6725,8 @@ class test_CBF(unittest.TestCase):
 
         def get_samples():
 
-            test_chan = random.randrange(start=self.n_chans_selected % 100,
-                stop=self.n_chans_selected - 1)
+            n_chans = self.cam_sensors.get_value('n_chans')
+            test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
             requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=101,
                                                                      chans_around=2)
             expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
