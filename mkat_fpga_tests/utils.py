@@ -669,9 +669,9 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     :rtype: None
     """
     if spead2_warn:
-        logging.getLogger('spead2').setLevel(logging.INFO)
+        logging.getLogger('spead2').setLevel(logging.CRITICAL)
     if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.DEBUG)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
         logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
         logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
         logging.getLogger('fxcorrelator_fengops').setLevel(logging.CRITICAL)
@@ -1176,7 +1176,7 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
     """
     beamdata_dir = '/ramdisk'
     _timeout = 10
-    
+
     import katcp
     # Create a katcp client to connect to katcpingest if one not specified
     if ingest_kcp_client == None:
@@ -1363,7 +1363,7 @@ def get_clean_dump(self, retries=20):
         retries -= 1
         try:
             errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
-            discards = 0
+            discards = 10
             if not _captured:
                 dump = self.receiver.get_clean_dump(discard=discards)
                 assert isinstance(dump, dict), errmsg
@@ -1375,9 +1375,9 @@ def get_clean_dump(self, retries=20):
             time_diff = np.abs(dump_timestamp - dhost_timestamp)
             errmsg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
                         dump_timestamp, dhost_timestamp, time_diff))
-            if time_diff > 10:
-                raise AssertionError
-            # assert int(time_diff) in [-1, 0], errmsg
+            # if time_diff > 10:
+            #     raise AssertionError
+            # # assert int(time_diff) in [-1, 0], errmsg
         except AssertionError:
             LOGGER.warning(errmsg)
         except Queue.Empty:
