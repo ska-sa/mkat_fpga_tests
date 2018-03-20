@@ -108,7 +108,7 @@ ${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} digitiser-synch-epoch ${SYNC_EPOCH}
 
 sleep 0.5;
 ${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
-sleep 2;
+#sleep 2;
 
 #if [ $(echo ${MACHINE::4}) == "cmc3" ]; then
 #    printf "${GREEN} Copying config file over to CMC2${NORMAL}\n"

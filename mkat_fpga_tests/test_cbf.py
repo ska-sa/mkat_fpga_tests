@@ -84,7 +84,7 @@ class test_CBF(unittest.TestCase):
         self.corr_fix = correlator_fixture
         try:
             self.conf_file = self.corr_fix.test_config
-            self.corr_fix.katcp_client  = self.conf_file['inst_param']['katcp_client']
+            self.corr_fix.katcp_client  = self.conf_file['instrument_params']['katcp_client']
         except Exception:
             errmsg = 'Failed to read test config file.'
             LOGGER.exception(errmsg)
@@ -211,22 +211,28 @@ class test_CBF(unittest.TestCase):
             return False
         try:
             output_product = self.conf_file.get('output_product', 'baseline-correlation-products')
-            _, data_output_port = self.cam_sensors.get_value(
-                    output_product.replace('-','_') +'_destination').split(':')
-            Aqf.step('Initiate SPEAD receiver on port %s, and CBF output product: %s' % (
-                data_output_port, output_product))
+            data_output_ip, data_output_port = self.cam_sensors.get_value(
+                    output_product.replace('-','_') + '_destination').split(':')
+            Aqf.step('SPEAD receiver listening on %s:%s, CBF output product: %s' % (
+                data_output_ip, data_output_port, output_product))
             katcp_ip = self.corr_fix.katcp_client
             katcp_port = int(self.corr_fix.katcp_rct.port)
             LOGGER.info('Connecting to katcp on %s' % katcp_ip)
+            start_channels = int(self.conf_file.get('start_channels', 0))
+            stop_channels = int(self.conf_file.get('stop_channels', 2047))
+            LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' %(
+                data_output_port, start_channels, stop_channels))
             if n_ants >= 16:
                 Aqf.note('Due to performance related issues, only 2048 channels will be captured in '
                      'the SPEAD accumulation')
                 self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
-                    katcp_port=katcp_port, port=data_output_port, channels=(0, 2047))
+                    katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
+                                                                            stop_channels))
             else:
                 # Todo, uncomments below line
                 self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
-                    katcp_port=katcp_port, port=data_output_port, channels=(0, 2047))
+                    katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
+                                                                            stop_channels))
                     # katcp_port=katcp_port, port=data_output_port)
 
             self.receiver.setName('CorrRx Thread')
@@ -462,8 +468,9 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument()
             if instrument_success:
                 if '32k' in self.instrument:
-                    Aqf.step('Testing maximum channels to 4096 due to quantiser snap-block limitations.')
-                chan_index = 4096
+                    Aqf.step('Testing maximum channels to %s due to quantiser snap-block and '
+                             'system performance limitations.' % self.n_chans_selected)
+                chan_index = self.n_chans_selected
                 n_chans = self.cam_sensors.get_value('n_chans')
                 test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 self._test_vacc(test_chan, chan_index)
@@ -1529,8 +1536,8 @@ class test_CBF(unittest.TestCase):
         spead_failure_counter = 0
 
         if '4k' in self.instrument:
-            cw_scale = 0.68
-            awgn_scale = 0.0875
+            cw_scale = 0.7
+            awgn_scale = 0.085
             gain = '7+0j'
             fft_shift = 8191
         else:
@@ -1911,13 +1918,13 @@ class test_CBF(unittest.TestCase):
 
             Aqf.is_true(low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
                         'Confirm that the relative response at the low band-edge '
-                        '({co_lo_band_edge_rel_resp} dB @ {co_low_freq} Hz, actual source freq '
+                        '(-{co_lo_band_edge_rel_resp} dB @ {co_low_freq} Hz, actual source freq '
                         '{co_low_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                         'relative to channel centre response.'.format(**locals()))
 
             Aqf.is_true(low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
                         'Confirm that the relative response at the high band-edge '
-                        '({co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq '
+                        '(-{co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq '
                         '{co_high_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                         'relative to channel centre response.'.format(**locals()))
 
@@ -3408,6 +3415,7 @@ class test_CBF(unittest.TestCase):
                         msg = ('Confirm that the accumulator actual response is '
                                'equal to the expected response for {} accumulation length'.format(
                                     vacc_accumulations))
+
                         if not Aqf.array_abs_error(expected_response[:chan_index],
                                                    actual_response_mag[:chan_index], msg):
                             aqf_plot_channels(actual_response_mag, plot_filename, plot_title,
@@ -4300,7 +4308,7 @@ class test_CBF(unittest.TestCase):
                 ants = self.cam_sensors.get_value('n_ants')
                 ch_list = self.cam_sensors.ch_center_freqs
                 ch_bw = ch_list[1]
-                dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/
+                dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
                                self.cam_sensors.get_value('scale_factor_timestamp'))
                 substreams = self.cam_sensors.get_value('n_xengs')
             except AssertionError:
@@ -4403,7 +4411,7 @@ class test_CBF(unittest.TestCase):
                 # baseline_ch_bw = bw * dsim_clk_factor / response.shape[0]
 
                 # hardcoded the bandwidth value due to a custom dsim frequency used in the config file
-                nominal_bw = float(self.conf_file['inst_param']['sample_freq'])/2.0
+                nominal_bw = float(self.conf_file['instrument_params']['sample_freq'])/2.0
                 baseline_ch_bw = nominal_bw / test_dump['xeng_raw'].shape[0]
                 beam_ch_bw = nominal_bw / len(cap_mag[0])
                 msg = ('Confirm that the baseline-correlation-product channel width'
@@ -4610,7 +4618,7 @@ class test_CBF(unittest.TestCase):
             ants =    self.cam_sensors.get_value('n_ants')
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]
-            dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/
+            dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
                            self.cam_sensors.get_value('scale_factor_timestamp'))
             substreams = self.cam_sensors.get_value('n_xengs')
             # For substream alignment test only print out 5 results
@@ -5322,7 +5330,7 @@ class test_CBF(unittest.TestCase):
             ants = self.cam_sensors.get_value('n_ants')
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]
-            dsim_factor = (float(self.conf_file['inst_param']['sample_freq'])/
+            dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
                            self.cam_sensors.get_value('scale_factor_timestamp'))
             substreams = self.cam_sensors.get_value('n_xengs')
         except AssertionError:

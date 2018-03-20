@@ -92,7 +92,7 @@ class CorrelatorFixture(object):
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
         self.test_config = self._test_config_file
-        self.subarray = self.test_config['inst_param']['subarray']
+        self.subarray = self.test_config['instrument_params']['subarray']
         # self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
         self.config_filename = max(iglob('/etc/corr/{}-*'.format(self.subarray)), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument
@@ -250,7 +250,7 @@ class CorrelatorFixture(object):
     @property
     def katcp_rct(self):
         try:
-            katcp_prot = self.test_config['inst_param']['katcp_protocol']
+            katcp_prot = self.test_config['instrument_params']['katcp_protocol']
         except TypeError:
             LOGGER.error('Failed to read katcp protocol from test config file')
         else:
@@ -656,7 +656,7 @@ class CorrelatorFixture(object):
                         LOGGER.info('Successfully created %s-%s' % (self.array_name, self.katcp_array_port))
 
                 instrument_param = (
-                    [int(i) for i in self.test_config['inst_param']['instrument_param'] if i != ','])
+                    [int(i) for i in self.test_config['instrument_params']['instrument_param'] if i != ','])
                 LOGGER.info('Starting %s with %s parameters. Try #%s' % (self.instrument,
                                                                          instrument_param,
                                                                          retries))
