@@ -367,54 +367,62 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         return baseline_lookup
 
 
-def clear_all_delays(self, num_int=10):
+def clear_all_delays(self):
     """Clears all delays on all fhosts.
     Param: object
     Param: num_int: Number of integrations for calculation time to apply delays and number of
                     spead accumulation discards.
     Return: Boolean
     """
-    no_fengines = self.cam_sensors.get_value('n_fengs')
-    int_time = self.cam_sensors.get_value('int_time')
-    LOGGER.info('Clearing all delays and phases')
+    try:
+        no_fengines = self.cam_sensors.get_value('n_fengs')
+        int_time = self.cam_sensors.get_value('int_time')
+        LOGGER.info('Retrieving test parameters via CAM Interface')
+    except Exception:
+        no_fengines = len(self.correlator.fops.fengines)
+        LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
+    num_int = 30
     _retries = 10
     errmsg = ''
-    _delays_set = False
     while _retries:
         _retries -= 1
         try:
-            if not _delays_set:
-                dump = self.receiver.get_clean_dump(discard=0)
-                dump_timestamp = dump['dump_timestamp']
-                time_now = time.time()
-                time_diff = dump_timestamp - time_now
-                errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
-                    dump_timestamp, time_now, time_diff))
-                # assert int(time_diff) in [-1, 0], errmsg
-                t_apply = dump_timestamp + (num_int * int_time)
-                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-                errmsg = 'Delays command could not be executed in the given time'
-                assert reply.reply_ok(), errmsg
-                _delays_set = reply.reply_ok()
-                time.sleep(5)
-
             dump = self.receiver.get_clean_dump()
-            _max = int(np.max(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
-            _min = int(np.min(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
-            errmsg = 'Max(%s)/Min(%s) delays found, not cleared' % (_max, _min)
+            deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+            discard = 0
+            while True:
+                dump = self.receiver.data_queue.get(timeout=10)
+                dump_timestamp = dump['dump_timestamp']
+                time_diff = np.abs(dump_timestamp - deng_timestamp)
+                print time_diff
+                if time_diff < 1:
+                    break
+                if discard > 10:
+                    raise AssertionError
+                discard += 1
+            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
+                dump_timestamp, deng_timestamp, time_diff))
+            t_apply = dump_timestamp + (num_int * int_time)
+            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            errmsg = 'Delays command could not be executed in the given time'
+            assert reply.reply_ok(), errmsg
+            dump = self.receiver.get_clean_dump(discard=10)
+            _max = int(np.max(np.angle(dump['xeng_raw'][:,33,:][5:-5])))
+            _min = int(np.min(np.angle(dump['xeng_raw'][:,0,:][5:-5])))
+            errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (_max, _min)
             assert _min ==_max == 0, errmsg
             LOGGER.info(
                 'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
             return True
         except AssertionError:
-            LOGGER.warning(errmsg + ', within %s retries.' % _retries)
+            LOGGER.warning(errmsg)
         except TypeError:
             LOGGER.exception("Object has no attributes")
             return False
         except Exception:
-            LOGGER.exception(errmsg + ', within %s retries.' % _retries)
+            LOGGER.exception(errmsg)
     return False
 
 
@@ -1032,7 +1040,7 @@ class GetSensors(object):
         """
         Get Correlator bandwidth
         """
-        return float(self.get_value('bandwidth')/self.get_value('n_chans'))
+        return float(self.get_value('bandwidth')/(self.get_value('n_chans') - 1))
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.

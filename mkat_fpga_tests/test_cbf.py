@@ -146,7 +146,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     set_dsim_epoch = True
 
-    def set_instrument(self, acc_time=0.5, queue_size=3, **kwargs):
+    def set_instrument(self, acc_time=None, **kwargs):
         acc_timeout = 60
         self.errmsg = None
         # Reset digitiser simulator to all Zeros
@@ -184,7 +184,9 @@ class test_CBF(unittest.TestCase):
 
         try:
             n_ants = self.cam_sensors.get_value('n_ants')
-            if n_ants == 4:
+            if acc_time:
+                pass
+            elif n_ants == 4:
                 acc_time = 0.5
             else:
                 acc_time = n_ants / 32.
@@ -527,14 +529,13 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(acc_time=1)
             if instrument_success:
                 self._test_delay_tracking()
                 self._test_delay_rate()
                 self._test_fringe_rate()
                 self._test_fringe_offset()
                 self._test_delay_inputs()
-                # self._test_min_max_delays()
                 clear_all_delays(self)
                 restore_src_names(self)
             else:
@@ -1528,8 +1529,8 @@ class test_CBF(unittest.TestCase):
         spead_failure_counter = 0
 
         if '4k' in self.instrument:
-            cw_scale = 0.675
-            awgn_scale = 0.08
+            cw_scale = 0.68
+            awgn_scale = 0.0875
             gain = '7+0j'
             fft_shift = 8191
         else:
@@ -1756,19 +1757,23 @@ class test_CBF(unittest.TestCase):
                               plt_title=plt_title, caption=plt_caption, cutoff=-cutoff)
             try:
                 # CBF-REQ-0126
-                pass_bw_min_max = np.argwhere((plot_data <= -3.0) & (plot_data >= -3.1))
+                pass_bw_min_max = np.argwhere((np.abs(plot_data) >= 3.0) & (np.abs(plot_data) <= 3.3))
                 pass_bw = float(np.abs(
-                        actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[1]]))
+                        actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[-1]]))
 
                 att_bw_min_max = [np.argwhere(plot_data==i)[0][0] for i in plot_data
                          if (abs(i) >= (cutoff-1)) and (abs(i) <= (cutoff+1))]
                 att_bw = actual_test_freqs[att_bw_min_max[-1]] - actual_test_freqs[att_bw_min_max[0]]
 
+            except Exception:
+                msg = ('Could not compute if, CBF performs channelisation such that the 53dB '
+                       'attenuation bandwidth is less/equal to 2x the pass bandwidth')
+                Aqf.failed(msg)
+                LOGGER.exception(msg)
+            else:
                 msg = ('The CBF shall perform channelisation such that the 53dB attenuation bandwidth(%s)'
-                       'is less/equal to 2x the pass band width(%s)' %(att_bw, pass_bw))
+                       'is less/equal to 2x the pass bandwidth(%s)' %(att_bw, pass_bw))
                 Aqf.is_true(att_bw >= pass_bw, msg)
-            except Exception as e:
-                Aqf.failed(e.message)
 
             # Get responses for central 80% of channel
             df = self.cam_sensors.delta_f
@@ -1815,10 +1820,8 @@ class test_CBF(unittest.TestCase):
                      'Confirm that the VACC output is at < 99% of maximum value, if fails '
                      'then it is probably over-ranging.')
 
-            max_central_chan_response = np.max(10 * np.log10(
-                central_chan_responses[:, test_chan]))
-            min_central_chan_response = np.min(10 * np.log10(
-                central_chan_responses[:, test_chan]))
+            max_central_chan_response = np.max(10 * np.log10(central_chan_responses[:, test_chan]))
+            min_central_chan_response = np.min(10 * np.log10(central_chan_responses[:, test_chan]))
             chan_ripple = max_central_chan_response - min_central_chan_response
             acceptable_ripple_lt = 1.5
             Aqf.less(chan_ripple, acceptable_ripple_lt,
@@ -2839,7 +2842,7 @@ class test_CBF(unittest.TestCase):
                     delays[setup_data['test_source_ind']] = delay
                     delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
                     try:
-                        this_freq_dump = get_clean_dump(self)
+                        this_freq_dump = self.receiver.get_clean_dump(discard=0)
                         t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
                         t_apply_readable = this_freq_dump['dump_timestamp_readable']
                         Aqf.step('Delay #%s will be applied with the following parameters:' %count)
@@ -2856,7 +2859,6 @@ class test_CBF(unittest.TestCase):
                         cmd_start_time = time.time()
                         reply, _informs = self.corr_fix.katcp_rct.req.delays(t_apply,
                                                                              *delay_coefficients)
-                        # time.sleep(5)
                         final_cmd_time = (time.time() - cmd_start_time)
                         formated_reply = str(reply).replace('\_', ' ')
                         assert reply.reply_ok()
