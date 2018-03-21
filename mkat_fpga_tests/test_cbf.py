@@ -382,18 +382,18 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    # Test still under development, Alec will put it under test__informal
-    # @instrument_4k
-    # def test__beamforming_timeseries(self):
-    #     #Aqf.procedure(TestProcedure.Beamformer)
-    #     try:
-    #         assert eval(os.getenv('DRY_RUN', 'False'))
-    #     except AssertionError:
-    #         instrument_success = self.set_instrument()
-    #         if instrument_success:
-    #             self._test_beamforming_timeseries()
-    #         else:
-    #             Aqf.failed(self.errmsg)
+    #Test still under development, Alec will put it under test__informal
+    @instrument_4k
+    def test__beamforming_timeseries(self):
+        #Aqf.procedure(TestProcedure.Beamformer)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._test_beamforming_timeseries()
+            else:
+                Aqf.failed(self.errmsg)
 
     @generic_test
     @aqf_vr('CBF.V.4.4')
@@ -5021,77 +5021,6 @@ class test_CBF(unittest.TestCase):
                         Aqf.almost_equals(cap_db_mean, expected, delta, msg)
                 return cap_avg, labels, inp_ref_lvl, expected, cap_idx, in_wgts, failed
 
-            # Reset quantiser gain
-            bq_gain = set_beam_quant_gain(self, beam, 1)
-            # Generating a dictionary to contain beam weights
-            beam_dict = {}
-            act_wgts = {}
-            beam_pol = beam[-1]
-            for label in labels:
-                if label.find(beam_pol) != -1:
-                    beam_dict[label] = 0.0
-            if len(beam_dict) == 0:
-                Aqf.failed('Beam dictionary not created, beam labels or beam name incorrect')
-                return False
-
-            # Setting DSIM to generate off center bin CW time sequence
-            if '4k' in self.instrument:
-                # 4K
-                awgn_scale = 0.0645
-                cw_scale = 0.01
-                gain = '113+0j'
-                fft_shift = 8191
-            else:
-                # 32K
-                awgn_scale = 0.063
-                cw_scale = 0.01
-                gain = '344+0j'
-                fft_shift = 4095
-
-            # Determine CW frequency
-            center_bin_offset = float(self.conf_file['beamformer']['center_bin_offset'])
-            center_bin_offset_freq = ch_bw * center_bin_offset
-            cw_ch = strt_ch_idx + int(ch_per_substream/4)
-            freq = ch_list[cw_ch] - center_bin_offset_freq
-
-            Aqf.step('Generating time plot of beam power for channel {} containing a '
-                     'CW offset from center bin of a bin.'.format(cw_ch))
-            Aqf.progress('Digitiser simulator configured to generate a '
-                         'Constant Wave at {} Hz offset from the center '
-                         'of a bin by {} Hz.'.format(freq, center_bin_offset_freq))
-            Aqf.progress('CW scale: {}, Noise scale: {}, eq gain: {}, fft shift: {}'.format(
-                         cw_scale, awgn_scale, gain, fft_shift))
-            dsim_set_success = False
-            with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
-                dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
-                                               cw_scale=cw_scale, freq=freq, fft_shift=fft_shift, gain=gain)
-            if not dsim_set_success:
-                Aqf.failed('Failed to configure digitise simulator levels')
-                return False
-            ref_input = np.random.randint(ants)
-            # Find reference input label
-            for key in beam_dict:
-                if int(filter(str.isdigit,key)) == ref_input:
-                    ref_input_label = key
-                    break
-            weight = 1.0
-            beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
-            try:
-                beam_data, act_wgts = get_beam_data(beam, beam_dict=beam_dict, data_only=True)
-            except IndexError, e:
-                errmsg = 'Failed to retrieve beamformer data'
-                Aqf.failed(errmsg)
-                LOGGER.error(errmsg)
-                return False
-            aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
-                              plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
-                                self._testMethodName, beam),
-                              plot_title=('Beam = {}\n'
-                                'Input = CW offset by {} Hz from the center of bin {}'
-                                .format(beam, center_bin_offset_freq, cw_ch)),
-                              log_dynamic_range=None, #90, log_normalise_to=1,
-                              ylabel='Beam Output',
-                              xlabel='Samples')
 
             # Setting DSIM to generate noise
             if '4k' in self.instrument:
@@ -5121,15 +5050,33 @@ class test_CBF(unittest.TestCase):
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
             # Set beamformer quantiser gain for selected beam to 1
+            bq_gain = set_beam_quant_gain(self, beam, 1)
+            # Generating a dictionary to contain beam weights
+            beam_dict = {}
+            act_wgts = {}
+            beam_pol = beam[-1]
+            for label in labels:
+                if label.find(beam_pol) != -1:
+                    beam_dict[label] = 0.0
+            if len(beam_dict) == 0:
+                Aqf.failed('Beam dictionary not created, beam labels or beam name incorrect')
+                return False
+
+            # Find reference input label
+            for key in beam_dict:
+                if int(filter(str.isdigit,key)) == ref_input:
+                    ref_input_label = key
+                    break
+            weight = 1.0
+            beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
             beam_data = []
             beam_lbls = []
-            set_beam_quant_gain(self, beam, 1)
             Aqf.step('Testing individual beam weights.')
             try:
                 # Calculate reference level by not specifying ref level
                 # Use weights from previous test
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(
-                        beam, act_wgts=act_wgts, conf_data_type=True)
+                        beam, beam_dict=beam_dict, conf_data_type=True)
             except TypeError, e:
                 errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
@@ -5394,6 +5341,7 @@ class test_CBF(unittest.TestCase):
             ch_bw = ch_list[1]
             dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
                            self.cam_sensors.get_value('scale_factor_timestamp'))
+            print self.cam_sensors.get_value('scale_factor_timestamp')
             substreams = self.cam_sensors.get_value('n_xengs')
         except AssertionError:
             errmsg = '%s'%str(reply).replace('\_', ' ')
@@ -5464,9 +5412,9 @@ class test_CBF(unittest.TestCase):
         if '4k' in self.instrument:
             # 4K
             awgn_scale = 0.0645
-            cw_scale = 0.01
+            cw_scale = 0.675
             #gain = '113+0j'
-            gain = 113
+            gain = 5
             fft_shift = 8191
         else:
             # 32K
@@ -5477,9 +5425,11 @@ class test_CBF(unittest.TestCase):
 
         # Determine CW frequency
         center_bin_offset = float(self.conf_file['beamformer']['center_bin_offset'])
-        center_bin_offset_freq = ch_bw * center_bin_offset
+        center_bin_offset = 0.01
+        center_bin_offset_freq = ch_bw*dsim_factor * center_bin_offset
         cw_ch = strt_ch_idx + int(ch_per_substream/4)
-        freq = ch_list[cw_ch] - center_bin_offset_freq
+        #cw_ch = 262
+        freq = ch_list[cw_ch]*dsim_factor + center_bin_offset_freq
 
         Aqf.step('Generating time analysis plots of beam for channel {} containing a '
                  'CW offset from center of a bin.'.format(cw_ch))
@@ -5507,6 +5457,7 @@ class test_CBF(unittest.TestCase):
 
         Aqf.progress("Only one antenna gain is set to 1, the reset are set to zero")
         ref_input = np.random.randint(ants)
+        ref_input = 1
         # Find reference input label
         for key in beam_dict:
             if int(filter(str.isdigit,key)) == ref_input:
@@ -5515,7 +5466,7 @@ class test_CBF(unittest.TestCase):
         weight = 1.0
         beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
         try:
-            bf_raw, cap_ts, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict)
+            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict)
             # Close any KAT SDP ingest nodes
             stop_katsdpingest_docker(self)
         except TypeError, e:
@@ -5524,14 +5475,78 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return False
+
+        flags = bf_flags[start_substream:start_substream+n_substrms_to_cap_m]
+        #Aqf.step('Finding missed heaps for all partitions.')
+        if flags.size == 0:
+            LOGGER.warning('Beam data empty. Capture failed. Retrying...')
+            Aqf.failed('Beam data empty. Capture failed. Retrying...')
+        else:
+            missed_err = False
+            for part in flags:
+                missed_heaps = np.where(part>0)[0]
+                missed_perc = missed_heaps.size/part.size
+                perc = 0.50
+                if missed_perc > perc:
+                    Aqf.progress('Missed heap percentage = {}%%'.format(missed_perc*100))
+                    Aqf.progress('Missed heaps = {}'.format(missed_heaps))
+                    LOGGER.warning('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+                    Aqf.failed('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+        # Print missed heaps
+        idx = start_substrtam
+        for part in flags:
+            missed_heaps = np.where(part>0)[0]
+            if missed_heaps.size > 0:
+                LOGGER.info('Missed heaps for substream {} at heap indexes {}'.format(idx,
+                    missed_heaps))
+            idx += 1
+        # Combine all missed heap flags. These heaps will be discarded
+        import IPython;IPython.embed()
+        return True
+        flags = np.sum(flags,axis=0)
+        #cap = [0] * num_caps
+        #cap = [0] * len(bf_raw.shape[1])
+        cap = []
+        cap_idx = 0
+        raw_idx = 0
+        try:
+            for heap_flag in flags:
+                if heap_flag == 0:
+                    for raw_idx in range(raw_idx, raw_idx+spectra_per_heap):
+                        cap.append(np.array(complexise(bf_raw[bf_raw_str:bf_raw_end, raw_idx, :])))
+                        cap_idx += 1
+                    raw_idx += 1
+                else:
+                    if raw_idx == 0:
+                        raw_idx = spectra_per_heap
+                    else:
+                        raw_idx = raw_idx + spectra_per_heap
+        except Exception, e:
+            errmsg = 'Failed to capture beam data due to error: %s' % str(e)
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+
+        #np.save('skarab_bf_data_plus.np', bf_raw)
+        #return True
         from skarab_bf_analysis import analyse_beam_data
         analyse_beam_data(bf_raw, dsim_settings = [freq, cw_scale, awgn_scale],
                 cbf_settings = [fft_shift, gain],
+                do_save = True,
                 spectra_use = 'all',
                 chans_to_use = n_substrms_to_cap_m*ch_per_substream,
                 xlim = [20,21],
-                dsim_factor = dsim_factor,
+                dsim_factor = 1.0,
                 ref_input_label = ref_input_label)
+
+        #aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
+        #                  plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
+        #                    self._testMethodName, beam),
+        #                  plot_title=('Beam = {}\n'
+        #                    'Input = CW offset by {} Hz from the center of bin {}'
+        #                    .format(beam, center_bin_offset_freq, cw_ch)),
+        #                  log_dynamic_range=None, #90, log_normalise_to=1,
+        #                  ylabel='Beam Output',
+        #                  xlabel='Samples')
 
     def _test_cap_beam(self):
         """Testing timestamp accuracy
