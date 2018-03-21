@@ -143,31 +143,28 @@ def init_dsim_sources(dhost):
             try:
                 if sin_source.name != 'corr':
                     sin_source.set(repeat_n=0)
-            except NotImplementedError:
-                    LOGGER.exception('Failed to reset repeat on sin_%s' %sin_source.name)
-                    import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
-            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
+                    assert sin_source.repeat == 0
+            except Exception:
+                    LOGGER.exception('Failed to reset repeat on sin_%s' % sin_source.name)
+            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' % sin_source.name)
     except Exception:
-        LOGGER.error('Failed to reset sine sources on dhost.')
-        pass
+        LOGGER.exception('Failed to reset sine sources on dhost.')
 
     try:
         for noise_source in dhost.noise_sources:
             noise_source.set(scale=0)
             assert noise_source.scale == 0
-            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' %noise_source.name)
+            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' % noise_source.name)
     except Exception:
         LOGGER.error('Failed to reset noise sources on dhost.')
-        pass
 
     try:
         for output in dhost.outputs:
             output.select_output('signal')
             output.scale_output(1)
-            LOGGER.info('Digitiser simulator signal output %s selected.' %output.name)
+            LOGGER.info('Digitiser simulator signal output %s selected.' % output.name)
     except Exception:
         LOGGER.error('Failed to select output dhost.')
-        pass
 
 
 class CorrelatorFrequencyInfo(object):
@@ -370,8 +367,6 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
 def clear_all_delays(self):
     """Clears all delays on all fhosts.
     Param: object
-    Param: num_int: Number of integrations for calculation time to apply delays and number of
-                    spead accumulation discards.
     Return: Boolean
     """
     try:
@@ -383,10 +378,10 @@ def clear_all_delays(self):
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
-    num_int = 30
     _retries = 10
     errmsg = ''
     while _retries:
+        _give_up = 40
         _retries -= 1
         try:
             dump = self.receiver.get_clean_dump()
@@ -396,7 +391,6 @@ def clear_all_delays(self):
                 dump = self.receiver.data_queue.get(timeout=10)
                 dump_timestamp = dump['dump_timestamp']
                 time_diff = np.abs(dump_timestamp - deng_timestamp)
-                print time_diff
                 if time_diff < 1:
                     break
                 if discard > 10:
@@ -404,10 +398,32 @@ def clear_all_delays(self):
                 discard += 1
             errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
                 dump_timestamp, deng_timestamp, time_diff))
-            t_apply = dump_timestamp + (num_int * int_time)
+            t_apply = dump_timestamp + (20 * int_time)
             reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
             errmsg = 'Delays command could not be executed in the given time'
             assert reply.reply_ok(), errmsg
+            start_time = time.time()
+            end_time = 0
+            while True:
+                _give_up -= 1
+                try:
+                    LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                    assert reply.reply_ok()
+                except Exception:
+                    LOGGER.exception('Weirdly I couldnt get the sensor values')
+                else:
+                    delays_updated = list(set([int(i.arguments[-1]) for i in informs
+                                                if '.cd.delay' in i.arguments[2]]))[0]
+                    if delays_updated:
+                        LOGGER.info('Delays have been successfully set')
+                        end_time = time.time()
+                        break
+                if _give_up == 0:
+                    LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
+                    break
+            time_end = abs(end_time - start_time)
+            LOGGER.info('Time it took to set and confirm the delays %ss' % time_end)
             dump = self.receiver.get_clean_dump(discard=10)
             _max = int(np.max(np.angle(dump['xeng_raw'][:,33,:][5:-5])))
             _min = int(np.min(np.angle(dump['xeng_raw'][:,0,:][5:-5])))
@@ -665,43 +681,30 @@ def get_delay_bounds(correlator):
             }
 
 
-def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug=True,
-                              plt_warn=True, np_warn=True, deprecated_warn=True, katcp_warn=True):
+def disable_warnings_messages():
     """This function disables all error warning messages
-    :param:
-        spead2 : Boolean
-        corr_rx : Boolean
-        plt : Boolean
-        np : Boolean
-        deprecated : Boolean
-    :rtype: None
     """
-    if spead2_warn:
-        logging.getLogger('spead2').setLevel(logging.CRITICAL)
-    if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
-        logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
-        logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
-        logging.getLogger('fxcorrelator_fengops').setLevel(logging.CRITICAL)
-        logging.getLogger('fhost_fpga').setLevel(logging.CRITICAL)
-    if casperfpga_debug:
-        logging.getLogger("casperfpga.bitfield").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.memory").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.register ").setLevel(logging.CRITICAL)
-        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
-    if katcp_warn:
-        logging.getLogger('katcp').setLevel(logging.CRITICAL)
-        logging.getLogger('tornado.application').setLevel(logging.CRITICAL)
-    if plt_warn:
-        import matplotlib
-        warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
-    if np_warn:
-        # Ignoring all warnings raised when casting a complex dtype to a real dtype.
-        warnings.simplefilter("ignore", np.ComplexWarning)
-    if deprecated_warn:
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-        warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+    import matplotlib
+    warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+    # Ignoring all warnings raised when casting a complex dtype to a real dtype.
+    warnings.simplefilter("ignore", np.ComplexWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+
+    # Ignore all loggings except Critical if any
+    logging.getLogger("casperfpga.bitfield").setLevel(logging.CRITICAL)
+    logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
+    logging.getLogger("casperfpga.memory").setLevel(logging.CRITICAL)
+    logging.getLogger("casperfpga.register").setLevel(logging.CRITICAL)
+    logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
+    logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
+    logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
+    logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
+    logging.getLogger('corr2.fxcorrelator_fengops').setLevel(logging.CRITICAL)
+    logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
+    logging.getLogger('katcp').setLevel(logging.CRITICAL)
+    logging.getLogger('spead2').setLevel(logging.CRITICAL)
+    logging.getLogger('tornado.application').setLevel(logging.CRITICAL)
 
 
 class Text_Style(object):
