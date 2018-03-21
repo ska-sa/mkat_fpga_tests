@@ -45,7 +45,7 @@ from corr2.data_stream import StreamAddress
 LOGGER = logging.getLogger('mkat_fpga_tests')
 
 # Max range of the integers coming out of VACC
-VACC_FULL_RANGE = float(2 ** 31)
+VACC_FULL_RANGE = float(2**31)
 
 cam_timeout = 60
 
@@ -145,6 +145,7 @@ def init_dsim_sources(dhost):
                     sin_source.set(repeat_n=0)
             except NotImplementedError:
                     LOGGER.exception('Failed to reset repeat on sin_%s' %sin_source.name)
+                    import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
             LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
     except Exception:
         LOGGER.error('Failed to reset sine sources on dhost.')
@@ -366,54 +367,62 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         return baseline_lookup
 
 
-def clear_all_delays(self, num_int=10):
+def clear_all_delays(self):
     """Clears all delays on all fhosts.
     Param: object
     Param: num_int: Number of integrations for calculation time to apply delays and number of
                     spead accumulation discards.
     Return: Boolean
     """
-    no_fengines = self.cam_sensors.get_value('n_fengs')
-    int_time = self.cam_sensors.get_value('int_time')
-    LOGGER.info('Clearing all delays and phases')
+    try:
+        no_fengines = self.cam_sensors.get_value('n_fengs')
+        int_time = self.cam_sensors.get_value('int_time')
+        LOGGER.info('Retrieving test parameters via CAM Interface')
+    except Exception:
+        no_fengines = len(self.correlator.fops.fengines)
+        LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
+    num_int = 30
     _retries = 10
     errmsg = ''
-    _delays_set = False
     while _retries:
         _retries -= 1
         try:
-            if not _delays_set:
-                dump = self.receiver.get_clean_dump()
-                dump_timestamp = dump['dump_timestamp']
-                time_now = time.time()
-                time_diff = dump_timestamp - time_now
-                errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
-                    dump_timestamp, time_now, time_diff))
-                assert int(time_diff) in [-1, 0], errmsg
-                t_apply = dump_timestamp + (num_int * int_time)
-                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-                errmsg = 'Delays command could not be executed in the given time'
-                assert reply.reply_ok(), errmsg
-                _delays_set = reply.reply_ok()
-                time.sleep(5)
-
             dump = self.receiver.get_clean_dump()
-            _max = int(np.max(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
-            _min = int(np.min(np.angle(dump['xeng_raw'][:, 0,:][10:-10])))
-            errmsg = 'Max(%s)/Min(%s) delays found, not cleared' % (_max, _min)
+            deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+            discard = 0
+            while True:
+                dump = self.receiver.data_queue.get(timeout=10)
+                dump_timestamp = dump['dump_timestamp']
+                time_diff = np.abs(dump_timestamp - deng_timestamp)
+                print time_diff
+                if time_diff < 1:
+                    break
+                if discard > 10:
+                    raise AssertionError
+                discard += 1
+            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
+                dump_timestamp, deng_timestamp, time_diff))
+            t_apply = dump_timestamp + (num_int * int_time)
+            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            errmsg = 'Delays command could not be executed in the given time'
+            assert reply.reply_ok(), errmsg
+            dump = self.receiver.get_clean_dump(discard=10)
+            _max = int(np.max(np.angle(dump['xeng_raw'][:,33,:][5:-5])))
+            _min = int(np.min(np.angle(dump['xeng_raw'][:,0,:][5:-5])))
+            errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (_max, _min)
             assert _min ==_max == 0, errmsg
             LOGGER.info(
                 'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
             return True
         except AssertionError:
-            LOGGER.warning(errmsg + ', within %s retries.' % _retries)
+            LOGGER.warning(errmsg)
         except TypeError:
             LOGGER.exception("Object has no attributes")
             return False
         except Exception:
-            LOGGER.exception(errmsg + ', within %s retries.' % _retries)
+            LOGGER.exception(errmsg)
     return False
 
 
@@ -668,23 +677,22 @@ def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug
     :rtype: None
     """
     if spead2_warn:
-        logging.getLogger('spead2').setLevel(logging.ERROR)
+        logging.getLogger('spead2').setLevel(logging.CRITICAL)
     if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
-        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
-        logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('fxcorrelator_fengops').setLevel(logging.ERROR)
-        logging.getLogger('fhost_fpga').setLevel(logging.ERROR)
+        logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
+        logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
+        logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
+        logging.getLogger('fxcorrelator_fengops').setLevel(logging.CRITICAL)
+        logging.getLogger('fhost_fpga').setLevel(logging.CRITICAL)
     if casperfpga_debug:
-        logging.getLogger("casperfpga").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.ERROR)
-        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.register ").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.bitfield").setLevel(logging.FATAL)
+        logging.getLogger("casperfpga.bitfield").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.memory").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.register ").setLevel(logging.CRITICAL)
+        logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
     if katcp_warn:
-        logging.getLogger('katcp').setLevel(logging.ERROR)
-        logging.getLogger('tornado.application').setLevel(logging.FATAL)
+        logging.getLogger('katcp').setLevel(logging.CRITICAL)
+        logging.getLogger('tornado.application').setLevel(logging.CRITICAL)
     if plt_warn:
         import matplotlib
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
@@ -907,19 +915,6 @@ def executed_by():
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
 
-def cbf_title_report(instrument):
-    """Automagiccaly edit Sphinx index.rst file with title + instrument"""
-
-    # Use file to refer to the file object
-    with io.open("index.rst", "r+") as file:
-        data = file.read()
-    title = data[data.find('yellow')+len('yellow'):data.find('==')]
-    data = data.replace(title, '\n\n\nCBF Qualification and Acceptance Reports (%s)\n'%instrument)
-    new_data = data
-
-    with io.open("index.rst", "w+") as file:
-        file.write(new_data)
-
 def encode_passwd(pw_encrypt, key=None):
     """This function encrypts a string with base64 algorithm
     :param: pw_encrypt: Str
@@ -959,22 +954,6 @@ def create_logs_directory(self):
         os.makedirs(path)
     return path
 
-def which_instrument(self, instrument):
-    """Get running instrument, and if not instrument is running return default
-    :param: str:- instrument e.g. bc8n856M4k
-    :rtype: str:- instrument
-    """
-    running_inst = self.corr_fix.get_running_instrument()
-    try:
-        assert running_inst is not False
-        _running_inst = running_inst
-    except AssertionError:
-        _running_inst = instrument
-    except AttributeError:
-        LOGGER.exception('Something horribly went wrong, Failed to retrieve running instrument. '
-                         'Returning default instrument %s'%instrument)
-        _running_inst = instrument
-    return _running_inst
 
 class GetSensors(object):
     """Easily get sensor values without much work"""
@@ -1042,6 +1021,62 @@ class GetSensors(object):
         f_start = 0. # Center freq of the first channel
         return f_start + np.arange(n_chans) * ch_bandwidth
 
+    @property
+    def sample_period(self):
+        """
+        Get sample rate and return sample period
+        """
+        return 1/float(self.get_value('adc_sample_rate'))
+
+    @property
+    def fft_period(self):
+        """
+        Get FFT Period
+        """
+        return self.sample_period * 2 * float(self.get_value('n_chans'))
+
+    @property
+    def delta_f(self):
+        """
+        Get Correlator bandwidth
+        """
+        return float(self.get_value('bandwidth')/(self.get_value('n_chans') - 1))
+
+    def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
+        """Calculate frequency points to sweep over a test channel.
+
+        Parameters
+        =========
+        chan : int
+           Channel number around which to place frequency samples
+        samples_per_chan: int
+           Number of frequency points per channel
+        chans_around: int
+           Number of channels to include around the test channel. I.e. value 1 will
+           include one extra channel above and one below the test channel.
+
+        Will put frequency sample on channel boundary if 2 or more points per channel are
+        requested, and if will place a point in the centre of the channel if an odd number
+        of points are specified.
+
+        """
+        assert samples_per_chan > 0
+        assert chans_around > 0
+        assert 0 <= chan < self.get_value('n_chans')
+        assert 0 <= chan + chans_around < self.get_value('n_chans')
+        assert 0 <= chan - chans_around < self.get_value('n_chans')
+
+        start_chan = chan - chans_around
+        end_chan = chan + chans_around
+        if samples_per_chan == 1:
+            return self.ch_center_freqs[start_chan:end_chan + 1]
+        start_freq = self.ch_center_freqs[start_chan] - self.delta_f / 2
+        end_freq = self.ch_center_freqs[end_chan] + self.delta_f / 2
+        sample_spacing = self.delta_f / (samples_per_chan - 1)
+        num_samples = int(np.round((end_freq - start_freq) / sample_spacing)) + 1
+        return np.linspace(start_freq, end_freq, num_samples)
+
+
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
                               ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
@@ -1053,7 +1088,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         True if katsdpingest docker started
     """
     user_id = pwd.getpwuid(os.getuid()).pw_uid
-    cmd = ['sudo', 'docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
+    cmd = ['docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
            '/ramdisk:/ramdisk', 'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
            'bf_ingest.py', '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
            '--channels={}'.format(channels), '--ticks-between-spectra={}'.format(ticks_between_spectra),
@@ -1073,7 +1108,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
 
     time.sleep(5)
     try:
-        output = subprocess.check_output(['sudo', 'docker', 'ps'])
+        output = subprocess.check_output(['docker', 'ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1093,7 +1128,7 @@ def stop_katsdpingest_docker(self):
         True if katsdpingest docker container found and stopped
     """
     try:
-        output = subprocess.check_output(['sudo', 'docker','ps'])
+        output = subprocess.check_output(['docker','ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1103,7 +1138,7 @@ def stop_katsdpingest_docker(self):
     if sdp_instance:
         for idx in sdp_instance:
             try:
-                kill_output = subprocess.check_output(['sudo', 'docker', 'kill', output[idx-1]])
+                kill_output = subprocess.check_output(['docker', 'kill', output[idx-1]])
             except subprocess.CalledProcessError:
                 errmsg = 'Could not kill sdp-docker-registry container'
                 Aqf.failed(errmsg)
@@ -1120,7 +1155,7 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_time=0.1):
     """ Capture beamformer data
 
     Parameters
@@ -1131,6 +1166,8 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
         Dictionary containing input:weight key pairs e.g.
         beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
         If beam_dict = None weights will not be set
+    ingest_kcp_client:
+        katcp client for ingest node, if None one will be created.
     capture_time:
         Number of seconds to capture beam data
 
@@ -1146,15 +1183,31 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
 
     """
     beamdata_dir = '/ramdisk'
-    _timeout = 60
-    if os.uname()[1] == 'cmc2':
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
-    elif os.uname()[1] == 'cmc3':
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
-    else:
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+    _timeout = 10
 
-    ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+    import katcp
+    # Create a katcp client to connect to katcpingest if one not specified
+    if ingest_kcp_client == None:
+        if os.uname()[1] == 'cmc2':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
+        elif os.uname()[1] == 'cmc3':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
+        else:
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+        ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+        try:
+            ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
+            ingest_kcp_client.setDaemon(True)
+            ingest_kcp_client.start()
+            self.addCleanup(ingest_kcp_client.stop)
+            is_connected = ingest_kcp_client.wait_connected(_timeout)
+            if not is_connected:
+                errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
+                ingest_kcp_client.stop()
+                raise RuntimeError(errmsg)
+        except Exception as e:
+            LOGGER.exception(str(e))
+            Aqf.failed(str(e))
 
     # Build new dictionary with only the requested beam keys:value pairs
     in_wgts = {}
@@ -1164,6 +1217,8 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
             if key.find(beam_pol) != -1:
                 in_wgts[key] = beam_dict[key]
 
+        Aqf.step('Setting input weights, this may take a long time, check log output for progress...')
+        print_list = ''
         for key in in_wgts:
             LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
                 key))
@@ -1177,68 +1232,53 @@ def capture_beam_data(self, beam, beam_dict, capture_time=0.1):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
             else:
-                Aqf.passed('Antenna input {} weight set to {}'.format(key, reply.arguments[1]))
+                LOGGER.info('Antenna input {} weight set to {}'.format(key, reply.arguments[1]))
+                print_list += ('{}:{}, '.format(key,reply.arguments[1]))
+                in_wgts[key] = float(reply.arguments[1])
+        Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
     try:
-        import katcp
-        kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
-        kcp_client.setDaemon(True)
-        kcp_client.start()
-        self.addCleanup(kcp_client.stop)
-        is_connected = kcp_client.wait_connected(_timeout)
-        if not is_connected:
-            errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
-            kcp_client.stop()
-            raise RuntimeError(errmsg)
-        LOGGER.info('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
-        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
-            timeout=_timeout)
-        errmsg = 'Failed to issues capture-init on %s:%s'%(ingst_nd, ingst_nd_p)
-        assert reply.reply_ok(), errmsg
-    except Exception:
-        LOGGER.exception(errmsg)
-        Aqf.failed(errmsg)
-
-
-    try:
+        LOGGER.info('Issue {} capture start via CAM int'.format(beam))
         for i in xrange(2):
             reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
         errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
         assert reply.reply_ok(), errmsg
         reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+        errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam,str(reply))
+        assert reply.reply_ok(), errmsg
     except AssertionError:
         errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
         Aqf.failed(errmsg)
-    else:
-        LOGGER.info('Capture-init successfully issued on %s and Data transmission for '
-                    'beam %s started'%(ingst_nd, beam))
+    try:
+        LOGGER.info('Issue ingest node capture-init.')
+        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
+            timeout=_timeout)
+        errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
+    except Exception as e:
+        print e
+        LOGGER.exception(e)
+        LOGGER.exception(errmsg)
+        Aqf.failed(errmsg)
     LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
     time.sleep(capture_time)
     try:
-        LOGGER.info('Issue data capture stop via CAM int')
-        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
-        assert reply.reply_ok()
-    except AssertionError:
-        errmsg = 'Failed to stop Data transmission.'
-        Aqf.failed(errmsg)
-        LOGGER.exception(errmsg)
-
-    try:
-        if not is_connected:
-            kcp_client.stop()
-            raise RuntimeError('Could not connect to corr2_servlet, timed out.')
-
-        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-done'),
+        LOGGER.info('Issue ingest node capture-done.')
+        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-done'),
             timeout=_timeout)
-        assert reply.reply_ok()
+        errmsg = 'Failed to issues ingest node capture-done: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
     except Exception:
-        errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
         Aqf.failed(errmsg)
         LOGGER.error(errmsg)
-        return
-    else:
-        LOGGER.info('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
-            ingst_nd, beam))
+    try:
+        LOGGER.info('Issue {} capture stop via CAM int'.format(beam))
+        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+        errmsg = 'Failed to issue capture_stop for beam {}: {}'.format(beam,str(reply))
+        assert reply.reply_ok(), errmsg
+    except AssertionError:
+        Aqf.failed(errmsg)
+        LOGGER.exception(errmsg)
 
     try:
         LOGGER.info('Getting latest beam data captured in %s'%beamdata_dir)
@@ -1325,28 +1365,35 @@ def FPGA_Connect(hosts, _timeout=30):
                 return False
     return fpgas
 
-def get_clean_dump(self, discards=10, retries=20):
+def get_clean_dump(self, retries=20):
+    _captured = False
     while retries:
         retries -= 1
-        errmsg = ''
         try:
+            errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
+            discards = 10
             dump = self.receiver.get_clean_dump(discard=discards)
-            assert dump
+            assert isinstance(dump, dict), errmsg
+            dump = self.receiver.data_queue.get(timeout=10)
             dump_timestamp = dump['dump_timestamp']
-            time_now = time.time()
-            time_diff = dump_timestamp - time_now
-            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
-            dump_timestamp, time_now, time_diff))
-            assert int(time_diff) in [-1, 0], errmsg
+            dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+            time_diff = np.abs(dump_timestamp - dhost_timestamp)
+            errmsg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
+                        dump_timestamp, dhost_timestamp, time_diff))
+            # print errmsg
+            # if time_diff > 10:
+            #     raise AssertionError
+            # # assert int(time_diff) in [-1, 0], errmsg
         except AssertionError:
             LOGGER.warning(errmsg)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             LOGGER.exception(errmsg)
-            return False
+            if retries < 15:
+                return False
         else:
-            LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with epoch (%s) [diff: %s] '
-                        'within %s retries' % (dump_timestamp, time_now, time_diff, retries))
+            LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s) [diff: %s] '
+                        'within %s retries' % (dump_timestamp, dhost_timestamp, time_diff, retries))
             return dump
 
 

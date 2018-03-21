@@ -76,8 +76,8 @@ def teardown_package():
 
 
 class CorrelatorFixture(object):
-    def __init__(self, katcp_clt=None, product_name=None):
-        self.katcp_clt = katcp_clt
+    def __init__(self, katcp_client=None, product_name=None):
+        self.katcp_client = katcp_client
         self.corr_config = None
         self.corr2ini_path = None
         self._correlator = None
@@ -92,6 +92,9 @@ class CorrelatorFixture(object):
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
         self.test_config = self._test_config_file
+        self.subarray = self.test_config['inst_param']['subarray']
+        # self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
+        self.config_filename = max(iglob('/etc/corr/{}-*'.format(self.subarray)), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument
 
     @property
@@ -106,8 +109,8 @@ class CorrelatorFixture(object):
             self.io_wrapper.default_timeout = _timeout
             self.io_manager.start()
             self.rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.katcp_clt),
-                     address=('{}'.format(self.katcp_clt),
+                dict(name='{}'.format(self.katcp_client),
+                     address=('{}'.format(self.katcp_client),
                               '7147'),
                      controlled=True))
             self.rc.set_ioloop(self.io_manager.get_ioloop())
@@ -126,9 +129,6 @@ class CorrelatorFixture(object):
         if self._dhost is not None:
             return self._dhost
         else:
-            # self.config_filename = '/etc/corr/{}-{}'.format(self.array_name, self.instrument)
-            self.config_filename = '/'.join(['/etc/corr',
-                max(iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]])
             if os.path.exists(self.config_filename):
                 LOGGER.info('Retrieving dsim engine info from config file: %s' % self.config_filename)
                 self.corr_config = parse_ini_file(self.config_filename)
@@ -173,7 +173,8 @@ class CorrelatorFixture(object):
         else:  # include a check, if correlator is running else start it.
             if not self._correlator_started:
                 LOGGER.info('Correlator not running, now starting.')
-                self.start_correlator()
+                print 'Correlator not running: This shouldnt happen, fix it\n'*10
+                #self.start_correlator()
 
             # We assume either start_correlator() above has been called, or the
             # instrument was started with the name contained in self.array_name
@@ -304,8 +305,8 @@ class CorrelatorFixture(object):
                             sys.exit(errmsg)
 
             katcp_rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.katcp_clt),
-                     address=('{}'.format(self.katcp_clt), '{}'.format(self.katcp_array_port)),
+                dict(name='{}'.format(self.katcp_client),
+                     address=('{}'.format(self.katcp_client), '{}'.format(self.katcp_array_port)),
                      preset_protocol_flags=protocol_flags,
                      controlled=True))
             katcp_rc.set_ioloop(self.io_manager.get_ioloop())
@@ -513,8 +514,7 @@ class CorrelatorFixture(object):
         return: List
         """
         try:
-            # ToDo (MM) 06-10-2017 Hardcoded array, fix it
-            running_instr = max(iglob('/etc/corr/array0-*'), key=os.path.getctime).split('/')[-1]
+            running_instr = self.config_filename.split('/')[-1]
             self.array_name, self.instrument = running_instr.split('-')
             try:
                 assert '_' in self.instrument

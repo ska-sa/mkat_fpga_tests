@@ -36,7 +36,7 @@ def cls_end_aqf(cls):
                 setattr(cls, attr_name, meth_end_aqf(meth))
     return cls
 
-
+# Todo, Fix this function
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
                            plot_title='', plot_units=None, caption='', dump_counts=5,
                            show=False, ):
@@ -52,9 +52,9 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
 
     if len(actual_data) == dump_counts or len(expected_data) == dump_counts - 1:
         for phases in actual_data:
-            plt.plot(freqs, phases)
+            plt.plot(range(len(phases)), phases)
     else:
-        plt.plot(freqs, actual_data[-1], label='{0:.3f} {1}'.format(np.max(np.abs(actual_data[0])),
+        plt.plot(range(len(actual_data[-1])), actual_data[-1], label='{0:.3f} {1}'.format(np.max(np.abs(actual_data[0])),
                                                                     plot_units))
 
     plt.gca().set_prop_cycle(None)
@@ -63,9 +63,9 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
             expected_data = ((expected_data, None),)
         for label_, phases in expected_data:
             fig = plt.plot(
-                freqs, phases, '--', label='{0:.3f} {1}'.format(label_, plot_units))[0]
+                range(len(phases)), phases, '--', label='{0:.3f} {1}'.format(label_, plot_units))[0]
     else:
-        fig = plt.plot(freqs, expected_data[-1],
+        fig = plt.plot(range(len(expected_data[-1])), expected_data[-1],
                        '--', label='{0:.3f} {1}'.format(expected_data[0], plot_units))[0]
 
     axes = fig.get_axes()
@@ -353,7 +353,7 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
         # TODO Normalise plot to frequency bins
         plt.xlabel('Frequency (Hz)')
         if cutoff:
-            msg = ('Channel isolation: {0:.3f}dB'.format(cutoff))
+            msg = ('Channel isolation: {:.3f}dB'.format(cutoff))
             plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
 
         # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
