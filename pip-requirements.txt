@@ -21,7 +21,7 @@ idna==2.5
 iniparse
 ipdb
 ipynose
-ipython[all]
+ipython
 jenkinsapi
 lxml
 matplotlib==2.0.2
