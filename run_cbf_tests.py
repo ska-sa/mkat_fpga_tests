@@ -663,12 +663,14 @@ def run_nose_test(settings):
         cmd.append('-v')
         cmd.append('-s')
         cmd.append("--with-xunit")
-        cmd.append("--logging-level=INFO")
+        # cmd.append("--logging-level=INFO")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
     cmd.append("--with-katreport")
     if settings.get('use_core_json') and settings.get('json_file'):
         cmd.append("--katreport-requirements=%s" % settings['json_file'])
         cmd.append("--logging-level=DEBUG")
+    cmd.append("--logging-filter=mkat_fpga_tests,corr2.corr_rx")
+
 
     # Build the nosetests filter.
     condition = {'OR': ['aqf_system_all'], 'AND': []}

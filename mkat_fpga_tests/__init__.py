@@ -146,6 +146,7 @@ class CorrelatorFixture(object):
                 sys.exit(errmsg)
             try:
                 dig_host = self.dsim_conf['host']
+                self._dhost = None
                 self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
             except Exception:
                 errmsg = 'Digitiser Simulator failed to retrieve information'
@@ -155,15 +156,16 @@ class CorrelatorFixture(object):
                 # Check if D-eng is running else start it.
                 if self._dhost.is_running():
                     LOGGER.info('D-Eng is already running.')
+                    return self._dhost
                 # Disabled DSim programming as it would alter the systems sync epoch
-                elif program and not self._dhost.is_running():
-                    LOGGER.info('Programming and starting the Digitiser Simulator.')
-                    self._dhost.initialise()
-                    self._dhost.enable_data_output(enabled=True)
-                    self._dhost.registers.control.write(gbe_txen=True)
-                else:
-                    LOGGER.info('D-Eng started successfully')
-                return self._dhost
+                # elif program and not self._dhost.is_running():
+                #     LOGGER.info('Programming and starting the Digitiser Simulator.')
+                #     self._dhost.initialise()
+                #     self._dhost.enable_data_output(enabled=True)
+                #     self._dhost.registers.control.write(gbe_txen=True)
+                # else:
+                #     LOGGER.info('D-Eng started successfully')
+                # return self._dhost
 
     @property
     def correlator(self):
@@ -249,85 +251,62 @@ class CorrelatorFixture(object):
 
     @property
     def katcp_rct(self):
-        try:
-            katcp_prot = self.test_config['instrument_params']['katcp_protocol']
-        except TypeError:
-            LOGGER.error('Failed to read katcp protocol from test config file')
-        else:
-            _major, _minor, _flags = katcp_prot.split(',')
-            protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
-        multicast_ip = self.get_multicast_ips
-        if not multicast_ip:
-            LOGGER.error('Failed to calculate multicast IP\'s')
-            self._katcp_rct = None
-            return
-
         if self._katcp_rct is None:
             try:
-                reply, informs = self.rct.req.subordinate_list(self.array_name)
-            except TypeError:
-                msg = 'Failed to list all arrays with name: %s' %self.array_name
-                LOGGER.exception(msg)
-            # If no sub-array present create one, but this could cause problems
-            # if more than one sub-array is present. Update this to check for
-            # required sub-array.
-            if reply.reply_ok():
-                self.katcp_array_port = int(informs[0].arguments[1])
-            else:
-                LOGGER.info('Array has not been assigned yet, will try to assign.')
-                try:
-                    pass
-                    # reply, _informs = self.rct.req.subordinate_create(self.array_name, *multicast_ip)
-                    # assert reply.reply_ok()
-                except (ValueError, TypeError, AssertionError):
-                    try:
-                        reply, informs = self.rct.req.subordinate_list()
-                        assert reply.reply_ok()
-                        informs = informs[0]
-                        if len(informs.arguments) >= 10 and self.array_name == informs.arguments[0]:
-                            msg = 'Array assigned successfully: %s' %str(informs)
-                            LOGGER.info(msg)
-                        else:
-                            LOGGER.error('Halting array.')
-                            reply, informs = self.rct.req.subordinate_halt(self.array_name,
-                                timeout=_timeout)
-                            assert reply.reply_ok()
-                    except AssertionError:
-                        LOGGER.exception('Failed to assign multicast ip on array: %s: \n\nReply: %s' % (
-                            self.array_name, str(reply)))
-                else:
-                    if len(reply.arguments) == 2:
-                        try:
-                            self.katcp_array_port = int(reply.arguments[-1])
-                            LOGGER.info('Array %s assigned successfully' % (self.katcp_array_port))
-                        except ValueError:
-                            errmsg = 'Investigate as to why this thing failed.'
-                            LOGGER.exception(errmsg)
-                            sys.exit(errmsg)
+                katcp_prot = self.test_config['instrument_params']['katcp_protocol']
+                _major, _minor, _flags = katcp_prot.split(',')
+                protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
+                LOGGER.info('katcp protocol flags %s' % protocol_flags)
 
-            katcp_rc = resource_client.KATCPClientResource(
-                dict(name='{}'.format(self.katcp_client),
-                     address=('{}'.format(self.katcp_client), '{}'.format(self.katcp_array_port)),
-                     preset_protocol_flags=protocol_flags,
-                     controlled=True))
-            katcp_rc.set_ioloop(self.io_manager.get_ioloop())
-            self._katcp_rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(katcp_rc,
-                self.io_wrapper))
-            self._katcp_rct.start()
-            try:
-                self._katcp_rct.until_synced(timeout=_timeout)
-            except Exception as e:
-                self._katcp_rct.stop()
-                LOGGER.exception('Failed to connect to katcp due to %s' %str(e))
+                LOGGER.info('Getting running array.')
+                reply, informs = self.rct.req.subordinate_list(self.array_name)
+                assert reply.reply_ok()
+                # If no sub-array present create one, but this could cause problems
+                # if more than one sub-array is present. Update this to check for
+                # required sub-array.
+            except Exception:
+                LOGGER.exception('Failed to list all arrays with name: %s' %self.array_name)
+            else:
+                try:
+                    self.katcp_array_port = int(informs[0].arguments[1])
+                    assert isinstance(self.katcp_array_port, int)
+                    LOGGER.info('Current running array name: %s, port: %s' % (self.array_name,
+                        self.katcp_array_port))
+                except Exception:
+                    errmsg = ('Failed to retrieve running array, ensure one has been created and running')
+                    LOGGER.exception(errmsg)
+                    sys.exit(errmsg)
+                else:
+                    katcp_rc = resource_client.KATCPClientResource(
+                        dict(name='{}'.format(self.katcp_client),
+                             address=('{}'.format(self.katcp_client),
+                                      '{}'.format(self.katcp_array_port)),
+                             preset_protocol_flags=protocol_flags,
+                             controlled=True))
+                    katcp_rc.set_ioloop(self.io_manager.get_ioloop())
+                    self._katcp_rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(katcp_rc,
+                        self.io_wrapper))
+                    self._katcp_rct.start()
+                    try:
+                        self._katcp_rct.until_synced(timeout=_timeout)
+                    except Exception as e:
+                        self._katcp_rct.stop()
+                        LOGGER.exception('Failed to connect to katcp due to %s' %str(e))
+                    else:
+                        return self._katcp_rct
         else:
-            self._katcp_rct.start()
-            try:
-                time.sleep(1)
-                self._katcp_rct.until_synced(timeout=_timeout)
-            except Exception as e:
-                self._katcp_rct.stop()
-                LOGGER.exception('Failed to connect to katcp due to %s' %str(e))
-        return self._katcp_rct
+            if not self._katcp_rct.is_active():
+                LOGGER.info('katcp resource client wasnt running, hence we need to start it.')
+                self._katcp_rct.start()
+                try:
+                    time.sleep(1)
+                    self._katcp_rct.until_synced(timeout=_timeout)
+                    return self._katcp_rct
+                except Exception:
+                    self._katcp_rct.stop()
+                    LOGGER.exception('Failed to connect to katcp')
+            else:
+                return self._katcp_rct
 
     @property
     def issue_metadata(self):
