@@ -5513,7 +5513,7 @@ class test_CBF(unittest.TestCase):
                     LOGGER.warning('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
                     Aqf.failed('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
         # Print missed heaps
-        idx = start_substrtam
+        idx = start_substream
         for part in flags:
             missed_heaps = np.where(part>0)[0]
             if missed_heaps.size > 0:
@@ -5524,6 +5524,15 @@ class test_CBF(unittest.TestCase):
         import IPython;IPython.embed()
         return True
         flags = np.sum(flags,axis=0)
+        # Find longest run of uninterrupted data
+        # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
+        iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
+        absdiff = np.abs(np.diff(iszero))
+        # Runs start and end where absdiff is 1.
+        ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+        # Find max run
+        max_run = ranges[np.argmax(np.diff(ranges))]
+
         #cap = [0] * num_caps
         #cap = [0] * len(bf_raw.shape[1])
         cap = []
