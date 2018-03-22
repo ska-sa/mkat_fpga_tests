@@ -114,7 +114,9 @@ if __name__ == '__main__':
         print("output type: %s" % type_from.output_type)
 
     # Stepping through frequencies
-    sine_source = getattr(dhost.sine_sources,'sin_corr')
+    sine_source = getattr(dhost.sine_sources,'sin_0')
+    #sine_source = getattr(dhost.sine_sources,'sin_1')
+    #sine_source = getattr(dhost.sine_sources,'sin_corr')
     try:
         sine_source.set(scale=cw_scale, frequency=freq)
     except ValueError:
