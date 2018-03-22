@@ -904,6 +904,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0139")
     def test__design_standards_ve(self):
         self._test_global_manual("CBF.V.6.10")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.6.10*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
