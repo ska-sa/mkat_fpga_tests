@@ -365,8 +365,17 @@ def exit_handler():
                     replaceAll(_intro_doc, str(_old_name), str(_new_name))
                 time.sleep(1)
 
-            replaceAll(tex_file, 'sphinxtableofcontents',
+            with open(tex_file) as _f:
+                data_out = _f.read()
+            if 'sphinxtableofcontents' in data_out:
+
+                replaceAll(tex_file, 'sphinxtableofcontents',
                                  'sphinxtableofcontents\input{%s}' % _intro_doc)
+            elif 'tableofcontents' in data_out:
+                replaceAll(tex_file, 'tableofcontents',
+                                 'tableofcontents\input{%s}' % _intro_doc)
+            else:
+                print 'Introduction will be ignored.'
     except Exception:
         pass
     else:
