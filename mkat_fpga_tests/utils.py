@@ -1368,37 +1368,46 @@ def FPGA_Connect(hosts, _timeout=30):
                 return False
     return fpgas
 
-def get_clean_dump(self, retries=20):
-    _captured = False
+def get_clean_dump(self):
+    retries=20
     while retries:
         retries -= 1
         try:
-            errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
-            discards = 10
-            dump = self.receiver.get_clean_dump(discard=discards)
-            assert isinstance(dump, dict), errmsg
-            dump = self.receiver.data_queue.get(timeout=10)
-            dump_timestamp = dump['dump_timestamp']
+            dump = self.receiver.get_clean_dump()
             dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
-            time_diff = np.abs(dump_timestamp - dhost_timestamp)
-            errmsg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
-                        dump_timestamp, dhost_timestamp, time_diff))
-            # print errmsg
-            # if time_diff > 10:
-            #     raise AssertionError
-            # # assert int(time_diff) in [-1, 0], errmsg
+            errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
+            assert isinstance(dump, dict), errmsg
+            discard = 0
+            while True:
+                dump = self.receiver.data_queue.get(timeout=10)
+                assert isinstance(dump, dict), errmsg
+                dump_timestamp = dump['dump_timestamp']
+                time_diff = np.abs(dump_timestamp - dhost_timestamp)
+                if time_diff < 1:
+                    msg = ('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)'
+                           ' [diff: %s] within %s retries and discarded %s dumps' % (dump_timestamp,
+                            dhost_timestamp, time_diff, retries, discard))
+                    LOGGER.info(msg)
+                    break
+                else:
+                    msg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
+                                dump_timestamp, dhost_timestamp, time_diff))
+                    LOGGER.info(msg)
+                if discard > 10:
+                    errmsg = 'Could not retrieve clean queued SPEAD accumulation.'
+                    raise AssertionError, errmsg
+                discard += 1
+
         except AssertionError:
             LOGGER.warning(errmsg)
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
             LOGGER.exception(errmsg)
             if retries < 15:
+                LOGGER.exception('Exiting brutally with no Accumulation')
                 return False
         else:
-            LOGGER.info('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s) [diff: %s] '
-                        'within %s retries' % (dump_timestamp, dhost_timestamp, time_diff, retries))
             return dump
-
 
 
 class CSV_Reader(object):

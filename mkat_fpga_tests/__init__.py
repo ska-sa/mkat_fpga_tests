@@ -276,8 +276,9 @@ class CorrelatorFixture(object):
             else:
                 LOGGER.info('Array has not been assigned yet, will try to assign.')
                 try:
-                    reply, _informs = self.rct.req.subordinate_create(self.array_name, *multicast_ip)
-                    assert reply.reply_ok()
+                    pass
+                    # reply, _informs = self.rct.req.subordinate_create(self.array_name, *multicast_ip)
+                    # assert reply.reply_ok()
                 except (ValueError, TypeError, AssertionError):
                     try:
                         reply, informs = self.rct.req.subordinate_list()
@@ -645,9 +646,10 @@ class CorrelatorFixture(object):
                 if self.katcp_array_port is None:
                     LOGGER.info('Assigning array port number')
                     try:
-                        reply, _informs = self.rct.req.subordinate_create(self.array_name,
-                                                                    *multicast_ip, timeout=_timeout)
-                        assert reply.reply_ok()
+                        pass
+                        # reply, _informs = self.rct.req.subordinate_create(self.array_name,
+                        #                                             *multicast_ip, timeout=_timeout)
+                        # assert reply.reply_ok()
                     except Exception:
                         self.katcp_array_port = None
                         LOGGER.exception('Failed to assign new array: %s' %self.array_name)
