@@ -1092,7 +1092,10 @@ class test_CBF(unittest.TestCase):
             Aqf.step(msg)
             LOGGER.info(msg)
             for i in xrange(1):
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
                 time.sleep(10)
 
             _errored_sensors_ = ', '.join(sorted(list(set([i.arguments[2] for i in informs
@@ -1220,7 +1223,10 @@ class test_CBF(unittest.TestCase):
                 _give_up -= 1
                 try:
                     LOGGER.info('Waiting for the delays to be updated on sensors: %s retry' % _give_up)
-                    reply_, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                    try:
+                        reply_, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    else:
+                        reply_, informs = self.corr_fix.katcp_rct.req.sensor_value()
                     assert reply_.reply_ok()
                 except Exception:
                     LOGGER.exception('Weirdly I could not get the sensor values')
@@ -2270,7 +2276,7 @@ class test_CBF(unittest.TestCase):
             input_labels = sorted(self.cam_sensors.input_labels)
             inputs_to_plot = random.shuffle(input_labels)
             inputs_to_plot = input_labels[:8]
-            import IPython; globals().update(locals()); IPython.embed(header='get list of autocorr and cross corr')
+            bls_to_plot = [0, 2, 4, 8, 11, 14, 23, 33]
             baselines_lookup = get_baselines_lookup(self)
             present_baselines = sorted(baselines_lookup.keys())
             possible_baselines = set()
@@ -2929,7 +2935,10 @@ class test_CBF(unittest.TestCase):
                             try:
                                 LOGGER.info('Waiting for the delays to be updated on sensors: '
                                             '%s retry' % _give_up)
-                                reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                                try:
+                                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                                except:
+                                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
                                 assert reply.reply_ok()
                             except Exception:
                                 LOGGER.exception('Weirdly I couldnt get the sensor values')
@@ -3169,7 +3178,10 @@ class test_CBF(unittest.TestCase):
 
         try:
             Aqf.step('Confirm all F-engines do not contain PFB errors/warnings')
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+            try:
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
+            except:
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
             assert reply.reply_ok()
         except Exception:
             msg = 'Failed to retrieve sensor values via CAM interface'
@@ -3196,7 +3208,10 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(self.correlator.sensor_poll_time * 3, msg)
 
             Aqf.step('Check if all F-engines contain(s) PFB errors/warnings')
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+            try:
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
+            except:
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
             assert reply.reply_ok()
         except Exception:
             msg = 'Failed to retrieve sensor values via CAM interface'
@@ -3259,8 +3274,12 @@ class test_CBF(unittest.TestCase):
                 engine_type = 'xeng'
 
             try:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(
-                    '%s-%s-lru-ok'.format(host.host, engine_type))
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(
+                        '%s-%s-lru-ok'.format(host.host, engine_type))
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value(
+                        '%s-%s-lru-ok'.format(host.host, engine_type))
             except:
                 Aqf.failed('Could not get sensor attributes on %s'.format(host.host))
             else:
@@ -3337,7 +3356,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('This test confirms that each processing node\'s sensor (Temp, Voltage, Current, '
                  'Fan) has not FAILED, Reports only errors.')
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+            try:
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            except:
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
             assert reply.reply_ok()
         except AssertionError:
             errmsg = 'Failed to retrieve sensors via CAM interface'
@@ -4071,7 +4093,10 @@ class test_CBF(unittest.TestCase):
                 _give_up -= 1
                 try:
                     LOGGER.info('Waiting for the delays to be updated')
-                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                    try:
+                        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    except:
+                        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
                     assert reply.reply_ok()
                 except Exception:
                     LOGGER.exception('Weirdly I couldnt get the sensor values')
