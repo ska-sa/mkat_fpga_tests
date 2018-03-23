@@ -39,7 +39,6 @@ import ntplib
 import numpy as np
 import pandas as pd
 
-from concurrent.futures import TimeoutError
 from corr2.corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
@@ -50,6 +49,7 @@ from katcp.testutils import start_thread_with_cleanup
 from datetime import datetime
 
 from mkat_fpga_tests import correlator_fixture
+from mkat_fpga_tests import add_cleanup
 
 from mkat_fpga_tests.aqf_utils import *
 from mkat_fpga_tests.utils import *
@@ -57,12 +57,10 @@ from nosekatreport import *
 from descriptions import TestProcedure
 from power_logger import PowerLogger
 
-LOGGER = logging.getLogger('mkat_fpga_tests')
-# LOGGER = logging.getLogger(__name__)
-
+logger_name = 'mkat_fpga_tests'
+LOGGER = logging.getLogger(logger_name)
 # How long to wait for a correlator dump to arrive in tests
 DUMP_TIMEOUT = 10
-
 # ToDo MM (2017-07-21) Improve the logging for debugging
 set_dsim_epoch = False
 dsim_timeout = 60
@@ -71,18 +69,24 @@ dsim_timeout = 60
 @system('all')
 class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
-
-    receiver = None
     # Hard-coded, perhaps fix this later
-    _csv_filename = 'docs/Manual_Tests.csv'
+    cur_path = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
+    _csv_filename = os.path.join(cur_path, 'docs/Manual_Tests.csv')
+    _images_dir = os.path.join(cur_path, 'docs/manual_tests_images')
+
     if os.path.exists(_csv_filename):
         csv_manual_tests = CSV_Reader(_csv_filename, set_index="Verification Event Number")
 
     def setUp(self):
         global set_dsim_epoch
+        super(test_CBF, self).setUp()
+        self.receiver = None
         self._dsim_set = False
         self.corr_fix = correlator_fixture
+        self.logs_path = None
+        errmsg = 'Unknown'
         try:
+            self.logs_path = create_logs_directory(self)
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client  = self.conf_file['instrument_params']['katcp_client']
         except Exception:
@@ -91,33 +95,22 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
         try:
             self.dhost = self.corr_fix.dhost
-            assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost)
-            assert self.dhost.is_running()
-            self.dhost.get_system_information(filename=self.dhost.config.get('bitstream'))
-            self._dsim_set = True
-        except AssertionError:
-            errmsg = 'For some apparent reason, DSim (%s) is not running' % self.dhost.host
-            LOGGER.exception(errmsg)
-            Aqf.end(message=errmsg)
-            sys.exit(errmsg)
         except Exception:
-            errmsg = ('Failed to connect to retrieve digitiser simulator information, ensure that '
-                      'the correct digitiser simulator is running.')
             LOGGER.exception(errmsg)
-            Aqf.end(message=errmsg)
-            sys.exit(errmsg)
         else:
-            self.logs_path = None
-            self.logs_path = create_logs_directory(self)
 
             # See: https://docs.python.org/2/library/functions.html#super
-            super(test_CBF, self).setUp()
-            self._hosts = list(np.concatenate(
-                [i.get('hosts', None).split(',') for i in self.corr_fix.corr_config.values()
-                if i.get('hosts')]))
             if set_dsim_epoch is False:
-                errmsg = ''
                 try:
+                    errmsg = 'For some apparent reason, DSim (%s) is not running' % self.dhost.host
+                    assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost), errmsg
+                    errmsg = ('Failed to connect to retrieve digitiser simulator information, '
+                              'ensure that the correct digitiser simulator is running.')
+                    if not self.dhost.is_running():
+                        Aqf.end(message=errmsg)
+                        sys.exit(errmsg)
+                    self.dhost.get_system_information(filename=self.dhost.config.get('bitstream'))
+                    LOGGER.info('This should only run once...')
                     errmsg = 'Issues with the defined instrument, figure it out'
                     assert isinstance(self.corr_fix.instrument, str), errmsg
                     # cbf_title_report(self.corr_fix.instrument)
@@ -135,34 +128,32 @@ class test_CBF(unittest.TestCase):
                     reply, informs = self.corr_fix.katcp_rct.req.digitiser_synch_epoch(sync_time)
                     errmsg = 'Failed to set digitiser sync epoch'
                     assert reply.reply_ok(), errmsg
-                    LOGGER.info('Digitiser sync epoch set to :%s' % reply.arguments[-1])
-                except AssertionError:
-                    Aqf.failed(errmsg)
-                    LOGGER.exception(errmsg)
-                except AttributeError as e:
-                    errmsg = 'Attribute Error: %s' % (str(e))
-                    Aqf.failed(errmsg)
-                    LOGGER.exception(errmsg)
-                else:
+                    LOGGER.info('Digitiser sync epoch set successfully')
                     set_dsim_epoch = True
+                    self._dsim_set = True
+                except Exception:
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
+
+    # This needs proper testing
+    def tearDown(self):
+        try:
+            assert not self.receiver
+        except AssertionError:
+            LOGGER.info('Cleaning up the receiver!!!!')
+            add_cleanup(self.receiver.stop)
+            self.receiver = None
+            del self.receiver
+
 
     def set_instrument(self, acc_time=None, **kwargs):
+        self.receiver = None
         acc_timeout = 60
         self.errmsg = None
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
         self.cam_sensors = GetSensors(self.corr_fix)
         self.addCleanup(init_dsim_sources, self.dhost)
-
-        try:
-            self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
-        except Exception:
-            pass
-        else:
-            LOGGER.info('Spead2 capturing thread clean-up: %s' % threading._active)
-            self.receiver.stop()
-            self.receiver = None
-            del self.receiver
 
         try:
             Aqf.step('Confirm running instrument, else start a new instrument')
@@ -213,7 +204,7 @@ class test_CBF(unittest.TestCase):
             output_product = self.conf_file.get('output_product', 'baseline-correlation-products')
             data_output_ip, data_output_port = self.cam_sensors.get_value(
                     output_product.replace('-','_') + '_destination').split(':')
-            Aqf.step('SPEAD receiver listening on %s:%s, CBF output product: %s' % (
+            Aqf.step('Starting SPEAD receiver listening on %s:%s, CBF output product: %s' % (
                 data_output_ip, data_output_port, output_product))
             katcp_ip = self.corr_fix.katcp_client
             katcp_port = int(self.corr_fix.katcp_rct.port)
@@ -229,11 +220,8 @@ class test_CBF(unittest.TestCase):
                     katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
                                                                             stop_channels))
             else:
-                # Todo, uncomments below line
                 self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
-                    katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
-                                                                            stop_channels))
-                    # katcp_port=katcp_port, port=data_output_port)
+                    katcp_port=katcp_port, port=data_output_port)
 
             self.receiver.setName('CorrRx Thread')
             self.errmsg = 'Failed to create SPEAD data receiver'
@@ -266,7 +254,7 @@ class test_CBF(unittest.TestCase):
     @instrument_4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
-    def test__channelisation_wideband_course(self):
+    def test_channelisation_wideband_course(self):
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -283,7 +271,7 @@ class test_CBF(unittest.TestCase):
     @instrument_32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
-    def test__channelisation_wideband_fine(self):
+    def test_channelisation_wideband_fine(self):
         # Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -301,7 +289,7 @@ class test_CBF(unittest.TestCase):
     @instrument_4k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
-    def test__channelisation_wideband_course_sfdr_peaks(self):
+    def test_channelisation_wideband_course_sfdr_peaks(self):
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -318,7 +306,7 @@ class test_CBF(unittest.TestCase):
     @instrument_32k
     @aqf_vr('CBF.V.3.30')
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
-    def test__channelisation_wideband_fine_sfdr_peaks(self):
+    def test_channelisation_wideband_fine_sfdr_peaks(self):
         # Aqf.procedure(TestProcedure.ChannelisationSFDR)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -334,7 +322,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.46')
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
-    def test__power_consumption(self):
+    def test_power_consumption(self):
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -344,7 +332,7 @@ class test_CBF(unittest.TestCase):
     # @generic_test
     # @aqf_vr('CBF.V.3.35')
     # @aqf_requirements("CBF-REQ-0124")
-    # def test__beamformer_efficiency(self):
+    # def test_beamformer_efficiency(self):
     #     Aqf.procedure(TestProcedure.BeamformerEfficiency)
     #     try:
     #         assert eval(os.getenv('DRY_RUN', 'False'))
@@ -359,7 +347,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.4.10')
     @aqf_requirements("CBF-REQ-0127")
-    def test__lband_efficiency(self):
+    def test_lband_efficiency(self):
         Aqf.procedure(TestProcedure.LBandEfficiency)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -373,7 +361,7 @@ class test_CBF(unittest.TestCase):
     @instrument_4k
     @aqf_vr('CBF.V.3.34')
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
-    def test__beamforming(self):
+    def test_beamforming(self):
         Aqf.procedure(TestProcedure.Beamformer)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -384,23 +372,23 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    #Test still under development, Alec will put it under test__informal
-    @instrument_4k
-    def test__beamforming_timeseries(self):
-        #Aqf.procedure(TestProcedure.Beamformer)
-        try:
-            assert eval(os.getenv('DRY_RUN', 'False'))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_beamforming_timeseries()
-            else:
-                Aqf.failed(self.errmsg)
+    # Test still under development, Alec will put it under test_informal
+    # @instrument_4k
+    # def test_beamforming_timeseries(self):
+    #     #Aqf.procedure(TestProcedure.Beamformer)
+    #     try:
+    #         assert eval(os.getenv('DRY_RUN', 'False'))
+    #     except AssertionError:
+    #         instrument_success = self.set_instrument()
+    #         if instrument_success:
+    #             self._test_beamforming_timeseries()
+    #         else:
+    #             Aqf.failed(self.errmsg)
 
     @generic_test
     @aqf_vr('CBF.V.4.4')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
-    def test__baseline_correlation_product(self):
+    def test_baseline_correlation_product(self):
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -417,7 +405,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.62')
     @aqf_requirements("CBF-REQ-0238")
-    def test__imaging_data_product_set(self):
+    def test_imaging_data_product_set(self):
         Aqf.procedure(TestProcedure.ImagingDataProductSet)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -431,7 +419,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr("CBF.V.3.67")
     @aqf_requirements("CBF-REQ-0120")
-    def test__tied_array_aux_baseline_correlation_products(self):
+    def test_tied_array_aux_baseline_correlation_products(self):
         Aqf.procedure(TestProcedure.TiedArrayAuxBaselineCorrelationProducts)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -445,7 +433,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr("CBF.V.3.64")
     @aqf_requirements("CBF-REQ-0242")
-    def test__tied_array_voltage_data_product_set(self):
+    def test_tied_array_voltage_data_product_set(self):
         Aqf.procedure(TestProcedure.TiedArrayVoltageDataProductSet)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -460,7 +448,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.4.7')
     @aqf_requirements("CBF-REQ-0096")
-    def test__accumulation_length(self):
+    def test_accumulation_length(self):
         # The CBF shall set the Baseline Correlation Products accumulation interval to a fixed time
         # in the range $$500 +0 -20ms$$.
         Aqf.procedure(TestProcedure.VectorAcc)
@@ -482,7 +470,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.4.9')
     @aqf_requirements("CBF-REQ-0119")
-    def test__gain_correction(self):
+    def test_gain_correction(self):
         # The CBF shall apply gain correction per antenna, per polarisation, per frequency channel
         # with a range of at least $$\pm 6 \; dB$$ and a resolution of $$\le 1 \; db$$.
         Aqf.procedure(TestProcedure.GainCorr)
@@ -498,14 +486,14 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.4.23')
     @aqf_requirements("CBF-REQ-0013")
-    def test__product_switch(self):
+    def test_product_switch(self):
         # The CBF shall, on request via the CAM interface, switch between Sub-Array data product
         #  combinations, using the same combination of Receptors, in less than 60 seconds.
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            Aqf.waived("This requirement is currently not being tested.")
+            Aqf.failed("This requirement is currently not being tested in this release.")
             # _running_inst = which_instrument(self, instrument)
             # instrument_success = self.set_instrument()
             # if instrument_success:
@@ -517,7 +505,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.31')
     @aqf_requirements("CBF-REQ-0066", "CBF-REQ-0072", "CBF-REQ-0077", "CBF-REQ-0110", "CBF-REQ-0200")
-    def test__delay_phase_compensation_control(self):
+    def test_delay_phase_compensation_control(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation_Control)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -533,7 +521,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.32')
     @aqf_requirements("CBF-REQ-0112", "CBF-REQ-0128", "CBF-REQ-0185", "CBF-REQ-0187", "CBF-REQ-0188")
-    def test__delay_phase_compensation_functional(self):
+    def test_delay_phase_compensation_functional(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -553,7 +541,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.27')
     @aqf_requirements("CBF-REQ-0178")
-    def test__report_configuration(self):
+    def test_report_configuration(self):
         # The CBF shall, on request via the CAM interface, report sensors that identify the installed
         # configuration of the CBF unambiguously, including hardware, software and firmware part
         # numbers and versions.
@@ -571,7 +559,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.29')
     @aqf_requirements("CBF-REQ-0067")
-    def test__systematic_error_reporting(self):
+    def test_systematic_error_reporting(self):
         # The CBF shall detect and flag data where the signal integrity has been compromised due to:
         #     a. Digitiser data acquisition and/or signal processing (e.g. ADC saturation),
         #     b. Signal processing and/or data manipulation performed in the CBF (e.g. FFT overflow).
@@ -588,7 +576,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.28')
     @aqf_requirements("CBF-REQ-0157")
-    def test__fault_detection(self):
+    def test_fault_detection(self):
         # The CBF shall monitor functions which are in use, and report detected failures of those
         # functions including but not limited to:
         #     a) processing pipeline failures
@@ -603,14 +591,19 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 # self._test_network_link_error()
                 # self._test_memory_error()
-                pass
+                test_heading('Processing Pipeline Failures')
+                Aqf.note("Test is being qualified by CBF.V.3.29")
+                test_heading('HMC Memory errors')
+                Aqf.note("See waiver")
+                test_heading('Network Link errors')
+                Aqf.note("See waiver")
             else:
                 Aqf.failed(self.errmsg)
 
     @generic_test
     @aqf_vr('CBF.V.3.26')
     @aqf_requirements("CBF-REQ-0056", "CBF-REQ-0068", "CBF-REQ-0069")
-    def test__monitor_sensors(self):
+    def test_monitor_sensors(self):
         # The CBF shall report the following transient search monitoring data:
         #     a) Transient buffer ready for triggering
         # The CBF shall, on request via the CAM interface, report sensor values.
@@ -630,7 +623,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.3.38')
     @aqf_requirements("CBF-REQ-0203")
-    def test__time_synchronisation(self):
+    def test_time_synchronisation(self):
         Aqf.procedure(TestProcedure.TimeSync)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -640,7 +633,7 @@ class test_CBF(unittest.TestCase):
     @generic_test
     @aqf_vr('CBF.V.4.26')
     @aqf_requirements("CBF-REQ-0083", "CBF-REQ-0084", "CBF-REQ-0085", "CBF-REQ-0086", "CBF-REQ-0221")
-    def test__antenna_voltage_buffer(self):
+    def test_antenna_voltage_buffer(self):
         Aqf.procedure(TestProcedure.VoltageBuffer)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -670,6 +663,9 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0071", "CBF-REQ-0204")
     def test__control(self):
         self._test_global_manual("CBF.V.3.37")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.37*'))
+        Report_Images(image_files)
+
 
     @manual_test
     @generic_test
@@ -721,6 +717,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0197")
     def test__cots_lru_status_and_display_ve(self):
         self._test_global_manual("CBF.V.3.18")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.18*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
@@ -756,6 +754,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0152", "CBF-REQ-0153", "CBF-REQ-0154", "CBF-REQ-0155", "CBF-REQ-0184")
     def test__item_marking_and_labelling_ve(self):
         self._test_global_manual("CBF.V.3.23")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.23*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
@@ -770,6 +770,9 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0060", "CBF-REQ-0177", "CBF-REQ-0196")
     def test__logging_ve(self):
         self._test_global_manual("CBF.V.3.25")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.25*'))
+        Report_Images(image_files)
+
 
     @manual_test
     @generic_test
@@ -791,6 +794,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0140")
     def test__cooling_method_ve(self):
         self._test_global_manual("CBF.V.3.39")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.39*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
@@ -829,7 +834,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0156")
     def test__product_marking_environmentals_ve(self):
         self._test_global_manual("CBF.V.3.44")
-
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.44*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
@@ -880,6 +886,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0150", "CBF-REQ-0151")
     def test__lru_replacement_ve(self):
         self._test_global_manual("CBF.V.3.54")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.54*'))
+        Report_Images(image_files)
 
     @untested
     @manual_test
@@ -897,6 +905,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0138")
     def test__design_to_emc_sans_standard_ve(self):
         self._test_global_manual("CBF.V.6.9")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.6.9*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
@@ -904,6 +914,8 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0139")
     def test__design_standards_ve(self):
         self._test_global_manual("CBF.V.6.10")
+        image_files = sorted(glob.glob(self._images_dir + '/CBF.V.6.10*'))
+        Report_Images(image_files)
 
     @manual_test
     @generic_test
@@ -934,7 +946,7 @@ class test_CBF(unittest.TestCase):
     # @generic_test
     # @aqf_vr('CBF.V.3.61')
     # @aqf_requirements("CBF-REQ-0007")
-    # def test__vlbi_data_product(self):
+    # def test_1_vlbi_data_product(self):
     #     Aqf.procedure("TBD")
     #     Aqf.not_tested("This requirement will not be qualified on AR3.")
 
@@ -942,7 +954,7 @@ class test_CBF(unittest.TestCase):
     # @generic_test
     # @aqf_vr('CBF.V.3.68')
     # @aqf_requirements("CBF-REQ-0025.1")
-    # def test__data_product_xband(self):
+    # def test_1_data_product_xband(self):
     #     Aqf.procedure("TBD")
     #     Aqf.not_tested("This requirement will not be qualified on AR3.")
 
@@ -1090,7 +1102,10 @@ class test_CBF(unittest.TestCase):
             Aqf.step(msg)
             LOGGER.info(msg)
             for i in xrange(1):
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
                 time.sleep(10)
 
             _errored_sensors_ = ', '.join(sorted(list(set([i.arguments[2] for i in informs
@@ -1218,7 +1233,10 @@ class test_CBF(unittest.TestCase):
                 _give_up -= 1
                 try:
                     LOGGER.info('Waiting for the delays to be updated on sensors: %s retry' % _give_up)
-                    reply_, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                    try:
+                        reply_, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    else:
+                        reply_, informs = self.corr_fix.katcp_rct.req.sensor_value()
                     assert reply_.reply_ok()
                 except Exception:
                     LOGGER.exception('Weirdly I could not get the sensor values')
@@ -1590,15 +1608,14 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             return
         else:
-
             bls_to_test = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
             Aqf.progress('Randomly selected frequency channel to test: {} and '
                          'selected baseline {} / {} to test.'.format(test_chan, test_baseline,
                             bls_to_test))
-            Aqf.equals(np.shape(initial_dump['xeng_raw'])[0], no_channels,
+            Aqf.equals(4096, no_channels,
                        'Confirm that the number of channels in the SPEAD accumulation, is equal '
                        'to the number of frequency channels as calculated: {}'.format(
-                           np.shape(initial_dump['xeng_raw'])[0]))
+                          no_channels))
             Aqf.step('The CBF, when configured to produce the Imaging data product set and Wideband '
                     'Fine resolution channelisation, shall channelise a total bandwidth of >= %s' %(
                         min_bandwithd_req))
@@ -1612,7 +1629,7 @@ class test_CBF(unittest.TestCase):
             # Maybe we should be reporting this as a fraction of total sampling rate rather than
             # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
             # chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
-            chan_spacing = self.cam_sensors.get_value('bandwidth') / initial_dump['xeng_raw'].shape[0]
+            chan_spacing = self.cam_sensors.get_value('bandwidth') / self.cam_sensors.get_value('n_chans')
             chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
                                 chan_spacing + (chan_spacing * 1 / 100)]
             Aqf.step('CBF-REQ-0043 and CBF-REQ-0053 Confirm that the number of calculated channel '
@@ -2253,7 +2270,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels via Cam interface.')
         try:
-            test_dump = self.receiver.get_clean_dump(discard=50)
+            test_dump = get_clean_dump(self)
             self.assertIsInstance(test_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2266,6 +2283,9 @@ class test_CBF(unittest.TestCase):
 
             bls_ordering = eval(self.cam_sensors.get_value('bls_ordering'))
             input_labels = sorted(self.cam_sensors.input_labels)
+            inputs_to_plot = random.shuffle(input_labels)
+            inputs_to_plot = input_labels[:8]
+            bls_to_plot = [0, 2, 4, 8, 11, 14, 23, 33]
             baselines_lookup = get_baselines_lookup(self)
             present_baselines = sorted(baselines_lookup.keys())
             possible_baselines = set()
@@ -2291,7 +2311,6 @@ class test_CBF(unittest.TestCase):
                     plot_baseline_inds.append(baselines_lookup[bl])
                 else:
                     plot_baseline_inds.append(baselines_lookup[bl[::-1]])
-
 
             plot_baseline_legends = tuple('{bl[0]}, {bl[1]}: {ind}'.format(bl=bl, ind=ind)
                 for bl, ind in zip(plot_baselines, plot_baseline_inds))
@@ -2388,7 +2407,7 @@ class test_CBF(unittest.TestCase):
                     try:
                         Aqf.step('Retrieving SPEAD accumulation and confirm if gain/equalisation '
                                  'correction has been applied.')
-                        test_dump = self.receiver.get_clean_dump(discard=50)
+                        test_dump = get_clean_dump(self)
                         self.assertIsInstance(test_dump, dict)
                     except Exception:
                         errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2397,25 +2416,24 @@ class test_CBF(unittest.TestCase):
                     else:
                         test_data = test_dump['xeng_raw']
                         # plot baseline channel response
-                        plot_data = [normalised_magnitude(test_data[:, i, :])
-                                     # plot_data = [loggerise(test_data[:, i, :])
-                                     for i in plot_baseline_inds]
-                        plot_filename = '{}/{}_channel_resp_{}.png'.format(self.logs_path,
-                                        self._testMethodName.replace(' ', '_'), inp)
+                        if inp in inputs_to_plot:
+                            plot_data = [normalised_magnitude(test_data[:, i, :])
+                                         # plot_data = [loggerise(test_data[:, i, :])
+                                         for i in plot_baseline_inds]
+                            plot_filename = '{}/{}_channel_resp_{}.png'.format(self.logs_path,
+                                            self._testMethodName.replace(' ', '_'), inp)
 
-                        plot_title = ('Baseline Correlation Products on input: {}\n'
-                                      'Bls channel response \'Non-Zero\' inputs:\n {}\n'
-                                      '\'Zero\' inputs:\n {}'.format(inp,
-                                      ' \n'.join(textwrap.wrap(', \n'.join(sorted(nonzero_inputs)))),
-                                      ' \n'.join(textwrap.wrap(', \n'.join(sorted(zero_inputs))))))
+                            plot_title = ('Baseline Correlation Products on input: %s' % inp)
 
-                        _caption = ('Baseline channel response on input:{} {} with the following non-zero'
-                                   ' inputs:\n {} \n and\nzero inputs:\n {}'.format(inp, bls_msg,
-                                   ', '.join(sorted(nonzero_inputs)), ', '.join(sorted(zero_inputs))))
+                            _caption = ('Baseline Correlation Products on input:{} {} with the '
+                                        'following non-zero inputs:\n {} \n '
+                                        'and\nzero inputs:\n {}'.format(inp, bls_msg,
+                                        ', '.join(sorted(nonzero_inputs)),
+                                        ', '.join(sorted(zero_inputs))))
 
-                        aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
-                                          plot_title, log_dynamic_range=None, log_normalise_to=1,
-                                          caption=_caption, ylimits=(-0.1, np.max(plot_data) + 0.1))
+                            aqf_plot_channels(zip(plot_data, plot_baseline_legends), plot_filename,
+                                              plot_title, log_dynamic_range=None, log_normalise_to=1,
+                                              caption=_caption, ylimits=(-0.1, np.max(plot_data) + 0.1))
                         actual_nz_bls_indices = all_nonzero_baselines(test_data)
                         actual_nz_bls = set([tuple(bls_ordering[i]) for i in actual_nz_bls_indices])
 
@@ -2926,7 +2944,10 @@ class test_CBF(unittest.TestCase):
                             try:
                                 LOGGER.info('Waiting for the delays to be updated on sensors: '
                                             '%s retry' % _give_up)
-                                reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                                try:
+                                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                                except:
+                                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
                                 assert reply.reply_ok()
                             except Exception:
                                 LOGGER.exception('Weirdly I couldnt get the sensor values')
@@ -3166,7 +3187,10 @@ class test_CBF(unittest.TestCase):
 
         try:
             Aqf.step('Confirm all F-engines do not contain PFB errors/warnings')
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+            try:
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
+            except:
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
             assert reply.reply_ok()
         except Exception:
             msg = 'Failed to retrieve sensor values via CAM interface'
@@ -3193,7 +3217,10 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(self.correlator.sensor_poll_time * 3, msg)
 
             Aqf.step('Check if all F-engines contain(s) PFB errors/warnings')
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+            try:
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
+            except:
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
             assert reply.reply_ok()
         except Exception:
             msg = 'Failed to retrieve sensor values via CAM interface'
@@ -3256,8 +3283,12 @@ class test_CBF(unittest.TestCase):
                 engine_type = 'xeng'
 
             try:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(
-                    '%s-%s-lru-ok'.format(host.host, engine_type))
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(
+                        '%s-%s-lru-ok'.format(host.host, engine_type))
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value(
+                        '%s-%s-lru-ok'.format(host.host, engine_type))
             except:
                 Aqf.failed('Could not get sensor attributes on %s'.format(host.host))
             else:
@@ -3334,7 +3365,10 @@ class test_CBF(unittest.TestCase):
         Aqf.step('This test confirms that each processing node\'s sensor (Temp, Voltage, Current, '
                  'Fan) has not FAILED, Reports only errors.')
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+            try:
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            except:
+                reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
             assert reply.reply_ok()
         except AssertionError:
             errmsg = 'Failed to retrieve sensors via CAM interface'
@@ -4068,7 +4102,10 @@ class test_CBF(unittest.TestCase):
                 _give_up -= 1
                 try:
                     LOGGER.info('Waiting for the delays to be updated')
-                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                    try:
+                        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    except:
+                        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
                     assert reply.reply_ok()
                 except Exception:
                     LOGGER.exception('Weirdly I couldnt get the sensor values')
@@ -4289,10 +4326,11 @@ class test_CBF(unittest.TestCase):
                 pass
 
         test_heading('CBF Processing Node Version Information')
-        try:
-            assert 'roach' in str(self._hosts)
-        except Exception:
-            get_skarab_config()
+        self._hosts = list(np.concatenate(
+                        [i.get('hosts', None).split(',') for i in self.corr_fix.corr_config.values()
+                        if i.get('hosts')]))
+
+        get_skarab_config()
 
     def _test_data_product(self, _baseline=False, _tiedarray=False):
         """CBF Imaging Data Product Set"""

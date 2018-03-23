@@ -582,7 +582,12 @@ def generate_sphinx_docs(settings):
             orig_names = ['Doctype', 'DocNumber', 'DocRevision', 'DocumentTitle']
             if settings.get('gen_qtr', False):
                 logger.debug('Making fixes for QTR on Cover page')
-                _system_type = ' (%s) ' % settings.get('system_type', 'Unknown')
+                instrument_running = settings.get('system_type', 'Unknown')
+                if int(instrument_running[2:instrument_running.find('n856')]) >= 16:
+                    _system_type = ' (%s [Tested only Half-Band(2k)]) ' % settings.get('system_type',
+                        'Unknown')
+                else:
+                    _system_type = ' (%s) ' % settings.get('system_type', 'Unknown')
                 _document_num = document_data['document_number'].get(
                     document_data.get('documented_instrument', 'Unknown'), 'Unknown')[0]
                 _document_title = _document_title.replace('Qualification',
@@ -663,12 +668,14 @@ def run_nose_test(settings):
         cmd.append('-v')
         cmd.append('-s')
         cmd.append("--with-xunit")
-        cmd.append("--logging-level=INFO")
+        # cmd.append("--logging-level=INFO")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
     cmd.append("--with-katreport")
     if settings.get('use_core_json') and settings.get('json_file'):
         cmd.append("--katreport-requirements=%s" % settings['json_file'])
         cmd.append("--logging-level=DEBUG")
+    cmd.append("--logging-filter=mkat_fpga_tests,corr2.corr_rx")
+
 
     # Build the nosetests filter.
     condition = {'OR': ['aqf_system_all'], 'AND': []}

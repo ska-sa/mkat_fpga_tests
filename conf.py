@@ -200,7 +200,7 @@ except Exception as e:
 latex_elements = {
     'papersize': 'a4paper',
     'preamble': r"""
-    \geometry{a4paper, total={170mm,257mm}, left=20mm, top=20mm,}
+    % \geometry{a4paper, total={170mm,257mm}, left=20mm, top=20mm,}
     \usepackage{paralist}
     \usepackage{color}
     % http://users.sdsc.edu/~ssmallen/latex/longtable.html
@@ -300,6 +300,7 @@ def exit_handler():
                         r'\(\phi_{TA}(f\) = -2*\pi*f_{RF}*\tau_{TA}\)',
                         r'Fly’92s',
                         r'19‘94 racks',
+                        r'\noindent\sphinxincludegraphics[width=0.800\linewidth]',
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
@@ -332,6 +333,7 @@ def exit_handler():
                         r'$\phi${\footnotesize TA}(f) = -2 * $\pi$ * f{\footnotesize RF} * $\tau{\footnotesize TA}$',
                         r"Fly's",
                         r'19" racks',
+                        r'\noindent\sphinxincludegraphics[width=0.500\linewidth]',
                         # "{longtable}[c]{|l|l|l|}",
                         # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
                         # "end{longtable}",
@@ -363,8 +365,17 @@ def exit_handler():
                     replaceAll(_intro_doc, str(_old_name), str(_new_name))
                 time.sleep(1)
 
-            replaceAll(tex_file, 'sphinxtableofcontents',
+            with open(tex_file) as _f:
+                data_out = _f.read()
+            if 'sphinxtableofcontents' in data_out:
+
+                replaceAll(tex_file, 'sphinxtableofcontents',
                                  'sphinxtableofcontents\input{%s}' % _intro_doc)
+            elif 'tableofcontents' in data_out:
+                replaceAll(tex_file, 'tableofcontents',
+                                 'tableofcontents\input{%s}' % _intro_doc)
+            else:
+                print 'Introduction will be ignored.'
     except Exception:
         pass
     else:

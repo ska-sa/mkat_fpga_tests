@@ -691,21 +691,16 @@ def disable_warnings_messages():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
+    ignored_loggers = [
+        "casperfpga", "casperfpga.casperfpga", "casperfpga.bitfield", "casperfpga.katcp_fpg",
+        "casperfpga.memory", "casperfpga.register", "casperfpga.transport_katcp",
+        "casperfpga.transort_skarab", "corr2.corr_rx", "corr2.fhost_fpga", "corr2.fhost_fpga",
+        "corr2.fxcorrelator_engops", "corr2.xhst_fpga", "katcp", "spead2", "tornado.application"
+        ]
     # Ignore all loggings except Critical if any
-    logging.getLogger("casperfpga.bitfield").setLevel(logging.CRITICAL)
-    logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.CRITICAL)
-    logging.getLogger("casperfpga.memory").setLevel(logging.CRITICAL)
-    logging.getLogger("casperfpga.register").setLevel(logging.CRITICAL)
-    logging.getLogger("casperfpga.transport_katcp").setLevel(logging.CRITICAL)
-    logging.getLogger("corr2.corr_rx").setLevel(logging.CRITICAL)
-    logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
-    logging.getLogger('corr2.fhost_fpga').setLevel(logging.CRITICAL)
-    logging.getLogger('corr2.fxcorrelator_fengops').setLevel(logging.CRITICAL)
-    logging.getLogger('corr2.xhost_fpga').setLevel(logging.CRITICAL)
-    logging.getLogger('katcp').setLevel(logging.CRITICAL)
-    logging.getLogger('spead2').setLevel(logging.CRITICAL)
-    logging.getLogger('tornado.application').setLevel(logging.CRITICAL)
-
+    for logger_name in ignored_loggers:
+        logging.getLogger(logger_name).setLevel(logging.CRITICAL)
+    logging.getLogger('nose.plugins.nosekatreport').setLevel(logging.INFO)
 
 class Text_Style(object):
     """Text manipulation"""
@@ -1467,3 +1462,20 @@ class CSV_Reader(object):
         result: dict
         """
         return dict(self.load_csv.loc[ve_number]) if ve_number else None
+
+def Report_Images(image_list, caption=''):
+    """Add an image to the report
+
+    Parameters
+    ----------
+    image_list : list
+        list of names of the image files.
+    caption : list
+        List of caption text to go with the image
+
+    Note a copy of the file will be made, and the test name as well as step number
+    will be prepended to filename to ensure that it is unique
+    """
+    for image in image_list:
+        LOGGER.info('Adding image to report: %s' % image)
+        Aqf.image(image, caption)
