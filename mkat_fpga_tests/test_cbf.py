@@ -1235,7 +1235,7 @@ class test_CBF(unittest.TestCase):
                     LOGGER.info('Waiting for the delays to be updated on sensors: %s retry' % _give_up)
                     try:
                         reply_, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-                    else:
+                    except:
                         reply_, informs = self.corr_fix.katcp_rct.req.sensor_value()
                     assert reply_.reply_ok()
                 except Exception:
