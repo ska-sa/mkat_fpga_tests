@@ -4461,7 +4461,8 @@ class test_CBF(unittest.TestCase):
 
 
             Aqf.step("Set beamformer quantiser gain for selected beam to 1")
-            set_beam_quant_gain(self, beam, 1)
+            #set_beam_quant_gain(self, beam, 1)
+            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
 
             beam_dict = {}
             beam_pol = beam[-1]
@@ -5069,19 +5070,21 @@ class test_CBF(unittest.TestCase):
 
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
-            # Set beamformer quantiser gain for selected beam to 1
-            bq_gain = set_beam_quant_gain(self, beam, 1)
+            # Set beamformer quantiser gain for selected beam to 1 quant gain reversed TODO: Fix
+            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
             # Generating a dictionary to contain beam weights
             beam_dict = {}
             act_wgts = {}
             beam_pol = beam[-1]
+            # TODO: dict contains both pols for debugging. change back
             for label in labels:
-                if label.find(beam_pol) != -1:
-                    beam_dict[label] = 0.0
+                #if label.find(beam_pol) != -1:
+                beam_dict[label] = 0.0
             if len(beam_dict) == 0:
                 Aqf.failed('Beam dictionary not created, beam labels or beam name incorrect')
                 return False
 
+            ref_input = np.random.randint(ants)
             # Find reference input label
             for key in beam_dict:
                 if int(filter(str.isdigit,key)) == ref_input:
@@ -5114,31 +5117,33 @@ class test_CBF(unittest.TestCase):
             exp_mean_vals = []
             weight_lbls = []
 
-            while weight <= 4:
+            while weight == None:#<= 4:
                 # Set weight for reference input, the rest are all zero
-                LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
-                    ref_input_label))
-                try:
-                    reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
-                        beam, ref_input_label, round(weight,1))
-                    assert reply.reply_ok()
-                    actual_weight = float(reply.arguments[1])
-                except AssertionError:
-                    Aqf.failed('Beam weight not successfully set')
-                    return False
-                except Exception as e:
-                    errmsg = 'Test failed due to %s'%str(e)
-                    Aqf.failed(errmsg)
-                    LOGGER.exception(errmsg)
-                    return False
-                else:
-                    Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
+                #LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+                #    ref_input_label))
+                #try:
+                #    reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+                #        beam, ref_input_label, round(weight,1))
+                #    assert reply.reply_ok()
+                #    actual_weight = float(reply.arguments[1])
+                #except AssertionError:
+                #    Aqf.failed('Beam weight not successfully set')
+                #    return False
+                #except Exception as e:
+                #    errmsg = 'Test failed due to %s'%str(e)
+                #    Aqf.failed(errmsg)
+                #    LOGGER.exception(errmsg)
+                #    return False
+                #else:
+                #    Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
+                beam_dict = populate_beam_dict(self, -1, weight/ants, beam_dict)
 
                 # Get mean beam data
                 try:
-                    cap_data, act_wgts = get_beam_data(beam, avg_only=True)
+                    cap_data, act_wgts = get_beam_data(beam, beam_dict=beam_dict, avg_only=True)
                     cap_mean = np.mean(cap_data)
-                    exp_mean = rl * actual_weight
+                    exp_mean = np.sum([rl * act_wgts[key] for key in act_wgts]) 
+                    #exp_mean = rl * actual_weight
                     mean_vals.append(cap_mean)
                     exp_mean_vals.append(exp_mean)
                     weight_lbls.append(weight)
@@ -5168,7 +5173,7 @@ class test_CBF(unittest.TestCase):
 
             # Test weight application across all antennas
             Aqf.step('Testing weight application across all antennas.')
-            weight = 0.8 / ants
+            weight = 2.0 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
@@ -5204,8 +5209,7 @@ class test_CBF(unittest.TestCase):
                               plot_type='bf', hline_strt_idx=1)
 
             Aqf.step('Testing quantiser gain adjustment.')
-            # Set level adjust after beamforming gain to 1
-            bq_gain = set_beam_quant_gain(self, beam, 1)
+            # Level adjust after beamforming gain has already been set to 1
             beam_data = []
             beam_lbls = []
             try:
@@ -5223,7 +5227,8 @@ class test_CBF(unittest.TestCase):
             beam_lbls.append(l)
 
             # Set level adjust after beamforming gain to 0.5
-            bq_gain = set_beam_quant_gain(self, beam, 0.5)
+            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 0.5)
+            #bq_gain = set_beam_quant_gain(self, beam, 0.5)
             try:
                  d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(
                     beam, inp_ref_lvl=rl, beam_quant_gain=bq_gain, act_wgts=act_wgts)
@@ -5253,7 +5258,8 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Stepping through {} substreams and checking that the CW is in the correct '
                      'position.'.format(substreams))
             # Reset quantiser gain
-            bq_gain = set_beam_quant_gain(self, beam, 1)
+            #bq_gain = set_beam_quant_gain(self, beam, 1)
+            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
             if '4k' in self.instrument:
                 # 4K
                 awgn_scale = 0.0645
@@ -5431,10 +5437,10 @@ class test_CBF(unittest.TestCase):
         # Setting DSIM to generate off center bin CW time sequence
         if '4k' in self.instrument:
             # 4K
-            awgn_scale = 0.0645
+            awgn_scale = 0.5
             cw_scale = 0.675
             #gain = '113+0j'
-            gain = 5
+            gain = 11
             fft_shift = 8191
         else:
             # 32K
@@ -5445,11 +5451,11 @@ class test_CBF(unittest.TestCase):
 
         # Determine CW frequency
         center_bin_offset = float(self.conf_file['beamformer']['center_bin_offset'])
-        center_bin_offset = 0.01
-        center_bin_offset_freq = ch_bw*dsim_factor * center_bin_offset
+        center_bin_offset = 0.02
+        center_bin_offset_freq = ch_bw * center_bin_offset
         cw_ch = strt_ch_idx + int(ch_per_substream/4)
         #cw_ch = 262
-        freq = ch_list[cw_ch]*dsim_factor + center_bin_offset_freq
+        freq = ch_list[cw_ch] + center_bin_offset_freq
 
         Aqf.step('Generating time analysis plots of beam for channel {} containing a '
                  'CW offset from center of a bin.'.format(cw_ch))
@@ -5467,7 +5473,8 @@ class test_CBF(unittest.TestCase):
             return False
 
         Aqf.step("Set beamformer quantiser gain for selected beam to 1")
-        set_beam_quant_gain(self, beam, 1)
+        #set_beam_quant_gain(self, beam, 1)
+        bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
 
         beam_dict = {}
         beam_pol = beam[-1]
@@ -5521,8 +5528,6 @@ class test_CBF(unittest.TestCase):
                     missed_heaps))
             idx += 1
         # Combine all missed heap flags. These heaps will be discarded
-        import IPython;IPython.embed()
-        return True
         flags = np.sum(flags,axis=0)
         # Find longest run of uninterrupted data
         # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
@@ -5532,28 +5537,9 @@ class test_CBF(unittest.TestCase):
         ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
         # Find max run
         max_run = ranges[np.argmax(np.diff(ranges))]
-
-        #cap = [0] * num_caps
-        #cap = [0] * len(bf_raw.shape[1])
-        cap = []
-        cap_idx = 0
-        raw_idx = 0
-        try:
-            for heap_flag in flags:
-                if heap_flag == 0:
-                    for raw_idx in range(raw_idx, raw_idx+spectra_per_heap):
-                        cap.append(np.array(complexise(bf_raw[bf_raw_str:bf_raw_end, raw_idx, :])))
-                        cap_idx += 1
-                    raw_idx += 1
-                else:
-                    if raw_idx == 0:
-                        raw_idx = spectra_per_heap
-                    else:
-                        raw_idx = raw_idx + spectra_per_heap
-        except Exception, e:
-            errmsg = 'Failed to capture beam data due to error: %s' % str(e)
-            LOGGER.exception(errmsg)
-            Aqf.failed(errmsg)
+        bf_raw_strt = max_run[0]*spectra_per_heap
+        bf_raw_stop = max_run[1]*spectra_per_heap
+        bf_raw = bf_raw[:,bf_raw_strt:bf_raw_stop,:]
 
         #np.save('skarab_bf_data_plus.np', bf_raw)
         #return True
@@ -5565,7 +5551,8 @@ class test_CBF(unittest.TestCase):
                 chans_to_use = n_substrms_to_cap_m*ch_per_substream,
                 xlim = [20,21],
                 dsim_factor = 1.0,
-                ref_input_label = ref_input_label)
+                ref_input_label = ref_input_label,
+                bandwidth = bw)
 
         #aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
         #                  plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
