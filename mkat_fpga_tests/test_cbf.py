@@ -1691,14 +1691,16 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump()
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
-                failure_count += 1
                 errmsg = ('Could not retrieve clean accumulation for freq (%s @ %s: %sMHz).'%(
                             i + 1, len(requested_test_freqs), freq/1e6))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if failure_count >= 5:
-                    Aqf.failed('Cannot continue running the test, Not receiving clean accumulations.')
+                    _errmsg = 'Cannot continue running the test, Not receiving clean accumulations.'
+                    LOGGER.error(_errmsg)
+                    Aqf.failed(_errmsg)
                     return False
+                failure_count += 1
             else:
                 # No of spead heap discards relevant to vacc
                 discards = 0
@@ -2073,6 +2075,7 @@ class test_CBF(unittest.TestCase):
         channel_response_lst = []
         print_counts = 4
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
+        failure_count = 0
         if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
             _msg = 'Due to system performance the test will sweep a limited number (ie %s) of channels' % (
                 self.n_chans_selected)
@@ -2107,7 +2110,13 @@ class test_CBF(unittest.TestCase):
                 errmsg = ('Could not retrieve clean SPEAD accumulation')
                 Aqf.failed(errmsg)
                 LOGGER.info(errmsg)
-                return False
+                if failure_count >= 5:
+                    _errmsg = 'Giving up the test, failed to capture accumulations after 5 tries.'
+                    LOGGER.error(_errmsg)
+                    Aqf.failed(_errmsg)
+                    failure_count = 0
+                    return False
+                failure_count += 1
             else:
                 this_freq_data = this_freq_dump['xeng_raw']
                 this_freq_response = (normalised_magnitude(this_freq_data[:, test_baseline, :]))
