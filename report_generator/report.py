@@ -184,7 +184,7 @@ class Report(object):
         # dp.add_line(':Build directory: %s' % dp.add_link(build_dir))
         dp.add_line(":Test Ran on: %s" % site_type.upper())
         dp.add_line(":Test Executor: %s" % who_ran)
-        dp.add_line(":Instrument Tested: %s" %self.system_data.get('system_type', 'Unknown').upper())
+        # dp.add_line(":Instrument Tested: %s" %self.system_data.get('system_type', 'Unknown').upper())
         dp.add_line(":Test run: From %s Until %s" % (start, end))
         dp.add_line(':CORE Model Exported on: %s' % (str(self.core_meta.get(
             'export', {}).get('time-stamp', ''))))
@@ -1115,10 +1115,13 @@ class Report(object):
                     _ = [docproducer.add_line(i) for i in self.system_data.get('system_config',
                                                                                 'Unknown')]
                 else:
-                    docproducer.add_line(str(' '.join(
-                        [docproducer.str_style('bold', 'Instrument Ran:'),
-                        self.system_data.get('system_type', 'Unknown')])))
-
+                    system_type = self.system_data.get('system_type', 'Unknown')
+                    if system_type:
+                        docproducer.add_line(str(' '.join(
+                            [docproducer.str_style('bold', 'Instrument Ran:'), system_type])))
+                    else:
+                        docproducer.add_line(str(' '.join(
+                            [docproducer.str_style('bold', 'Instrument Ran:'), 'Unknown'])))
         # for section_name in section_names:
         #     self.clear()
         #     docproducer = self.docproducer
