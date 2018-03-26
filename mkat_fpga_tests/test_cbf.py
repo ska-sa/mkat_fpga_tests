@@ -1697,7 +1697,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if failure_count >= 5:
-                    Aqf.failed('Cannot continue running the test, Not receiving clean accumulations.')
+                    _errmsg = 'Cannot continue running the test, Not receiving clean accumulations.'
+                    LOGGER.error(_errmsg)
+                    Aqf.failed(_errmsg)
                     return False
             else:
                 # No of spead heap discards relevant to vacc
@@ -2073,6 +2075,7 @@ class test_CBF(unittest.TestCase):
         channel_response_lst = []
         print_counts = 4
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
+        failure_count = 0
         if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
             _msg = 'Due to system performance the test will sweep a limited number (ie %s) of channels' % (
                 self.n_chans_selected)
@@ -2107,7 +2110,13 @@ class test_CBF(unittest.TestCase):
                 errmsg = ('Could not retrieve clean SPEAD accumulation')
                 Aqf.failed(errmsg)
                 LOGGER.info(errmsg)
-                return False
+                if failure_count >= 5:
+                    _errmsg = 'Giving up the test, failed to capture accumulations after 5 tries.'
+                    LOGGER.error(_errmsg)
+                    Aqf.failed(_errmsg)
+                    failure_count = 0
+                    return False
+                failure_count += 1
             else:
                 this_freq_data = this_freq_dump['xeng_raw']
                 this_freq_response = (normalised_magnitude(this_freq_data[:, test_baseline, :]))
@@ -5156,6 +5165,7 @@ class test_CBF(unittest.TestCase):
             exp_mean_vals = []
             weight_lbls = []
 
+            retry_cnt = 0
             while weight <= 4:
                 # Set weight for reference input, the rest are all zero
                 LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
@@ -5165,14 +5175,23 @@ class test_CBF(unittest.TestCase):
                         beam, ref_input_label, round(weight,1))
                     assert reply.reply_ok()
                     actual_weight = float(reply.arguments[1])
+                    retry_cnt = 0
                 except AssertionError:
-                    Aqf.failed('Beam weight not successfully set')
-                    return False
+                    retry_cnt += 1
+                    Aqf.failed('Beam weight not successfully set: {}'.format(reply))
+                    if retry_cnt == 5:
+                        Aqf.failed('Beam weight could not be set after 5 retries... Exiting test.')
+                        return False
+                    continue
                 except Exception as e:
+                    retry_cnt += 1
                     errmsg = 'Test failed due to %s'%str(e)
                     Aqf.failed(errmsg)
                     LOGGER.exception(errmsg)
-                    return False
+                    if retry_cnt == 5:
+                        Aqf.failed('Beam weight could not be set after 5 retries... Exiting test.')
+                        return False
+                    continue
                 else:
                     Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
 
@@ -5180,7 +5199,6 @@ class test_CBF(unittest.TestCase):
                 try:
                     cap_data, act_wgts = get_beam_data(beam, avg_only=True)
                     cap_mean = np.mean(cap_data)
-                    #exp_mean = np.sum([rl * act_wgts[key] for key in act_wgts])
                     exp_mean = rl * actual_weight
                     mean_vals.append(cap_mean)
                     exp_mean_vals.append(exp_mean)
@@ -5211,7 +5229,7 @@ class test_CBF(unittest.TestCase):
 
             # Test weight application across all antennas
             Aqf.step('Testing weight application across all antennas.')
-            weight = 2.0 / ants
+            weight = 0.4 / ants
             beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
             try:
                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
@@ -5359,7 +5377,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Beamformer substream alignment test failed.')
             else:
                 Aqf.passed('All beamformer substreams correctly aligned.')
-
 
         # Close any KAT SDP ingest nodes
         stop_katsdpingest_docker(self)

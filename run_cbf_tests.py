@@ -25,6 +25,7 @@ import subprocess
 import sys
 import threading
 import time
+import logging
 
 from corr2.utils import parse_ini_file
 from optparse import OptionParser
@@ -40,6 +41,7 @@ _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
 
 _revision ='1.0'
 _array_release = '3'
+
 
 def option_parser():
     usage = """
@@ -669,13 +671,13 @@ def run_nose_test(settings):
         cmd.append('-v')
         cmd.append('-s')
         cmd.append("--with-xunit")
-        # cmd.append("--logging-level=INFO")
+        cmd.append("--logging-level=DEBUG")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
+        cmd.append("--logging-filter=%s" %__name__)
     cmd.append("--with-katreport")
+
     if settings.get('use_core_json') and settings.get('json_file'):
         cmd.append("--katreport-requirements=%s" % settings['json_file'])
-        cmd.append("--logging-level=DEBUG")
-    cmd.append("--logging-filter=mkat_fpga_tests,corr2.corr_rx")
 
 
     # Build the nosetests filter.
@@ -1073,13 +1075,14 @@ def PyCompile(settings):
         logger.exception('Failed to run the python compiler')
         sys.exit(1)
 
-def katcp_request(port, katcprequest='help', timeout=10):
+def katcp_request(port=7147, katcprequest='help', timeout=10):
     """
     Katcp requests on certain port
     port: int
     katcprequest: str
     timeout: int
     """
+    client = None
     config = glob.glob(os.path.join(settings.get('me_dir'), 'config') + '/*.ini')
     if 'Karoo' in settings.get('system_location'):
         config_file = [i for i in config if i.endswith('site.ini')]
@@ -1090,19 +1093,27 @@ def katcp_request(port, katcprequest='help', timeout=10):
     client = katcp.BlockingClient(katcp_client, port)
     client.setDaemon(True)
     client.start()
-    is_connected = client.wait_connected(timeout)
+    time.sleep(2)
+    client.until_connected(timeout)
+    is_connected = client.wait_running(timeout)
+    time.sleep(1)
     if not is_connected:
-      client.stop()
-      print ('Could not connect to corr2_servlet, timed out.')
-      return
+        client.stop()
+        print ('Could not connect to corr2_servlet, timed out.')
+        return
     try:
+        # print 'Executing command'
         reply, informs = client.blocking_request(katcp.Message.request(katcprequest),
             timeout=timeout)
-    except Exception:
+
+        # print 'Done: %s, %s' % (str(reply),  str(informs))
+        assert reply.reply_ok()
+    except Exception as e:
+        print 'Failed to execute katcp command: %s' % e.message
         return None
-    client.stop()
-    client = None
-    if reply.reply_ok():
+    else:
+        client.stop()
+        client = None
         return informs
 
 def get_running_instrument():
@@ -1111,7 +1122,6 @@ def get_running_instrument():
     """
     try:
         _katcp_req = katcp_request(7147, 'array-list')
-        print _katcp_req
         katcp_client_port, katcp_sensor_port = [i.arguments[1].split(',') for i in _katcp_req
                              if i.arguments[0].startswith('arr')][0]
     except Exception as e:
@@ -1156,6 +1166,7 @@ def generate_index(document):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     options, args = option_parser()
+    logging.getLogger('tornado').setLevel(logging.CRITICAL)
     log_level = None
     if options.log_level:
         log_level = options.log_level.strip()
@@ -1190,14 +1201,15 @@ if __name__ == "__main__":
     test_class = 'test_CBF'
     settings['tests_class'] = test_class
     try:
-        import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
         settings['system_type'] = ''.join(get_running_instrument())
+        assert '856M' in settings['system_type']
         settings['system_config'] = [': '.join(i.arguments) for i in get_version_list()]
         assert settings['system_config']
     except TypeError:
         settings['system_type'] = None
     except AssertionError:
-        settings['system_config'] = 'Unknown'
+        settings['system_config'] = False
+        settings['system_type'] = False
 
     try:
         test_file = max(glob.iglob(
