@@ -408,10 +408,10 @@ def clear_all_delays(self):
                 _give_up -= 1
                 try:
                     LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
-                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
                     assert reply.reply_ok()
                 except Exception:
-                    LOGGER.exception('Weirdly I couldnt get the sensor values')
+                    LOGGER.exception("Weirdly I couldn't get the sensor values, fix it and figure it out")
                 else:
                     delays_updated = list(set([int(i.arguments[-1]) for i in informs
                                                 if '.cd.delay' in i.arguments[2]]))[0]
@@ -1238,7 +1238,7 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
                     in_wgts[key] = float(reply.arguments[1])
         Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
         Aqf.passed('in_wgts: {}'.format(in_wgts))
-    
+
 
     try:
         LOGGER.info('Issue {} capture start via CAM int'.format(beam))

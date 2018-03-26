@@ -26,6 +26,7 @@ import sys
 import threading
 import time
 
+from corr2.utils import parse_ini_file
 from optparse import OptionParser
 from process_core_xml import process_xml_to_json
 from PyPDF2 import PdfFileMerger
@@ -38,7 +39,7 @@ from signal import SIGKILL
 _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
 
 _revision ='1.0'
-_release = '3'
+_array_release = '3'
 
 def option_parser():
     usage = """
@@ -504,9 +505,9 @@ def generate_sphinx_docs(settings):
     else:
         logger.info("Generating LATEX/PDF document from reST")
         document_data = {
-                'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test ' % _release,
+                'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test ' % _array_release,
                 'documented_instrument': settings.get('system_type', 'Unknown'),
-                'array_release': _release,
+                'array_release': _array_release,
                 'document_number': {
                                     'QTP': 'M1200-0000-054 ',
                                     'QTR': 'M1200-0000-055',
@@ -1051,17 +1052,16 @@ def plot_backend(_filename, oldcontent, newcontent):
     matplotlib backend support
     """
     current_user = pwd.getpwuid(os.getuid())[0]
-    if current_user == 'cbf-test':
-        try:
-            with open(_filename,'r') as f:
-                newlines = []
-                for line in f.readlines():
-                    newlines.append(line.replace(oldcontent, newcontent))
-            with open(_filename, 'w') as f:
-                for line in newlines:
-                    f.write(line)
-        except Exception:
-            pass
+    try:
+        with open(_filename,'r') as f:
+            newlines = []
+            for line in f.readlines():
+                newlines.append(line.replace(oldcontent, newcontent))
+        with open(_filename, 'w') as f:
+            for line in newlines:
+                f.write(line)
+    except Exception:
+        pass
 
 def PyCompile(settings):
     """
@@ -1080,13 +1080,20 @@ def katcp_request(port, katcprequest='help', timeout=10):
     katcprequest: str
     timeout: int
     """
-    client = katcp.BlockingClient('127.0.0.1', port)
+    config = glob.glob(os.path.join(settings.get('me_dir'), 'config') + '/*.ini')
+    if 'Karoo' in settings.get('system_location'):
+        config_file = [i for i in config if i.endswith('site.ini')]
+    else:
+        config_file = [i for i in config if i.endswith('lab.ini')]
+    config_file = parse_ini_file(config_file[0])
+    katcp_client = config_file.get('instrument_params').get('katcp_client')
+    client = katcp.BlockingClient(katcp_client, port)
     client.setDaemon(True)
     client.start()
     is_connected = client.wait_connected(timeout)
     if not is_connected:
       client.stop()
-      #raise RuntimeError('Could not connect to corr2_servlet, timed out.')
+      print ('Could not connect to corr2_servlet, timed out.')
       return
     try:
         reply, informs = client.blocking_request(katcp.Message.request(katcprequest),
@@ -1104,11 +1111,11 @@ def get_running_instrument():
     """
     try:
         _katcp_req = katcp_request(7147, 'array-list')
-        assert isinstance(_katcp_req, list)
-        katcp_client_port = [int(i.arguments[1]) for i in _katcp_req
+        print _katcp_req
+        katcp_client_port, katcp_sensor_port = [i.arguments[1].split(',') for i in _katcp_req
                              if i.arguments[0].startswith('arr')][0]
-        assert isinstance(katcp_client_port, int)
-    except Exception:
+    except Exception as e:
+        print "failed to get get running array: %s" % e.message
         return False
     else:
         _katcp_req = katcp_request(katcp_client_port, 'sensor-value')
@@ -1124,15 +1131,15 @@ def get_running_instrument():
 def get_version_list():
     """Using katcp: Retrieve CBF information"""
     try:
-        katcp_array_list = katcp_request(7147, 'array-list')
-        assert isinstance(katcp_array_list, list)
-        katcp_port = [int(i.arguments[1]) for i in katcp_array_list
-                 if i.arguments[0].startswith('arr')][0]
-        assert isinstance(katcp_port, int)
-    except Exception:
+        _katcp_req = katcp_request(7147, 'array-list')
+        print _katcp_req
+        katcp_client_port, katcp_sensor_port = [i.arguments[1].split(',') for i in _katcp_req
+                             if i.arguments[0].startswith('arr')][0]
+    except Exception as e:
+        print 'Failed to get array list: %s' % e.message
         return False
     else:
-        return katcp_request(katcp_port, 'version-list')
+        return katcp_request(katcp_client_port, 'version-list')
 
 def generate_index(document):
     """Sphinx-build index.rst generator"""
@@ -1169,14 +1176,6 @@ if __name__ == "__main__":
                     if not callable(getattr(options, k))
                     and not k.startswith('_'))
     settings.update(get_system_info())
-    try:
-        settings['system_type'] = ''.join(get_running_instrument())
-        settings['system_config'] = [': '.join(i.arguments) for i in get_version_list()]
-        assert settings['system_config']
-    except TypeError:
-        settings['system_type'] = None
-    except AssertionError:
-        settings['system_config'] = 'Unknown'
 
     settings['process_core'] = True
     settings['gather_system_settings'] = True
@@ -1190,6 +1189,16 @@ if __name__ == "__main__":
     settings['scripts'] = '/'.join([settings['me_dir'], 'scripts'])
     test_class = 'test_CBF'
     settings['tests_class'] = test_class
+    try:
+        import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
+        settings['system_type'] = ''.join(get_running_instrument())
+        settings['system_config'] = [': '.join(i.arguments) for i in get_version_list()]
+        assert settings['system_config']
+    except TypeError:
+        settings['system_type'] = None
+    except AssertionError:
+        settings['system_config'] = 'Unknown'
+
     try:
         test_file = max(glob.iglob(
             os.path.join(settings['me_dir'], settings['test_dir'], '[Tt][est_cbf.py]')),
@@ -1293,10 +1302,10 @@ if __name__ == "__main__":
         show_test_results(settings)
     elif settings['report'] not in ['skip']:
         # try:
-          if settings.get('gen_html', False) or settings.get('gen_qtp', False) or settings.get(
+        if settings.get('gen_html', False) or settings.get('gen_qtp', False) or settings.get(
               'gen_qtr', False):
-              generate_report(settings)
-              generate_sphinx_docs(settings)
+            generate_report(settings)
+            generate_sphinx_docs(settings)
         # except Exception as e:
         #     errmsg = "Experienced some issues: %s" % str(e)
         #     logger.error(errmsg)

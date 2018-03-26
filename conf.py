@@ -188,12 +188,11 @@ try:
     _document_type = ' '.join(['Qualification Test',
         _document_data.get('document_type')[_document_data.get('document_type').keys()[0]]])
     _array_release = _document_data.get('array_release', 3)
-
     _filename = "%s_MeerKat_Correlator_Beamformer_Array_Release_%s_%s.tex" %(
         _document_number, _array_release, _document_type.replace(' ', '_'))
-    # _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
-    #     time.strftime('%Y%m%d', time.localtime()))
 except Exception as e:
+    _filename = 'MeerKAT_CBF_%s_%s.tex' % (_document_data.get('document_type').keys()[0],
+        time.strftime('%Y%m%d', time.localtime()))
     print '%s' % e.message
 
 # http://www.sphinx-doc.org/en/1.4.9/config.html#confval-latex_elements
@@ -227,14 +226,22 @@ latex_elements = {
 
 
 # http://www.sphinx-doc.org/en/1.4.9/config.html#confval-latex_documents
-latex_documents = [(
-    master_doc,
-    '%s' % _filename,
-    u'%s %s' %(project, _document_type),
-    u'Document Number: %s' % _document_number,
-    'manual'),
-    ]
-
+try:
+    latex_documents = [(
+        master_doc,
+        '%s' % _filename,
+        u'%s %s' %(project, _document_type),
+        u'Document Number: %s' % _document_number,
+        'manual'),
+        ]
+except NameError:
+    latex_documents = [(
+        master_doc,
+        '%s' % _filename,
+        u'%s %s' %(project, _document_type),
+        u'Document Number: ',
+        'manual'),
+        ]
 #pdf_documents = [('index', u'rst2pdf', u'Sample rst2pdf doc', u'Your Name'),]
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.

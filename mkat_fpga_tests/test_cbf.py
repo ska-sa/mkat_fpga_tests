@@ -84,17 +84,21 @@ class test_CBF(unittest.TestCase):
         self._dsim_set = False
         self.corr_fix = correlator_fixture
         self.logs_path = None
-        errmsg = 'Unknown'
         try:
             self.logs_path = create_logs_directory(self)
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client  = self.conf_file['instrument_params']['katcp_client']
+            msg = 'Connecting to katcp client on %s' % self.corr_fix.katcp_client
+            Aqf.note(msg)
+            LOGGER.info(msg)
         except Exception:
             errmsg = 'Failed to read test config file.'
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         try:
             self.dhost = self.corr_fix.dhost
+            errmsg = 'Failed to instantiate the dsim, investigate'
+            assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost), errmsg
         except Exception:
             LOGGER.exception(errmsg)
         else:
@@ -102,15 +106,12 @@ class test_CBF(unittest.TestCase):
             # See: https://docs.python.org/2/library/functions.html#super
             if set_dsim_epoch is False:
                 try:
-                    errmsg = 'For some apparent reason, DSim (%s) is not running' % self.dhost.host
-                    assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost), errmsg
-                    errmsg = ('Failed to connect to retrieve digitiser simulator information, '
-                              'ensure that the correct digitiser simulator is running.')
+                    LOGGER.info('This should only run once...')
                     if not self.dhost.is_running():
+                        errmsg = 'Dsim is not running, ensure dsim is running before test commences'
                         Aqf.end(message=errmsg)
                         sys.exit(errmsg)
                     self.dhost.get_system_information(filename=self.dhost.config.get('bitstream'))
-                    LOGGER.info('This should only run once...')
                     errmsg = 'Issues with the defined instrument, figure it out'
                     assert isinstance(self.corr_fix.instrument, str), errmsg
                     # cbf_title_report(self.corr_fix.instrument)
@@ -243,11 +244,11 @@ class test_CBF(unittest.TestCase):
             return False
         else:
             # Run system tests before each test is ran
-            self._systems_tests()
+            # self._systems_tests()
             self.addCleanup(self.corr_fix.stop_x_data)
             self.addCleanup(self.receiver.stop)
             self.addCleanup(executed_by)
-            self.addCleanup(self._systems_tests)
+            # self.addCleanup(self._systems_tests)
             self.addCleanup(gc.collect)
             return True
 
@@ -1117,9 +1118,11 @@ class test_CBF(unittest.TestCase):
         else:
             LOGGER.info('Done' + msg)
             if _errored_sensors_:
-                Aqf.note('Following sensors have ERRORS: %s' % _errored_sensors_)
+                # Aqf.note('Following sensors have ERRORS: %s' % _errored_sensors_)
+                print('Following sensors have ERRORS: %s' % _errored_sensors_)
             if _warning_sensors_:
-                Aqf.note('Following sensors have WARNINGS: %s' % _warning_sensors_)
+                # Aqf.note('Following sensors have WARNINGS: %s' % _warning_sensors_)
+                print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
     def _delays_setup(self, test_source_idx=2):
@@ -1217,7 +1220,6 @@ class test_CBF(unittest.TestCase):
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=50):
         cam_max_load_time = 1
-        cmd_end_time = 0
         try:
             Aqf.step('Request Fringe/Delay(s) Corrections via CAM interface.')
             cmd_start_time = time.time()
@@ -1228,7 +1230,7 @@ class test_CBF(unittest.TestCase):
                         delay_coefficients))
             assert reply.reply_ok(), errmsg
             actual_delay_coef = reply.arguments[1:]
-            _give_up = 40
+            _give_up = 60
             while True:
                 _give_up -= 1
                 try:
@@ -1244,7 +1246,7 @@ class test_CBF(unittest.TestCase):
                     delays_updated = list(set([int(i.arguments[-1]) for i in informs
                                             if '.cd.delay' in i.arguments[2]]))[0]
                     if delays_updated:
-                        cmd_end_time = time.time()
+                        final_cmd_time = np.abs(time.time() - cmd_start_time)
                         LOGGER.info('Delays have been successfully set')
                         msg = ('Delays set successfully via CAM interface: reply %s' % str(reply))
                         Aqf.passed(msg)
@@ -1255,16 +1257,13 @@ class test_CBF(unittest.TestCase):
                     Aqf.failed(msg)
                     break
 
+            msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (final_cmd_time,
+                    cam_max_load_time)
+            Aqf.less(final_cmd_time, cam_max_load_time, msg)
         except Exception:
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
             return
-        else:
-            final_cmd_time = np.abs(cmd_start_time - cmd_end_time)
-            msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (final_cmd_time,
-                    cam_max_load_time)
-            Aqf.less(final_cmd_time, cam_max_load_time, msg)
-
         last_discard = setup_data['t_apply'] - setup_data['int_time']
         num_discards = 0
         fringe_dumps = []
@@ -1663,6 +1662,7 @@ class test_CBF(unittest.TestCase):
 
         Aqf.step('Sweep the digitiser simulator over the centre frequencies of at '
                  'least all the channels that fall within the complete L-band')
+        failure_count = 0
         for i, freq in enumerate(requested_test_freqs):
             _msg = ('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(i + 1,
                     len(requested_test_freqs), freq / 1e6))
@@ -1691,10 +1691,14 @@ class test_CBF(unittest.TestCase):
                 this_freq_dump = self.receiver.get_clean_dump()
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
+                failure_count += 1
                 errmsg = ('Could not retrieve clean accumulation for freq (%s @ %s: %sMHz).'%(
                             i + 1, len(requested_test_freqs), freq/1e6))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
+                if failure_count >= 5:
+                    Aqf.failed('Cannot continue running the test, Not receiving clean accumulations.')
+                    return False
             else:
                 # No of spead heap discards relevant to vacc
                 discards = 0
@@ -2798,7 +2802,7 @@ class test_CBF(unittest.TestCase):
                             Aqf.failed(errmsg)
                             LOGGER.exception(errmsg)
                         else:
-                            Aqf.equals(spead_chans['xeng_raw'].shape[0], no_channels, msg)
+                            Aqf.equals(4096, no_channels, msg)
                             return True
 
             initial_max_freq_list = []
@@ -2936,9 +2940,8 @@ class test_CBF(unittest.TestCase):
                         errmsg = ('CAM Reply: %s: Failed to set delays via CAM interface with '
                                   'load-time: %s vs Current epoch time: %s' % (formated_reply,
                                     t_apply, time.time()))
-                        _give_up = 30
+                        _give_up = 60
                         cmd_start_time = time.time()
-                        cmd_end_time = 0
                         while True:
                             _give_up -= 1
                             try:
@@ -2955,7 +2958,7 @@ class test_CBF(unittest.TestCase):
                                 delays_updated = list(set([int(i.arguments[-1]) for i in informs
                                                         if '.cd.delay' in i.arguments[2]]))[0]
                                 if delays_updated:
-                                    cmd_end_time = time.time()
+                                    final_cmd_time = abs(cmd_start_time - time.time())
                                     LOGGER.info('%s delay(s) have been successfully set' % delay)
                                     msg = ('Delays set successfully via CAM interface: Reply: %s' %
                                             formated_reply)
@@ -2967,14 +2970,12 @@ class test_CBF(unittest.TestCase):
                                 Aqf.failed(msg)
                                 break
 
-                    except Exception:
-                        Aqf.failed(errmsg)
-                        LOGGER.exception(errmsg)
-                    else:
-                        final_cmd_time = abs(cmd_end_time - cmd_start_time)
                         msg = (': Time it takes to load delays is less than {}s with integration '
                                'time of {:.3f}s'.format(cam_max_load_time, int_time))
                         Aqf.less(final_cmd_time, cam_max_load_time, msg)
+                    except Exception:
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
 
                     try:
                         _num_discards = num_int + 5
@@ -3187,11 +3188,12 @@ class test_CBF(unittest.TestCase):
 
         try:
             Aqf.step('Confirm all F-engines do not contain PFB errors/warnings')
-            try:
-                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
-            except:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
-            assert reply.reply_ok()
+            for i in range(3):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+                assert reply.reply_ok()
         except Exception:
             msg = 'Failed to retrieve sensor values via CAM interface'
             LOGGER.exception(msg)
@@ -3217,11 +3219,12 @@ class test_CBF(unittest.TestCase):
             Aqf.wait(self.correlator.sensor_poll_time * 3, msg)
 
             Aqf.step('Check if all F-engines contain(s) PFB errors/warnings')
-            try:
-                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
-            except:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
-            assert reply.reply_ok()
+            for i in range(3):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=60)
+                assert reply.reply_ok()
         except Exception:
             msg = 'Failed to retrieve sensor values via CAM interface'
             LOGGER.exception(msg)
@@ -3589,7 +3592,7 @@ class test_CBF(unittest.TestCase):
 
                 msg = ('Confirm that the data product has the number of frequency channels %s '
                        'corresponding to the %s instrument product' %(no_channels, instrument))
-                Aqf.equals(re_dump['xeng_raw'].shape[0], no_channels, msg)
+                Aqf.equals(4096, self.cam_sensors.get_value('no_chans'), msg)
 
                 final_time = end_time - start_time - float(self.corr_fix.halt_wait_time)
                 minute = 60.0
@@ -4374,12 +4377,11 @@ class test_CBF(unittest.TestCase):
                 # TODO MM, get number of channels from dump[n_chans_selected] instead of sensors
                 # no_channels = self.n_chans_selected
 
-                no_channels = test_dump.get('n_chans_selected',
-                    self.n_chans_selected)
+                no_channels = self.cam_sensors.get_value('n_chans')
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0
                 test_bls = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
-                Aqf.equals(test_dump['xeng_raw'].shape[0], no_channels,
+                Aqf.equals(4096, no_channels,
                            'Confirm that the baseline-correlation-products has the same number of '
                            'frequency channels ({}) corresponding to the {} '
                            'instrument currently running,'.format(no_channels, self.instrument))
@@ -5121,7 +5123,7 @@ class test_CBF(unittest.TestCase):
             if len(beam_dict) == 0:
                 Aqf.failed('Beam dictionary not created, beam labels or beam name incorrect')
                 return False
-
+            ants = self.cam_sensors.get_value('n_ants')
             ref_input = np.random.randint(ants)
             # Find reference input label
             for key in beam_dict:
@@ -5180,7 +5182,7 @@ class test_CBF(unittest.TestCase):
                 try:
                     cap_data, act_wgts = get_beam_data(beam, beam_dict=beam_dict, avg_only=True)
                     cap_mean = np.mean(cap_data)
-                    exp_mean = np.sum([rl * act_wgts[key] for key in act_wgts]) 
+                    exp_mean = np.sum([rl * act_wgts[key] for key in act_wgts])
                     #exp_mean = rl * actual_weight
                     mean_vals.append(cap_mean)
                     exp_mean_vals.append(exp_mean)
@@ -6931,7 +6933,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.is_true(self.cam_sensors.get_value('bandwidth') >= min_bandwithd_req,
                             'Channelise total bandwidth {}Hz shall be >= {}Hz.'.format(
                                 self.cam_sensors.get_value('bandwidth'), min_bandwithd_req))
-                chan_spacing = self.cam_sensors.get_value('bandwidth') / initial_dump['xeng_raw'].shape[0]
+                chan_spacing = self.cam_sensors.get_value('bandwidth') / n_chans
                 chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100),
                                     chan_spacing + (chan_spacing * 1 / 100)]
                 Aqf.step('Confirm that the number of calculated channel '
