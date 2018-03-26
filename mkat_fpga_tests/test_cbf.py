@@ -5116,10 +5116,9 @@ class test_CBF(unittest.TestCase):
             beam_dict = {}
             act_wgts = {}
             beam_pol = beam[-1]
-            # TODO: dict contains both pols for debugging. change back
             for label in labels:
-                #if label.find(beam_pol) != -1:
-                beam_dict[label] = 0.0
+                if label.find(beam_pol) != -1:
+                    beam_dict[label] = 0.0
             if len(beam_dict) == 0:
                 Aqf.failed('Beam dictionary not created, beam labels or beam name incorrect')
                 return False
@@ -5157,33 +5156,32 @@ class test_CBF(unittest.TestCase):
             exp_mean_vals = []
             weight_lbls = []
 
-            while weight == None:#<= 4:
+            while weight <= 4:
                 # Set weight for reference input, the rest are all zero
-                #LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
-                #    ref_input_label))
-                #try:
-                #    reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
-                #        beam, ref_input_label, round(weight,1))
-                #    assert reply.reply_ok()
-                #    actual_weight = float(reply.arguments[1])
-                #except AssertionError:
-                #    Aqf.failed('Beam weight not successfully set')
-                #    return False
-                #except Exception as e:
-                #    errmsg = 'Test failed due to %s'%str(e)
-                #    Aqf.failed(errmsg)
-                #    LOGGER.exception(errmsg)
-                #    return False
-                #else:
-                #    Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
-                beam_dict = populate_beam_dict(self, -1, weight/ants, beam_dict)
+                LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+                    ref_input_label))
+                try:
+                    reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+                        beam, ref_input_label, round(weight,1))
+                    assert reply.reply_ok()
+                    actual_weight = float(reply.arguments[1])
+                except AssertionError:
+                    Aqf.failed('Beam weight not successfully set')
+                    return False
+                except Exception as e:
+                    errmsg = 'Test failed due to %s'%str(e)
+                    Aqf.failed(errmsg)
+                    LOGGER.exception(errmsg)
+                    return False
+                else:
+                    Aqf.passed('Antenna input {} weight set to {}'.format(key, actual_weight))
 
                 # Get mean beam data
                 try:
-                    cap_data, act_wgts = get_beam_data(beam, beam_dict=beam_dict, avg_only=True)
+                    cap_data, act_wgts = get_beam_data(beam, avg_only=True)
                     cap_mean = np.mean(cap_data)
-                    exp_mean = np.sum([rl * act_wgts[key] for key in act_wgts])
-                    #exp_mean = rl * actual_weight
+                    #exp_mean = np.sum([rl * act_wgts[key] for key in act_wgts])
+                    exp_mean = rl * actual_weight
                     mean_vals.append(cap_mean)
                     exp_mean_vals.append(exp_mean)
                     weight_lbls.append(weight)
