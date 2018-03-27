@@ -237,7 +237,6 @@ class test_CBF(unittest.TestCase):
             self.assertIsInstance(_test_dump, dict)
             self.n_chans_selected = int(_test_dump.get('n_chans_selected',
                 self.cam_sensors.get_value('n_chans')))
-            import IPython;IPython.embed()
             LOGGER.info('Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
         except Exception as e:
             Aqf.failed('%s' % str(e))
@@ -1198,7 +1197,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.progress('Selected input and baseline for testing respectively: %s, %s.'%(
                     test_source, baseline_index))
                 Aqf.progress('Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be '
-                             'applied %s integrations/accumulations in the future.' % (t_apply, 
+                             'applied %s integrations/accumulations in the future.' % (t_apply,
                              t_apply_readable, curr_time, curr_time_readable, num_int))
             except KeyError:
                 Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
