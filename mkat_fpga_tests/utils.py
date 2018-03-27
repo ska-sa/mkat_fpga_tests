@@ -1370,7 +1370,7 @@ def get_clean_dump(self):
     while retries:
         retries -= 1
         try:
-            dump = self.receiver.get_clean_dump()
+            dump = self.receiver.get_clean_dump(discard=3)
             dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
             errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
             assert isinstance(dump, dict), errmsg
