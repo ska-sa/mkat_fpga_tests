@@ -237,6 +237,7 @@ class test_CBF(unittest.TestCase):
             self.assertIsInstance(_test_dump, dict)
             self.n_chans_selected = int(_test_dump.get('n_chans_selected',
                 self.cam_sensors.get_value('n_chans')))
+            import IPython;IPython.embed()
             LOGGER.info('Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
         except Exception as e:
             Aqf.failed('%s' % str(e))
@@ -4405,11 +4406,13 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.0645
             gain = '113+0j'
             fft_shift = 511
+            exp_channels = 4096
         else:
             # 32K
             awgn_scale = 0.063
             gain = '344+0j'
             fft_shift = 4095
+            exp_channels = 4096
 
         Aqf.step('Configure a digitiser simulator to generate correlated noise.')
         Aqf.progress('Digitiser simulator configured to generate Gaussian noise with scale: {}, '
@@ -4443,7 +4446,7 @@ class test_CBF(unittest.TestCase):
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0
                 test_bls = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
-                Aqf.equals(4096, no_channels,
+                Aqf.equals(exp_channels, no_channels,
                            'Confirm that the baseline-correlation-products has the same number of '
                            'frequency channels ({}) corresponding to the {} '
                            'instrument currently running,'.format(no_channels, self.instrument))
@@ -4563,8 +4566,7 @@ class test_CBF(unittest.TestCase):
 
 
             Aqf.step("Set beamformer quantiser gain for selected beam to 1")
-            #set_beam_quant_gain(self, beam, 1)
-            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
+            set_beam_quant_gain(self, beam, 1)
 
             beam_dict = {}
             beam_pol = beam[-1]
@@ -4615,9 +4617,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(str(e))
 
         if  _baseline and _tiedarray:
-                nominal_bw = float(self.conf_file['instrument_params']['sample_freq'])/2.0
-                baseline_ch_bw = nominal_bw / test_dump['xeng_raw'].shape[0]
-                beam_ch_bw = nominal_bw / len(cap_mag[0])
+                captured_bw = bw*self.n_chans_selected/float(nr_ch)
+                baseline_ch_bw = captured_bw / test_dump['xeng_raw'].shape[0]
+                beam_ch_bw = bw / len(cap_mag[0])
                 msg = ('Confirm that the baseline-correlation-product channel width'
                        ' {}Hz is the same as the tied-array-channelised-voltage channel width '
                        '{}Hz'.format(baseline_ch_bw, beam_ch_bw))
@@ -5173,7 +5175,7 @@ class test_CBF(unittest.TestCase):
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
             # Set beamformer quantiser gain for selected beam to 1 quant gain reversed TODO: Fix
-            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
+            bq_gain = set_beam_quant_gain(self, beam, 1)
             # Generating a dictionary to contain beam weights
             beam_dict = {}
             act_wgts = {}
@@ -5336,8 +5338,7 @@ class test_CBF(unittest.TestCase):
             beam_lbls.append(l)
 
             # Set level adjust after beamforming gain to 0.5
-            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 0.5)
-            #bq_gain = set_beam_quant_gain(self, beam, 0.5)
+            bq_gain = set_beam_quant_gain(self, beam, 0.5)
             try:
                  d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(
                     beam, inp_ref_lvl=rl, beam_quant_gain=bq_gain, act_wgts=act_wgts)
@@ -5367,8 +5368,7 @@ class test_CBF(unittest.TestCase):
             Aqf.step('Stepping through {} substreams and checking that the CW is in the correct '
                      'position.'.format(substreams))
             # Reset quantiser gain
-            #bq_gain = set_beam_quant_gain(self, beam, 1)
-            bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
+            bq_gain = set_beam_quant_gain(self, beam, 1)
             if '4k' in self.instrument:
                 # 4K
                 awgn_scale = 0.0645
@@ -5581,8 +5581,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         Aqf.step("Set beamformer quantiser gain for selected beam to 1")
-        #set_beam_quant_gain(self, beam, 1)
-        bq_gain = set_beam_quant_gain(self, beams[1 - beams.index(beam)], 1)
+        set_beam_quant_gain(self, beam, 1)
 
         beam_dict = {}
         beam_pol = beam[-1]
