@@ -244,11 +244,11 @@ class test_CBF(unittest.TestCase):
             return False
         else:
             # Run system tests before each test is ran
-            # self._systems_tests()
+            self._systems_tests()
             self.addCleanup(self.corr_fix.stop_x_data)
             self.addCleanup(self.receiver.stop)
             self.addCleanup(executed_by)
-            # self.addCleanup(self._systems_tests)
+            self.addCleanup(self._systems_tests)
             self.addCleanup(gc.collect)
             return True
 
@@ -1118,11 +1118,11 @@ class test_CBF(unittest.TestCase):
         else:
             LOGGER.info('Done' + msg)
             if _errored_sensors_:
-                # Aqf.note('Following sensors have ERRORS: %s' % _errored_sensors_)
-                print('Following sensors have ERRORS: %s' % _errored_sensors_)
+                Aqf.note('Following sensors have ERRORS: %s' % _errored_sensors_)
+                # print('Following sensors have ERRORS: %s' % _errored_sensors_)
             if _warning_sensors_:
-                # Aqf.note('Following sensors have WARNINGS: %s' % _warning_sensors_)
-                print('Following sensors have WARNINGS: %s' % _warning_sensors_)
+                Aqf.note('Following sensors have WARNINGS: %s' % _warning_sensors_)
+                # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
     def _delays_setup(self, test_source_idx=2):
@@ -1151,15 +1151,16 @@ class test_CBF(unittest.TestCase):
 
 
         local_src_names = self.cam_sensors.custom_input_labels
-        network_latency = 0.03
+        network_latency = float(self.conf_file['instrument_params']['network_latency'])
+        cam_max_load_time = int(self.conf_file['instrument_params']['cam_max_load_time'])
         self.corr_fix.issue_metadata
         source_names = self.cam_sensors.input_labels
         # Get name for test_source_idx
         test_source = source_names[test_source_idx]
         ref_source = source_names[0]
         num_inputs = len(source_names)
-        # Number of integrations
-        num_int = 30
+        # Number of integrations to load delays in the future
+        num_int = int(self.conf_file['instrument_params']['num_int_delay_load'])
         Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
         delays_cleared = clear_all_delays(self)
         if not delays_cleared:
@@ -1185,7 +1186,9 @@ class test_CBF(unittest.TestCase):
             # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
             # int_time_ticks = n_accs * ticks_between_spectra
             t_apply = (initial_dump['dump_timestamp'] + num_int * int_time)
-            t_apply_readable = time.strftime("%H:%M:%S", time.localtime(t_apply))
+            t_apply_readable =   datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+            curr_time = time.time()
+            curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
             try:
                 baseline_lookup = get_baselines_lookup(self)
                 # Choose baseline for phase comparison
@@ -1193,9 +1196,9 @@ class test_CBF(unittest.TestCase):
                 Aqf.step('Get list of all the baselines present in the correlator output')
                 Aqf.progress('Selected input and baseline for testing respectively: %s, %s.'%(
                     test_source, baseline_index))
-                Aqf.progress('Time to apply delays (%s/%s), current epoch (%s) is set to %s '
-                             'integrations/accumulations in the future.' % (t_apply, t_apply_readable,
-                             time.time(), num_int))
+                Aqf.progress('Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be '
+                             'applied %s integrations/accumulations in the future.' % (t_apply, 
+                             t_apply_readable, curr_time, curr_time_readable, num_int))
             except KeyError:
                 Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
                            'ordering format.')
@@ -1215,22 +1218,25 @@ class test_CBF(unittest.TestCase):
                         'time_stamp': time_stamp,
                         'synch_epoch': synch_epoch,
                         'num_int': num_int,
+                        'cam_max_load_time': cam_max_load_time,
                        }
 
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=50):
-        cam_max_load_time = 1
         try:
             Aqf.step('Request Fringe/Delay(s) Corrections via CAM interface.')
-            cmd_start_time = time.time()
+            load_strt_time = time.time()
             reply, _informs = self.corr_fix.katcp_rct.req.delays(setup_data['t_apply'],
                                                                  *delay_coefficients, timeout=30)
+            load_done_time = time.time()
             errmsg = ('%s: Failed to set delays via CAM interface with load-time: %s, '
                       'Delay coefficients: %s' % (str(reply).replace('\_', ' '), setup_data['t_apply'],
                         delay_coefficients))
             assert reply.reply_ok(), errmsg
             actual_delay_coef = reply.arguments[1:]
-            _give_up = 60
+            cmd_load_time = round(load_done_time - load_strt_time, 3)
+            Aqf.step('Fringe/Delay load command took {} seconds'.format(cmd_load_time))
+            _give_up = int(setup_data['num_int'] * setup_data['int_time'] * 2)
             while True:
                 _give_up -= 1
                 try:
@@ -1246,7 +1252,6 @@ class test_CBF(unittest.TestCase):
                     delays_updated = list(set([int(i.arguments[-1]) for i in informs
                                             if '.cd.delay' in i.arguments[2]]))[0]
                     if delays_updated:
-                        final_cmd_time = np.abs(time.time() - cmd_start_time)
                         LOGGER.info('Delays have been successfully set')
                         msg = ('Delays set successfully via CAM interface: reply %s' % str(reply))
                         Aqf.passed(msg)
@@ -1256,10 +1261,12 @@ class test_CBF(unittest.TestCase):
                     LOGGER.error(msg)
                     Aqf.failed(msg)
                     break
+                time.sleep(1)
 
-            msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (final_cmd_time,
+            cam_max_load_time = setup_data['cam_max_load_time']
+            msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (cmd_load_time,
                     cam_max_load_time)
-            Aqf.less(final_cmd_time, cam_max_load_time, msg)
+            Aqf.less(cmd_load_time, cam_max_load_time, msg)
         except Exception:
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
@@ -1299,7 +1306,7 @@ class test_CBF(unittest.TestCase):
                 else:
                     msg = ("Discarding (#%d) Spead accumulation with dump timestamp: %s"
                            ", relevant to time to apply: %s"
-                           "(Difference %.2f), Current epoch time: %s." % (num_discards,
+                           "(Difference %.2f), Current cmc time: %s." % (num_discards,
                             dump['dump_timestamp'], setup_data['t_apply'], time_diff, time.time()))
                     LOGGER.info(msg)
                     if num_discards <= 2:
@@ -1409,8 +1416,8 @@ class test_CBF(unittest.TestCase):
         fringe_offset = ant_delay[ant_idx][1][0]
         fringe_rate = ant_delay[ant_idx][1][1]
 
-        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts, setup_data)))
-        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data))
+        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts+1, setup_data)))[1:]
+        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts+1, setup_data))[1:]
         result = delay_data + fringe_data
         wrapped_results = ((result + np.pi) % (2 * np.pi) - np.pi)
 
@@ -2897,8 +2904,7 @@ class test_CBF(unittest.TestCase):
         test_heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
-            cam_max_load_time = 1
-            num_int = 30
+            num_int = setup_data['num_int']
             int_time = self.cam_sensors.get_value('int_time')
             katcp_port = self.cam_sensors.get_value('katcp_port')
             no_chans = range(self.n_chans_selected)
@@ -2929,28 +2935,33 @@ class test_CBF(unittest.TestCase):
                         this_freq_dump = self.receiver.get_clean_dump(discard=0)
                         self.assertIsInstance(this_freq_dump, dict), errmsg
                         t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
-                        t_apply_readable = this_freq_dump['dump_timestamp_readable']
+                        t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+                        curr_time = time.time()
+                        curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
                         Aqf.step('Delay #%s will be applied with the following parameters:' %count)
-                        msg = ('On baseline %s and input %s, Current epoch time: %s (%s)'
+                        msg = ('On baseline %s and input %s, Current cmc time: %s (%s)'
                               ', Current Dump timestamp: %s (%s), '
                               'Delay(s) will be applied @ %s (%s), Delay to be applied: %s' %(
                             setup_data['baseline_index'], setup_data['test_source'],
-                            time.time(), time.strftime("%H:%M:%S"), this_freq_dump['dump_timestamp'],
+                            curr_time, curr_time_readable, this_freq_dump['dump_timestamp'],
                             this_freq_dump['dump_timestamp_readable'], t_apply, t_apply_readable,
                             delay))
                         Aqf.progress(msg)
                         Aqf.step('Execute delays via CAM interface and calculate the amount of time '
                                  'it takes to load the delays')
+                        LOGGER.info('Setting a delay of %s via cam interface' % delay)
+                        load_strt_time = time.time()
                         reply, _informs = self.corr_fix.katcp_rct.req.delays(t_apply,
                                                                              *delay_coefficients)
-                        LOGGER.info('Setting a delay of %s via cam interface' % delay)
-                        assert reply.reply_ok(), errmsg
+                        load_done_time = time.time()
                         formated_reply = str(reply).replace('\_', ' ')
                         errmsg = ('CAM Reply: %s: Failed to set delays via CAM interface with '
-                                  'load-time: %s vs Current epoch time: %s' % (formated_reply,
+                                  'load-time: %s vs Current cmc time: %s' % (formated_reply,
                                     t_apply, time.time()))
-                        _give_up = 60
-                        cmd_start_time = time.time()
+                        assert reply.reply_ok(), errmsg
+                        cmd_load_time = round(load_done_time - load_strt_time, 3)
+                        Aqf.step('Delay load command took {} seconds'.format(cmd_load_time))
+                        _give_up = int(num_int * int_time * 2)
                         while True:
                             _give_up -= 1
                             try:
@@ -2967,7 +2978,6 @@ class test_CBF(unittest.TestCase):
                                 delays_updated = list(set([int(i.arguments[-1]) for i in informs
                                                         if '.cd.delay' in i.arguments[2]]))[0]
                                 if delays_updated:
-                                    final_cmd_time = abs(cmd_start_time - time.time())
                                     LOGGER.info('%s delay(s) have been successfully set' % delay)
                                     msg = ('Delays set successfully via CAM interface: Reply: %s' %
                                             formated_reply)
@@ -2978,12 +2988,15 @@ class test_CBF(unittest.TestCase):
                                 LOGGER.error(msg)
                                 Aqf.failed(msg)
                                 break
+                            time.sleep(1)
 
-                        msg = (': Time it takes to load delays is less than {}s with integration '
-                               'time of {:.3f}s'.format(cam_max_load_time, int_time))
-                        Aqf.less(final_cmd_time, cam_max_load_time, msg)
-                    except Exception:
-                        Aqf.failed(errmsg)
+                        cam_max_load_time = setup_data['cam_max_load_time']
+                        msg = ('Time it took to load delays {}s is less than {}s with an '
+                              'integration time of {:.3f}s'
+                              .format(cmd_load_time, cam_max_load_time, int_time))
+                        Aqf.less(cmd_load_time, cam_max_load_time, msg)
+                    except Exception as e:
+                        Aqf.failed(errmsg + ' Exception: {}'.format(e))
                         LOGGER.exception(errmsg)
 
                     try:
@@ -3184,6 +3197,31 @@ class test_CBF(unittest.TestCase):
         test_heading("Systematic Errors Reporting: FFT Overflow")
         sensor_poll_time = self.correlator.sensor_poll_time
         # TODO MM, Simplify the test
+        ch_list = self.cam_sensors.ch_center_freqs
+        cw_freq = ch_list[int(self.n_chans_selected/2)]
+
+        if '4k' in self.instrument:
+            cw_scale = 0.7
+            awgn_scale = 0.085
+            gain = '7+0j'
+            fft_shift = 8191
+        else:
+            # 32K
+            cw_scale = 0.375
+            awgn_scale = 0.085
+            gain = '11+0j'
+            fft_shift = 32767
+
+        Aqf.step('Digitiser simulator configured to generate a continuous wave (cwg0), '
+                'with cw scale: {}, cw frequency: {}, awgn scale: {}, eq gain: {}, '
+                'fft shift: {}'.format(cw_scale, cw_freq, awgn_scale, gain, fft_shift))
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
+            dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
+                                            freq=cw_freq, fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
         try:
             Aqf.step('Get the current FFT Shift before manipulation.')
             reply, informs = self.corr_fix.katcp_rct.req.fft_shift()
@@ -3634,7 +3672,11 @@ class test_CBF(unittest.TestCase):
             try:
                 actual_data, _delay_coefficients = self._get_actual_data(
                     setup_data, dump_counts, delay_coefficients)
-            except TypeError:
+            except TypeError as e:
+                errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
+                          .format(e))
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
                 return
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
@@ -3748,7 +3790,11 @@ class test_CBF(unittest.TestCase):
             try:
                 actual_data, _delay_coefficients = self._get_actual_data(setup_data, dump_counts,
                     delay_coefficients)
-            except TypeError:
+            except TypeError as e:
+                errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
+                          .format(e))
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
                 return
 
             actual_phases = [phases for phases, response in actual_data]
@@ -3861,7 +3907,11 @@ class test_CBF(unittest.TestCase):
             try:
                 actual_data, _delay_coefficients = self._get_actual_data(
                     setup_data, dump_counts, delay_coefficients)
-            except TypeError:
+            except TypeError as e:
+                errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
+                          .format(e))
+                LOGGER.exception(errmsg)
+                Aqf.failed(errmsg)
                 return
             actual_phases = [phases for phases, response in actual_data]
             actual_response = [response for phases, response in actual_data]
@@ -3988,7 +4038,7 @@ class test_CBF(unittest.TestCase):
                         t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
                         t_apply_readable = this_freq_dump['dump_timestamp_readable']
                         Aqf.step('Delays will be applied with the following parameters:')
-                        Aqf.progress('Current epoch time: %s (%s)' %(time.time(), time.strftime("%H:%M:%S")))
+                        Aqf.progress('Current cmc time: %s (%s)' %(time.time(), time.strftime("%H:%M:%S")))
                         Aqf.progress('Current Dump timestamp: %s (%s)'%(this_freq_dump['dump_timestamp'],
                             this_freq_dump['dump_timestamp_readable']))
                         Aqf.progress('Time delays will be applied: %s (%s)' %(t_apply, t_apply_readable))
@@ -4039,7 +4089,7 @@ class test_CBF(unittest.TestCase):
         delays_cleared = clear_all_delays(self)
         setup_data = self._delays_setup()
 
-        num_int = 30
+        num_int = setup_data['num_int']
         int_time = self.cam_sensors.get_value('int_time')
         if setup_data:
             Aqf.step('Clear all coarse and fine delays for all inputs before test commences.')
@@ -4087,7 +4137,7 @@ class test_CBF(unittest.TestCase):
         delays_cleared = clear_all_delays(self)
         setup_data = self._delays_setup()
 
-        num_int = 30
+        num_int = setup_data['num_int']
         int_time = self.cam_sensors.get_value('int_time')
         Aqf.step('Disable Delays and/or Phases for all inputs.')
         if not delays_cleared:
@@ -4101,15 +4151,18 @@ class test_CBF(unittest.TestCase):
         no_inputs[setup_data['test_source_ind']] = self.cam_sensors.sample_period * 2
         delay_coefficients = ['{},0:0,0'.format(dv) for dv in no_inputs]
         try:
-            katcp_conn_time = time.time()
             Aqf.step('Request and enable Delays and/or Phases Corrections on input (%s) '
                      'via CAM interface.'% input_source)
+            load_strt_time = time.time()
             reply_, _informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients,
                 timeout=30)
+            load_done_time = time.time()
             msg = ('Delay/Fringe(s) set via CAM interface reply : %s' % str(reply_))
             assert reply_.reply_ok()
+            cmd_load_time = round(load_done_time - load_strt_time, 3)
+            Aqf.step('Fringe/Delay load command took {} seconds'.format(cmd_load_time))
             Aqf.is_true(reply_.reply_ok(), msg)
-            _give_up = 50
+            _give_up = int(num_int * int_time * 2)
             while True:
                 _give_up -= 1
                 try:
@@ -4126,11 +4179,11 @@ class test_CBF(unittest.TestCase):
                                             if '.cd.delay' in i.arguments[2]]))[0]
                     if delays_updated:
                         LOGGER.info('Delays have been successfully set')
-                        cmd_end_time = time.time()
                         break
                 if _give_up == 0:
                     LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
                     break
+                time.sleep(1)
 
         except Exception:
             errmsg = ('%s: Failed to set delays via CAM interface with load-time: %s, '
@@ -4140,10 +4193,10 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             return
         else:
-            final_cmd_time = abs(cmd_end_time - katcp_conn_time)
-            _msg = 'Time it takes to load Delay/Phases(s) is less that of 1 second\n'
-            Aqf.less(final_cmd_time, 1, _msg)
-
+            cam_max_load_time = setup_data['cam_max_load_time']
+            msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (cmd_load_time,
+                    cam_max_load_time)
+            Aqf.less(cmd_load_time, cam_max_load_time, msg)
 
     def _test_report_config(self):
         """CBF Report configuration"""
