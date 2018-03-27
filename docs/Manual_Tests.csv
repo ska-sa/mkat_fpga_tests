@@ -170,9 +170,24 @@ CBF-REQ-0060,CBF report logs,"The CBF shall report, via the CAM interface, CBF l
 13. Set the log level using KATCP command ""?log-level fatal""
 14. Confirm the CBF replies with ""#log-level ok fatal"" 
 15. Set the log level back to the setting which it was at the start of the test.
-16. Peruse archived log files and confirm that the log file contains more than 1000 lines.",TBD,TBD,TBD,,
-CBF-REQ-0177,CBF log system events,The CBF shall log system events in an internal log file with size sufficient for at least 1000 event logs.,,,,,,,,TBD,TBD,,
-CBF-REQ-0196,CBF event log wrap,"The CBF shall implement the event log as a circular buffer i.e. if the log is full, the oldest events shall be overwritten.",,,,,,,,TBD,TBD,,
+16. Peruse archived log files and confirm that the log file contains more than 1000 lines.","(cbf_qual)mmphego@cmc3:~/src/mkat_fpga_tests (site-testing-changes)
+2018-03-27 21:18:16] $ >>> tail -f /var/log/cmc.kcplog
+#log info 1522177044.647373 fxcorrelator_xengops.py Waiting\_7.09\_seconds\_for\_arm\_to\_trigger.
+#log info 1522177051.782283 fxcorrelator_xengops.py VACC\_ld_cnt\_counters\_incremented\_successfully.
+#log info 1522177053.120 basic accepted\_new\_connection\_from\_10.103.254.6:53273\_via\_array0.control
+#client-connected 10.103.254.6:53273
+#log info 1522177053.163549 fxcorrelator_xengops.py X-engine\_output\_enabled
+#log info 1522178045.677 basic accepted\_new\_connection\_from\_10.103.254.6:34911\_via\_primary
+#client-connected 10.103.254.6:34911
+#log info 1522178045.886 basic accepted\_new\_connection\_from\_10.103.254.6:53275\_via\_array0.control
+#client-connected 10.103.254.6:53275
+#log info 1522178045.952 cmc-array0 will\_use\_epoch\_1522175113.65
+
+
+
+See additional screenshots below",M. Mphego,22/03/2018,,
+CBF-REQ-0177,CBF log system events,The CBF shall log system events in an internal log file with size sufficient for at least 1000 event logs.,,,,,,,,,,,
+CBF-REQ-0196,CBF event log wrap,"The CBF shall implement the event log as a circular buffer i.e. if the log is full, the oldest events shall be overwritten.",,,,,,,,,,,
 CBF-REQ-0204,CBF Control feedback,"The CBF shall, on request via the CAM interface, report the requested setting of each control parameter.",CBF Control VR,VR.C.59,Verification by demonstration. Verify by demonstrating that commands to set the required parameters exist. Set values and confirm that these values are correctly reported when requested back.,CBF Control VE,CBF.V.3.37,"1. Request the following parameters via CAM interface and confirm if they're available.
     a) Downconversion frequency
     b) Channelisation configuration
@@ -273,7 +288,7 @@ CBF-REQ-0071,CBF Control,"The CBF shall provide the functionality to set the fol
  c) Accumulation interval
  d) Re-quantiser settings (Gain)
  e) Complex gain correction
- f) Polarisation correction.",,,Verification by demonstration. Verify by demonstrating that commands to set the required parameters exist. Set values and confirm that these values are correctly reported when requested back.,,,,,TBD,TBD,,
+ f) Polarisation correction.",,,Verification by demonstration. Verify by demonstrating that commands to set the required parameters exist. Set values and confirm that these values are correctly reported when requested back.,,,,,,,,
 CBF-REQ-0021,CBF Full Functional mode,"In Full Functional mode of OPERATIONAL state, the CBF shall provide the full functionality as defined in this specification.",CBF Full Functional Mode VR,VR.C.37,Verification by analysis. Verify by analysing the results of CBF Functional Tests. Confirm that these tests were run in the OPERATIONAL state.,CBF Full Functional Mode VE,CBF.V.3.77,1. Refer to CBF functional tests and confirm that the tests were successfully run in the OPERATIONAL state. ,"This requirement is verified if all the other tests performed in the OPERATIONAL state pass.
 ",TBD,TBD,,
 CBF-REQ-0011,CBF Retain configuration in OFF state,"The CBF, when in OFF state, shall retain all information previously uploaded into non-volatile memory, including but not limited to firmware images, software images, bootloaders and configuration files, with no data corruption for a period of at least 2 years.",CBF Configuration Retention in OFF State VR,VR.C.36,Verification by analysis. Verify by analysis that CBF configuration data is stored on appropriate storage devices capable of retaining configuration data when in the OFF state for a period of at least 2 years.,CBF States and Modes VE,CBF.V.3.3,"Configuration Retention
@@ -391,7 +406,9 @@ The processing nodes making up the CBF have previously been shown to meet the St
 CBF-REQ-0141,CBF Temperature range,The CBF shall provide full capability as defined in this specification with dry-bulb cold aisle environment temperatures of $$18^{\circ}C\degree\:<CBF_{temp}<\:35^{\circ}C$$.,CBF Temperature Range VR,VR.C.64,Verification by inspection. Verify by inspection of all relevant CBF LRU documentation that full capability is possible over the specified temperature range.,CBF Temperature Range VE,CBF.V.3.42,"1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
 2. Confirm whether each has an operational temperature specification better than 18 Degrees Celsius to 35 Degrees Celsius
 3. Record the item part number and reference the item data sheets and/or specification used.
-",,,,,
+","The COTS items making up the CBF have previously been shown to meet the Temperature Range specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5.
+
+The processing nodes making up the CBF have previously been shown to meet the Temperature Range specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5 and the qualification documents of the processing node: CQTRR-2015052503, which is included in the document datapack of the processing node.",Tyrone van Balla,28/02/2018,,
 CBF-REQ-0146,CBF Transportation of components,The CBF shall provide full capability as defined in this specification after transportation in an approved container under conditions as defined in “Class 2.2: careful transportation” of the ETSI EN 300 019-1-2 standard.,CBF Transportation of Components VR,VR.C.65,Verification by demonstration. Verify by demonstration that CBF LRUs transported to the KABP are fully functional.,CBF Transportation of Components VE,CBF.V.3.43,"After deployment of a number of (at least 12) processing nodes to the KAPB and other LRU infrastructure: 
 1. If any processing nodes or LRUs failed after transportation, analyse the failure to determine whether vibration was the cause of failure. 
 2. The test passes if no processing nodes failed, or if vibration was not the cause of any failures.
