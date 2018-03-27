@@ -340,7 +340,7 @@ def exit_handler():
                         r'$\phi${\footnotesize TA}(f) = -2 * $\pi$ * f{\footnotesize RF} * $\tau{\footnotesize TA}$',
                         r"Fly's",
                         r'19" racks',
-                        r'\noindent\sphinxincludegraphics[width=0.500\linewidth]',
+                        r'\noindent\sphinxincludegraphics[width=0.650\linewidth]',
                         # "{longtable}[c]{|l|l|l|}",
                         # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
                         # "end{longtable}",
