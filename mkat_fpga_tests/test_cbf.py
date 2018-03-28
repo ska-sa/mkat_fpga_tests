@@ -309,8 +309,8 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument()
             if instrument_success:
                 test_heading("CBF Channelisation Wideband Fine SFDR L-band")
-                n_channels = self.n_chans_selected
-                self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=n_channels)  # Hz
+                n_ch_to_test = int(self.conf_file['instrument_params']['sfdr_ch_to_test'])
+                self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=n_ch_to_test)  # Hz
             else:
                 Aqf.failed(self.errmsg)
 
@@ -2064,10 +2064,10 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
-            Aqf.equals(np.shape(initial_dump['xeng_raw'])[0], no_channels,
-                       'Captured an initial correlator SPEAD accumulation, '
-                       'determine the number of channels and processing bandwidth: '
-                       '{}Hz.'.format(self.cam_sensors.get_value('bandwidth')))
+            #Aqf.equals(np.shape(initial_dump['xeng_raw'])[0], no_channels,
+            #           'Captured an initial correlator SPEAD accumulation, '
+            #           'determine the number of channels and processing bandwidth: '
+            #           '{}Hz.'.format(self.cam_sensors.get_value('bandwidth')))
             #chan_spacing = (self.cam_sensors.get_value('bandwidth') / np.shape(initial_dump['xeng_raw'])[0])
             chan_spacing = self.cam_sensors.get_value('bandwidth') / self.cam_sensors.get_value('n_chans')
             # [CBF-REQ-0043]
@@ -2084,13 +2084,13 @@ class test_CBF(unittest.TestCase):
         print_counts = 4
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         failure_count = 0
-        if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
-            _msg = 'Due to system performance the test will sweep a limited number (ie %s) of channels' % (
-                self.n_chans_selected)
-            Aqf.note(_msg)
-            channel_freqs = self.cam_sensors.ch_center_freqs[start_chan:self.n_chans_selected]
-        else:
-            channel_freqs = self.cam_sensors.ch_center_freqs[start_chan:]
+        #if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
+        #    _msg = 'Due to system performance the test will sweep a limited number (ie %s) of channels' % (
+        #        self.n_chans_selected)
+        #    Aqf.note(_msg)
+        #    channel_freqs = self.cam_sensors.ch_center_freqs[start_chan:self.n_chans_selected]
+        #else:
+        channel_freqs = self.cam_sensors.ch_center_freqs[start_chan:no_channels]
 
         for channel, channel_f0 in enumerate(channel_freqs, start_chan):
             if channel < print_counts:
@@ -4655,7 +4655,8 @@ class test_CBF(unittest.TestCase):
         if '4k' in self.instrument:
             # 4K
             awgn_scale = 0.0645
-            gain = 113
+            #gain = 113
+            gain = 30
             fft_shift = 511
         else:
             # 32K
@@ -4674,9 +4675,25 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to configure digitiser simulator levels')
             return False
 
+        # Set per channel gain vectors for chosen input.
         self.addCleanup(set_default_eq, self)
         source = random.randrange(len(self.cam_sensors.input_labels))
-        _discards = 50
+        test_input = random.choice(self.cam_sensors.input_labels)
+        Aqf.step('Randomly selected input to test: %s' % (test_input))
+        n_chans = self.cam_sensors.get_value('n_chans')
+        rand_ch = random.choice(range(n_chans)[:self.n_chans_selected])
+        gain_vector = [gain] * n_chans
+        base_gain = gain
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.gain(test_input, base_gain,
+                timeout=60)
+            assert reply.reply_ok()
+        except Exception as e:
+                Aqf.failed('Gain correction on %s could not be set to %s.: '
+                           'KATCP Reply: %s' % (test_input, gain, reply))
+                return
+
+        _discards = 5
         try:
             initial_dump = self.receiver.get_clean_dump(discard=_discards)
             self.assertIsInstance(initial_dump, dict)
@@ -4687,20 +4704,14 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             return
         else:
-            test_input = random.choice(self.cam_sensors.input_labels)
-            Aqf.step('Randomly selected input to test: %s' % (test_input))
             # Get auto correlation index of the selected input
             bls_order = eval(self.cam_sensors.get_value('bls_ordering'))
             for idx, val in enumerate(bls_order):
                 if val[0] == test_input and val[1] == test_input:
                     auto_corr_idx = idx
-
-            n_chans = self.cam_sensors.get_value('n_chans')
-            rand_ch = random.choice(range(n_chans)[:self.n_chans_selected])
-            gain_vector = [gain] * n_chans
-            base_gain = gain
             initial_resp = np.abs(complexise(initial_dump['xeng_raw'][:, auto_corr_idx, :]))
             initial_resp = 10 * np.log10(initial_resp)
+            prev_resp = initial_resp
             chan_resp = []
             legends = []
             found = False
@@ -4727,7 +4738,7 @@ class test_CBF(unittest.TestCase):
                         return
                 else:
                     msg = ('Gain correction on input %s, channel %s set to %s.' % (test_input,
-                        rand_ch, complex(gain)))
+                        rand_ch, reply.arguments[rand_ch+1]))
                     Aqf.passed(msg)
                     try:
                         dump = self.receiver.get_clean_dump(discard=_discards)
@@ -4739,7 +4750,10 @@ class test_CBF(unittest.TestCase):
                     else:
                         response = np.abs(complexise(dump['xeng_raw'][:, auto_corr_idx, :]))
                         response = 10 * np.log10(response)
-                        resp_diff = response[rand_ch] - initial_resp[rand_ch]
+                        Aqf.progress('Maximum value found in channel {}'.format(np.argmax(response)))
+                        #resp_diff = response[rand_ch] - initial_resp[rand_ch]
+                        resp_diff = response[rand_ch] - prev_resp[rand_ch]
+                        prev_resp = response
                         if resp_diff < target:
                             msg = ('Output power increased by less than 1 dB '
                                    '(actual = {:.2f} dB) with a gain '
