@@ -464,7 +464,12 @@ class test_CBF(unittest.TestCase):
                 chan_index = self.n_chans_selected
                 n_chans = self.cam_sensors.get_value('n_chans')
                 test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
-                self._test_vacc(test_chan, chan_index)
+                n_ants = self.cam_sensors.get_value('n_ants')
+                if n_ants == 4:
+                    acc_time = 0.998
+                else:
+                    acc_time = 2 * n_ants / 32.
+                self._test_vacc(test_chan, chan_index, acc_time)
             else:
                 Aqf.failed(self.errmsg)
 
