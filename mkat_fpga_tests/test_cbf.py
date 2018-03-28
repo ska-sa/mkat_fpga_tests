@@ -2290,7 +2290,8 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels via Cam interface.')
         try:
-            test_dump = get_clean_dump(self)
+            test_dump = self.receiver.get_clean_dump(discard=50)
+            # test_dump = get_clean_dump(self)
             self.assertIsInstance(test_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2427,7 +2428,8 @@ class test_CBF(unittest.TestCase):
                     try:
                         Aqf.step('Retrieving SPEAD accumulation and confirm if gain/equalisation '
                                  'correction has been applied.')
-                        test_dump = get_clean_dump(self)
+                        test_dump = self.receiver.get_clean_dump(discard=30)
+                        # test_dump = get_clean_dump(self)
                         self.assertIsInstance(test_dump, dict)
                     except Exception:
                         errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2506,7 +2508,8 @@ class test_CBF(unittest.TestCase):
                  'identical.'.format(expected_fc / 1e6, source_period_in_samples))
 
         try:
-            this_freq_dump = get_clean_dump(self)
+            this_freq_dump = self.receiver.get_clean_dump(discard=50)
+            # this_freq_dump = get_clean_dump(self)
             assert isinstance(this_freq_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2529,7 +2532,8 @@ class test_CBF(unittest.TestCase):
                 for dump_no in xrange(3):
                     if dump_no == 0:
                         try:
-                            this_freq_dump = get_clean_dump(self)
+                            # this_freq_dump = get_clean_dump(self)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=20)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2540,7 +2544,8 @@ class test_CBF(unittest.TestCase):
                             initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     else:
                         try:
-                            this_freq_dump = get_clean_dump(self)
+                            # this_freq_dump = get_clean_dump(self)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=20)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2608,7 +2613,7 @@ class test_CBF(unittest.TestCase):
         source_period_in_samples = self.n_chans_selected * 2
 
         try:
-            test_dump = self.receiver.get_clean_dump()
+            test_dump = self.receiver.get_clean_dump(discard=50)
             assert isinstance(test_dump, dict)
         except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2633,7 +2638,8 @@ class test_CBF(unittest.TestCase):
                                                           repeat_n=source_period_in_samples)
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
-                            this_freq_dump = get_clean_dump(self)
+                            # this_freq_dump = get_clean_dump(self)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=20)
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2648,7 +2654,8 @@ class test_CBF(unittest.TestCase):
                                                           repeat_n=source_period_in_samples)
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
-                            this_freq_dump = get_clean_dump(self)
+                            # this_freq_dump = get_clean_dump(self)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=20)
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -4453,7 +4460,8 @@ class test_CBF(unittest.TestCase):
                            'implemented for instrument: {}.'.format(self.instrument))
 
                 response = normalised_magnitude(test_dump['xeng_raw'][:, test_baseline, :])
-                plot_filename = '{}/{}.png'.format(self.logs_path, self._testMethodName)
+                plot_filename = '{}/{}_channel_response_.png'.format(self.logs_path,
+                    self._testMethodName)
 
                 caption = ('An overall frequency response at {} baseline, '
                            'when digitiser simulator is configured to generate Gaussian noise, '
@@ -4601,7 +4609,7 @@ class test_CBF(unittest.TestCase):
                 # power data
                 aqf_plot_channels(
                     np.square(cap_avg),
-                    plot_filename='{}/{}_beam_resp_{}.png'.format(self.logs_path,
+                    plot_filename='{}/{}_beam_response_{}.png'.format(self.logs_path,
                                                                   self._testMethodName, beam),
                     plot_title=('Beam = {}, Spectrum Start Frequency = {} MHz\n'
                                 'Number of Channels Captured = {}\n'
