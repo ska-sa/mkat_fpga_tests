@@ -378,7 +378,7 @@ def clear_all_delays(self):
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
-    _retries = 10
+    _retries = 3
     errmsg = ''
     while _retries:
         _give_up = 40
@@ -398,33 +398,35 @@ def clear_all_delays(self):
                 discard += 1
             errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
                 dump_timestamp, deng_timestamp, time_diff))
-            t_apply = dump_timestamp + (20 * int_time)
-            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
-            errmsg = 'Delays command could not be executed in the given time'
-            assert reply.reply_ok(), errmsg
+            num_int = int(self.conf_file['instrument_params']['num_int_delay_load'])
+            t_apply = dump_timestamp + (num_int * int_time)
             start_time = time.time()
-            end_time = 0
-            while True:
-                _give_up -= 1
-                try:
-                    LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
-                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-                    assert reply.reply_ok()
-                except Exception:
-                    LOGGER.exception("Weirdly I couldn't get the sensor values, fix it and figure it out")
-                else:
-                    delays_updated = list(set([int(i.arguments[-1]) for i in informs
-                                                if '.cd.delay' in i.arguments[2]]))[0]
-                    if delays_updated:
-                        LOGGER.info('Delays have been successfully set')
-                        end_time = time.time()
-                        break
-                if _give_up == 0:
-                    LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
-                    break
-            time_end = abs(end_time - start_time)
+            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            time_end = time.time() - start_time
+            errmsg = 'Delays command could not be executed in the given time: {}'.format(reply)
+            assert reply.reply_ok(), errmsg
+            #end_time = 0
+            #while True:
+            #    _give_up -= 1
+            #    try:
+            #        LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
+            #        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            #        assert reply.reply_ok()
+            #    except Exception:
+            #        LOGGER.exception("Weirdly I couldn't get the sensor values, fix it and figure it out")
+            #    else:
+            #        delays_updated = list(set([int(i.arguments[-1]) for i in informs
+            #                                    if '.cd.delay' in i.arguments[2]]))[0]
+            #        if delays_updated:
+            #            LOGGER.info('Delays have been successfully set')
+            #            end_time = time.time()
+            #            break
+            #    if _give_up == 0:
+            #        LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
+            #        break
+            #time_end = abs(end_time - start_time)
             LOGGER.info('Time it took to set and confirm the delays %ss' % time_end)
-            dump = self.receiver.get_clean_dump(discard=10)
+            dump = self.receiver.get_clean_dump(discard=num_int+2)
             _max = int(np.max(np.angle(dump['xeng_raw'][:,33,:][5:-5])))
             _min = int(np.min(np.angle(dump['xeng_raw'][:,0,:][5:-5])))
             errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (_max, _min)
