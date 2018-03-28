@@ -527,7 +527,7 @@ class test_CBF(unittest.TestCase):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument(acc_time=1)
+            instrument_success = self.set_instrument(acc_time=2)
             if instrument_success:
                 self._test_delay_tracking()
                 self._test_delay_rate()
@@ -1236,7 +1236,7 @@ class test_CBF(unittest.TestCase):
             actual_delay_coef = reply.arguments[1:]
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             Aqf.step('Fringe/Delay load command took {} seconds'.format(cmd_load_time))
-            _give_up = int(setup_data['num_int'] * setup_data['int_time'] * 2)
+            _give_up = int(setup_data['num_int'] * setup_data['int_time'] * 3)
             while True:
                 _give_up -= 1
                 try:
@@ -2968,7 +2968,7 @@ class test_CBF(unittest.TestCase):
                         assert reply.reply_ok(), errmsg
                         cmd_load_time = round(load_done_time - load_strt_time, 3)
                         Aqf.step('Delay load command took {} seconds'.format(cmd_load_time))
-                        _give_up = int(num_int * int_time * 2)
+                        _give_up = int(num_int * int_time * 3)
                         while True:
                             _give_up -= 1
                             try:
@@ -4169,7 +4169,7 @@ class test_CBF(unittest.TestCase):
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             Aqf.step('Fringe/Delay load command took {} seconds'.format(cmd_load_time))
             Aqf.is_true(reply_.reply_ok(), msg)
-            _give_up = int(num_int * int_time * 2)
+            _give_up = int(num_int * int_time * 3)
             while True:
                 _give_up -= 1
                 try:
@@ -5005,12 +5005,12 @@ class test_CBF(unittest.TestCase):
                         for part in flags:
                             missed_heaps = np.where(part>0)[0]
                             missed_perc = missed_heaps.size/part.size
-                            perc = 0.50
+                            perc = 0.60
                             if missed_perc > perc:
                                 Aqf.progress('Missed heap percentage = {}%%'.format(missed_perc*100))
                                 Aqf.progress('Missed heaps = {}'.format(missed_heaps))
                                 LOGGER.warning('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
-                                Aqf.failed('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+                                Aqf.progress('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
                                 #missed_err = True
                                 break
                         # Good capture, break out of loop
