@@ -16,8 +16,8 @@ Processing Nodes:
 The processing nodes are custom LRUs. Each LRU has been delivered with a Certificate of Compliance ensuring that the item was manufactured according to the specifications. The CoCs and processing node datapack is available in eB.",Alec Rust,28/02/2018,,
 CBF-REQ-0132,CBF supply power frequency variation,The CBF shall provide full capability as defined in this specification with an input power supply frequency in the range 50Hz ±1%.,,,,,,,,,,,
 CBF-REQ-0133,CBF supply power harmonic distortion,The CBF shall provide full capability as defined in this specification with an input power supply total harmonic distortion of no greater than 4%.,,,,,,,,,,,
-CBF-REQ-0199,CBF safe design - toxic materials,"The CBF shall be ROHS compliant, with the exception that tin-lead solder may be used (ROHS exemption 7b/ROHS 5)",CBF Safe Design VR,VR.C.39,Verification by inspection. Inspect CBF LRU documentation to confirm that all CBF LRUs meet the safe design requirements.,CBF Safe Design VE,CBF.V.3.16,"1. Inspect the Bill-of-Materials of the processing nodes used in the CBF. Confirm that each part used is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this. 
-2. Inspect the datasheets of the COTS LRUs used in the CBF. Confirm that each LRU is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this. 
+CBF-REQ-0199,CBF safe design - toxic materials,"The CBF shall be ROHS compliant, with the exception that tin-lead solder may be used (ROHS exemption 7b/ROHS 5)",CBF Safe Design VR,VR.C.39,Verification by inspection. Inspect CBF LRU documentation to confirm that all CBF LRUs meet the safe design requirements.,CBF Safe Design VE,CBF.V.3.16,"1. Inspect the Bill-of-Materials of the processing nodes used in the CBF. Confirm that each part used is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this.
+2. Inspect the datasheets of the COTS LRUs used in the CBF. Confirm that each LRU is ROHS compliant, either with or without exception 7b. ROHS 6 and/or ROHS 5 is compliant with this.
 3. Record the item part numbers and supply references to the item data sheets or BOM used.","COTS:
 Servers: Dell servers are ROHS compliant as per Dell Worldwide Regulatory Compliance Engineering and Environmental Affairs: pedge_r320_e18s001_us.pdf
 PDUs: APC AP8981 PDUs are ROHS compliant as per data sheet: AP8981_DATASHEET_EM_en-GB.pdf
@@ -26,7 +26,7 @@ Switches: Mellanox SX1710 switches are ROHS6 compliant as per product brief: PB_
 Processing Nodes:
 The processing nodes are custom LRUs. Each LRU has been delivered with a Certificate of Compliance ensuring that the item was manufactured according to the specifications. The CoCs and processing node datapack is available in eB.",Alec Rust,28/02/2018,,
 CBF-REQ-0061,CBF LRU status and display,"Each custom designed LRU in the CBF shall determine and indicate via clear visible LED indication the state of the LRU, as either OK (indicated in green) or not OK (which shall signify either an error condition or a failure, indicated as red), located such that the LED is visible with the LRU installed.",CBF LRU Status and Display VR,VR.C.40,Verification by inspection. Inspect CBF processing node physical hardware and documentation to confirm that the processing nodes will suitably display faults.,CBF LRU Status and Display VE,CBF.V.3.17,"1. Inspect CBF processing node physical hardware to confirm the presence of a status LED that is visible with the LRU installed.
-2. Inspect CBF processing node documentation to confirm that the processing nodes will suitably display LRU status and faults 
+2. Inspect CBF processing node documentation to confirm that the processing nodes will suitably display LRU status and faults
 - Green LED for OK state
 - Red LED for ERROR or FAILURE state.","1. The SKARAB LRU has 9 visible LEDs: 4 green, 5 red LEDs.
 2. The bank of 8 LEDs (4 red, 4 green) can be programmed to display LRU stauts and faults.
@@ -80,19 +80,19 @@ Note: A single Packaged Item Identification label catering for both options is p
 A single label with space for all of the above information is also permissible.
 ",CLIP-LOCK containers were not used for transporting CBF LRUs to site. Each type of LRU was packaged by the manufacturer in suitable containers. No transportation failures have occurded to date. All packaging was labelled correctly.,Alec Rust,21/03/2018,Clip Lock container in DBE lab.,
 CBF-REQ-0170,CBF Clip-lock containers,The packaging containers for LRUs and SRUs (spare items) shall be CLIP-LOCK containers.,,,,,,,,,,,
-CBF-REQ-0172,Container markings,"The packaging containers for LRUs and SRUs (spare items) shall have the following markings securely attached on the outside of the container: 
- i. “Fragile” label 
+CBF-REQ-0172,Container markings,"The packaging containers for LRUs and SRUs (spare items) shall have the following markings securely attached on the outside of the container:
+ i. “Fragile” label
  ii. Mode of transport “careful transportation” or “very careful transportation” (ETSI Standard EN 300019-2-2 V2.1.2)
- iii. “This side up” label 
- iv. “Fork lift here” label, where applicable 
- v. Centre of gravity marking, where applicable 
- vi. Packaged Item Identification plate, with identification data completed. 
+ iii. “This side up” label
+ iv. “Fork lift here” label, where applicable
+ v. Centre of gravity marking, where applicable
+ vi. Packaged Item Identification plate, with identification data completed.
  vii. Tamper proof labels for “wrong way up” and “excessive acceleration”, where applicable",,,,,,,,,,,
-CBF-REQ-0173,Packaged LRU identification,"The packaging containers for LRUs and SRUs (spare items) shall have the following Item Identification plate securely attached on the outside of the container: 
+CBF-REQ-0173,Packaged LRU identification,"The packaging containers for LRUs and SRUs (spare items) shall have the following Item Identification plate securely attached on the outside of the container:
  i. Identification “MeerKAT System Component” (SKA SA fabricated or subcontracted items only).
  ii. LRU/SRU Name (supplied by MeerKAT System team) (SKA SA fabricated or subcontracted items only).
  iii. LRU/SRU Part Number and Version (supplied by MeerKAT System team) (SKA SA fabricated or subcontracted items only).
- iv. LRU/SRU serial number (shall be able to update this for the relevant unit). 
+ iv. LRU/SRU serial number (shall be able to update this for the relevant unit).
  v. LRU/SRU supplier part number (where applicable).
  vi. LRU/SRU supplier identification (where applicable).
  vii. Bar Code data (preferred)
@@ -149,7 +149,7 @@ CBF-REQ-0154,CBF Safety markings,The CBF shall display warning information of da
 CBF-REQ-0155,CBF Control markings,The CBF shall have the functions of all physical switches and control elements clearly marked in the English language.,,,,,,,,,,,
 CBF-REQ-0184,CBF Wiring connectors,All cabled connections internal to the CBF shall be clearly labelled to allow identification during installation.,,,,,,,,,,,
 CBF-REQ-0162,CBF use of COTS equipment,"The CBF should make maximum use of commercial off the shelf (COTS) equipment, and where possible COTS components with long support life expectancy should be chosen.",CBF Use of COTS Equipment VR,VR.C.47,Verification by inspection. Inspect the CBF physical item structure to confirm that COTS equipment with long support life expectancy is used.,CBF Use of COTS Equipment VE,CBF.V.3.24,"1. Confirm by inspection of the CBF physical item structure that the CBF design utilises largely commercial off the shelf (COTS) equipment.
-2. Confirm, where possible, that the COTS equipment used have long support life expectancy. 
+2. Confirm, where possible, that the COTS equipment used have long support life expectancy.
 
 
 Note: The second point is highly subjective and the opinion of the CBF Technical Lead or Test Engineer is sufficient to pass the test.","Inspection of the CBF physical item structure shows that the CBF design comprises mainly COTS equipment. COTS equipment are employed for the servers, switches, and PDUs. The only custom LRUs present in the item structure are the processing nodes.
@@ -168,7 +168,7 @@ CBF-REQ-0060,CBF report logs,"The CBF shall report, via the CAM interface, CBF l
 11. Confirm the CBF replies with ""#log-level ok debug""
 12. Confirm that messages are being logged periodically, as the CBF is being used.
 13. Set the log level using KATCP command ""?log-level fatal""
-14. Confirm the CBF replies with ""#log-level ok fatal"" 
+14. Confirm the CBF replies with ""#log-level ok fatal""
 15. Set the log level back to the setting which it was at the start of the test.
 16. Peruse archived log files and confirm that the log file contains more than 1000 lines.","(cbf_qual)mmphego@cmc3:~/src/mkat_fpga_tests (site-testing-changes)
 2018-03-27 21:18:16] $ >>> tail -f /var/log/cmc.kcplog
@@ -197,92 +197,176 @@ CBF-REQ-0204,CBF Control feedback,"The CBF shall, on request via the CAM interfa
     f) Polarisation correction.
 2. and report the requested setting of each control parameter:","mmphego@cmc3:~/src/mkat_fpga_tests/docs/manual_tests_images (site-testing-changes)
 [2018-03-22 17:23:02] $ >>> kcpcmd -t 180 -s 10.103.254.6:$(kcpcmd -s 10.103.254.6:7147 array-list array0 | grep -a array-list | cut -f3 -d ' ' ) help
-#version-connect instrument.fengine-firmware-77777-git {'/home/skarab_fpga/source/feng_wide/s_c856m4k.slx': ""[andrew@andrew-Precision-T1600] [http://github.com/ska-sa/mkat_fpga] [860480287608bdca1c88af1b05ef4ef43236af28 - jmanley@ska.ac.za - Wed, 7 Mar 2018 14:25:50 +0200] [On branch devel - Changes not staged for commit:] [' M source/feng_wide/s_c856m4k.slx']"", 'tag': 'rcs', '/home/jasper_devel': '[andrew@andrew-Precision-T1600] [https://github.com/ska-sa/mlib_devel] [2228c5f34b9506042609ccddc266018ded5f6df9 - andrew@ska.ac.za - Fri, 2 Mar 2018 11:31:15 +0200] [On branch devel - nothing to commit (use -u to show untracked files)] []'}
+#version-connect instrument.fengine-firmware-77777-git {'/home/skarab_fpga/source/feng_wide/s_c856m4k.slx': ""[andrew@andrew-Precision-T1600] [http://github.com/ska-sa/mkat_fpga] [860480287608bdca1c88af1b05ef4ef43236af28 - jmanley@ska.ac.za - Wed, 7 Mar 2018 14:25:50 +0200] [On branch devel - Changes not staged for commit:] [' M source/feng_wide/s_c856m4k.slx']"", 'tag': 'rcs', '/home/jasper_devel': '[andrew@andrew-Precision-T1600] [https://github.com/ska-sa/mlib_devel] [2228c5f34b9506042609ccddc266018ded5f6df9 - andrew@ska.ac.za - Fri, 2 Mar 2018 11:31:15 +0200] [On branch devel - nothing to commit (
+use -u to show untracked files)] []'}
+
 #version-connect instrument.katcp-device corr2 instrument servlet-0.1 corr2-0.1alpha
+
 #version-connect instrument.katcp-library katcp-python-0.6.2
+
 #version-connect instrument.katcp-protocol 5.0-IM
-#version-connect instrument.xengine-firmware-77777-git {'/mnt/secondary/rhel_root/opt/casper_library/mlib_devel.jasper': ""[jmanley@jmanley-build] [] [b8ccb9904bd3896bcfb08f2eb526a4140b02e51e - aisaacson@ska.ac.za - Tue, 27 Feb 2018 10:36:34 +0200] [On branch reduced_clock - Your branch is up-to-date with 'origin/reduced_clock'.] []"", 'tag': 'rcs', '/home/jmanley/projects/mkat_fpga/source/xeng_wide/s_b4a4x256f_slovacc.slx': ""[jmanley@jmanley-build] [git@github.com:ska-sa/mkat_fpga.git] [file not in Git] [On branch devel - Your branch is up-to-date with 'origin/devel'.] []""}
+
+#version-connect instrument.xengine-firmware-77777-git {'/mnt/secondary/rhel_root/opt/casper_library/mlib_devel.jasper': ""[jmanley@jmanley-build] [] [b8ccb9904bd3896bcfb08f2eb526a4140b02e51e - aisaacson@ska.ac.za - Tue, 27 Feb 2018 10:36:34 +0200] [On branch reduced_clock - Your branch is up-to-date with 'origin/reduced_clock'.] []"", 'tag': 'rcs', '/home/jmanley/projects/mkat_fpga/source/xeng_wide/s_b4a4x256f_slovacc.slx': ""[jmanley@jmanley-build] [
+git@github.com:ska-sa/mkat_fpga.git] [file not in Git] [On branch devel - Your branch is up-to-date with 'origin/devel'.] []""}
+
 #version-connect monitor.katcp-device device_stub-0.1 name-0.1
+
 #version-connect monitor.katcp-library katcp-python-0.6.2
+
 #version-connect monitor.katcp-protocol 5.0-IM
+
 #version-connect cbf-server CMC-M.1200.12
+
 #version-connect katcp-device cbf-1.h v0.3.0-244-g2550d7d
+
 #version-connect katcp-library Ckatcp-v0.2.0-201-g78fde70
+
 #version-connect katcp-protocol 5.0-M
+
 #help accumulation-length set the integration interval (?accumulation length period)
+
 #help adc-snapshot retrieve a snapshot of ADC data for a specific input (?adc-snapshot input-label [unix-time])
+
 #help arb arbitrary callback manipulation (?arb [list]
+
 #help beam-passband set the beam passband (?beam-passband beam bandwidth center frequency)
+
 #help beam-quant-gains set the quantiser gain for a beam (?beam-quant-gain beam [gain])
+
 #help beam-weights set the beam weigths (?beam-weights beam [values]*)
+
 #help broadcast send messages to everybody (?broadcast group inform [arguments])
+
 #help bulk-sampling configure several sensors (?bulk-sampling sensors+ [strategy [parameter]])
+
 #help capture-destination set data stream destination (?capture-destination stream data-destination)
+
 #help capture-list list data products
+
 #help capture-meta reissue stream meta-data (?capture-meta stream)
+
 #help capture-start start data stream output (?capture-start stream)
+
 #help capture-stop stop data stream output (?capture-stop stream)
+
 #help client-config set a client option (?client-config (duplex|server|client|hidden|visible|prefixed|fixed|translate|native|[no-]named-log) [client])
+
 #help client-connect create a client to a remote host (?client-connect host:port [group [name]])
+
 #help client-exec create a client to a local process (?client-exec label [group [binary [args]*])
+
 #help client-halt stop a client (?client-halt [name [group]])
+
 #help client-list display currently connected clients (?client-list)
+
 #help client-rename rename a client (?client-rename new-name [old-name [group]])
+
 #help client-switch switch a client's group (?client-switch group [client])
+
 #help cmd-alias create new command from existing (?cmd-alias new existing)
+
 #help cmd-delete remove a command (?cmd-delete command)
+
 #help cmd-help set the help message for a command (?cmd-help command message)
+
 #help cmd-hide hide a command (?cmd-hide command)
+
 #help cmd-uncover reveal a hidden command (?cmd-uncover command)
+
 #help delays set delay and fringe correction (?delays unix-time [coefficient-set]*)
+
 #help digitiser-synch-epoch internal synchronisation interface (?digitiser-synch-epoch epoch)
+
 #help fft-shift set the FFT shift value (?fft-shift [value])
+
 #help forward-symbolic create a command which generates a request against another party (?forward-symbolic command remote [remote-command])
+
 #help frequency-select set the center of the frequency band (?frequency-select stream center frequency)
+
 #help gain set gain factors (?gain input [values])
+
 #help gain-all set gain factors (?gain-all [values])
+
 #help group-config set a group option (?group-config option [group])
+
 #help group-create create a new group (?group-create name [group])
+
 #help group-halt halt a group (?group-halt [group])
+
 #help group-list list groups (?group-list)
+
 #help halt halt (?halt)
+
 #help help display help messages (?help [command])
+
 #help input-labels set names of all inputs (?label inputs [name]*)
+
 #help instrument-activate launch the specified instrument (?instrument-activate instrument)
+
 #help instrument-list show fielded instruments (?instrument-list)
+
 #help listener-config configure a listener (?listener-config label [nagle|fast])
+
 #help listener-create create a listener (?listener-create label [port [interface [group]]])
+
 #help listener-halt stop a listener (?listener-halt port)
+
 #help listener-list list listeners (?listener-list [label])
+
 #help log-default retrieve or adjust the log level of subsequent connections (?log-default [level])
+
 #help log-level retrieve or adjust the log level (?log-level [level])
+
 #help log-limit adjust the log level of the current connection (?log-limit [level])
+
 #help log-local adjust the log level of the current connection (?log-local [level])
+
 #help log-override retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])
+
 #help quantiser-snapshot retrieve quantiser data
+
 #help relay issue a request to a peer within the same process (?relay peer cmd)
+
 #help restart restart (?restart)
+
 #help scope change scoping level (?scope scope [(group | client) name])
+
 #help sensor-list lists available sensors (?sensor-list [sensor])
+
 #help sensor-sampling configure a sensor (?sensor-sampling sensor [strategy [parameter]])
+
 #help sensor-value query a sensor (?sensor-value sensor)
+
 #help synchronisation-epoch digitiser synchronisation time (?synchronisation-epoch time)
+
 #help system-info global system information (?system-info)
+
 #help timer-list list timer instances (?timer-list)
+
 #help timer-rename rename a timer instance (?timer-rename old-name new-name)
+
 #help transient-buffer-trigger trigger the transient buffer for all inputs (?transient-buffer-trigger)
+
 #help var-declare declare a variable (?var-declare name attribute[,attribute]* [path])
+
 #help var-delete remove a variable (?var-set variable)
+
 #help var-list list variables (?var-list [variable])
+
 #help var-set set a variable (?var-set variable value [type [path]])
+
 #help var-show list variables (?var-show [variable])
+
 #help version-list list version information (?version-list)
+
 #help watchdog pings the system (?watchdog)
+
 #help whoami get current connection name (?whoami)
+
 !help ok 70
 ",M. Mphego,22/03/2018,,
 CBF-REQ-0071,CBF Control,"The CBF shall provide the functionality to set the following parameters via the CAM interface:
- 
+
  a) Downconversion frequency
  b) Channelisation configuration
  c) Accumulation interval
@@ -358,47 +442,47 @@ Considering the 32768-channel configuration at L-band and 500ms accumulations, t
 The probability of an overflow occurring in the correlator's vector accumulator output for any input signal is thus zero.",Jason Manley,14/02/2018,,
 CBF-REQ-0001,CBF Data Products Available for all Receivers,"The CBF, when requested to produce any of the defined data products, shall produce the requested data product with any one of the installed receivers.",CBF Data Products Available for All Receivers VR,VR.C.58,Verification by analysis. Verify by analysis of the CBF design that all receivers can be used as inputs to the CBF.,CBF Data Products Available for All Receivers VE,CBF.V.3.36,1. Analyse the CBF design and provide rationale to support that CBF data products can be produced with any one of the installed receivers.,"CBF incorporates a 64 port switch that will allow digitiser data to be routed to any F-Engine.
 CBF data products are generated by F- and X-engines. The CBF is interconnected by a Clos network architecture with leaf switches which connect to all possible data subscribers, thus all data subscribers may access all data products from F- or X-engines.",Alec Rust,14/02/2018,,
-CBF-REQ-0140,CBF Cooling method,The CBF shall require no external cooling besides that provided by the natural convection of air moving from the cold aisle to the hot aisle. Active cooling (e.g. fans) within the CBF is permitted.,CBF Cooling Method VR,VR.C.61,Verification by inspection. Verify by inspecting the CBF installation and confirm that the cooling method adheres to the specifications.,CBF Cooling Method VE,CBF.V.3.39,"Confirm, by inspection, that: 
+CBF-REQ-0140,CBF Cooling method,The CBF shall require no external cooling besides that provided by the natural convection of air moving from the cold aisle to the hot aisle. Active cooling (e.g. fans) within the CBF is permitted.,CBF Cooling Method VR,VR.C.61,Verification by inspection. Verify by inspecting the CBF installation and confirm that the cooling method adheres to the specifications.,CBF Cooling Method VE,CBF.V.3.39,"Confirm, by inspection, that:
 1. The front and rear doors of the CBF racks are perforated to allow natural convection of air moving from the cold aisle to the hot aisle
 2. The CBF has no external cooling besides that provided by natural convection of air moving from the cold aisle to the hot aisle, and optionally active cooling (e.g. fans) which are mounted inside the CBF and/or inside of CBF LRUs.","1. Front and read doors of all CBF racks are perforated.
 2. All CBF LRUs have no external cooling and contain fans.
 3. See images: CBF.V.3.39.01.jpg to CBF.V.3.39.02.jpg",Alec Rust,28/02/2018,,
 CBF-REQ-0142,CBF Humidity upper limit,The CBF shall provide full capability as defined in this specification with a Relative Humidity of $$\le60%$$ and a dew point of $$\le15{^{\circ}}C$$.,CBF Humidity VR,VR.C.62,Verification by inspection. Verify by inspection of all CBF LRU datasheets that the LRUs satisfy the upper and lower humidity limits.,CBF Humidity VE,CBF.V.3.40,"The August-Roche-Magnus approximation related temperature (T), dew point (TD) and relative humidity (RH) with the equations:
-- RH: = 100 * (EXP((17.625\*TD) / (243.04+TD)) / EXP((17.625\*T) / (243.04+T))) 
-- TD: = 243.04 * (LN(RH/100)+((17.625\*T)/(243.04+T))) /(17.625-LN(RH/100)-((17.625\*T)/(243.04+T))) 
-- T: = 243.04 * (((17.625\*TD)/(243.04+TD))-LN(RH/100)) /(17.625+LN(RH/100)-((17.625\*TD)/(243.04+TD))) 
+- RH: = 100 * (EXP((17.625\*TD) / (243.04+TD)) / EXP((17.625\*T) / (243.04+T)))
+- TD: = 243.04 * (LN(RH/100)+((17.625\*T)/(243.04+T))) /(17.625-LN(RH/100)-((17.625\*T)/(243.04+T)))
+- T: = 243.04 * (((17.625\*TD)/(243.04+TD))-LN(RH/100)) /(17.625+LN(RH/100)-((17.625\*TD)/(243.04+TD)))
 
-Applying these equations to the CBF humidity requirements, over the CBF temperature range, the requirements can be satisfied by the CBF having operational humidity range between 25% and 82%, non condensing. 
+Applying these equations to the CBF humidity requirements, over the CBF temperature range, the requirements can be satisfied by the CBF having operational humidity range between 25% and 82%, non condensing.
 
-1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU. 
-2. Confirm whether each has an operational humidity specification better than 25% to 82%, non condensing. 
+1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+2. Confirm whether each has an operational humidity specification better than 25% to 82%, non condensing.
 3. Record the item part numbers in the Observations section below, and attach the item data sheets and/or specification used.
 
-The humidity environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the KAPB operational environment, and the result of the transport environment verification is used as verification of the humidity environment requirement. 
+The humidity environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the KAPB operational environment, and the result of the transport environment verification is used as verification of the humidity environment requirement.
 
-1. Inspect the verification results of the processing node. 
+1. Inspect the verification results of the processing node.
 2. Confirm that the transport environment verification passed.","The COTS items making up the CBF have previously been shown to meet the Humidity specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5.
 
 The processing nodes making up the CBF have previously been shown to meet the Humidity specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5 and the qualification documents of the processing node: CQTRR-2015052503, which is included in the document datapack of the processing node.",Tyrone van Balla,28/02/2018,,
 CBF-REQ-0143,CBF Humidity lower limit,The CBF shall provide full capability as defined in this specification with a dew point of $$\ge5.5{^{\circ}}C$$ over the entire dry bulb temperature range.,,,,,,,,,,,
 CBF-REQ-0145,CBF storage environment,"The CBF shall provide full capability as defined in this specification after storage for 2 years under conditions as defined in “Class 1.1: Weather protected, partly temperature-controlled storage locations” of the ETSI EN 300 019-1-1 standard.",CBF Storage Environment VR,VR.C.63,Verification by inspection. Verify by inspection of datasheets that all stored CBF LRU satisfy the storage environment specifications.,CBF Storage Environment VE,CBF.V.3.41,"
-ETSI EN 300 019-1-1, Class 1.1 specifies a storage environment of: 
+ETSI EN 300 019-1-1, Class 1.1 specifies a storage environment of:
 
-- Humidity between 5% to 95% 
-- Temperature between 5 Degrees Celsius and 45 Degrees Celsius 
-- Condensation 
-- No precipitation 
-- No icing 
+- Humidity between 5% to 95%
+- Temperature between 5 Degrees Celsius and 45 Degrees Celsius
+- Condensation
+- No precipitation
+- No icing
 
-CBF items will be stored in protective boxes, which will protect against condensation. The test therefore checks just for on-operational temperature and humidity ranges of CBF LRUs. 
+CBF items will be stored in protective boxes, which will protect against condensation. The test therefore checks just for on-operational temperature and humidity ranges of CBF LRUs.
 
-1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU. 
-2. Confirm whether each has storage temperature between 5 Degrees Celsius and 45 Degrees Celsius or better, and non-operational humidity between 5% to 95%or better. 
-3. For each item where this is true, record the item part number and reference the item data sheets and/or specification used. 
+1. Inspect the data sheets and/or specification of each of the COTS items making up the CBF ie PDU, CMC, Data Switch LRU.
+2. Confirm whether each has storage temperature between 5 Degrees Celsius and 45 Degrees Celsius or better, and non-operational humidity between 5% to 95%or better.
+3. For each item where this is true, record the item part number and reference the item data sheets and/or specification used.
 
-The storage environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the storage environment, and the result of the transport environment verification is used as verification of the storage environment requirement. 
+The storage environment for the CBF processing node is not specified. However, the specified transport environment is harsher than the storage environment, and the result of the transport environment verification is used as verification of the storage environment requirement.
 
-1. Inspect the verification results of the CBF processing node. 
+1. Inspect the verification results of the CBF processing node.
 2. Confirm that the transport environment verification passed.
 ","The COTS items making up the CBF have previously been shown to meet the Storage Environment specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5.
 
@@ -409,8 +493,8 @@ CBF-REQ-0141,CBF Temperature range,The CBF shall provide full capability as defi
 ","The COTS items making up the CBF have previously been shown to meet the Temperature Range specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5.
 
 The processing nodes making up the CBF have previously been shown to meet the Temperature Range specifications. These results are available in the CBF Environmental Qualification Test Reports M1200-0000-012-1 to M12000-0000-012-5 and the qualification documents of the processing node: CQTRR-2015052503, which is included in the document datapack of the processing node.",Tyrone van Balla,28/02/2018,,
-CBF-REQ-0146,CBF Transportation of components,The CBF shall provide full capability as defined in this specification after transportation in an approved container under conditions as defined in “Class 2.2: careful transportation” of the ETSI EN 300 019-1-2 standard.,CBF Transportation of Components VR,VR.C.65,Verification by demonstration. Verify by demonstration that CBF LRUs transported to the KABP are fully functional.,CBF Transportation of Components VE,CBF.V.3.43,"After deployment of a number of (at least 12) processing nodes to the KAPB and other LRU infrastructure: 
-1. If any processing nodes or LRUs failed after transportation, analyse the failure to determine whether vibration was the cause of failure. 
+CBF-REQ-0146,CBF Transportation of components,The CBF shall provide full capability as defined in this specification after transportation in an approved container under conditions as defined in “Class 2.2: careful transportation” of the ETSI EN 300 019-1-2 standard.,CBF Transportation of Components VR,VR.C.65,Verification by demonstration. Verify by demonstration that CBF LRUs transported to the KABP are fully functional.,CBF Transportation of Components VE,CBF.V.3.43,"After deployment of a number of (at least 12) processing nodes to the KAPB and other LRU infrastructure:
+1. If any processing nodes or LRUs failed after transportation, analyse the failure to determine whether vibration was the cause of failure.
 2. The test passes if no processing nodes failed, or if vibration was not the cause of any failures.
 ","The processing node failures experienced were not caused by vibration. For the processing nodes that experienced failure, the failure was found to be caused by issues related to the HMC cards installed in the nodes. Incomplete testing during manufacture casued these error-prone HMC cards to go unnoticed.",Tyrone van Balla,28/02/2018,,
 CBF-REQ-0156,CBF Product marking environmentals,Product Markings shall remain attached and remain legible in all environments and conditions for which the CBF is specified.,CBF Product Marking Environmentals VR,VR.C.66,Verification by inspection. Verify by inspecting that the CBF labels as installed meet the specifications.,CBF Product Marking Environmentals VE,CBF.V.3.44,"The test for the label environmental is to inspect the labels for damage at least one year after the CBF has been deployed to the KAPB.
@@ -454,82 +538,142 @@ CBF-REQ-0161,CBF safe design - external temperature,"The temperature of all exte
 4. All edges are safe, some LRU's are hot to the touch but below 80 Degrees C.
 5. All edges are safe, some LRU's are hot to the touch but below 80 Degrees C.",Alec Rust,28/02/2018,,
 CBF-REQ-0186,CBF safe design - sharp edges,External edges and corners of CBF LRUs shall be rounded to a radius not less than 0.5 mm.,,,,,,,,,,,
-CBF-REQ-0107,Route Digitisers CAM data,The CBF shall route CAM data between the DMC and all the Digitisers.,CBF Digitiser CAM Data VR,VR.C.69,Verification by demonstration. Verify by demonstrating the flow of digitiser sensor data.,CBF Digitiser CAM Data VE,CBF.V.3.48,"1. Connect to a live digitiser from the DMC host. 
+CBF-REQ-0107,Route Digitisers CAM data,The CBF shall route CAM data between the DMC and all the Digitisers.,CBF Digitiser CAM Data VR,VR.C.69,Verification by demonstration. Verify by demonstrating the flow of digitiser sensor data.,CBF Digitiser CAM Data VE,CBF.V.3.48,"1. Connect to a live digitiser from the DMC host.
 2. Request sensor information.
 3. Confirm sensor information is valid.","The following shows digitiser sensor data being routed between a digitiser and the DMC:
 
 alec@cmc2:~$ kcpcmd -s dmc1:7200 sensor-value
+
 #version-connect dig-l-31.dcpproxy KAT/1-291-g5e42b5b
+
 #version-connect dig-l-31.firmware m1130_2042sdp_rev1_23_of
+
 #version-connect dig-l-31.katcp-library v0.2.0-190-gec0e7e7 2018-02-01T09:53:40
+
 #version-connect dig-l-31.katcp-protocol 5.0-M
+
 #version-connect dig-l-31.kernel 3.13.1 #1 SMP Wed Feb 5 14:37:06 SAST 2014
+
 #version-connect katcp-device digitiser-1.b e9ec171
+
 #version-connect katcp-library Ckatcp-v0.2.0-72-g669959c
+
 #version-connect katcp-protocol 5.0-M
+
 #sensor-value 1521726566.566 1 device-status nominal ok
+
 #sensor-value 1521726512.689 1 l-band.adc.hpol.ambient.temp nominal 37.5178
+
 #sensor-value 1521725870.689 1 l-band.adc.hpol.die.temp nominal 51.526
+
 #sensor-value 1521726510.689 1 l-band.adc.hpol.rf.power.in nominal -30.2528
+
 #sensor-value 1521726513.689 1 l-band.adc.vpol.ambient.temp nominal 37.3622
+
 #sensor-value 1521726515.689 1 l-band.adc.vpol.die.temp nominal 50.4799
+
 #sensor-value 1521726511.689 1 l-band.adc.vpol.rf.power.in nominal -30.2259
+
 #sensor-value 1521212689.433 1 l-band.bandwidth nominal 856000000
+
 #sensor-value 1521212689.433 1 l-band.centre-frequency nominal 1.284e+09
+
 #sensor-value 1521721697.645 1 l-band.comms.status nominal 0
+
 #sensor-value 1521615841.403 1 l-band.deng.adc.hpol.pll.err nominal 0
+
 #sensor-value 1521615841.403 1 l-band.deng.adc.vpol.pll.err nominal 0
+
 #sensor-value 1521723627.706 1 l-band.deng.fpga.die.temp nominal 51
+
 #sensor-value 1521726432.910 1 l-band.deng.humidity nominal 18.4755
+
 #sensor-value 1521707144.398 1 l-band.deng.overflow nominal 0
+
 #sensor-value 1521721411.850 1 l-band.deng.pps.ticks nominal 213999999
+
 #sensor-value 1521725010.690 1 l-band.deng.pps.ticks.hires nominal 1712000000
+
 #sensor-value 1521615841.403 1 l-band.deng.sfp0.err nominal 0
+
 #sensor-value 1521615841.403 1 l-band.deng.sfp1.err nominal 0
+
 #sensor-value 1521615841.403 1 l-band.deng.sfp2.err nominal 0
+
 #sensor-value 1521615841.403 1 l-band.deng.sfp3.err nominal 0
+
 #sensor-value 1521212689.433 1 l-band.device-status nominal ok
+
 #sensor-value 1521212689.433 1 l-band.hpol-status warn degraded
+
 #sensor-value 1521726566.566 1 l-band.marking nominal ready
+
 #sensor-value 1521726520.000 1 l-band.noise-diode nominal 1
+
 #sensor-value 1521615730.707 1 l-band.power.failed nominal 0
+
 #sensor-value 1521720610.619 1 l-band.rfcu.hpol.attenuation nominal 6
+
 #sensor-value 1521726368.689 1 l-band.rfcu.hpol.baseplate.temp nominal 37.6587
+
 #sensor-value 1521706595.703 1 l-band.rfcu.hpol.overload nominal 0
+
 #sensor-value 1521726508.689 1 l-band.rfcu.hpol.rf.power.in nominal -38.4026
+
 #sensor-value 1521721438.908 1 l-band.rfcu.vpol.attenuation nominal 6
+
 #sensor-value 1521726461.689 1 l-band.rfcu.vpol.baseplate.temp nominal 37.323
+
 #sensor-value 1521706600.908 1 l-band.rfcu.vpol.overload nominal 0
+
 #sensor-value 1521726509.689 1 l-band.rfcu.vpol.rf.power.in nominal -38.423
+
 #sensor-value 1521212689.433 1 l-band.sampling-rate nominal 1712000000
+
 #sensor-value 1521726440.689 1 l-band.scg.1pps.optical.power nominal 5.62641
+
 #sensor-value 1521725703.689 1 l-band.scg.adc.clock.power nominal 0.135215
+
 #sensor-value 1521721059.399 1 l-band.scg.attenuation nominal 4
+
 #sensor-value 1521726300.689 1 l-band.scg.psu.ambient.temp nominal 55.6362
+
 #sensor-value 1521726441.689 1 l-band.scg.rx.optical.power nominal -3.35932
+
 #sensor-value 1521726527.000 1 l-band.scg.time.stamps nominal 176755440068641
+
 #sensor-value 1521212689.433 1 l-band.sideband nominal upper
+
 #sensor-value 1521704244.175 1 l-band.spectrometer.overflow nominal 0
+
 #sensor-value 1521610366.000 1 l-band.time.server-offset nominal -61
+
 #sensor-value 1521623343.501 1 l-band.time.synchronisation-epoch nominal 1521623282.000000000
+
 #sensor-value 1521212689.433 1 l-band.time.synchronisation-offset nominal 39570.1
+
 #sensor-value 1521212689.433 1 l-band.timestamp-multiplier nominal 1
+
 #sensor-value 1521212689.433 1 l-band.vpol-status warn degraded
+
 #sensor-value 1521726566.566 1 s-band.marking nominal absent
+
 #sensor-value 1521212691.000 1 selected-band nominal l
+
 #sensor-value 1521726566.566 1 u-band.marking nominal absent
+
 #sensor-value 1521726566.566 1 x-band.marking nominal absent
 !sensor-value ok 52
 ",Alec Rust,21/03/2018,,
-CBF-REQ-0224,Route Basic Spectrometer data,"The CBF, upon request, shall continuously route Basic Spectrometer data to the subscribed user(s) via the interface as specified in the appropriate ICD, provided that the interface has sufficient available bandwidth.",CBF Route Basic Spectrometer Data VR,VR.C.70,Verification by means of analysis. Routing of digitiser raw data is verified by VR.C.19. Show through calculation that adding basic spectrometer data will not saturate the link.,CBF Route Basic Spectrometer Data VE,CBF.V.3.49,"The generation of basic Spectrometer data and Digitisers raw data are functions of the digitiser, not the CBF. 
-The CBF merely has to route this data to subscribed users. 
+CBF-REQ-0224,Route Basic Spectrometer data,"The CBF, upon request, shall continuously route Basic Spectrometer data to the subscribed user(s) via the interface as specified in the appropriate ICD, provided that the interface has sufficient available bandwidth.",CBF Route Basic Spectrometer Data VR,VR.C.70,Verification by means of analysis. Routing of digitiser raw data is verified by VR.C.19. Show through calculation that adding basic spectrometer data will not saturate the link.,CBF Route Basic Spectrometer Data VE,CBF.V.3.49,"The generation of basic Spectrometer data and Digitisers raw data are functions of the digitiser, not the CBF.
+The CBF merely has to route this data to subscribed users.
 
 The test thus consists of checking that data from ports assigned to Digitiser inputs can be routed to ports assigned to SP/USE and that the added traffic load will not saturate the network links.
 
 1. Determine the bandwidth required for Basic Spectrometer Data.
 2. Determine the maximum bandwidth per Digitiser link during normal operation.
 3. Verify the the link will not be saturated when routing Basic Spectrometer Data.
- 
+
  ","The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.",Jason Manley,14/02/2018,,
 CBF-REQ-0149,CBF MTBF,"The CBF shall have a mean time between critical failures of $$\ge 4$$ months, where:
   - time is counted only when the CBF is powered on
@@ -538,20 +682,20 @@ CBF-REQ-0149,CBF MTBF,"The CBF shall have a mean time between critical failures 
 2. Collate all the MTBF figures and confirm that the full system adheres to the specification.
 3. Record all LRU MTBF figures.","An FMECA was conducted to provide Failure Mode Data and Reliability Data for the MeerKAT CBF. The results of this analysis indicate that the CBF has a Mean Time Between Critical Failure (MTBCF) of 85 391 hours. This information, along with the complete FMECA, is available in M1200-0000-004 Correlator Beamformer (CBF) FMECA Report.",Tyrone van Balla,28/02/2018,,
 CBF-REQ-0179,CBF mechanical interface to DMC,"The CBF shall provide a 19"" rack mounting space for the DMC, with height at least 3U, full rack width, and depth at least 1000mm.",CBF Internal Interfaces VR,VR.C.72,"Verification by inspection. Verify by inspecting that the interfaces between the CBF, DMC, Data Switches and C&M switches meet the specifications.",CBF Internal Interfaces VE,CBF.V.3.52,"
-1. Verify by inspection that the CBF does provide a 19"" rack mounting space for the DMC, with height at least 3U, full rack width, and depth at least 1000mm. 
-2. Verify by inspection that the output power connectors between the CBF and the DMC are each located in one of the CBF racks, on flyleads with connector specification: 
+1. Verify by inspection that the CBF does provide a 19"" rack mounting space for the DMC, with height at least 3U, full rack width, and depth at least 1000mm.
+2. Verify by inspection that the output power connectors between the CBF and the DMC are each located in one of the CBF racks, on flyleads with connector specification:
 
-- Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector) 
-- Quantity: Four (4) 
-3. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs. 
+- Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+- Quantity: Four (4)
+3. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs.
 4. Verify by inspection that the physical link between the DMC and the CBF Data Switch is via one 40GBASE-CR4, QSPF+, length =3m.
 5. Verify by inspection that the physical link between the DMC and the CBF CAM switch is via one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length =2m.
 6. Verify by inspection that the CBF does provide a 19"" rack mounting space for M&C switches, with height at least 3U, full rack width, and depth at least 1000mm.
-7.  Verify by inspection that the output power connectors between the CBF and the M&C switches are each be located in one of the CBF racks, on fly-leads with connector specification: 
+7.  Verify by inspection that the output power connectors between the CBF and the M&C switches are each be located in one of the CBF racks, on fly-leads with connector specification:
 
-- Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector) 
-- Quantity: Six (6) 
-8. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs. 
+- Connector type: IEC 60320-2 Standard, type C13 (kettle cord connector)
+- Quantity: Six (6)
+8. Verify by inspection that each power pair is either sourced from a different phase bank of a single PDU, or from different phase bank of separate PDUs.
 9. Verify by inspection that the physical link between the M&C switches and the DMC is one 1000BASE-T STP cable, Cat6a, RJ45 to RJ45, length =2m.","1. Required space for the DMC servers provided in rack B6.
 2. Power connectors are present as specified.
 3. Power is supplied to DMC1 via two separate PDUs: B6-PDU1, port 13 and B6-PDU2, port 13.
@@ -600,7 +744,7 @@ CBF-REQ-0150,CBF mean downtime,"The CBF shall have a mean time to repair of $$\l
 6. See images: CBF.V.3.54.01.jpg to CBF.V.3.54.02.jpg",Donville Rosekrans and Alec Rust,28/02/2018,,
 CBF-REQ-0151,Processing Node hot-swappable,Processing Nodes shall be hot-swappable without influencing the operation of the CBF as a whole.,,,,,,,,,,,
 CBF-REQ-0193,CBF to SP Ethernet Link,"For AR3 and beyond, the physical link between the CBF and SP shall be via sixteen (16) 40GbE QSFP+ ports provided on the CBF Data Switch.
- 
+
  In prior array releases, as applicable, this physical link may be realised via fewer ports and/or may employ 10GbE interconnects.",CBF Data Subscribers Link VR,VR.C.75,Verification by inspection. Verify by inspection that the CBF provides the correct number of 40GbE QSFP+ ports on the CBF Data Switch to all data subscriber groups.,CBF Data Subscribers Link VE,CBF.V.3.57,"1. Verify by inspection that the CBF provides the correct number of 40GbE QSFP+ ports on the CBF Data Switch to all data subscriber groups.
 2. Record the number of ports and their locations.",The physical link between CBF and SDP comprises 16 QSFP+ ports. These ports are provided on Leaf Switches 21 - 24 in the CBF installing in the KAPB.,Alec Rust,28/02/2013,,
 CBF-REQ-0195,CBF to IPUSE ethernet link,The physical link between the CBF and IPUSE shall be via one (1) 40GbE QSFP+ ports provided on the CBF Data Switch.,,,,,,,,,,,
@@ -626,7 +770,7 @@ CBF-REQ-0139,CBF EMC NRS code of practice,"Each CBF rack shall provide a ground 
  Each CBF rack has a ground connection point.
  The processing node has an integrated power filter on the input power line.
  Each CBF cabinet has at least one ESD earthing point.
- 
+
  Measure the resistance between the chassis, rack connection points and input power chassis pin on one of each type of LRU used on the CBF. Confirm that this is less than 0.1 ohm.
  Measure the resistance between the housing of the processing input power filter and the processing chassis. Confirm this is less than 0.1 ohm.",CBF Design to NRS 083 Standards VE,CBF.V.6.10,"1. Verify by inspection that each CBF rack has a ground connection point.
 2. Verify by inspection that each CBF cabinet has at least one ESD earthing point.
@@ -651,7 +795,7 @@ CBF-REQ-0138,CBF EMC SANS standard,"10GbE and 40GbE Ethernet cables between the 
 3. cable bundles within each CBF rack have been routed to run closely against the rack sidewalls, with power and Ethernet bundles preferably on opposite sides of the cabinet. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.
 4. where Ethernet cables and power cables cross within each CBF rack, they have been routed to cross at right angles. Note that this is a recommendation only, and should be followed where possible, within space/cable length constraints.","1. Cables verified.
 2. Cables are bundled separately but the separation distance is not more than 500mm due to space constraints in the racks.
-3. This has been done where possible. Not all cable bundles are routed closely against rack sidewalls as this would violate the minimum bend radius of 40GbE cables. 
+3. This has been done where possible. Not all cable bundles are routed closely against rack sidewalls as this would violate the minimum bend radius of 40GbE cables.
 4. Due to space constraints this is not done on all cable bundles.
 5. See images: CBF.V.6.9.01.jpg to CBF.V.6.9.03.jpg",Alec Rust,28/02/2018,,
 CBF-REQ-0228,CBF Define Sub-Arrays,"The CBF shall, on request via the CAM interface, assign resources to multiple sub-arrays, each with independent input data, control, data capture and processing , where each sub-array contains either 8, 16, 32, 64, or 128 inputs.

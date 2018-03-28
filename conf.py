@@ -308,6 +308,10 @@ def exit_handler():
                         r'Fly’92s',
                         r'19‘94 racks',
                         r'\noindent\sphinxincludegraphics[width=0.800\linewidth]',
+                        r'\section{CBF',
+                        r'Following sensors have ERRORS',
+                        r'Following sensors have WARNINGS',
+
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|}",
                         # "{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|T|T|}",
@@ -341,6 +345,10 @@ def exit_handler():
                         r"Fly's",
                         r'19" racks',
                         r'\noindent\sphinxincludegraphics[width=0.650\linewidth]',
+                        r'\clearpage\section{CBF',
+                        r'Following sensors have \textcolor{red}{ERRORS}',
+                        r'Following sensors have \textcolor{orange}{WARNINGS}',
+
                         # "{longtable}[c]{|l|l|l|}",
                         # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
                         # "end{longtable}",
