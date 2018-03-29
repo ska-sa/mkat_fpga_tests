@@ -259,7 +259,9 @@ class test_CBF(unittest.TestCase):
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Coarse L-band")
-                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3)
+		num_discards = 1
+                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3
+                                          num_discards=num_discards)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -390,11 +392,10 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                pass
-                #self._test_product_baselines()
-                #self._test_back2back_consistency()
-                #self._test_freq_scan_consistency()
-                #self._test_spead_verify()
+                self._test_product_baselines()
+                self._test_back2back_consistency()
+                self._test_freq_scan_consistency()
+                self._test_spead_verify()
             else:
                 Aqf.failed(self.errmsg)
 
@@ -1563,7 +1564,7 @@ class test_CBF(unittest.TestCase):
     #                       Test Methods                            #
     #################################################################
 
-    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None):
+    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=3):
         requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=101,
                                                                  chans_around=2)
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
@@ -1608,7 +1609,7 @@ class test_CBF(unittest.TestCase):
         try:
             Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
                      'SPEAD accumulation, determine the number of frequency channels')
-            initial_dump = self.receiver.get_clean_dump(discard=30)
+            initial_dump = self.receiver.get_clean_dump(discard=num_discards*10)
             self.assertIsInstance(initial_dump, dict)
         except Exception:
             errmsg = 'Could not retrieve initial clean SPEAD accumulation: Queue is Empty.'
@@ -1697,7 +1698,7 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump()
+                this_freq_dump = self.receiver.get_clean_dump(discard=num_discard)
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 failure_count += 1
@@ -2179,7 +2180,6 @@ class test_CBF(unittest.TestCase):
         msg = ('Confirm that the correct channel(s) (eg expected channel %s vs actual channel %s) '
                'have the peak response to each frequency' % (channel_range[1], max_channels[1]))
 
-        #import IPython;IPython.embed()
         if max_channels == channel_range:
             Aqf.passed(msg)
         else:
@@ -3427,11 +3427,12 @@ class test_CBF(unittest.TestCase):
         Aqf.step('This test confirms that each processing node\'s sensor (Temp, Voltage, Current, '
                  'Fan) has not FAILED, Reports only errors.')
         try:
-            try:
-                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-            except:
-                reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
-            assert reply.reply_ok()
+            for i in range(2):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                except:
+                    reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
+                assert reply.reply_ok()
         except AssertionError:
             errmsg = 'Failed to retrieve sensors via CAM interface'
             Aqf.failed(errmsg)
