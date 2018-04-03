@@ -260,7 +260,7 @@ class test_CBF(unittest.TestCase):
                 test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Coarse L-band")
 		num_discards = 1
-                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3
+                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3,
                                           num_discards=num_discards)
             else:
                 Aqf.failed(self.errmsg)
@@ -369,18 +369,18 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    # Test still under development, Alec will put it under test_informal
-    # @instrument_4k
-    # def test_beamforming_timeseries(self):
-    #     #Aqf.procedure(TestProcedure.Beamformer)
-    #     try:
-    #         assert eval(os.getenv('DRY_RUN', 'False'))
-    #     except AssertionError:
-    #         instrument_success = self.set_instrument()
-    #         if instrument_success:
-    #             self._test_beamforming_timeseries()
-    #         else:
-    #             Aqf.failed(self.errmsg)
+    #Test still under development, Alec will put it under test_informal
+    @instrument_4k
+    def test_beamforming_timeseries(self):
+        #Aqf.procedure(TestProcedure.Beamformer)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._test_beamforming_timeseries()
+            else:
+                Aqf.failed(self.errmsg)
 
     @generic_test
     @aqf_vr('CBF.V.4.4')
