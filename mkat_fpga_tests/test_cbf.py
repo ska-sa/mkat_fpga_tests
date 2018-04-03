@@ -617,7 +617,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument()
             if instrument_success:
                 self._test_sensor_values()
-                self._test_host_sensors_status()
+                # self._test_host_sensors_status()
             else:
                 Aqf.failed(self.errmsg)
 
