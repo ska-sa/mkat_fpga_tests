@@ -39,7 +39,8 @@ import ntplib
 import numpy as np
 import pandas as pd
 
-from corr2.corr_rx import CorrRx
+#from corr2.corr_rx import CorrRx
+from corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 
@@ -220,7 +221,7 @@ class test_CBF(unittest.TestCase):
                                                                         stop_channels))
             self.receiver.setName('CorrRx Thread')
             self.errmsg = 'Failed to create SPEAD data receiver'
-            self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx), self.errmsg
+            self.assertIsInstance(self.receiver, CorrRx), self.errmsg
             start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
             self.errmsg = 'Spead Receiver not Running, possible '
             assert self.receiver.isAlive(), self.errmsg
@@ -2801,7 +2802,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.is_true(host, msg)
 
                     try:
-                        self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
+                        self.assertIsInstance(self.receiver, CorrRx)
                         freq_dump = get_clean_dump(self)
                         assert np.shape(freq_dump['xeng_raw'])[0] == self.n_chans_selected
                     except Queue.Empty:
@@ -3634,7 +3635,7 @@ class test_CBF(unittest.TestCase):
             try:
                 Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
                     'that the instrument activated is valid.')
-                self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
+                self.assertIsInstance(self.receiver, CorrRx)
                 re_dump = get_clean_dump(self)
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
