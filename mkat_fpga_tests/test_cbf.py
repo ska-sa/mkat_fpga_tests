@@ -19,6 +19,7 @@ import gc
 import katcp
 import katcp
 import logging
+import ntplib
 import os
 import Queue
 import random
@@ -35,7 +36,6 @@ import time
 import unittest
 
 import matplotlib.pyplot as plt
-import ntplib
 import numpy as np
 import pandas as pd
 
@@ -103,7 +103,6 @@ class test_CBF(unittest.TestCase):
         except Exception:
             LOGGER.exception(errmsg)
         else:
-
             # See: https://docs.python.org/2/library/functions.html#super
             if set_dsim_epoch is False:
                 try:
@@ -131,8 +130,7 @@ class test_CBF(unittest.TestCase):
                     errmsg = 'Failed to set digitiser sync epoch'
                     assert reply.reply_ok(), errmsg
                     LOGGER.info('Digitiser sync epoch set successfully')
-                    set_dsim_epoch = True
-                    self._dsim_set = True
+                    set_dsim_epoch = self._dsim_set = True
                 except Exception:
                     Aqf.failed(errmsg)
                     LOGGER.exception(errmsg)
@@ -260,7 +258,7 @@ class test_CBF(unittest.TestCase):
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Coarse L-band")
-		num_discards = 1
+                num_discards = 1
                 self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3,
                                           num_discards=num_discards)
             else:
@@ -536,7 +534,7 @@ class test_CBF(unittest.TestCase):
                 self._test_delay_rate()
                 self._test_fringe_rate()
                 self._test_fringe_offset()
-                # self._test_delay_inputs()
+                self._test_delay_inputs()
                 clear_all_delays(self)
                 restore_src_names(self)
             else:
@@ -668,7 +666,8 @@ class test_CBF(unittest.TestCase):
     def test__control(self):
         self._test_global_manual("CBF.V.3.37")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.37*'))
-        Report_Images(image_files)
+        caption_list = ['Screenshot of the command executed and reply: CAM interface']
+        Report_Images(image_files, caption_list)
 
 
     @manual_test
@@ -722,7 +721,12 @@ class test_CBF(unittest.TestCase):
     def test__cots_lru_status_and_display_ve(self):
         self._test_global_manual("CBF.V.3.18")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.18*'))
-        Report_Images(image_files)
+        caption_list = [
+            'Mellanox SX1710 switches and status LEDs visible from front of rack.',
+            'Dell PowerEdge servers and status via front panel display visible.',
+            'AP8981 PDUs have status LEDs visible from the back of the rack.'
+            ]
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -759,7 +763,19 @@ class test_CBF(unittest.TestCase):
     def test__item_marking_and_labelling_ve(self):
         self._test_global_manual("CBF.V.3.23")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.23*'))
-        Report_Images(image_files)
+        caption_list = [
+            "Mellanox SX1710 - Supplier name and model number visible with switch installed in rack.",
+            "Dell PowerEdge servers - Supplier name, model number and serial number visible with "
+            "server installed in rack.",
+            "SKARAB Processing nodes.",
+            "All data switch port numbers are labelled.",
+            "All internal CBF cables are labelled.",
+            "All internal CBF cables are labelled.",
+            "HMC Mezzanine SRUs are labelled as specified but supplier name is obscured by heatsink",
+            "QSFP+ Mezzanine SRUs are labelled as specified",
+            "HMC mezzanine supplier name is obscured by heatsink."
+            ]
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -775,8 +791,9 @@ class test_CBF(unittest.TestCase):
     def test__logging_ve(self):
         self._test_global_manual("CBF.V.3.25")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.25*'))
-        Report_Images(image_files)
-
+        caption_list = ['Screenshot of the command executed via CAM interface (log-level)'] * len(
+            image_files)
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -799,7 +816,11 @@ class test_CBF(unittest.TestCase):
     def test__cooling_method_ve(self):
         self._test_global_manual("CBF.V.3.39")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.39*'))
-        Report_Images(image_files)
+        caption_list = [
+            'Rear doors of all CBF racks are perforated',
+            'Front doors of all CBF racks are perforated'
+            ]
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -839,7 +860,9 @@ class test_CBF(unittest.TestCase):
     def test__product_marking_environmentals_ve(self):
         self._test_global_manual("CBF.V.3.44")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.44*'))
-        Report_Images(image_files)
+        caption_list = ['All equipment labels are still attached on {}'.format(
+            i.split('/')[-1].split('.jpg')[0]) for i in image_files]
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -891,7 +914,9 @@ class test_CBF(unittest.TestCase):
     def test__lru_replacement_ve(self):
         self._test_global_manual("CBF.V.3.54")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.54*'))
-        Report_Images(image_files)
+        caption_list = ['LRU replacement: {}'.format(
+            i.split('/')[-1].split('.jpg')[0]) for i in image_files]
+        Report_Images(image_files, caption_list)
 
     @untested
     @manual_test
@@ -910,7 +935,9 @@ class test_CBF(unittest.TestCase):
     def test__design_to_emc_sans_standard_ve(self):
         self._test_global_manual("CBF.V.6.9")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.6.9*'))
-        Report_Images(image_files)
+        caption_list = ["Cables are bundled separately but the separation distance is not more than "
+                        "500mm due to space constraints in the racks."] * len(image_files)
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -919,7 +946,8 @@ class test_CBF(unittest.TestCase):
     def test__design_standards_ve(self):
         self._test_global_manual("CBF.V.6.10")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.6.10*'))
-        Report_Images(image_files)
+        caption_list = ['CBF processing nodes contains an integrated power filter.']
+        Report_Images(image_files, caption_list)
 
     @manual_test
     @generic_test
@@ -3000,7 +3028,7 @@ class test_CBF(unittest.TestCase):
                         #        Aqf.failed(msg)
                         #        break
                         #    time.sleep(1)
-                        
+
                         # Tested elsewhere:
                         #cam_max_load_time = setup_data['cam_max_load_time']
                         #msg = ('Time it took to load delays {}s is less than {}s with an '
@@ -3012,7 +3040,7 @@ class test_CBF(unittest.TestCase):
                         LOGGER.exception(errmsg)
 
                     try:
-                        _num_discards = num_int + 2 
+                        _num_discards = num_int + 2
                         Aqf.step('Getting SPEAD accumulation(while discarding %s dumps) containing '
                                  'the change in delay(s) on input: %s baseline: %s.'%(_num_discards,
                                     setup_data['test_source'], setup_data['baseline_index']))
