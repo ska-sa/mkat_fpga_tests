@@ -1,10 +1,12 @@
+#!/usr/bin/python
+
 import os
 import logging
 import time
 import casperfpga
 import corr2
+import argparse
 
-from casperfpga import katcp_fpga
 from corr2 import fxcorrelator
 from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -47,9 +49,10 @@ if __name__ == "__main__":
     parser.add_argument(
             '-d', '--dsim_present', action='store_true', default=False,
             help='Initialise DSIM')
+    args = parser.parse_args()
 
     if args.config:
-        if path.isfile(args.config):
+        if os.path.isfile(args.config):
             ini_file = utils.parse_ini_file(args.config)
         else:
             parser.error('Specified config file does not exist.')
@@ -70,10 +73,10 @@ if __name__ == "__main__":
     x_engines = AttrDict({x.host: x for x in c.xhosts})
     for fpga in c.fhosts:
         if fpga.is_running():
-            fpga.get_system_information(corr_conf['fengine']['bitstream'])
+            fpga.get_system_information(ini_file['fengine']['bitstream'])
     for fpga in c.xhosts:
         if fpga.is_running():
-            fpga.get_system_information(corr_conf['xengine']['bitstream'])
+            fpga.get_system_information(ini_file['xengine']['bitstream'])
 
     print 'correlator is running'
     f = c.fhosts[0]
