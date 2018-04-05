@@ -132,18 +132,18 @@ CBF-REQ-0152,CBF Product markings,"All CBF LRUs and SRUs shall be labelled with 
 9. Determine whether each CBF LRU contains any hazardous material. This would typically be lead and/or heatsink paste.
 10. For each identified LRU containing hazardous material, confirm by inspection that the LRU has a Hazardous Waste label.
 11. Confirm by inspection that each CBF internal cable (ie cables between CBF LRUs) is labelled.
-12. Confirm that all physical switches and control elements have their functions marked on in English.","1a. Mellanox SX1710 - Supplier name and model number visible with switch installed in rack. Serial number visibible with switch removed from rack.
-1b. Dell PowerEdge servers - Supplier name, model number and serial number visible with server installed in rack.
-3 & 4: Product name, part number, version and serial number visible with processing nodes installed in rack. Supplier name visible with processing node removed from rack.
-5. Lid removed.
-6. QSFP+ Mezzanine SRUs are labelled as specified. HMC Mezzanine SRUs are labelled as specified but supplier name is obscured by heatsink
-7. HMC mezzanine supplier name is obscured by heatsink.
-8. All data switch port numbers are labelled.
-9. SKARAB Processing nodes may contain leaded parts.
-10. SKARAB Processing nodes have a ""do not dispose"" label.
-11. All internal CBF cables are labelled.
-12. All CBF switches are marked.
-13. See images: CBF.V.3.23.01.jpg to CBF.V.3.23.09.jpg",Alec Rust,28/02/2018,,
+12. Confirm that all physical switches and control elements have their functions marked on in English.","1. 
+- Mellanox SX1710 - Supplier name and model number visible with switch installed in rack. Serial number visible with switch removed from rack.
+- Dell PowerEdge servers - Supplier name, model number and serial number visible with server installed in rack.
+2. Product name, part number, version and serial number visible with processing nodes installed in rack. Supplier name visible with processing node removed from rack.
+3. QSFP+ Mezzanine SRUs are labelled as specified. HMC Mezzanine SRUs are labelled as specified but supplier name is obscured by heatsink
+4. HMC mezzanine supplier name is obscured by heatsink.
+5. All data switch port numbers are labelled.
+6. SKARAB Processing nodes may contain leaded parts.
+7. SKARAB Processing nodes have a ""do not dispose"" label.
+8. All internal CBF cables are labelled.
+9. All CBF switches are marked.
+",Alec Rust,28/02/2018,,
 CBF-REQ-0153,CBF Connector labelling,All external connectors on the CBF shall be labelled to allow for identification of the connector during installation and maintenance.,,,,,,,,,,,
 CBF-REQ-0154,CBF Safety markings,The CBF shall display warning information of dangers that may jeopardise the safety of the personnel or result in a hazardous situation.,,,,,,,,,,,
 CBF-REQ-0155,CBF Control markings,The CBF shall have the functions of all physical switches and control elements clearly marked in the English language.,,,,,,,,,,,
@@ -154,7 +154,7 @@ CBF-REQ-0162,CBF use of COTS equipment,"The CBF should make maximum use of comme
 
 Note: The second point is highly subjective and the opinion of the CBF Technical Lead or Test Engineer is sufficient to pass the test.","Inspection of the CBF physical item structure shows that the CBF design comprises mainly COTS equipment. COTS equipment are employed for the servers, switches, and PDUs. The only custom LRUs present in the item structure are the processing nodes.
 
-It is the opinion of the CBF System Engineer that the COTS equipment employed in the CBF deisng have long support life expectancy.",Tyrone van Balla,28/02/2018,,
+It is the opinion of the CBF System Engineer that the COTS equipment employed in the CBF design have long support life expectancy.",Tyrone van Balla,28/02/2018,,
 CBF-REQ-0060,CBF report logs,"The CBF shall report, via the CAM interface, CBF log messages at a configurable logging level.",CBF Logging VR,VR.C.48,Verification by demonstration. Demonstrate the CBF logging infrastructure and verify that log messages are reported at the correct level. Verify that the logging level is configurable. Confirm that logging can continue indefinitely and that log files contain more than 1000 events.,CBF Logging VE,CBF.V.3.25,"1. Turn the CBF on and wait for it to boot.
 2. ssh into the CMC.
 3. Watch the current log file using command ""tail -f <filename>.katlog""
@@ -172,15 +172,25 @@ CBF-REQ-0060,CBF report logs,"The CBF shall report, via the CAM interface, CBF l
 15. Set the log level back to the setting which it was at the start of the test.
 16. Peruse archived log files and confirm that the log file contains more than 1000 lines.","(cbf_qual)mmphego@cmc3:~/src/mkat_fpga_tests (site-testing-changes)
 2018-03-27 21:18:16] $ >>> tail -f /var/log/cmc.kcplog
+
 #log info 1522177044.647373 fxcorrelator_xengops.py Waiting\_7.09\_seconds\_for\_arm\_to\_trigger.
+
 #log info 1522177051.782283 fxcorrelator_xengops.py VACC\_ld_cnt\_counters\_incremented\_successfully.
+
 #log info 1522177053.120 basic accepted\_new\_connection\_from\_10.103.254.6:53273\_via\_array0.control
+
 #client-connected 10.103.254.6:53273
+
 #log info 1522177053.163549 fxcorrelator_xengops.py X-engine\_output\_enabled
+
 #log info 1522178045.677 basic accepted\_new\_connection\_from\_10.103.254.6:34911\_via\_primary
+
 #client-connected 10.103.254.6:34911
+
 #log info 1522178045.886 basic accepted\_new\_connection\_from\_10.103.254.6:53275\_via\_array0.control
+
 #client-connected 10.103.254.6:53275
+
 #log info 1522178045.952 cmc-array0 will\_use\_epoch\_1522175113.65
 
 

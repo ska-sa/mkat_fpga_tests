@@ -1,10 +1,12 @@
+#!/usr/bin/python
+
 import os
 import logging
 import time
 import casperfpga
 import corr2
+import argparse
 
-from casperfpga import katcp_fpga
 from corr2 import fxcorrelator
 from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -29,10 +31,6 @@ from collections import namedtuple
 from corr2 import utils
 from casperfpga import utils as fpgautils
 
-config = os.environ['CORR2INI']
-
-
-
 LOGGER = logging.getLogger(__name__)
 
 class AttrDict(dict):
@@ -43,51 +41,48 @@ class AttrDict(dict):
     http://jiaaro.com/making-python-objects-that-act-like-javascrip
     """
 
-#logging.basicConfig(
-#    format='%(asctime)s %(name)s %(levelname)s %(filename)s:%(lineno)s %(message)s',
-#    level=logging.INFO)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+            '-c', '--config', type=str, action='store', default='',
+            help='Instrument config file')
+    parser.add_argument(
+            '-d', '--dsim_present', action='store_true', default=False,
+            help='Initialise DSIM')
+    args = parser.parse_args()
 
-corr_conf = utils.parse_ini_file(config, ['dsimengine'])
-dsim_conf = corr_conf['dsimengine']
-dig_host = dsim_conf['host']
+    if args.config:
+        if os.path.isfile(args.config):
+            ini_file = utils.parse_ini_file(args.config)
+        else:
+            parser.error('Specified config file does not exist.')
+    if args.dsim_present:
+        dsim_conf = ini_file['dsimengine']
+        dig_host = dsim_conf['host']
+        dhost = FpgaDsimHost(dig_host, config=dsim_conf)
+        if dhost.is_running():
+            dhost.get_system_information(dsim_conf['bitstream'])
+            print 'Dsim is running'
+    #def get_dsim_clk():
+    #    feng_mcount = f.get_local_time()
+    #    return (time.time() - feng_mcount/float(correlator.sample_rate_hz))
 
-dhost = FpgaDsimHost(dig_host, config=dsim_conf)
-if dhost.is_running():
-    dhost.get_system_information()
-    print 'Dsim is running'
+    c = fxcorrelator.FxCorrelator('steven', config_source=args.config)
+    c.initialise(program=False, configure=False, require_epoch=False)
+    f_engines = AttrDict({f.host: f for f in c.fhosts})
+    x_engines = AttrDict({x.host: x for x in c.xhosts})
+    for fpga in c.fhosts:
+        if fpga.is_running():
+            fpga.get_system_information(ini_file['fengine']['bitstream'])
+    for fpga in c.xhosts:
+        if fpga.is_running():
+            fpga.get_system_information(ini_file['xengine']['bitstream'])
 
-config_link = '/etc/corr/array0-bc8n856M4k'
-config_link2 = '/etc/corr/array0-bc8n856M32k'
-config_link3 = '/etc/corr/templates/bc8n856M4k'
-config_link4 = '/etc/corr/templates/bc8n856M32k'
-if os.path.exists(config_link):
-    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link)
-elif os.path.exists(config_link2):
-    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link2)
-elif os.path.exists(config_link3):
-    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link3)
-else:
-    correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config_link4)
+    print 'correlator is running'
+    f = c.fhosts[0]
+    fhost = c.fhosts[0]
 
-correlator.initialise(program=False)
-f_engines = AttrDict({f.host: f for f in correlator.fhosts})
-x_engines = AttrDict({x.host: x for x in correlator.xhosts})
-for fpga in correlator.fhosts:
-    if fpga.is_running():
-        fpga.get_system_information(corr_conf['fengine']['bitstream'])
-for fpga in correlator.xhosts:
-    if fpga.is_running():
-        fpga.get_system_information(corr_conf['xengine']['bitstream'])
+    xhost = c.xhosts[0]
+    x = c.xhosts[0]
+    import IPython;IPython.embed()
 
-print 'correlator is running'
-f = correlator.fhosts[0]
-fhost = correlator.fhosts[0]
-
-xhost = correlator.xhosts[0]
-x = correlator.xhosts[0]
-
-def get_dsim_clk():
-    feng_mcount = f.get_local_time()
-    return (time.time() - feng_mcount/float(correlator.sample_rate_hz))
-
-import IPython;IPython.embed()

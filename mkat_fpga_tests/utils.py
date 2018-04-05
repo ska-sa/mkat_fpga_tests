@@ -1462,7 +1462,7 @@ class CSV_Reader(object):
         """
         return dict(self.load_csv.loc[ve_number]) if ve_number else None
 
-def Report_Images(image_list, caption=''):
+def Report_Images(image_list, caption_list=['']):
     """Add an image to the report
 
     Parameters
@@ -1475,6 +1475,6 @@ def Report_Images(image_list, caption=''):
     Note a copy of the file will be made, and the test name as well as step number
     will be prepended to filename to ensure that it is unique
     """
-    for image in image_list:
+    for image, caption in zip(image_list, caption_list):
         LOGGER.info('Adding image to report: %s' % image)
         Aqf.image(image, caption)
