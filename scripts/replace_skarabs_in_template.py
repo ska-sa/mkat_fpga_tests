@@ -2,6 +2,7 @@
 
 # Brutal way of replacing fhosts,xhosts and dhost in template(s)
 import argparse
+import argcomplete
 import sys
 import fileinput
 
@@ -22,6 +23,7 @@ def main():
     parser.add_argument('-f','--config', help='Specify which config file, look in /etc/corr/templates',
                         required=True)
     parser.add_argument('-i','--inputs', help='Specify the number of inputs', required=True,)
+    argcomplete.autocomplete(parser)
     args = vars(parser.parse_args())
 
 

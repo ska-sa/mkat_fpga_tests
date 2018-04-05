@@ -6,6 +6,7 @@ import time
 import casperfpga
 import corr2
 import argparse
+import argcomplete
 
 from corr2 import fxcorrelator
 from corr2 import utils
@@ -49,6 +50,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-d', '--dsim_present', action='store_true', default=False,
             help='Initialise DSIM')
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     if args.config:

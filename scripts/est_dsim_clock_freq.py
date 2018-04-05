@@ -26,7 +26,7 @@ if __name__ == "__main__":
             config = opts.config_file
         else:
             parser.error('Specified file does not exist.')
-    else:            
+    else:
         config = os.environ['CORR2INI']
 
     #corr_conf = utils.parse_ini_file(config, ['dsimengine'])
