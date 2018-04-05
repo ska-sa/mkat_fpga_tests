@@ -146,7 +146,7 @@ def init_dsim_sources(dhost):
                     assert sin_source.repeat == 0
             except Exception:
                     LOGGER.exception('Failed to reset repeat on sin_%s' % sin_source.name)
-            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' % sin_source.name)
+            LOGGER.debug('Digitiser simulator cw source %s reset to Zeros' % sin_source.name)
     except Exception:
         LOGGER.exception('Failed to reset sine sources on dhost.')
 
@@ -154,7 +154,7 @@ def init_dsim_sources(dhost):
         for noise_source in dhost.noise_sources:
             noise_source.set(scale=0)
             assert noise_source.scale == 0
-            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' % noise_source.name)
+            LOGGER.debug('Digitiser simulator awg sources %s reset to Zeros' % noise_source.name)
     except Exception:
         LOGGER.error('Failed to reset noise sources on dhost.')
 
@@ -162,7 +162,7 @@ def init_dsim_sources(dhost):
         for output in dhost.outputs:
             output.select_output('signal')
             output.scale_output(1)
-            LOGGER.info('Digitiser simulator signal output %s selected.' % output.name)
+            LOGGER.debug('Digitiser simulator signal output %s selected.' % output.name)
     except Exception:
         LOGGER.error('Failed to select output dhost.')
 

@@ -6,6 +6,7 @@ import time
 import casperfpga
 import corr2
 import argparse
+import argcomplete
 
 from corr2 import fxcorrelator
 from corr2 import utils
@@ -52,6 +53,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-p', '--program', action='store_true', default=False,
             help='Program SKARABS during initialise')
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 

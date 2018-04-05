@@ -76,12 +76,12 @@ def process_xeng_data(self, heap_data, ig, channels):
 
     # housekeeping - are the older heaps in the data?
     if len(heap_data) > 5:
-        self.logger.info('Culling stale timestamps:')
+        self.logger.debug('Culling stale timestamps:')
         heaptimes = heap_data.keys()
         heaptimes.sort()
         for ctr in range(0, len(heaptimes)-5):
             heap_data.pop(heaptimes[ctr])
-            self.logger.info('\ttime heaptimes[ctr] culled')
+            self.logger.debug('\ttime heaptimes[ctr] culled')
 
     def process_heaptime(htime, hdata):
         """
