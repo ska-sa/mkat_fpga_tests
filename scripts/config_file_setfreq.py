@@ -28,10 +28,9 @@ if __name__ == "__main__":
     else:
         parser.error('Specify a valid config file.')
 
-    bandwidth = opts.sample_clock_freq/2
-    true_cfreq = int(bandwidth+bandwidth/2)
-    bandwidth = int(bandwidth)
-    sample_clock = int(opts.sample_clock_freq)
+    bandwidth = int(opts.sample_clock_freq/2)
+    true_cfreq = bandwidth/2
+    sample_clock = bandwidth*2
     print('Setting Sample frequency = {}Hz, Bandwidth = {}Hz, True center frequency = {}Hz'
           .format(sample_clock, bandwidth, true_cfreq))
 
