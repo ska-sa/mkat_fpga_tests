@@ -49,7 +49,11 @@ if __name__ == "__main__":
     parser.add_argument(
             '-d', '--dsim_present', action='store_true', default=False,
             help='Initialise DSIM')
+    parser.add_argument(
+            '-p', '--program', action='store_true', default=False,
+            help='Program SKARABS during initialise')
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
 
     if args.config:
         if os.path.isfile(args.config):
@@ -68,7 +72,7 @@ if __name__ == "__main__":
     #    return (time.time() - feng_mcount/float(correlator.sample_rate_hz))
 
     c = fxcorrelator.FxCorrelator('steven', config_source=args.config)
-    c.initialise(program=False, configure=False, require_epoch=False)
+    c.initialise(program=args.program, configure=args.program, require_epoch=False)
     f_engines = AttrDict({f.host: f for f in c.fhosts})
     x_engines = AttrDict({x.host: x for x in c.xhosts})
     for fpga in c.fhosts:
