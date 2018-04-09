@@ -17,10 +17,8 @@ from collections import OrderedDict
 from itertools import izip_longest
 from pprint import PrettyPrinter
 
-pp = PrettyPrinter(indent=4)
-
-
-def katcp_request(katcp_ip='127.0.0.1', katcp_port=7147, katcprequest='array-list', katcprequestArg=None, timeout=10):
+def katcp_request(katcp_ip='127.0.0.1', katcp_port=7147, katcprequest='array-list',
+                  katcprequestArg=None, timeout=10):
     """
     Katcp requests
 
@@ -43,7 +41,6 @@ def katcp_request(katcp_ip='127.0.0.1', katcp_port=7147, katcprequest='array-lis
         katcp request messages
     """
     client = katcp.BlockingClient(katcp_ip, katcp_port)
-    client._logger.setLevel(logging.INFO)
     client.setDaemon(True)
     client.start()
     time.sleep(.1)
@@ -85,6 +82,8 @@ if __name__ == '__main__':
 
     argcomplete.autocomplete(parser)
     args = vars(parser.parse_args())
+
+    pp = PrettyPrinter(indent=4)
     log_level = None
     if args.get("log_level", 'INFO'):
         log_level = args.get("log_level", 'INFO')
@@ -105,12 +104,12 @@ if __name__ == '__main__':
             assert isinstance(informs, list)
             katcp_array_list = informs[0].arguments
             katcp_array_name = katcp_array_list[0]
-            katcp_array_port, katcp_sensor_port = katcp_array_list[1].split(
-                ',')
-            logger.info("Katcp connection established: %s: %s,  %s" %
+            katcp_array_port, katcp_sensor_port = katcp_array_list[1].split(',')
+            logger.info("Katcp connection established: IP %s, Array Port: %s, Sensor Port %s" %
                         (katcp_ip, katcp_array_port, katcp_sensor_port))
         except Exception as e:
             logger.exception(e.message)
+            sys.exit(1)
 
     def get_sensor_values(i=1):
         logger.info('Connecting to running sensors servlet and getting sensors')
@@ -118,7 +117,12 @@ if __name__ == '__main__':
             reply, informs = katcp_request(
                 katcp_ip, katcp_sensor_port, katcprequest='sensor-value')
         logger.info('Retrieved sensors successfully')
-        yield [inform.arguments for inform in informs]
+        try:
+            assert int(reply.arguments[-1])
+            yield [inform.arguments for inform in informs]
+        except AssertionError:
+            logger.exception("No Sensors!!! Exiting!!!")
+            sys.exit(1)
 
     unordered_sensor_values = next(get_sensor_values())
 
@@ -136,12 +140,27 @@ if __name__ == '__main__':
 
     def sort_by_host(_ordered_sensor_dict):
         """
-        {   'FHOSTS': [   [{   'fhost00': ['cd', 'delay0-updating']}, ['unknown', '']],
-                      [{   'fhost00': ['cd', 'delay1-updating']}, ['unknown', '']],
-                      [{   'fhost00': ['cd', 'device-status']}, ['unknown', '']],
-                      [{   'fhost00': ['cd', 'hmc-err-cnt']}, ['unknown', '']],
-                      [{   'fhost00': ['ct', 'crc0-err-cnt']}, ['unknown', '']],
-
+        {
+            "FHOSTS": [
+                [
+                    {
+                        "fhost00": [
+                            "cd",
+                            "delay0-updating"
+                        ]
+                    },
+                    [
+                        "unknown",
+                        ""
+                    ]
+                ],
+                [
+                    {
+                        "fhost00": [
+                            "cd",
+                            "delay1-updating"
+                        ]
+                    },
         """
         # see addict doc
         # mapping = Dict()
@@ -161,12 +180,14 @@ if __name__ == '__main__':
                     *[iter([i[0], i[1:]])] * 2, fillvalue=""))
                 mapping['SYSTEM'].append([new_i, v])
         return mapping
+
     sorted_by_host = sort_by_host(ordered_sensor_dict)
 
     if args.get('sensor_json', False):
-        logger.info('Writting sensors to json file')
-        with open('sensor_values.json', 'w') as outfile:
-            json.dump(sorted_by_host, outfile)
+        _filename = 'sensor_values.json'
+        logger.info('Writing sensors to file: %s' % _filename)
+        with open(_filename, 'w') as outfile:
+            json.dump(sorted_by_host, outfile, indent=4, sort_keys=True)
 
     # pretty print
     # pp.pprint(sorted_by_host)
