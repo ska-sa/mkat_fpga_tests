@@ -42,6 +42,27 @@ class AttrDict(dict):
     http://jiaaro.com/making-python-objects-that-act-like-javascrip
     """
 
+def check_x_rx_reorder(c):
+    for x in c.xhosts:
+        stat = x.get_rx_reorder_status()
+        for i,xeng in enumerate(stat):
+            for key, value in xeng.iteritems():
+                if key.find('err') != -1 and value != 0:
+                    print('{} Xeng {}: {}: {}'.format(x.host,i,key,value))
+
+def check_f_rx_reorder(c):
+    for f in c.fhosts:
+        stat = f.get_rx_reorder_status()
+        for key, value in stat.iteritems():
+            if key.find('err') != -1 and value != 0:
+                print('{}: {}: {}'.format(f.host,key,value))
+
+def clear_all(c):
+    for f in c.fhosts:
+        f.clear_status()
+    for x in c.xhosts:
+        x.clear_status()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
