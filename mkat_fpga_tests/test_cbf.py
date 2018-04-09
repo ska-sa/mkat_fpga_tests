@@ -5715,7 +5715,7 @@ class test_CBF(unittest.TestCase):
 
         #np.save('skarab_bf_data_plus.np', bf_raw)
         #return True
-        from skarab_bf_analysis import analyse_beam_data
+        from bf_time_analysis import analyse_beam_data
         analyse_beam_data(bf_raw, dsim_settings = [freq, cw_scale, awgn_scale],
                 cbf_settings = [fft_shift, gain],
                 do_save = True,
