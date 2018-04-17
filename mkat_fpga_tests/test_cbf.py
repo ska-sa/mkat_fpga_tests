@@ -16,7 +16,7 @@ import casperfpga
 import corr2
 import csv
 import gc
-import katcp
+import glob
 import katcp
 import logging
 import ntplib
@@ -212,8 +212,8 @@ class test_CBF(unittest.TestCase):
             stop_channels = int(self.conf_file['instrument_params']['stop_channels'])
             LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' %(
                 data_output_port, start_channels, stop_channels))
-            Aqf.note('Configuring SPEAD receiver to capture {} channels from {} to {}.'
-                     .format(stop_channels-start_channels+1, start_channels, stop_channels))
+            Aqf.note('Configuring SPEAD receiver to capture %s channels from %s to %s.'% (
+                stop_channels - start_channels + 1, start_channels, stop_channels))
             self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
                 katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
                                                                         stop_channels))
@@ -227,7 +227,8 @@ class test_CBF(unittest.TestCase):
             LOGGER.info('Getting a test dump to confirm number of channels else, test fails '
                         'if cannot retrieve dump')
             _test_dump = self.receiver.get_clean_dump()
-            self.assertIsInstance(_test_dump, dict)
+            self.errmsg = 'Getting empty dumps!!!!'
+            self.assertIsInstance(_test_dump, dict, self.errmsg)
             self.n_chans_selected = int(_test_dump.get('n_chans_selected',
                 self.cam_sensors.get_value('n_chans')))
             LOGGER.info('Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
@@ -1727,7 +1728,7 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(discard=num_discard)
+                this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 failure_count += 1
@@ -1969,8 +1970,6 @@ class test_CBF(unittest.TestCase):
                        test_baseline, bls_to_test, chan_spacing / 1e3, cw_scale, awgn_scale, gain,
                        fft_shift))
 
-            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
-                requested_test_freqs), delimiter=",")
             aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
                               normalise=True, caption=caption, cutoff=-cutoff_edge, vlines=center_bin,
                               xlabel='Sample Steps', ylimits=y_axis_limits)

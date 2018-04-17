@@ -78,6 +78,7 @@ def teardown_package():
 class CorrelatorFixture(object):
     def __init__(self, katcp_client=None, product_name=None):
         self.katcp_client = katcp_client
+        self.prim_port = '7147'
         self.corr_config = None
         self.corr2ini_path = None
         self._correlator = None
@@ -112,7 +113,7 @@ class CorrelatorFixture(object):
             self.rc = resource_client.KATCPClientResource(
                 dict(name='{}'.format(self.katcp_client),
                      address=('{}'.format(self.katcp_client),
-                              '7147'),
+                              self.prim_port),
                      controlled=True))
             self.rc.set_ioloop(self.io_manager.get_ioloop())
             self._rct = (resource_client.ThreadSafeKATCPClientResourceWrapper(self.rc,
@@ -158,15 +159,7 @@ class CorrelatorFixture(object):
                 if self._dhost.is_running():
                     LOGGER.info('D-Eng is already running.')
                     return self._dhost
-                # Disabled DSim programming as it would alter the systems sync epoch
-                # elif program and not self._dhost.is_running():
-                #     LOGGER.info('Programming and starting the Digitiser Simulator.')
-                #     self._dhost.initialise()
-                #     self._dhost.enable_data_output(enabled=True)
-                #     self._dhost.registers.control.write(gbe_txen=True)
-                # else:
-                #     LOGGER.info('D-Eng started successfully')
-                # return self._dhost
+
 
     @property
     def correlator(self):
