@@ -16,7 +16,7 @@ import casperfpga
 import corr2
 import csv
 import gc
-import katcp
+import glob
 import katcp
 import logging
 import ntplib
@@ -39,7 +39,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from corr2.corr_rx import CorrRx
+#from corr2.corr_rx import CorrRx
+from corr_rx import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 
@@ -71,6 +72,7 @@ class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
     # Hard-coded, perhaps fix this later
     cur_path = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
+    _katreport_dir = os.path.join(cur_path, 'katreport')
     _csv_filename = os.path.join(cur_path, 'docs/Manual_Tests.csv')
     _images_dir = os.path.join(cur_path, 'docs/manual_tests_images')
 
@@ -211,14 +213,14 @@ class test_CBF(unittest.TestCase):
             stop_channels = int(self.conf_file['instrument_params']['stop_channels'])
             LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' %(
                 data_output_port, start_channels, stop_channels))
-            Aqf.note('Configuring SPEAD receiver to capture {} channels from {} to {}.'
-                     .format(stop_channels-start_channels+1, start_channels, stop_channels))
+            Aqf.note('Configuring SPEAD receiver to capture %s channels from %s to %s.'% (
+                stop_channels - start_channels + 1, start_channels, stop_channels))
             self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
                 katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
                                                                         stop_channels))
             self.receiver.setName('CorrRx Thread')
             self.errmsg = 'Failed to create SPEAD data receiver'
-            self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx), self.errmsg
+            self.assertIsInstance(self.receiver, CorrRx), self.errmsg
             start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
             self.errmsg = 'Spead Receiver not Running, possible '
             assert self.receiver.isAlive(), self.errmsg
@@ -226,7 +228,8 @@ class test_CBF(unittest.TestCase):
             LOGGER.info('Getting a test dump to confirm number of channels else, test fails '
                         'if cannot retrieve dump')
             _test_dump = self.receiver.get_clean_dump()
-            self.assertIsInstance(_test_dump, dict)
+            self.errmsg = 'Getting empty dumps!!!!'
+            self.assertIsInstance(_test_dump, dict, self.errmsg)
             self.n_chans_selected = int(_test_dump.get('n_chans_selected',
                 self.cam_sensors.get_value('n_chans')))
             LOGGER.info('Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
@@ -367,18 +370,18 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    # Test still under development, Alec will put it under test_informal
-    # @instrument_4k
-    # def test_beamforming_timeseries(self):
-    #     #Aqf.procedure(TestProcedure.Beamformer)
-    #     try:
-    #         assert eval(os.getenv('DRY_RUN', 'False'))
-    #     except AssertionError:
-    #         instrument_success = self.set_instrument()
-    #         if instrument_success:
-    #             self._test_beamforming_timeseries()
-    #         else:
-    #             Aqf.failed(self.errmsg)
+    #Test still under development, Alec will put it under test_informal
+    @instrument_4k
+    def test_beamforming_timeseries(self):
+        #Aqf.procedure(TestProcedure.Beamformer)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._test_beamforming_timeseries()
+            else:
+                Aqf.failed(self.errmsg)
 
     @generic_test
     @aqf_vr('CBF.V.4.4')
@@ -616,7 +619,7 @@ class test_CBF(unittest.TestCase):
             instrument_success = self.set_instrument()
             if instrument_success:
                 self._test_sensor_values()
-                self._test_host_sensors_status()
+                # self._test_host_sensors_status()
             else:
                 Aqf.failed(self.errmsg)
 
@@ -1621,7 +1624,7 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.085
             gain = '11+0j'
             fft_shift = 32767
-
+        Aqf.note('Residual delay is excluded from this test.')
         Aqf.step('Digitiser simulator configured to generate a continuous wave (cwg0), '
                  'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
                                                                                         awgn_scale,
@@ -1726,7 +1729,7 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(discard=num_discard)
+                this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 failure_count += 1
@@ -1829,8 +1832,9 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         else:
-            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
-                requested_test_freqs), delimiter=",")
+            csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
+            np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs),
+                delimiter=",")
             plt_filename = '{}/{}_Channel_Response.png'.format(self.logs_path,
                 self._testMethodName)
             plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90,
@@ -1968,8 +1972,6 @@ class test_CBF(unittest.TestCase):
                        test_baseline, bls_to_test, chan_spacing / 1e3, cw_scale, awgn_scale, gain,
                        fft_shift))
 
-            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
-                requested_test_freqs), delimiter=",")
             aqf_plot_channels(zip(channel_response_list, legends), plot_filename, plot_title,
                               normalise=True, caption=caption, cutoff=-cutoff_edge, vlines=center_bin,
                               xlabel='Sample Steps', ylimits=y_axis_limits)
@@ -2829,7 +2831,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.is_true(host, msg)
 
                     try:
-                        self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
+                        self.assertIsInstance(self.receiver, CorrRx)
                         freq_dump = get_clean_dump(self)
                         assert np.shape(freq_dump['xeng_raw'])[0] == self.n_chans_selected
                     except Queue.Empty:
@@ -3662,7 +3664,7 @@ class test_CBF(unittest.TestCase):
             try:
                 Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
                     'that the instrument activated is valid.')
-                self.assertIsInstance(self.receiver, corr2.corr_rx.CorrRx)
+                self.assertIsInstance(self.receiver, CorrRx)
                 re_dump = get_clean_dump(self)
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -5714,7 +5716,7 @@ class test_CBF(unittest.TestCase):
 
         #np.save('skarab_bf_data_plus.np', bf_raw)
         #return True
-        from skarab_bf_analysis import analyse_beam_data
+        from bf_time_analysis import analyse_beam_data
         analyse_beam_data(bf_raw, dsim_settings = [freq, cw_scale, awgn_scale],
                 cbf_settings = [fft_shift, gain],
                 do_save = True,
@@ -6994,9 +6996,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_efficiency(self):
 
-
-        csv_filename = r"CBF_Efficiency_Data.csv"
-
+        csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
         def get_samples():
 
             n_chans = self.cam_sensors.get_value('n_chans')
@@ -7158,8 +7158,9 @@ class test_CBF(unittest.TestCase):
 
             chan_responses = np.array(chan_responses)
             requested_test_freqs = np.asarray(requested_test_freqs)
-            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
-                requested_test_freqs), delimiter=",")
+            csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
+            np.savetxt(csv_filename, , zip(chan_responses[:, test_chan], requested_test_freqs),
+                delimiter=",")
 
         def efficiency_calc(f, P_dB, binwidth, debug=False):
             # Adapted from SSalie
@@ -7223,7 +7224,7 @@ class test_CBF(unittest.TestCase):
 
         try:
             pfb_data = np.loadtxt(csv_filename, delimiter=",", unpack=False)
-            Aqf.step("Retrieve channelisation (Frequencies and Power_dB) data results from CSV file")
+            Aqf.step("Retrieved channelisation (Frequencies and Power_dB) data results from CSV file")
         except IOError:
             try:
                 get_samples()
