@@ -72,6 +72,7 @@ class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
     # Hard-coded, perhaps fix this later
     cur_path = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
+    _katreport_dir = os.path.join(cur_path, 'katreport')
     _csv_filename = os.path.join(cur_path, 'docs/Manual_Tests.csv')
     _images_dir = os.path.join(cur_path, 'docs/manual_tests_images')
 
@@ -1623,7 +1624,7 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.085
             gain = '11+0j'
             fft_shift = 32767
-
+        Aqf.note('Residual delay is excluded from this test.')
         Aqf.step('Digitiser simulator configured to generate a continuous wave (cwg0), '
                  'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
                                                                                         awgn_scale,
@@ -1831,8 +1832,9 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         else:
-            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
-                requested_test_freqs), delimiter=",")
+            csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
+            np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs),
+                delimiter=",")
             plt_filename = '{}/{}_Channel_Response.png'.format(self.logs_path,
                 self._testMethodName)
             plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90,
@@ -6994,9 +6996,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_efficiency(self):
 
-
-        csv_filename = r"CBF_Efficiency_Data.csv"
-
+        csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
         def get_samples():
 
             n_chans = self.cam_sensors.get_value('n_chans')
@@ -7158,8 +7158,9 @@ class test_CBF(unittest.TestCase):
 
             chan_responses = np.array(chan_responses)
             requested_test_freqs = np.asarray(requested_test_freqs)
-            np.savetxt("CBF_Efficiency_Data.csv", zip(chan_responses[:, test_chan],
-                requested_test_freqs), delimiter=",")
+            csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
+            np.savetxt(csv_filename, , zip(chan_responses[:, test_chan], requested_test_freqs),
+                delimiter=",")
 
         def efficiency_calc(f, P_dB, binwidth, debug=False):
             # Adapted from SSalie
@@ -7223,7 +7224,7 @@ class test_CBF(unittest.TestCase):
 
         try:
             pfb_data = np.loadtxt(csv_filename, delimiter=",", unpack=False)
-            Aqf.step("Retrieve channelisation (Frequencies and Power_dB) data results from CSV file")
+            Aqf.step("Retrieved channelisation (Frequencies and Power_dB) data results from CSV file")
         except IOError:
             try:
                 get_samples()
