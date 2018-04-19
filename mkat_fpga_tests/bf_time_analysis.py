@@ -196,281 +196,222 @@ def analyse_beam_data(bf_raw, skarab_or_roach = True, do_save = False, dsim_sett
     # find the channel where the tone is most likely to be present
     max_channel = np.argmax(np.abs(dn_lim_cmplx0).sum(axis=1))
     print "tone is located at channel number: ",max_channel
-    dn_lim_cmplx0_copy = dn_lim_cmplx0 # create copy of data for reset purposes
-
-    #%
-    #import IPython;IPython.embed()
-    for cond in (True,False):
-        reset_data = True
-        if reset_data: dn_lim_cmplx0 = copy.deepcopy(dn_lim_cmplx0_copy)
-        
-        if skarab_or_roach:
-            test_sig = dn_lim_cmplx0[max_channel,0:8]
-        if not(skarab_or_roach):
-            test_sig = dn_lim_cmplx0[max_channel,0:2]
-        
-        test_sig = np.asarray(test_sig)
-        test_sig = np.atleast_2d(test_sig)
-        
-        do_flip = cond # flip samples to correct order
-        if do_flip:
-            num_chan = len(dn_lim_cmplx0[:,0])
-            num_spectra = len(dn_lim_cmplx0[0,:])
-            if skarab_or_roach:
-                samps_2_shift = 8
-                blocks_2_shift = 2
-                block_size = samps_2_shift
-            if not(skarab_or_roach):
-                samps_2_shift = 2
-            dn_lim_cmplx0 = np.reshape(dn_lim_cmplx0,[num_chan,num_spectra/samps_2_shift,samps_2_shift])
-            dn_lim_cmplx0 = np.fliplr(dn_lim_cmplx0)
-            dn_lim_cmplx0 = np.reshape(dn_lim_cmplx0,[num_chan,num_spectra])
-            dn_lim_cmplx0 = np.fliplr(dn_lim_cmplx0)
-            dn_lim_cmplx0 = np.squeeze(dn_lim_cmplx0)
-            if skarab_or_roach == None:
-                truncate_spectra = (num_spectra/blocks_2_shift/block_size)*blocks_2_shift*block_size
-                dn_lim_cmplx0 = dn_lim_cmplx0[:,:truncate_spectra]
-                dn_lim_cmplx0 = dn_lim_cmplx0.reshape(num_chan,num_spectra / block_size / blocks_2_shift, blocks_2_shift, block_size)
-                dn_lim_cmplx0 = np.flip(dn_lim_cmplx0, axis = 2)
-                dn_lim_cmplx0 = dn_lim_cmplx0.reshape(num_chan, truncate_spectra)
-                dn_lim_cmplx0 = np.squeeze(dn_lim_cmplx0)
-        
-        if skarab_or_roach:
-            test_sig_after_reorder = dn_lim_cmplx0[max_channel,0:8]
-        if not(skarab_or_roach):
-            test_sig_after_reorder = dn_lim_cmplx0[max_channel,0:2]
-        test_sig_after_reorder = np.asarray(test_sig_after_reorder)
-        test_sig_after_reorder = np.atleast_2d(test_sig_after_reorder)
-        test_sig_after_reorder = np.fliplr(test_sig_after_reorder)
-        if cond:
-            if np.array_equal(test_sig,test_sig_after_reorder):
-                print "True:  re-order correct"
-            else:
-                print "False:  re-order incorrect"
-        
-        
-        reconstituted = 1*(dn_lim_cmplx0+np.conjugate(dn_lim_cmplx0));   #create reconstituted data
-        
-        if idx_cnt_channel!=max_channel:
-            print "expected cw tone channel NOT equal to achieved, channel offset by: %d"%np.abs(idx_cnt_channel-max_channel)
-            idx_cnt_channel = max_channel # mod for checking roach data SS 19 Jan 2018 
-        else:
-            print "expected cw tone channel equal to achieved"
-        
-        # identify centre, adjacent left and adjacent right locations
-        cnt_l = idx_cnt_channel-1; 
-        cnt = idx_cnt_channel;
-        cnt_r = idx_cnt_channel+1;
-        
-        #% time domain series plots
-        f0 = figure(figsize=(20.5,14.5))
-        a0 = plt.subplot2grid((3,2),(0,0))
-        for i in [cnt_l,cnt,cnt_r]:
-            a0.plot(t0*1e3,np.real(dn_lim_cmplx0[i,:]),label='%d_real'%i)
-        
-        a0.legend()
-        a0.set_title('Real component of centre and adjacent channels')    
-        a0.set_ylabel('Raw voltage output')
-        a0.grid()
-        
-        az0 = plt.subplot2grid((3,2),(0,1))
-        for i in [cnt_l,cnt,cnt_r]:
-            az0.plot(t0*1e3,np.real(dn_lim_cmplx0[i,:]),label='%d_real'%i)
-        
-        az0.legend()
-        az0.set_title('(zoomed), Real component of centre and adjacent channels')    
-        az0.set_ylabel('Raw voltage output')
-        az0.set_xlim(xlim)
-        az0.grid()
-        
-        a1 = plt.subplot2grid((3,2),(1,0))
-        for i in [cnt_l,cnt,cnt_r]:
-            a1.plot(t0*1e3,np.imag(dn_lim_cmplx0[i,:]),label='%d_imag'%i)
-        
-        a1.legend()
-        a1.set_title('Imaginary component of centre and adjacent channels')
-        a1.set_ylabel('Raw voltage output')
-        a1.grid()
-        
-        az1 = plt.subplot2grid((3,2),(1,1))
-        for i in [cnt_l,cnt,cnt_r]:
-            az1.plot(t0*1e3,np.imag(dn_lim_cmplx0[i,:]),label='%d_imag'%i)
-        
-        az1.legend()
-        
-        az1.set_title('(zoomed), Imaginary component of centre and adjacent channels')    
-        az1.set_ylabel('Raw voltage output')
-        az1.set_xlim(xlim)
-        az1.grid()
-        
-        a2 = plt.subplot2grid((3,2),(2,0))
-        for i in [cnt_l,cnt,cnt_r]:
-            a2.plot(t0*1e3,np.real(reconstituted[i,:]),label='%d_recon_real'%i)
-        
-        a2.legend()
-        a2.set_title('Reconstituted real signal of centre and adjacent channels')
-        a2.set_xlabel('Time [ms]')
-        a2.set_ylabel('Raw voltage output')
-        a2.grid()
-        
-        az2 = plt.subplot2grid((3,2),(2,1))
-        for i in [cnt_l,cnt,cnt_r]:
-            az2.plot(t0*1e3,np.real(reconstituted[i,:]),label='%d_recon_real'%i)
-        
-        az2.legend()
-        
-        az2.set_title('(zoomed), Reconstituted real signal of centre and adjacent channels')    
-        az2.set_xlabel('Time [ms]')
-        az2.set_ylabel('Raw voltage output')
-        az2.set_xlim(xlim)
-        az2.grid()
-        
-        if cond:    plt.suptitle('Time series data output (channel with tone plus adjacent) N.B Data time samples re-ordered')
-        if not(cond):   plt.suptitle('Time series data output (channel with tone plus adjacent)')
-            
-        if do_save: 
-            if cond:    plt.savefig(ref_input_label+'_fengChunk-'+'_time_series_reordered.png')
-            if not(cond):    plt.savefig(ref_input_label+'_fengChunk-'+'_time_series_original.png')
-            plt.close()
+    reconstituted = 1*(dn_lim_cmplx0+np.conjugate(dn_lim_cmplx0));   #create reconstituted data
     
-        #% Plot magnitude and phase
-        fh0 = figure(figsize=(20.5,14.5))
-        ah0 = plt.subplot2grid((2,2),(0,0))
-        for i in [cnt]:#[cnt_l,cnt,cnt_r]:
-            abs_vals = np.abs(dn_lim_cmplx0[i,:])
-            ah0.plot(t0*1e3,pow2dB(abs_vals),label='%d_magnitude'%i)
+    if idx_cnt_channel!=max_channel:
+        print "expected cw tone channel NOT equal to achieved, channel offset by: %d"%np.abs(idx_cnt_channel-max_channel)
+        idx_cnt_channel = max_channel # mod for checking roach data SS 19 Jan 2018 
+    else:
+        print "expected cw tone channel equal to achieved"
+    
+    # identify centre, adjacent left and adjacent right locations
+    cnt_l = idx_cnt_channel-1; 
+    cnt = idx_cnt_channel;
+    cnt_r = idx_cnt_channel+1;
+    
+    #% time domain series plots
+    f0 = figure(figsize=(20.5,14.5))
+    a0 = plt.subplot2grid((3,2),(0,0))
+    for i in [cnt_l,cnt,cnt_r]:
+        a0.plot(t0*1e3,np.real(dn_lim_cmplx0[i,:]),label='%d_real'%i)
+    
+    a0.legend()
+    a0.set_title('Real component of centre and adjacent channels')    
+    a0.set_ylabel('Raw voltage output')
+    a0.grid()
+    
+    az0 = plt.subplot2grid((3,2),(0,1))
+    for i in [cnt_l,cnt,cnt_r]:
+        az0.plot(t0*1e3,np.real(dn_lim_cmplx0[i,:]),label='%d_real'%i)
+    
+    az0.legend()
+    az0.set_title('(zoomed), Real component of centre and adjacent channels')    
+    az0.set_ylabel('Raw voltage output')
+    az0.set_xlim(xlim)
+    az0.grid()
+    
+    a1 = plt.subplot2grid((3,2),(1,0))
+    for i in [cnt_l,cnt,cnt_r]:
+        a1.plot(t0*1e3,np.imag(dn_lim_cmplx0[i,:]),label='%d_imag'%i)
+    
+    a1.legend()
+    a1.set_title('Imaginary component of centre and adjacent channels')
+    a1.set_ylabel('Raw voltage output')
+    a1.grid()
+    
+    az1 = plt.subplot2grid((3,2),(1,1))
+    for i in [cnt_l,cnt,cnt_r]:
+        az1.plot(t0*1e3,np.imag(dn_lim_cmplx0[i,:]),label='%d_imag'%i)
+    
+    az1.legend()
+    
+    az1.set_title('(zoomed), Imaginary component of centre and adjacent channels')    
+    az1.set_ylabel('Raw voltage output')
+    az1.set_xlim(xlim)
+    az1.grid()
+    
+    a2 = plt.subplot2grid((3,2),(2,0))
+    for i in [cnt_l,cnt,cnt_r]:
+        a2.plot(t0*1e3,np.real(reconstituted[i,:]),label='%d_recon_real'%i)
+    
+    a2.legend()
+    a2.set_title('Reconstituted real signal of centre and adjacent channels')
+    a2.set_xlabel('Time [ms]')
+    a2.set_ylabel('Raw voltage output')
+    a2.grid()
+    
+    az2 = plt.subplot2grid((3,2),(2,1))
+    for i in [cnt_l,cnt,cnt_r]:
+        az2.plot(t0*1e3,np.real(reconstituted[i,:]),label='%d_recon_real'%i)
+    
+    az2.legend()
+    
+    az2.set_title('(zoomed), Reconstituted real signal of centre and adjacent channels')    
+    az2.set_xlabel('Time [ms]')
+    az2.set_ylabel('Raw voltage output')
+    az2.set_xlim(xlim)
+    az2.grid()
+    
+    plt.suptitle('Time series data output (channel with tone plus adjacent)')
         
-        ah0.legend()
-        ah0.set_title('Magnitude signal of centre channel')
-        ah0.set_xlabel('Time [ms]')
-        ah0.set_ylabel('Raw voltage output [dB]')
-        ah0.grid()
-        
-        ahz0 = plt.subplot2grid((2,2),(0,1))
-        for i in [cnt]:#[cnt_l,cnt,cnt_r]:
-            ahz0.plot(t0*1e3,pow2dB(np.abs(dn_lim_cmplx0[i,:])),label='%d_magnitude'%i)
-        
-        ahz0.legend()
-        ahz0.set_title('(zoomed), Magnitude signal of centre channel')    
-        ahz0.set_xlabel('Time [ms]')
-        ahz0.set_ylabel('Raw voltage output [dB]')
-        ahz0.set_xlim(xlim)
-        ahz0.grid()
-        
-        
-        ah1 = plt.subplot2grid((2,2),(1,0))
-        for i in [cnt]:#[cnt_l,cnt,cnt_r]:
-            phase = np.angle(dn_lim_cmplx0[i,:], deg = 1)
-            ah1.plot(t0*1e3,phase,label='%d_phase'%i)
-        
-        ah1.legend()
-        ah1.set_title('Phase signal of centre channel')
-        ah1.set_xlabel('Time [ms]')
-        ah1.set_ylabel('Phase [deg]')
-        ah1.grid()
-        
-        ahz1 = plt.subplot2grid((2,2),(1,1))
-        for i in [cnt]:#[cnt_l,cnt,cnt_r]:
-            phase = np.angle(dn_lim_cmplx0[i,:], deg = 1)
-            ahz1.plot(t0*1e3,phase,'x-',label='%d_phase'%i)
-        
-        ahz1.legend()
-        ahz1.set_title('(zoomed), Phase signal of centre channel')    
-        ahz1.set_xlabel('Time [ms]')
-        ahz1.set_ylabel('Phase [deg]')
-        ahz1.set_xlim(xlim)
-        ahz1.grid()
-        
-        if not(cond):   plt.suptitle('Time series data output, Magnitude and Phase of centre and adjacent channels')
-        if cond:   plt.suptitle('Time series data output, Magnitude and Phase of centre and adjacent channels, N.B Data time samples re-ordered')
-        
-        if do_save: 
-            if not(cond):   plt.savefig(ref_input_label+'_fengChunk-'+'_mag_phase_original.png')
-            if cond:   plt.savefig(ref_input_label+'_fengChunk-'+'_mag_phase_reordered.png')
-            plt.close()
+    if do_save: 
+        plt.savefig(ref_input_label+'_fengChunk-'+'_time_series_original.png')
+        plt.close()
 
-    #% Frequency domain plots
-        # first reduce spectra data to only 8192 samples
-        nsamp_spectra_use = range(2**10,(2**10)+(2**13)); # approximately 50ms 
-        dn_lim_cmplx0 = dn_lim_cmplx0[:,nsamp_spectra_use]
-        
-        fs_txt = 8
-        y_lim  = [-80,50];
-        fs = 1/(t0_or[1]-t0_or[0]);
-        print "fs = ",fs
-        fc = 0 #fs/2.; #0
-        y_ticks = np.arange(-100, 10, 20);
-        
-        cnt_l = idx_cnt_channel-1; 
-        cnt_c = idx_cnt_channel;
-        cnt_r = idx_cnt_channel+1;
-        
-        # adjacent left channel
-        f = figure(figsize=(20.5,12.5))
-        
-        ax0 = plt.subplot2grid((2,3),(0,0))
-        ax0.psd(np.real(dn_lim_cmplx0[cnt_l,:]),Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='real_lft');
-        ax0.psd(dn_lim_cmplx0[cnt_l,:],Fs=fs,NFFT=len(t0),label='complex_lft',linestyle='--',marker='x');
-        ax0.legend(loc='lower right')
-        ax0.set_title('(adj left channel),real and complex')  
-        ax0.set_ylim(y_lim)  
-        ax0.yaxis.set_ticks(y_ticks)
-        ax0.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
-        
-        # centre channel
-        ax1 = plt.subplot2grid((2,3),(0,1))
-        ax1.psd(np.real(dn_lim_cmplx0[cnt_c,:]),Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='real_cnt');
-        ax1.psd(dn_lim_cmplx0[cnt_c,:],Fs=fs,NFFT=len(t0),label='complex_cnt',linestyle='--',marker='x');
-        ax1.legend(loc='lower right')
-        ax1.set_title('(centre channel),real and complex')
-        ax1.yaxis.set_ticks(y_ticks)
-        ax1.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))    
-        
-        # adjacent right channel
-        ax2 = plt.subplot2grid((2,3),(0,2))
-        ax2.psd(np.real(dn_lim_cmplx0[cnt_r,:]),Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='real_rht');
-        ax2.psd(dn_lim_cmplx0[cnt_r,:],Fs=fs,NFFT=len(t0),label='complex_rht',linestyle='--',marker='x');
-        ax2.legend(loc='lower right')
-        ax2.set_title('(adj right channel),real and complex')  
-        ax2.set_ylim(y_lim)  
-        ax2.yaxis.set_ticks(y_ticks)
-        ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
-        
-        # reconstituted
-        # adjacent left channel
-        ax3 = plt.subplot2grid((2,3),(1,0))
-        tmp=ax3.psd(reconstituted[cnt_l,:],Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='reconstituted_lft');
-        ax3.legend(loc='lower right')
-        ax3.set_title('(adj left channel),reconstituted data')    
-        ax3.set_ylim(y_lim)
-        ax3.yaxis.set_ticks(y_ticks)
-        ax3.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
-        
-        # centre channel
-        ax4 = plt.subplot2grid((2,3),(1,1))
-        tmp=ax4.psd(reconstituted[cnt_c,:],Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='reconstituted_cnt');
-        ax4.legend(loc='lower right')
-        ax4.set_title('(centre channel),reconstituted data')  
-        ax4.set_ylim(y_lim)  
-        ax4.yaxis.set_ticks(y_ticks)
-        ax4.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
-        
-        # adjacent right channel
-        ax5 = plt.subplot2grid((2,3),(1,2))
-        tmp = ax5.psd(reconstituted[cnt_r,:],Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='reconstituted_rht');
-        ax5.legend(loc='lower right')
-        ax5.set_title('(adj right channel),reconstituted data')    
-        ax5.set_ylim(y_lim)
-        ax5.yaxis.set_ticks(y_ticks)
-        ax5.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
-        
-        if cond:   plt.suptitle('Power Spectral Density (PSD) of centre and adjacent channels for real and complex output (row 1), and reconstituted data output (row 2), N.B Data time samples re-ordered')
-        if not(cond):   plt.suptitle('Power Spectral Density (PSD) of centre and adjacent channels for real and complex output (row 1), and reconstituted data output (row 2)')
-        
-        if do_save:
-            if not(cond):   plt.savefig(ref_input_label+'_fengChunk-'+'_PSD_original.png')
-            if cond:   plt.savefig(ref_input_label+'_fengChunk-'+'_PSD_reordered.png')
-            plt.close()
+    #% Plot magnitude and phase
+    fh0 = figure(figsize=(20.5,14.5))
+    ah0 = plt.subplot2grid((2,2),(0,0))
+    for i in [cnt]:#[cnt_l,cnt,cnt_r]:
+        abs_vals = np.abs(dn_lim_cmplx0[i,:])
+        ah0.plot(t0*1e3,pow2dB(abs_vals),label='%d_magnitude'%i)
+    
+    ah0.legend()
+    ah0.set_title('Magnitude signal of centre channel')
+    ah0.set_xlabel('Time [ms]')
+    ah0.set_ylabel('Raw voltage output [dB]')
+    ah0.grid()
+    
+    ahz0 = plt.subplot2grid((2,2),(0,1))
+    for i in [cnt]:#[cnt_l,cnt,cnt_r]:
+        ahz0.plot(t0*1e3,pow2dB(np.abs(dn_lim_cmplx0[i,:])),label='%d_magnitude'%i)
+    
+    ahz0.legend()
+    ahz0.set_title('(zoomed), Magnitude signal of centre channel')    
+    ahz0.set_xlabel('Time [ms]')
+    ahz0.set_ylabel('Raw voltage output [dB]')
+    ahz0.set_xlim(xlim)
+    ahz0.grid()
+    
+    
+    ah1 = plt.subplot2grid((2,2),(1,0))
+    for i in [cnt]:#[cnt_l,cnt,cnt_r]:
+        phase = np.angle(dn_lim_cmplx0[i,:], deg = 1)
+        ah1.plot(t0*1e3,phase,label='%d_phase'%i)
+    
+    ah1.legend()
+    ah1.set_title('Phase signal of centre channel')
+    ah1.set_xlabel('Time [ms]')
+    ah1.set_ylabel('Phase [deg]')
+    ah1.grid()
+    
+    ahz1 = plt.subplot2grid((2,2),(1,1))
+    for i in [cnt]:#[cnt_l,cnt,cnt_r]:
+        phase = np.angle(dn_lim_cmplx0[i,:], deg = 1)
+        ahz1.plot(t0*1e3,phase,'x-',label='%d_phase'%i)
+    
+    ahz1.legend()
+    ahz1.set_title('(zoomed), Phase signal of centre channel')    
+    ahz1.set_xlabel('Time [ms]')
+    ahz1.set_ylabel('Phase [deg]')
+    ahz1.set_xlim(xlim)
+    ahz1.grid()
+    
+    plt.suptitle('Time series data output, Magnitude and Phase of centre and adjacent channels')
+    
+    if do_save: 
+        plt.savefig(ref_input_label+'_fengChunk-'+'_mag_phase_original.png')
+        plt.close()
+
+#% Frequency domain plots
+    # first reduce spectra data to only 8192 samples
+    nsamp_spectra_use = range(2**10,(2**10)+(2**13)); # approximately 50ms 
+    dn_lim_cmplx0 = dn_lim_cmplx0[:,nsamp_spectra_use]
+    
+    fs_txt = 8
+    y_lim  = [-80,50];
+    fs = 1/(t0_or[1]-t0_or[0]);
+    print "fs = ",fs
+    fc = 0 #fs/2.; #0
+    y_ticks = np.arange(-100, 10, 20);
+    
+    cnt_l = idx_cnt_channel-1; 
+    cnt_c = idx_cnt_channel;
+    cnt_r = idx_cnt_channel+1;
+    
+    # adjacent left channel
+    f = figure(figsize=(20.5,12.5))
+    
+    ax0 = plt.subplot2grid((2,3),(0,0))
+    ax0.psd(np.real(dn_lim_cmplx0[cnt_l,:]),Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='real_lft');
+    ax0.psd(dn_lim_cmplx0[cnt_l,:],Fs=fs,NFFT=len(t0),label='complex_lft',linestyle='--',marker='x');
+    ax0.legend(loc='lower right')
+    ax0.set_title('(adj left channel),real and complex')  
+    ax0.set_ylim(y_lim)  
+    ax0.yaxis.set_ticks(y_ticks)
+    ax0.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+    
+    # centre channel
+    ax1 = plt.subplot2grid((2,3),(0,1))
+    ax1.psd(np.real(dn_lim_cmplx0[cnt_c,:]),Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='real_cnt');
+    ax1.psd(dn_lim_cmplx0[cnt_c,:],Fs=fs,NFFT=len(t0),label='complex_cnt',linestyle='--',marker='x');
+    ax1.legend(loc='lower right')
+    ax1.set_title('(centre channel),real and complex')
+    ax1.yaxis.set_ticks(y_ticks)
+    ax1.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))    
+    
+    # adjacent right channel
+    ax2 = plt.subplot2grid((2,3),(0,2))
+    ax2.psd(np.real(dn_lim_cmplx0[cnt_r,:]),Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='real_rht');
+    ax2.psd(dn_lim_cmplx0[cnt_r,:],Fs=fs,NFFT=len(t0),label='complex_rht',linestyle='--',marker='x');
+    ax2.legend(loc='lower right')
+    ax2.set_title('(adj right channel),real and complex')  
+    ax2.set_ylim(y_lim)  
+    ax2.yaxis.set_ticks(y_ticks)
+    ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+    
+    # reconstituted
+    # adjacent left channel
+    ax3 = plt.subplot2grid((2,3),(1,0))
+    tmp=ax3.psd(reconstituted[cnt_l,:],Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='reconstituted_lft');
+    ax3.legend(loc='lower right')
+    ax3.set_title('(adj left channel),reconstituted data')    
+    ax3.set_ylim(y_lim)
+    ax3.yaxis.set_ticks(y_ticks)
+    ax3.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+    
+    # centre channel
+    ax4 = plt.subplot2grid((2,3),(1,1))
+    tmp=ax4.psd(reconstituted[cnt_c,:],Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='reconstituted_cnt');
+    ax4.legend(loc='lower right')
+    ax4.set_title('(centre channel),reconstituted data')  
+    ax4.set_ylim(y_lim)  
+    ax4.yaxis.set_ticks(y_ticks)
+    ax4.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+    
+    # adjacent right channel
+    ax5 = plt.subplot2grid((2,3),(1,2))
+    tmp = ax5.psd(reconstituted[cnt_r,:],Fs=fs,Fc=fc,sides="twosided",NFFT=len(t0),label='reconstituted_rht');
+    ax5.legend(loc='lower right')
+    ax5.set_title('(adj right channel),reconstituted data')    
+    ax5.set_ylim(y_lim)
+    ax5.yaxis.set_ticks(y_ticks)
+    ax5.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+    
+    plt.suptitle('Power Spectral Density (PSD) of centre and adjacent channels for real and complex output (row 1), and reconstituted data output (row 2)')
+    
+    if do_save:
+        plt.savefig(ref_input_label+'_fengChunk-'+'_PSD_original.png')
+        plt.close()
 
 
 #%%

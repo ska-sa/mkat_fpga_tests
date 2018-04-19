@@ -1155,7 +1155,7 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, capture_time=0.1):
     """ Capture beamformer data
 
     Parameters
@@ -1217,7 +1217,6 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
             if key.find(beam_pol) != -1:
                 in_wgts[key] = beam_dict[key]
 
-        # Replace beam_dict with in_wgts as this is a bug hack
         Aqf.step('Setting input weights, this may take a long time, check log output for progress...')
         print_list = ''
         for key in in_wgts:

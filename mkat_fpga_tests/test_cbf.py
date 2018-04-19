@@ -1617,6 +1617,10 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.085
             gain = '7+0j'
             fft_shift = 8191
+            cw_scale = 0.9
+            awgn_scale = 0.1
+            gain = '7+0j'
+            fft_shift = 8191
         else:
             # 32K
             cw_scale = 0.375
@@ -1639,7 +1643,7 @@ class test_CBF(unittest.TestCase):
         try:
             Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
                      'SPEAD accumulation, determine the number of frequency channels')
-            initial_dump = self.receiver.get_clean_dump(discard=num_discards*10)
+            initial_dump = self.receiver.get_clean_dump(discard=5)
             self.assertIsInstance(initial_dump, dict)
         except Exception:
             errmsg = 'Could not retrieve initial clean SPEAD accumulation: Queue is Empty.'
@@ -1960,6 +1964,7 @@ class test_CBF(unittest.TestCase):
 
             channel_response_list = [chan_responses[:, test_chan + i - 1]
                                      for i in range(no_of_responses)]
+            np.savetxt("Boop.csv", channel_response_list, delimiter=",")
             plot_title = 'PFB Channel Response'
             plot_filename = '{}/{}_adjacent_channels.png'.format(self.logs_path, self._testMethodName)
 
@@ -5499,7 +5504,7 @@ class test_CBF(unittest.TestCase):
         stop_katsdpingest_docker(self)
 
 
-    def _test_beamforming_timeseries(self):
+    def _test_beamforming_timeseries(self, beam_idx=0):
         """
         Perform a time series analysis of the beamforming data
         """
@@ -5516,10 +5521,261 @@ class test_CBF(unittest.TestCase):
 
         try:
             #Set custom source names
-            local_src_names = self.cam_sensors.custom_input_labels
-            reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-            assert reply.reply_ok()
-            labels = reply.arguments[1:]
+            #local_src_names = self.cam_sensors.custom_input_labels
+            #reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            #assert reply.reply_ok()
+            #labels = reply.arguments[1:]
+            labels = self.cam_sensors.input_labels
+            beams = ['tied-array-channelised-voltage.0x','tied-array-channelised-voltage.0y']
+            running_instrument = self.instrument
+            assert running_instrument is not False
+            msg = 'Running instrument currently does not have beamforming capabilities.'
+            assert running_instrument.endswith('4k'), msg
+            Aqf.step('Discontinue any capturing of %s and %s, if active.' %(beams[0],beams[1]))
+            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[0])
+            assert reply.reply_ok(), str(reply)
+            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[1])
+            assert reply.reply_ok(), str(reply)
+
+            # Get instrument parameters
+            bw = self.cam_sensors.get_value('bandwidth')
+            nr_ch = self.cam_sensors.get_value('n_chans')
+            ants = self.cam_sensors.get_value('n_ants')
+            ch_list = self.cam_sensors.ch_center_freqs
+            ch_bw = ch_list[1]
+            dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
+                           self.cam_sensors.get_value('scale_factor_timestamp'))
+            substreams = self.cam_sensors.get_value('n_xengs')
+        except AssertionError:
+            errmsg = '%s'%str(reply).replace('\_', ' ')
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+        Aqf.progress('Bandwidth = {}Hz'.format(bw*dsim_factor))
+        Aqf.progress('Number of channels = {}'.format(nr_ch))
+        Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
+
+        beam = beams[beam_idx]
+        try:
+            beam_name = beam.replace('-','_').replace('.','_')
+            beam_ip, beam_port = self.cam_sensors.get_value(
+                    beam_name+'_destination').split(':')
+            beam_ip = beam_ip.split('+')[0]
+            start_beam_ip = beam_ip
+            n_substrms_to_cap_m = int(self.conf_file['beamformer']['substreams_to_capture'])
+            start_substream     = int(self.conf_file['beamformer']['start_substream_idx'])
+            if start_substream+n_substrms_to_cap_m > substreams:
+                errmsg = ('Substream start + substreams to process '
+                          'is more than substreams available: {}. '
+                          'Fix in test configuration file'.format(substeams))
+                LOGGER.error(errmsg)
+                Aqf.failed(errmsg)
+                return False
+            ticks_between_spectra = self.cam_sensors.get_value(
+                    'antenna_channelised_voltage_n_samples_between_spectra')
+            assert isinstance(ticks_between_spectra,int)
+            spectra_per_heap = self.cam_sensors.get_value(beam_name+'_spectra_per_heap')
+            assert isinstance(spectra_per_heap,int)
+            ch_per_substream = self.cam_sensors.get_value(beam_name+'_n_chans_per_substream')
+            assert isinstance(ch_per_substream, int)
+        except AssertionError:
+            errmsg = '%s'%str(reply).replace('\_', ' ')
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+        # Compute the start IP address according to substream start index
+        beam_ip = int2ip(ip2int(beam_ip) + start_substream)
+        # Compute spectrum parameters
+        strt_ch_idx = start_substream * ch_per_substream
+        strt_freq = ch_list[strt_ch_idx]*dsim_factor
+        Aqf.step('Start a KAT SDP docker ingest node for beam captures')
+        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                  n_substrms_to_cap_m, nr_ch,
+                                                  ticks_between_spectra,
+                                                  ch_per_substream, spectra_per_heap)
+        if docker_status:
+            Aqf.progress('KAT SDP Ingest Node started. Capturing {} substream/s '
+                         'starting at {}'.format(n_substrms_to_cap_m, beam_ip))
+        else:
+            Aqf.failed('KAT SDP Ingest Node failed to start')
+
+        # Setting DSIM to generate off center bin CW time sequence
+        if '4k' in self.instrument:
+            # 4K
+            awgn_scale = 0.085
+            cw_scale = 0.9
+            gain = 7
+            fft_shift = 8191
+        else:
+            # 32K
+            awgn_scale = 0.063
+            cw_scale = 0.01
+            gain = '344+0j'
+            fft_shift = 4095
+
+        # Determine CW frequency
+        center_bin_offset = float(self.conf_file['beamformer']['center_bin_offset'])
+        center_bin_offset_freq = ch_bw * center_bin_offset
+        cw_ch = strt_ch_idx + int(ch_per_substream/4)
+        #cw_ch = 262
+        freq = ch_list[cw_ch] + center_bin_offset_freq
+
+        Aqf.step('Generating time analysis plots of beam for channel {} containing a '
+                 'CW offset from center of a bin.'.format(cw_ch))
+        Aqf.progress('Digitiser simulator configured to generate a '
+                     'Constant Wave at {} Hz offset from the center '
+                     'of a bin by {} Hz.'.format(freq, center_bin_offset_freq))
+        Aqf.progress('CW scale: {}, Noise scale: {}, eq gain: {}, fft shift: {}'.format(
+                     cw_scale, awgn_scale, gain, fft_shift))
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
+                                           cw_scale=cw_scale, freq=freq, fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
+        beam_quant_gain = 1.0/ants
+        Aqf.step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
+        set_beam_quant_gain(self, beam, beam_quant_gain)
+
+        beam_dict = {}
+        beam_pol = beam[-1]
+        for label in labels:
+            if label.find(beam_pol) != -1:
+                beam_dict[label] = 0.0
+
+        # Currently setting weights is broken
+        #Aqf.progress("Only one antenna gain is set to 1, the reset are set to zero")
+        ref_input = np.random.randint(ants)
+        ref_input = 1
+        # Find reference input label
+        for key in beam_dict:
+            if int(filter(str.isdigit,key)) == ref_input:
+                ref_input_label = key
+                break
+        weight = 1.0
+        beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
+        try:
+            # Currently setting weights is broken
+            # bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, capture_time=0.1)
+            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, capture_time=0.1)
+            # Close any KAT SDP ingest nodes
+            stop_katsdpingest_docker(self)
+        except TypeError, e:
+            errmsg = ('Failed to capture beam data: %s\n\n Confirm that Docker container is '
+                     'running and also confirm the igmp version = 2 ' % str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+        flags = bf_flags[start_substream:start_substream+n_substrms_to_cap_m]
+        #Aqf.step('Finding missed heaps for all partitions.')
+        if flags.size == 0:
+            LOGGER.warning('Beam data empty. Capture failed. Retrying...')
+            Aqf.failed('Beam data empty. Capture failed. Retrying...')
+        else:
+            missed_err = False
+            for part in flags:
+                missed_heaps = np.where(part>0)[0]
+                missed_perc = missed_heaps.size/part.size
+                perc = 0.50
+                if missed_perc > perc:
+                    Aqf.progress('Missed heap percentage = {}%%'.format(missed_perc*100))
+                    Aqf.progress('Missed heaps = {}'.format(missed_heaps))
+                    LOGGER.warning('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+                    Aqf.failed('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+        # Print missed heaps
+        idx = start_substream
+        for part in flags:
+            missed_heaps = np.where(part>0)[0]
+            if missed_heaps.size > 0:
+                LOGGER.info('Missed heaps for substream {} at heap indexes {}'.format(idx,
+                    missed_heaps))
+            idx += 1
+        # Combine all missed heap flags. These heaps will be discarded
+        flags = np.sum(flags,axis=0)
+        # Find longest run of uninterrupted data
+        # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
+        iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
+        absdiff = np.abs(np.diff(iszero))
+        # Runs start and end where absdiff is 1.
+        ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+        # Find max run
+        max_run = ranges[np.argmax(np.diff(ranges))]
+        bf_raw_strt = max_run[0]*spectra_per_heap
+        bf_raw_stop = max_run[1]*spectra_per_heap
+        bf_raw = bf_raw[:,bf_raw_strt:bf_raw_stop,:]
+        bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
+
+        np.save('skarab_bf_data_plus.np', bf_raw)
+        #return True
+        from bf_time_analysis import analyse_beam_data
+        analyse_beam_data(bf_raw, dsim_settings = [freq, cw_scale, awgn_scale],
+                cbf_settings = [fft_shift, gain],
+                do_save = True,
+                spectra_use = 'all',
+                chans_to_use = n_substrms_to_cap_m*ch_per_substream,
+                xlim = [20,21],
+                dsim_factor = 1.0,
+                ref_input_label = ref_input_label,
+                bandwidth = bw)
+
+        #aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
+        #                  plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
+        #                    self._testMethodName, beam),
+        #                  plot_title=('Beam = {}\n'
+        #                    'Input = CW offset by {} Hz from the center of bin {}'
+        #                    .format(beam, center_bin_offset_freq, cw_ch)),
+        #                  log_dynamic_range=None, #90, log_normalise_to=1,
+        #                  ylabel='Beam Output',
+        #                  xlabel='Samples')
+
+    def _get_beamforming_data(self, beam_idx=0, capture_time=0.1):
+        """
+        Capture beam data
+
+        Parameters
+        ----------
+        beam_idx: Index of the required beam, 0 = x polarisation, 1 = y polarisation
+        capture_time: Time to capture beam data in seconds
+
+        Returns
+        -------
+        bf_raw : Numpy array containing beam data of shape (channels, spectra, complex value)
+        bf_ts : Timestamps of spectra contained in bf_raw
+
+        """
+        # Main test code
+
+        try:
+            output = subprocess.check_output(['docker', 'run', 'hello-world'])
+            LOGGER.info(output)
+        except subprocess.CalledProcessError:
+            errmsg = 'Cannot connect to the Docker daemon. Is the docker daemon running on this host?'
+            LOGGER.error(errmsg)
+            Aqf.failed(errmsg)
+            return False
+
+        try:
+            #Set custom source names
+            #local_src_names = self.cam_sensors.custom_input_labels
+            #reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            #assert reply.reply_ok()
+            #labels = reply.arguments[1:]
+            labels = self.cam_sensors.input_labels
             beams = ['tied-array-channelised-voltage.0x','tied-array-channelised-voltage.0y']
             running_instrument = self.instrument
             assert running_instrument is not False
@@ -5556,7 +5812,7 @@ class test_CBF(unittest.TestCase):
         Aqf.progress('Number of channels = {}'.format(nr_ch))
         Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
 
-        beam = beams[0]
+        beam = beams[beam_idx]
         try:
             beam_name = beam.replace('-','_').replace('.','_')
             beam_ip, beam_port = self.cam_sensors.get_value(
@@ -5614,6 +5870,10 @@ class test_CBF(unittest.TestCase):
             #gain = '113+0j'
             gain = 11
             fft_shift = 8191
+            #awgn_scale = 0.0
+            #cw_scale = 0.08
+            #gain = 110
+            #fft_shift = 8191
         else:
             # 32K
             awgn_scale = 0.063
@@ -5645,7 +5905,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         Aqf.step("Set beamformer quantiser gain for selected beam to 1")
-        set_beam_quant_gain(self, beam, 1)
+        set_beam_quant_gain(self, beam, 0.3)
 
         beam_dict = {}
         beam_pol = beam[-1]
@@ -5653,7 +5913,8 @@ class test_CBF(unittest.TestCase):
             if label.find(beam_pol) != -1:
                 beam_dict[label] = 0.0
 
-        Aqf.progress("Only one antenna gain is set to 1, the reset are set to zero")
+        # Currently setting weights is broken
+        #Aqf.progress("Only one antenna gain is set to 1, the reset are set to zero")
         ref_input = np.random.randint(ants)
         ref_input = 1
         # Find reference input label
@@ -5664,7 +5925,9 @@ class test_CBF(unittest.TestCase):
         weight = 1.0
         beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
         try:
-            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict)
+            # Currently setting weights is broken
+            # bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, capture_time=0.1)
+            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, capture_time=capture_time)
             # Close any KAT SDP ingest nodes
             stop_katsdpingest_docker(self)
         except TypeError, e:
@@ -5711,227 +5974,244 @@ class test_CBF(unittest.TestCase):
         bf_raw_strt = max_run[0]*spectra_per_heap
         bf_raw_stop = max_run[1]*spectra_per_heap
         bf_raw = bf_raw[:,bf_raw_strt:bf_raw_stop,:]
+        bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
+        return bf_raw, bf_ts
 
-        #np.save('skarab_bf_data_plus.np', bf_raw)
-        #return True
-        from bf_time_analysis import analyse_beam_data
-        analyse_beam_data(bf_raw, dsim_settings = [freq, cw_scale, awgn_scale],
-                cbf_settings = [fft_shift, gain],
-                do_save = True,
-                spectra_use = 'all',
-                chans_to_use = n_substrms_to_cap_m*ch_per_substream,
-                xlim = [20,21],
-                dsim_factor = 1.0,
-                ref_input_label = ref_input_label,
-                bandwidth = bw)
 
-        #aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
-        #                  plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
-        #                    self._testMethodName, beam),
-        #                  plot_title=('Beam = {}\n'
-        #                    'Input = CW offset by {} Hz from the center of bin {}'
-        #                    .format(beam, center_bin_offset_freq, cw_ch)),
-        #                  log_dynamic_range=None, #90, log_normalise_to=1,
-        #                  ylabel='Beam Output',
-        #                  xlabel='Samples')
-
-    def _test_cap_beam(self):
-        """Testing timestamp accuracy
-        Confirm that the CBF subsystem do not modify and correctly interprets
-        timestamps contained in each digitiser SPEAD accumulations (dump)
+    def _group_delay(self, manual=False, manual_offset=0, future_dump=3):
         """
-        if self.set_instrument():
-            Aqf.step('Checking timestamp accuracy: {}\n'.format(
-                self.corr_fix.get_running_instrument()))
-            main_offset = 2153064
-            minor_offset = 0
-            minor_offset = -6 * 4096 * 2
-            manual_offset = main_offset + minor_offset
 
-            ants = 4
-            if ants == 4:
-                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                                   'm002_x', 'm002_y', 'm003_x', 'm003_y']
-            elif ants == 8:
-                local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                                   'm002_x', 'm002_y', 'm003_x', 'm003_y',
-                                   'm004_x', 'm004_y', 'm005_x', 'm005_y',
-                                   'm006_x', 'm006_y', 'm007_x', 'm007_y']
+        Parameters
+        ----------
+        manual : Manually set the offset from the future_dump point.
+        manual_offset : Offset in adc sample clocks.
+        future_dump : Dump in which impulse is expected
 
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0x')
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0y')
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop('c856M4k')
-            reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-            dsim_clk_factor = 1.712e9 / self.cam_sensors.sample_period
-            Aqf.hop('Dsim_clock_Factor = {}'.format(dsim_clk_factor))
-            bw = self.cam_sensors.get_value('bandwidth')  # * dsim_clk_factor
+        Returns
+        -------
 
-            target_cfreq = bw + bw * 0.5
-            partitions = 1
-            part_size = bw / 16
-            target_pb = partitions * part_size
-            ch_bw = bw / 4096
-            target_pb = 100
-            num_caps = 20000
-            beam = 'beam_0y'
-            if ants == 4:
-                beam_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
-                             'm003_x': 1.0,
-                             'm000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
-                             'm003_y': 1.0, }
-            elif ants == 8:
-                beamx_dict = {'m000_x': 1.0, 'm001_x': 1.0, 'm002_x': 1.0,
-                              'm003_x': 1.0,
-                              'm004_x': 1.0, 'm005_x': 1.0, 'm006_x': 1.0,
-                              'm007_x': 1.0}
-                beamy_dict = {'m000_y': 1.0, 'm001_y': 1.0, 'm002_y': 1.0,
-                              'm003_y': 1.0,
-                              'm004_y': 1.0, 'm005_y': 1.0, 'm006_y': 1.0,
-                              'm007_y': 1.0}
-
-            self.dhost.sine_sources.sin_0.set(frequency=target_cfreq - bw,
-                                              scale=0.1)
-            self.dhost.sine_sources.sin_1.set(frequency=target_cfreq - bw,
-                                              scale=0.1)
-            this_source_freq0 = self.dhost.sine_sources.sin_0.frequency
-            this_source_freq1 = self.dhost.sine_sources.sin_1.frequency
-            Aqf.step('Sin0 set to {} Hz, Sin1 set to {} Hz'.format(
-                this_source_freq0 + bw, this_source_freq1 + bw))
-
-            try:
-                bf_raw, cap_ts, bf_ts = capture_beam_data(self, beam, beamy_dict, target_pb,
-                    target_cfreq)
-            except TypeError, e:
-                errmsg = 'Failed to capture beam data: %s' % str(e)
-                Aqf.failed(errmsg)
-                LOGGER.info(errmsg)
-                return
-
-                # cap_ts_diff = np.diff(cap_ts)
-                # a = np.nonzero(np.diff(cap_ts)-8192)
-                # cap_ts[a[0]+1]
-                # cap_phase = numpy.angle(cap)
-                # ts = [datetime.datetime.fromtimestamp(float(timestamp)/1000).strftime("%H:%M:%S") for timestamp in timestamps]
-
-                # Average over timestamp show passband
-                # for i in range(0,len(cap)):
-                #    plt.plot(10*numpy.log(numpy.abs(cap[i])))
-
-    # def _test_bc8n856M4k_beamforming_ch(self):
-    #     """CBF Beamformer channel accuracy
-
-    #     Apply weights and capture beamformer data.
-    #     Verify that weights are correctly applied.
-    #     """
-    #     instrument_success = self.set_instrument()
-    #     if instrument_success:
-    #         msg = ('CBF Beamformer channel accuracy: {}\n'.format(_running_inst.keys()[0]))
-    #         Aqf.step(msg)
-    #         self._test_beamforming_ch(ants=4)
-
-    def _test_beamforming_ch(self, ants=4):
-        # Set list for all the correlator input labels
-        if ants == 4:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                               'm002_x', 'm002_y', 'm003_x', 'm003_y']
-        elif ants == 8:
-            local_src_names = ['m000_x', 'm000_y', 'm001_x', 'm001_y',
-                               'm002_x', 'm002_y', 'm003_x', 'm003_y',
-                               'm004_x', 'm004_y', 'm005_x', 'm005_y',
-                               'm006_x', 'm006_y', 'm007_x', 'm007_y']
-
-        reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0x')
-        reply, informs = self.corr_fix.katcp_rct.req.capture_stop('beam_0y')
-        reply, informs = self.corr_fix.katcp_rct.req.capture_stop('c856M4k')
-        reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-        bw = self.cam_sensors.get_value('bandwidth')
-        ch_list = self.cam_sensors.ch_center_freqs
-        nr_ch = self.n_chans_selected
-
-        # Start of test. Setting required partitions and center frequency
-        partitions = 2
-        part_size = bw / 16
-        target_cfreq = bw + part_size  # + bw*0.5
-        target_pb = partitions * part_size
-        ch_bw = bw / nr_ch
-        num_caps = 20000
-        beams = ('beam_0x', 'beam_0y')
-        offset = 74893  # ch_list[1]/2 # Offset in Hz to add to cw frequency
-        beam = beams[1]
-
-        # TODO: Get dsim sample frequency from config file
-        cw_freq = ch_list[int(nr_ch / 2)]
-        cw_freq = ch_list[128]
-
-        if '4k' in self.instrument:
-            # 4K
-            cw_scale = 0.675
-            awgn_scale = 0  # 0.05
-            gain = '11+0j'
-            fft_shift = 8191
-        else:
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = '11+0j'
-            fft_shift = 32767
-
-        freq = cw_freq + offset
-        dsim_clk_factor = 1.712e9 / self.cam_sensors.sample_period
-        eff_freq = (freq + bw) * dsim_clk_factor
-
-        Aqf.step('Digitiser simulator configured to generate a continuous wave, '
-                 'at {}Hz with cw scale: {}, awgn scale: {}, eq gain: {}, fft '
-                 'shift: {}'.format(freq * dsim_clk_factor, cw_scale, awgn_scale, gain,
-                                    fft_shift))
-        dsim_set_success = False
-        with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
-            dsim_set_success =set_input_levels(self, awgn_scale=awgn_scale,
-                                            cw_scale=cw_scale, freq=freq,
-                                            fft_shift=fft_shift, gain=gain, cw_src=1)
-        self.dhost.registers.scale_cwg0_const.write(scale=0.0)
-        self.dhost.registers.scale_cwg1_const.write(scale=0.0)
-        self.dhost.registers.cwg1_en.write(en=1)
-        self.dhost.registers.cwg0_en.write(en=0)
-
-        if not dsim_set_success:
-            Aqf.failed('Failed to configure digitise simulator levels')
-            return False
-
-        if ants == 4:
-            beam_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                         'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0}
-        elif ants == 8:
-            beamx_dict = {'m000_x': 1.0, 'm001_x': 0.0, 'm002_x': 0.0, 'm003_x': 0.0,
-                          'm004_x': 0.0, 'm005_x': 0.0, 'm006_x': 0.0, 'm007_x': 0.0,
-                          'm000_y': 1.0, 'm001_y': 0.0, 'm002_y': 0.0, 'm003_y': 0.0,
-                          'm004_y': 0.0, 'm005_y': 0.0, 'm006_y': 0.0, 'm007_y': 0.0}
+        """
 
         try:
-            bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(self, beam, beam_dict,
-                target_pb, target_cfreq)
-        except TypeError, e:
-            errmsg = 'Failed to capture beam data: %s' % str(e)
+            output = subprocess.check_output(['docker', 'run', 'hello-world'])
+            LOGGER.info(output)
+        except subprocess.CalledProcessError:
+            errmsg = 'Cannot connect to the Docker daemon. Is the docker daemon running on this host?'
+            LOGGER.error(errmsg)
             Aqf.failed(errmsg)
-            LOGGER.info(errmsg)
-            return
-        fft_length = 1024
-        strt_idx = 0
-        num_caps = np.shape(bf_raw)[1]
-        cap = [0] * num_caps
-        cap_half = [0] * int(num_caps / 2)
-        for i in range(0, num_caps):
-            cap[i] = np.array(complexise(bf_raw[:, i, :]))
-            if i % 2 != 0:
-                cap_half[int(i / 2)] = cap[i]
-        cap = np.asarray(cap[strt_idx:strt_idx + fft_length])
-        cap_half = np.asarray(cap_half[strt_idx:strt_idx + fft_length])
-        cap_mag = np.abs(cap)
-        max_ch = np.argmax(np.sum((cap_mag), axis=0))
-        Aqf.step('CW found in relative channel {}'.format(max_ch))
-        plt.plot(np.log10(np.abs(np.fft.fft(cap[:, max_ch]))))
-        plt.plot(np.log10(np.abs(np.fft.fft(cap_half[:, max_ch]))))
-        plt.show()
+            return False
+
+        try:
+            #Set custom source names
+            #local_src_names = self.cam_sensors.custom_input_labels
+            #reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            #assert reply.reply_ok()
+            #labels = reply.arguments[1:]
+            labels = self.cam_sensors.input_labels
+            beams = ['tied-array-channelised-voltage.0x','tied-array-channelised-voltage.0y']
+            running_instrument = self.instrument
+            assert running_instrument is not False
+            msg = 'Running instrument currently does not have beamforming capabilities.'
+            assert running_instrument.endswith('4k'), msg
+            Aqf.step('Discontinue any capturing of %s and %s, if active.' %(beams[0],beams[1]))
+            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[0])
+            assert reply.reply_ok(), str(reply)
+            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[1])
+            assert reply.reply_ok(), str(reply)
+
+            # Get instrument parameters
+            bw = self.cam_sensors.get_value('bandwidth')
+            nr_ch = self.cam_sensors.get_value('n_chans')
+            ants = self.cam_sensors.get_value('n_ants')
+            ch_list = self.cam_sensors.ch_center_freqs
+            ch_bw = ch_list[1]
+            scale_factor_timestamp = self.cam_sensors.get_value('scale_factor_timestamp'))
+            dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
+                           scale_factor_timestamp)
+            substreams = self.cam_sensors.get_value('n_xengs')
+        except AssertionError:
+            errmsg = '%s'%str(reply).replace('\_', ' ')
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+        Aqf.progress('Bandwidth = {}Hz'.format(bw*dsim_factor))
+        Aqf.progress('Number of channels = {}'.format(nr_ch))
+        Aqf.progress('Channel spacing = {}Hz'.format(ch_bw*dsim_factor))
+
+        beam = beams[beam_idx]
+        try:
+            beam_name = beam.replace('-','_').replace('.','_')
+            beam_ip, beam_port = self.cam_sensors.get_value(
+                    beam_name+'_destination').split(':')
+            beam_ip = beam_ip.split('+')[0]
+            start_beam_ip = beam_ip
+            n_substrms_to_cap_m = int(self.conf_file['beamformer']['substreams_to_capture'])
+            start_substream     = int(self.conf_file['beamformer']['start_substream_idx'])
+            if start_substream+n_substrms_to_cap_m > substreams:
+                errmsg = ('Substream start + substreams to process '
+                          'is more than substreams available: {}. '
+                          'Fix in test configuration file'.format(substeams))
+                LOGGER.error(errmsg)
+                Aqf.failed(errmsg)
+                return False
+            ticks_between_spectra = self.cam_sensors.get_value(
+                    'antenna_channelised_voltage_n_samples_between_spectra')
+            assert isinstance(ticks_between_spectra,int)
+            spectra_per_heap = self.cam_sensors.get_value(beam_name+'_spectra_per_heap')
+            assert isinstance(spectra_per_heap,int)
+            ch_per_substream = self.cam_sensors.get_value(beam_name+'_n_chans_per_substream')
+            assert isinstance(ch_per_substream, int)
+        except AssertionError:
+            errmsg = '%s'%str(reply).replace('\_', ' ')
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+            return False
+        except Exception as e:
+            errmsg = 'Exception: {}'.format(str(e))
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+            return False
+
+        # Compute the start IP address according to substream start index
+        beam_ip = int2ip(ip2int(beam_ip) + start_substream)
+        # Compute spectrum parameters
+        strt_ch_idx = start_substream * ch_per_substream
+        strt_freq = ch_list[strt_ch_idx]*dsim_factor
+        Aqf.step('Start a KAT SDP docker ingest node for beam captures')
+        docker_status = start_katsdpingest_docker(self, beam_ip, beam_port,
+                                                  n_substrms_to_cap_m, nr_ch,
+                                                  ticks_between_spectra,
+                                                  ch_per_substream, spectra_per_heap)
+        if docker_status:
+            Aqf.progress('KAT SDP Ingest Node started. Capturing {} substream/s '
+                         'starting at {}'.format(n_substrms_to_cap_m, beam_ip))
+        else:
+            Aqf.failed('KAT SDP Ingest Node failed to start')
+
+        beam_quant_gain = 1.0/ants
+        Aqf.step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
+        set_beam_quant_gain(self, beam, beam_quant_gain)
+
+        beam_dict = {}
+        beam_pol = beam[-1]
+        for label in labels:
+            if label.find(beam_pol) != -1:
+                beam_dict[label] = 0.0
+
+        # Currently setting weights is broken
+        #Aqf.progress("Only one antenna gain is set to 1, the reset are set to zero")
+        ref_input = np.random.randint(ants)
+        ref_input = 1
+        # Find reference input label
+        for key in beam_dict:
+            if int(filter(str.isdigit,key)) == ref_input:
+                ref_input_label = key
+                break
+        weight = 1.0
+        beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
+
+        def get_beam_data(capture_time=0.1):
+            try:
+                # Currently setting weights is broken
+                # bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, capture_time=0.1)
+                bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, capture_time=capture_time)
+            except TypeError, e:
+                errmsg = ('Failed to capture beam data: %s\n\n Confirm that Docker container is '
+                         'running and also confirm the igmp version = 2 ' % str(e))
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+                return False
+
+            flags = bf_flags[start_substream:start_substream+n_substrms_to_cap_m]
+            #Aqf.step('Finding missed heaps for all partitions.')
+            if flags.size == 0:
+                LOGGER.warning('Beam data empty. Capture failed. Retrying...')
+                Aqf.failed('Beam data empty. Capture failed. Retrying...')
+            else:
+                missed_err = False
+                for part in flags:
+                    missed_heaps = np.where(part>0)[0]
+                    missed_perc = missed_heaps.size/part.size
+                    perc = 0.50
+                    if missed_perc > perc:
+                        Aqf.progress('Missed heap percentage = {}%%'.format(missed_perc*100))
+                        Aqf.progress('Missed heaps = {}'.format(missed_heaps))
+                        LOGGER.warning('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+                        Aqf.failed('Beam captured missed more than %s%% heaps. Retrying...'%(perc*100))
+            # Print missed heaps
+            idx = start_substream
+            for part in flags:
+                missed_heaps = np.where(part>0)[0]
+                if missed_heaps.size > 0:
+                    LOGGER.info('Missed heaps for substream {} at heap indexes {}'.format(idx,
+                        missed_heaps))
+                idx += 1
+            # Combine all missed heap flags. These heaps will be discarded
+            flags = np.sum(flags,axis=0)
+            # Find longest run of uninterrupted data
+            # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
+            iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
+            absdiff = np.abs(np.diff(iszero))
+            # Runs start and end where absdiff is 1.
+            ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+            # Find max run
+            max_run = ranges[np.argmax(np.diff(ranges))]
+            bf_raw_strt = max_run[0]*spectra_per_heap
+            bf_raw_stop = max_run[1]*spectra_per_heap
+            bf_raw = bf_raw[:,bf_raw_strt:bf_raw_stop,:]
+            bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
+            return bf_raw, bf_ts
+
+        def load_dsim_impulse(load_timestamp, offset=0):
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=2)
+            self.dhost.registers.src_sel_cntrl.write(src_sel_1=0)
+            self.dhost.registers.impulse_delay_correction.write(reg=16)
+            load_timestamp = load_timestamp + offset
+            lt_abs_t = datetime.datetime.fromtimestamp(
+                sync_time + load_timestamp / scale_factor_timestamp)
+            print 'Impulse load time = {}:{}.{}'.format(lt_abs_t.minute,
+                                                        lt_abs_t.second,
+                                                        lt_abs_t.microsecond)
+            print 'Number of dumps in future = {:.10f}'.format(
+                (load_timestamp - dump_ts) / dump_ticks)
+            # Digitiser simulator local clock factor of 8 slower
+            # (FPGA clock = sample clock / 8).
+            load_timestamp = load_timestamp / 8
+            if not load_timestamp.is_integer():
+                Aqf.failed('Timestamp received in accumulation not divisible'
+                           ' by 8: {:.15f}'.format(load_timestamp))
+            load_timestamp = int(load_timestamp)
+            reg_size = 32
+            load_ts_lsw = load_timestamp & (pow(2, reg_size) - 1)
+            load_ts_msw = load_timestamp >> reg_size
+
+            # dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()['data']['reg']
+            # dsim_loc_msw = self.dhost.registers.local_time_msw.read()['data']['reg']
+            # dsim_loc_time = dsim_loc_msw * pow(2,reg_size) + dsim_loc_lsw
+            # print 'timestamp difference: {}'.format((load_timestamp - dsim_loc_time)*8/dump['scale_factor_timestamp'])
+            self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
+            self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
+
+        #def get_beam_data():
+
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
+            dsim_set_success =set_input_levels(self.corr_fix, self.dhost,
+                                            awgn_scale=0.0,
+                                            cw_scale=0.0, freq=100000000,
+                                            fft_shift=0, gain='32767+0j')
+        self.dhost.outputs.out_1.scale_output(0)
+        import IPython;IPython.embed()
+
+        # Close any KAT SDP ingest nodes
+        stop_katsdpingest_docker(self)
+
 
     def _bf_efficiency(self):
 
@@ -6437,8 +6717,8 @@ class test_CBF(unittest.TestCase):
         """
         if self.set_instrument():
             Aqf.step('Setting and checking Digitiser simulator input levels')
-            self._set_input_levels_and_gain(profile='noise', cw_freq=100000, cw_margin=0.3,
-                                            trgt_bits=4, trgt_q_std=0.30, fft_shift=511)
+            self._set_input_levels_and_gain(profile='cw', cw_freq=100000, cw_margin=0.3,
+                                            trgt_bits=4, trgt_q_std=0.30, fft_shift=8191)
 
 
     def _set_input_levels_and_gain(self, profile='noise', cw_freq=0, cw_src=0, cw_margin=0.05,

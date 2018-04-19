@@ -53,7 +53,7 @@ function repeatStr {
 
 
 printf  "${GREEN}Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP} ${NORMAL}\n"
-let "NUM_INPUTS = ($(grep source_names ${CONF_PATH} | grep -o , | wc -l)+1)/2"
+let "NUM_INPUTS = ($(grep source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2"
 ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
 
 printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"

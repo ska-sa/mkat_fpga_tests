@@ -25,7 +25,7 @@ from unittest.util import strclass
 
 from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
-from corr2.corr_rx import CorrRx
+#from corr2.corr_rx import CorrRx
 
 from collections import namedtuple
 
