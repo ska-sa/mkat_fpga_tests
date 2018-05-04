@@ -24,6 +24,7 @@ if __name__ == "__main__":
     if opts.config_file:
         if os.path.isfile(opts.config_file):
             config = opts.config_file
+            ini_file = utils.parse_ini_file(config)
         else:
             parser.error('Specified file does not exist.')
     else:
@@ -39,16 +40,13 @@ if __name__ == "__main__":
 
     print 'Initialising correlator'
     correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
-    #correlator.initialise(program=False)
+    correlator.initialise(program=False, configure=False)
 
-    # Done during correlator init
-    #for fpga in correlator.fhosts + correlator.xhosts:
-    #    if fpga.is_running():
-    #        fpga.get_system_information()
+    for fpga in correlator.fhosts:
+        if fpga.is_running():
+            fpga.get_system_information(ini_file['fengine']['bitstream'])
     print 'correlator is running'
-
     f = correlator.fhosts[0]
-    f.get_system_information(filename='/srv/bofs/feng/s_ct_2018-03-06_1933.fpg')
 
     try:
         #20ms in clock ticks
