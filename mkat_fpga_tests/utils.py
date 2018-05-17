@@ -537,19 +537,8 @@ def set_default_eq(self):
     Param: Correlator: Object
     Return: None
     """
-    def get_eqs_levels(self):
-        eq_levels = []
-        try:
-            for eq_label in [i for i in self.correlator.configd['fengine'] if i.startswith('eq')]:
-                eq_levels.append(complex(self.correlator.configd['fengine'][eq_label]))
-            return eq_levels
-        except Exception:
-            LOGGER.exception('Failed to retrieve default ant_inputs and eq levels from config file')
-            return False
-
-    eq_levels = list(set(get_eqs_levels(self)))[0]
     try:
-        assert isinstance(eq_levels, complex)
+        eq_levels = complex(self.correlator.configd['fengine']['default_eq_poly'])
         reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_levels, timeout=cam_timeout)
         assert reply.reply_ok()
         LOGGER.info('Reset gains to default values from config file.\n')
@@ -557,7 +546,6 @@ def set_default_eq(self):
     except Exception:
         LOGGER.exception('Failed to set gains on all inputs with %s ' % (eq_levels))
         return False
-
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None, gain=None,
                      cw_src=0):

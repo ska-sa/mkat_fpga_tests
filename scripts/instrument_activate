@@ -1,7 +1,7 @@
 #!/bin/bash
 # Automated instrument activation
 # Mpho Mphego
-set -x 
+set -x
 if [ -z "$*" ];
     then echo -e "Usage: $0 INSTRUMENT KATCP_HOST_IP ARRAY_NAME START_DSIM INSTRUMENT_OPS CONF_PATH \n
 
@@ -53,7 +53,7 @@ function repeatStr {
 
 
 printf  "${GREEN}Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP} ${NORMAL}\n"
-let "NUM_INPUTS = ($(grep source_names ${CONF_PATH} | grep -o , | wc -l)+1)/2"
+let "NUM_INPUTS = ($(grep source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2"
 ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
 
 printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
@@ -107,7 +107,7 @@ printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n"
 ${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} digitiser-synch-epoch ${SYNC_EPOCH}
 
 sleep 0.5;
-${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
+${KCPCMD} -t 1000 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
 #sleep 2;
 
 #if [ $(echo ${MACHINE::4}) == "cmc3" ]; then

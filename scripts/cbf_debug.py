@@ -1,21 +1,22 @@
 #!/usr/bin/python
 
-import os
-import logging
-import time
+import argcomplete
+import argparse
 import casperfpga
 import corr2
-import argparse
-import argcomplete
+import itertools
+import logging
+import logging
+import os
+import socket
+import struct
+import time
+import time
+import unittest
 
 from corr2 import fxcorrelator
 from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
-
-import unittest
-import logging
-import time
-import itertools
 
 import numpy as np
 import matplotlib
@@ -33,6 +34,9 @@ from corr2 import utils
 from casperfpga import utils as fpgautils
 
 LOGGER = logging.getLogger(__name__)
+
+ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
+int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
 
 class AttrDict(dict):
     """
