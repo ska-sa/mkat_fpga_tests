@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 
 # Brutal way of replacing fhosts,xhosts and dhost in template(s)
-import argparse
 import argcomplete
-import sys
+import argparse
 import fileinput
+import re
+import sys
 
-def get_skarabs_from_leaf(leafs):
+def get_skarabs_from_leaf(leafs, ip_prefix='100'):
     dnsmasq_leases = '/var/lib/misc/dnsmasq.leases'
     with open(dnsmasq_leases) as f:
         dnsmasq_leases_data = f.readlines()
     skarabs = set([host for leaf in leafs
-                   for i in dnsmasq_leases_data if ('100.%s' % leaf) in i
+                   for i in dnsmasq_leases_data if ('%s.%s' % (ip_prefix, leaf)) in i
                    for host in i.split() if host.startswith('skarab')])
     return list(skarabs) if skarabs is not None else False
 
@@ -22,22 +23,13 @@ def main():
                         required=True, nargs='+')
     parser.add_argument('-f','--config', help='Specify which config file, look in /etc/corr/templates',
                         required=True)
-    parser.add_argument('-i','--inputs', help='Specify the number of inputs', required=True,)
     argcomplete.autocomplete(parser)
     args = vars(parser.parse_args())
-
 
     try:
         which_leaf = args.get('leaf', False)
         assert which_leaf
         which_leaf = [int(i) for i in which_leaf]
-    except Exception as e:
-        sys.exit(e.message)
-
-    try:
-        n_inputs = args.get("inputs", False)
-        assert n_inputs
-        n_inputs = int(n_inputs)
     except Exception as e:
         sys.exit(e.message)
 
@@ -51,18 +43,20 @@ def main():
     try:
         config = args.get("config", False)
         assert config
+        result = re.search('bc(.*)n', config)
+        n_inputs = int(result.group(1))
         assert len(skarab_list[:n_inputs]) == n_inputs
         fhosts = 'hosts = %s\n' % ','.join(skarab_list[:n_inputs])
         assert len(skarab_list[n_inputs:n_inputs*2]) == n_inputs
         xhosts = 'hosts = %s\n' % ','.join(skarab_list[n_inputs:n_inputs*2])
         dhost = 'host = %s\n' % skarab_list[-1]
-        print 'fhost: ', fhosts
-        print 'xhost: ', xhosts
-        print 'dhost: ', dhost
+        print('Replacing fhost with: %s' % fhosts)
+        print('Replacing xhost with: %s' % xhosts)
+        print('Replacing dhost with: %s' % dhost)
     except Exception as e:
         sys.exit(e.message)
     else:
-        # Brutal search and replace
+        # Brutal search and replace: regular-expressions recommended [future ToDo].
         with open(config) as f:
            config_file = f.readlines()
         fengine_ind = config_file.index('[fengine]\n') + 1
