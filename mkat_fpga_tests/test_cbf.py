@@ -70,7 +70,6 @@ dsim_timeout = 60
 @system('all')
 class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
-    # Hard-coded, perhaps fix this later
     cur_path = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
     _katreport_dir = os.path.join(cur_path, 'katreport')
     _csv_filename = os.path.join(cur_path, 'docs/Manual_Tests.csv')
@@ -7159,7 +7158,7 @@ class test_CBF(unittest.TestCase):
             chan_responses = np.array(chan_responses)
             requested_test_freqs = np.asarray(requested_test_freqs)
             csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
-            np.savetxt(csv_filename, , zip(chan_responses[:, test_chan], requested_test_freqs),
+            np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs),
                 delimiter=",")
 
         def efficiency_calc(f, P_dB, binwidth, debug=False):
