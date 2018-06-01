@@ -189,7 +189,6 @@ class TestProcedure:
         """
         return _description
 
-
     @property
     def ImagingDataProductSet(self):
         _description = """
@@ -237,7 +236,6 @@ class TestProcedure:
             - Confirm that the tide-array data were captured.
         """
         return _description
-
 
     @property
     def Control(self):
@@ -943,7 +941,6 @@ class TestProcedure:
         return _description
 
     @property
-
     def SafeDesign(self):
         _description = """
         1. Inspect the Bill-of-Materials of the processing nodes used in the CBF.
@@ -1029,7 +1026,6 @@ class TestProcedure:
         Note that this test is highly subjective. The opinion of the CBF Technical Lead is sufficient to pass the test.
         """
         return _description
-
 
 
 TestProcedure = TestProcedure()

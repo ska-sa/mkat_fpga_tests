@@ -27,6 +27,7 @@ from corr2 import utils
 LOGGER = logging.getLogger(__name__)
 interface_prefix = "10.100"
 
+
 def process_xeng_data(self, heap_data, ig, channels):
     """
     Assemble data for the the plotting/printing thread to deal with.
@@ -40,7 +41,8 @@ def process_xeng_data(self, heap_data, ig, channels):
     n_chans_per_substream = self.n_chans / self.NUM_XENG
     strt_substream = int(channels[0] / n_chans_per_substream)
     stop_substream = int(channels[1] / n_chans_per_substream)
-    if stop_substream == self.NUM_XENG: stop_substream = self.NUM_XENG-1
+    if stop_substream == self.NUM_XENG:
+        stop_substream = self.NUM_XENG-1
     n_substreams = stop_substream - strt_substream + 1
     chan_offset = n_chans_per_substream * strt_substream
 
@@ -61,7 +63,7 @@ def process_xeng_data(self, heap_data, ig, channels):
             old_data = heap_data[this_time][this_freq]
             if np.shape(old_data) != np.shape(xeng_raw):
                 self.logger.error('Got repeat freq %i for time %i, with a '
-                             'DIFFERENT SHAPE?!\n' % (this_freq, this_time))
+                                  'DIFFERENT SHAPE?!\n' % (this_freq, this_time))
             else:
                 if (xeng_raw == old_data).all():
                     self.logger.error('Got repeat freq %i with SAME data for time %i' % (
@@ -107,7 +109,7 @@ def process_xeng_data(self, heap_data, ig, channels):
         xeng_raw = np.concatenate([val[2] for val in vals], axis=0)
         time_s = ig['timestamp'].value / (self.n_chans * 2 * self.n_accs)
         self.logger.info('Processing xeng_raw heap with time %i (%i) and shape: %s' % (
-                        ig['timestamp'].value, time_s, str(np.shape(xeng_raw))))
+            ig['timestamp'].value, time_s, str(np.shape(xeng_raw))))
         heap_data.pop(htime)
         return (htime, xeng_raw)
         # return {'timestamp': htime,
@@ -121,30 +123,33 @@ def process_xeng_data(self, heap_data, ig, channels):
             rv = process_heaptime(
                 heaptime, heap_data[heaptime])
             if rv:
-                _dump_timestamp = (self.sync_time + float(rv[0]) / self.scale_factor_timestamp)
+                _dump_timestamp = (
+                    self.sync_time + float(rv[0]) / self.scale_factor_timestamp)
                 _dump_timestamp_readable = time.strftime("%H:%M:%S", time.localtime(
                     _dump_timestamp))
                 rvs['timestamp'] = rv[0]
                 rvs['dump_timestamp'] = _dump_timestamp
                 rvs['dump_timestamp_readable'] = _dump_timestamp_readable
                 rvs['xeng_raw'] = rv[1]
-                rvs['n_chans_selected'] = abs(self.stop_channel - self.strt_channel)
+                rvs['n_chans_selected'] = abs(
+                    self.stop_channel - self.strt_channel)
 
     return rvs
+
 
 def network_interfaces():
     """
     Get system interfaces and IP list
     """
     def format_ip(addr):
-        return "%s.%s.%s.%s" %(ord(addr[0]), ord(addr[1]), ord(addr[2]), ord(addr[3]))
+        return "%s.%s.%s.%s" % (ord(addr[0]), ord(addr[1]), ord(addr[2]), ord(addr[3]))
 
     max_possible = 128  # arbitrary. raise if needed.
     bytes = max_possible * 32
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     names = array.array('B', '\0' * bytes)
     outbytes = struct.unpack('iL', fcntl.ioctl(s.fileno(), 0x8912,  # SIOCGIFCONF
-               struct.pack('iL', bytes, names.buffer_info()[0])))[0]
+                                               struct.pack('iL', bytes, names.buffer_info()[0])))[0]
     namestr = names.tostring()
     lst = [format_ip(namestr[i + 20:i + 24]) for i in range(0, outbytes, 40)]
     return lst
@@ -156,8 +161,9 @@ class CorrRx(threading.Thread):
     ItemGroup into the `data_queue` attribute. If the Queue is full, the newer dumps will
     be discarded.
     """
+
     def __init__(self, product_name='baseline-correlation-products', katcp_ip='127.0.0.1',
-                 katcp_port=7147, port=7148, queue_size=3, channels = (0,4096)):
+                 katcp_port=7147, port=7148, queue_size=3, channels=(0, 4096)):
         self.logger = LOGGER
         self.quit_event = threading.Event()
         self.data_queue = Queue.Queue(maxsize=queue_size)
@@ -177,7 +183,7 @@ class CorrRx(threading.Thread):
         :param str: multicast ip
         :retur str: successful or failed
         """
-        list_inets = check_output(['ip','maddr','show'])
+        list_inets = check_output(['ip', 'maddr', 'show'])
         return 'Successful' if str(mul_ip) in list_inets else 'Failed'
 
     def get_sensors(self):
@@ -196,7 +202,7 @@ class CorrRx(threading.Thread):
                 raise RuntimeError('Could not connect to katcp, timed out.')
 
             reply, informs = client.blocking_request(katcp.Message.request('sensor-value'),
-                timeout=5)
+                                                     timeout=5)
             assert reply.reply_ok()
             client.stop()
             client = None
@@ -220,20 +226,22 @@ class CorrRx(threading.Thread):
             try:
                 self.n_accs = int(sensors['{}-n-accs'.format(product_name)])
             except Exception:
-                self.n_accs = int(float(sensors['{}-n-accs'.format(product_name)]))
+                self.n_accs = int(
+                    float(sensors['{}-n-accs'.format(product_name)]))
             self.n_ants = int(sensors.get('n-ants', 0))
             self.sync_time = float(sensors.get('sync-time', 0))
-            self.scale_factor_timestamp = float(sensors.get('scale-factor-timestamp', 0))
+            self.scale_factor_timestamp = float(
+                sensors.get('scale-factor-timestamp', 0))
         except Exception:
             msg = 'Failed to connect to katcp and retrieve sensors values'
             self.logger.exception(msg)
             raise RuntimeError(msg)
         else:
             output = {
-                        'product': product_name,
-                        'address': data_stream.StreamAddress.from_address_string(
-                            sensors['{}-destination'.format(product_name)])
-                     }
+                'product': product_name,
+                'address': data_stream.StreamAddress.from_address_string(
+                    sensors['{}-destination'.format(product_name)])
+            }
             self.NUM_XENG = output['address'].ip_range
             self.data_ip = output['address'].ip_address
 
@@ -257,28 +265,32 @@ class CorrRx(threading.Thread):
 
     def run(self):
 
-        self.logger.info('RXing data with base IP addres: %s+%i, port %i.' % (self.data_ip, self.NUM_XENG, self.data_port))
+        self.logger.info('RXing data with base IP addres: %s+%i, port %i.' %
+                         (self.data_ip, self.NUM_XENG, self.data_port))
 
         n_chans_per_substream = self.n_chans / self.NUM_XENG
         strt_substream = int(self.channels[0] / n_chans_per_substream)
         stop_substream = int(self.channels[1] / n_chans_per_substream)
-        if stop_substream == self.NUM_XENG: stop_substream = self.NUM_XENG - 1
+        if stop_substream == self.NUM_XENG:
+            stop_substream = self.NUM_XENG - 1
         self.strt_channel = n_chans_per_substream * strt_substream
         self.stop_channel = n_chans_per_substream * (stop_substream + 1)
         n_substreams = stop_substream - strt_substream + 1
-        strt_ip = network.IpAddress(self.data_ip.ip_int + strt_substream).ip_str
-        stop_ip = network.IpAddress(self.data_ip.ip_int + stop_substream).ip_str
+        strt_ip = network.IpAddress(
+            self.data_ip.ip_int + strt_substream).ip_str
+        stop_ip = network.IpAddress(
+            self.data_ip.ip_int + stop_substream).ip_str
         self.logger.info('Subscribing to {} substream/s in the range {} to {}'
                          .format(n_substreams, strt_ip, stop_ip))
 
         self.interface_address = ''.join([ethx for ethx in network_interfaces()
-                                         if ethx.startswith(interface_prefix)])
+                                          if ethx.startswith(interface_prefix)])
         self.logger.info("Interface Address: %s" % self.interface_address)
         self.strm = strm = s2rx.Stream(spead2.ThreadPool(), bug_compat=0,
-                            max_heaps=n_substreams  * self.queue_size+1,
-                            ring_heaps=n_substreams * self.queue_size+1)
+                                       max_heaps=n_substreams * self.queue_size+1,
+                                       ring_heaps=n_substreams * self.queue_size+1)
 
-        for ctr in range(strt_substream,stop_substream+1):
+        for ctr in range(strt_substream, stop_substream+1):
             self._addr = network.IpAddress(self.data_ip.ip_int + ctr).ip_str
             strm.add_udp_reader(multicast_group=self._addr,
                                 port=self.data_port,
@@ -302,19 +314,23 @@ class CorrRx(threading.Thread):
                 last_cnt = heap.cnt
                 self.logger.debug('PROCESSING HEAP idx(%i) cnt(%i) cnt_diff(%i) @ %.4f' % (
                     idx, heap.cnt, cnt_diff, time.time()))
-                self.logger.debug('Contents dict is now %i long' % len(heap_contents))
+                self.logger.debug('Contents dict is now %i long' %
+                                  len(heap_contents))
                 # output item values specified
-                data = process_xeng_data(self, heap_contents, ig, self.channels)
+                data = process_xeng_data(
+                    self, heap_contents, ig, self.channels)
                 ig_copy = copy.deepcopy(data)
                 if ig_copy:
                     try:
                         self.data_queue.put(ig_copy)
                     except Queue.Full:
-                        self.logger.info('Data Queue full, disposing of heap %s.'%idx)
+                        self.logger.info(
+                            'Data Queue full, disposing of heap %s.' % idx)
 
                 # should we quit?
                 if self.quit_event.is_set():
-                    self.logger.info('Got a signal from main(), exiting rx loop...')
+                    self.logger.info(
+                        'Got a signal from main(), exiting rx loop...')
                     break
         finally:
             try:
@@ -337,7 +353,7 @@ class CorrRx(threading.Thread):
 
         # discard next dump too, in case
         for i in xrange(int(discard)):
-            self.logger.info('Discarding #%s dump(s):'%i)
+            self.logger.info('Discarding #%s dump(s):' % i)
             try:
                 _dump = self.data_queue.get(timeout=dump_timeout)
                 assert _dump is not None
@@ -347,7 +363,8 @@ class CorrRx(threading.Thread):
                 self.logger.exception(_errmsg)
             except Queue.Empty:
                 _stat = self.confirm_multicast_subs(self._addr)
-                _errmsg = ('Data queue empty, Multicast subscription %s.'%_stat)
+                _errmsg = (
+                    'Data queue empty, Multicast subscription %s.' % _stat)
                 self.logger.exception(_errmsg)
             except Exception:
                 self.logger.exception()
@@ -356,16 +373,17 @@ class CorrRx(threading.Thread):
             _dump = self.data_queue.get(timeout=dump_timeout)
             self.n_channels_selected = self.stop_channel - self.strt_channel
             _errmsg = ('No of channels in the spead data is inconsistent with the no of'
-                      ' channels (%s) expected' %self.n_channels_selected)
+                       ' channels (%s) expected' % self.n_channels_selected)
             assert _dump['xeng_raw'].shape[0] == self.n_channels_selected, _errmsg
-            _errmsg = ('Dump data type cannot be nonetype, confirm you are subscribed to multicast group.')
+            _errmsg = (
+                'Dump data type cannot be nonetype, confirm you are subscribed to multicast group.')
             assert _dump is not None, _errmsg
         except AssertionError:
             self.logger.error(_errmsg)
             raise RuntimeError(_errmsg)
         except Queue.Empty:
             _stat = self.confirm_multicast_subs(self._addr)
-            _errmsg = ('Data queue empty, Multicast subscription %s.'%_stat)
+            _errmsg = ('Data queue empty, Multicast subscription %s.' % _stat)
             self.logger.exception(_errmsg)
         else:
             self.logger.info('Received clean dump.')
