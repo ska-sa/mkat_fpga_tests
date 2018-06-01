@@ -1,1 +1,8 @@
-backend: agg
+# See: http://matplotlib.org/faq/usage_faq.html#what-is-a-backend
+# The Anti-Grain Geometry (Agg) rendering engine, capable of rendering high-quality images such as png
+# NOTE: DOES NOT WORK WITH INTERACTIVE MATPLOTLIB.PYPLOT.SHOW()
+#backend: agg
+
+# INTERACTIVE MATPLOTLIB
+# For when one needs to debug for instance, plt.show() and etc
+backend: TKagg

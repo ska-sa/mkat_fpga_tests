@@ -55,7 +55,8 @@ class PowerLogger(threading.Thread):
         console_handler = logging.StreamHandler()
         console_handler.setLevel(console_log_level)
         # create formatter and add it to the handlers
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
         # add the handlers to the logger
@@ -73,7 +74,8 @@ class PowerLogger(threading.Thread):
             except (IOError, ValueError, TypeError):
                 errmsg = ('Failed to read test config file, Test will exit'
                           '\n\t File:%s Line:%s' % (
-                              getframeinfo(currentframe()).filename.split('/')[-1],
+                              getframeinfo(
+                                  currentframe()).filename.split('/')[-1],
                               getframeinfo(currentframe()).lineno))
                 self.logger.error(errmsg)
                 raise
@@ -130,9 +132,11 @@ class PowerLogger(threading.Thread):
 
     def close_telnet_conn(self, telnet_handle, timeout=20):
         try:
-            self.logger.debug('Closing connection to {}.'.format(telnet_handle.host))
+            self.logger.debug(
+                'Closing connection to {}.'.format(telnet_handle.host))
             telnet_handle.write('quit\r\n')
-            stdout = telnet_handle.read_until('Connection Closed', timeout=timeout)
+            stdout = telnet_handle.read_until(
+                'Connection Closed', timeout=timeout)
             telnet_handle.close()
         except Exception:
             telnet_handle.close()
@@ -144,7 +148,8 @@ class PowerLogger(threading.Thread):
 
     def read_from_pdu(self, telnet_handle, cmd, timeout=20):
         try:
-            self.logger.debug('Sending {} to {}.'.format(cmd, telnet_handle.host))
+            self.logger.debug('Sending {} to {}.'.format(
+                cmd, telnet_handle.host))
             telnet_handle.write(cmd[0] + '\r\n')
             try:
                 stdout = telnet_handle.read_until('apc>', timeout=timeout)
@@ -167,7 +172,8 @@ class PowerLogger(threading.Thread):
         while retry:
             for host in hosts:
                 try:
-                    telnet_handles.append(self.open_telnet_conn(host, self._pdu_port))
+                    telnet_handles.append(
+                        self.open_telnet_conn(host, self._pdu_port))
                     rem_hosts.remove(host)
                 except Exception as e:
                     self.logger.error('Exception ({}) occured while connecting to PDU {}.'.format(
@@ -184,28 +190,34 @@ class PowerLogger(threading.Thread):
                 open_mode = 'a'
             else:
                 open_mode = 'wb'
-            self.logger.info('Opening {} for writing pdu data'.format(self.log_file_name))
+            self.logger.info(
+                'Opening {} for writing pdu data'.format(self.log_file_name))
             with open(self.log_file_name, open_mode) as csvfile:
                 csv_writer = csv.writer(csvfile, delimiter='\t')
                 if open_mode == 'wb':
-                    csv_writer.writerow(['Sample Time', 'PDU Host', 'Phase Current', 'Phase Power'])
+                    csv_writer.writerow(
+                        ['Sample Time', 'PDU Host', 'Phase Current', 'Phase Power'])
                 con_err_dict = {x: 0 for x in self._pdu_hosts}
                 while not self._stop.isSet():
                     for idx, th in enumerate(telnet_handles):
                         try:
                             th.sock.sendall(IAC + NOP)
                         except:
-                            self.logger.warning('Connection lost to PDU {}.'.format(th.host))
+                            self.logger.warning(
+                                'Connection lost to PDU {}.'.format(th.host))
                             try:
-                                self.logger.info('Trying to reconnect to PDU {}'.format(th.host))
-                                telnet_handles[idx] = self.open_telnet_conn(host, th.host)
+                                self.logger.info(
+                                    'Trying to reconnect to PDU {}'.format(th.host))
+                                telnet_handles[idx] = self.open_telnet_conn(
+                                    host, th.host)
                                 th = telnet_handles[idx]
                                 con_err_dict[th.host] = 0
                             except KeyError:
                                 break
                             except Exception as e:
                                 con_err_dict[th.host] += 1
-                                self.logger.error('Exception occured while connecting to PDU {}.'.format(th.host))
+                                self.logger.error(
+                                    'Exception occured while connecting to PDU {}.'.format(th.host))
                                 self.logger.error('Exception: {}'.format(e))
                                 break
                         power = self.read_from_pdu(th, self.REQ_PWR)
@@ -217,18 +229,24 @@ class PowerLogger(threading.Thread):
                         csvfile.flush()
                         for key in con_err_dict:
                             if con_err_dict[key] > self._conn_retry:
-                                self.logger.error('Connection lost to PDU {}... exiting.'.format(key))
-                                self.logger.info('Closing telnet connections to PDUs.')
+                                self.logger.error(
+                                    'Connection lost to PDU {}... exiting.'.format(key))
+                                self.logger.info(
+                                    'Closing telnet connections to PDUs.')
                                 for th in telnet_handles:
                                     self.close_telnet_conn(th)
-                                raise NetworkError("Connection lost to PDU {}.".format(key))
+                                raise NetworkError(
+                                    "Connection lost to PDU {}.".format(key))
         else:
-            self.logger.error('Unable to connect to the following PDUs: {}'.format(hosts))
+            self.logger.error(
+                'Unable to connect to the following PDUs: {}'.format(hosts))
             self.logger.info('Closing telnet connections to PDUs.')
             for th in telnet_handles:
                 self.close_telnet_conn(th)
-            raise NetworkError("Unable to connect to the following PDUs: {}".format(hosts))
+            raise NetworkError(
+                "Unable to connect to the following PDUs: {}".format(hosts))
 
-        self.logger.info('Logging stopped, closing telnet connections to PDUs.')
+        self.logger.info(
+            'Logging stopped, closing telnet connections to PDUs.')
         for th in telnet_handles:
             self.close_telnet_conn(th)
