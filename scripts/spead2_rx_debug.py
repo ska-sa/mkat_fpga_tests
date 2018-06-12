@@ -17,7 +17,7 @@ from corr2 import utils
 from corr2 import fxcorrelator
 from corr2.dsimhost_fpga import FpgaDsimHost
 
-from mkat_fpga_tests.corr_rx import CorrRx
+from mkat_fpga_tests.Corr_RX import CorrRx
 from mkat_fpga_tests.utils import init_dsim_sources
 from mkat_fpga_tests.utils import loggerise
 from mkat_fpga_tests.utils import normalised_magnitude
