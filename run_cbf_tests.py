@@ -668,7 +668,7 @@ def run_nose_test(settings):
         cmd.append("--with-xunit")
         cmd.append("--logging-level=DEBUG")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
-        cmd.append("--logging-filter=%s" %__name__)
+        cmd.append("--logging-filter=%s" %__file__)
     cmd.append("--with-katreport")
 
     if settings.get('use_core_json') and settings.get('json_file'):

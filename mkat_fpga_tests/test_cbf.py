@@ -39,8 +39,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-#from corr2.corr_rx import CorrRx
-from corr_rx import CorrRx
+from Corr_RX import CorrRx
 from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 
@@ -262,6 +261,7 @@ class test_CBF(unittest.TestCase):
             self.addCleanup(self._systems_tests)
             self.addCleanup(gc.collect)
             return True
+
 
     @instrument_4k
     @aqf_vr('CBF.V.3.30')
@@ -1766,8 +1766,8 @@ class test_CBF(unittest.TestCase):
                  'least all the channels that fall within the complete L-band')
         failure_count = 0
         for i, freq in enumerate(requested_test_freqs):
-            _msg = ('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(i + 1,
-                                                                                    len(requested_test_freqs), freq / 1e6))
+            _msg = ('Getting channel response for freq {} @ {}: {:.3f} MHz.'.format(
+                    i + 1, len(requested_test_freqs), freq / 1e6))
             if i < print_counts:
                 Aqf.progress(_msg)
             elif i == print_counts:
@@ -1790,8 +1790,7 @@ class test_CBF(unittest.TestCase):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(
-                    discard=num_discards)
+                this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 failure_count += 1
@@ -1811,8 +1810,7 @@ class test_CBF(unittest.TestCase):
                 deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
                 while True:
                     try:
-                        queued_dump = self.receiver.data_queue.get(
-                            timeout=DUMP_TIMEOUT)
+                        queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
                         self.assertIsInstance(queued_dump, dict)
                     except Exception:
                         errmsg = ('Could not retrieve clean queued accumulation for freq(%s @ %s: '
@@ -1841,8 +1839,9 @@ class test_CBF(unittest.TestCase):
                             break
                         else:
                             msg = ('Discarding subsequent dumps (%s) with dump timestamp (%s) '
-                                   'and DEngine timestamp (%s) with difference of %s.' % (discards,
-                                                                                          queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                                   'and DEngine timestamp (%s) with difference of %s.' % (
+                                    discards, queued_dump['dump_timestamp'], deng_timestamp,
+                                    timestamp_diff))
                             LOGGER.info(msg)
                     discards += 1
 

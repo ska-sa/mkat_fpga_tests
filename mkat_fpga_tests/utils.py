@@ -40,6 +40,7 @@ from casperfpga.utils import threaded_fpga_operation
 from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 
+from nose.plugins.attrib import attr
 
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
@@ -1540,3 +1541,18 @@ def Report_Images(image_list, caption_list=['']):
     for image, caption in zip(image_list, caption_list):
         LOGGER.info('Adding image to report: %s' % image)
         Aqf.image(image, caption)
+
+def wipd(f):
+    """
+    - "work in progress decorator"
+    Custom decorator and flag.
+
+    # Then "nosetests -a wip" can be used at the command line to narrow the execution of the test to
+    # the ones marked with @wipd
+
+    Usage:
+        @widp
+        def test_channelistion(self):
+            pass
+    """
+    return attr('wip')(f)
