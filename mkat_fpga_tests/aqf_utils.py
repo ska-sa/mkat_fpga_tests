@@ -37,6 +37,8 @@ def cls_end_aqf(cls):
     return cls
 
 # Todo, Fix this function
+
+
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
                            plot_title='', plot_units=None, caption='', dump_counts=5,
                            show=False, ):
@@ -47,7 +49,8 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     try:
         plt.gca().set_prop_cycle(None)
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception(
+            'No display on $DISPLAY enviroment variable, check matplotlib backend')
         return False
 
     if len(actual_data) == dump_counts or len(expected_data) == dump_counts - 1:
@@ -55,7 +58,7 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
             plt.plot(range(len(phases)), phases)
     else:
         plt.plot(range(len(actual_data[-1])), actual_data[-1], label='{0:.3f} {1}'.format(np.max(np.abs(actual_data[0])),
-                                                                    plot_units))
+                                                                                          plot_units))
 
     plt.gca().set_prop_cycle(None)
     if len(expected_data) == dump_counts or len(expected_data) == dump_counts - 1:
@@ -96,7 +99,6 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                       log_dynamic_range=90, log_normalise_to=1, normalise=False, hlines=None,
                       vlines=None, ylimits=None, xlabel=None, ylabel=None, plot_type='channel',
                       hline_strt_idx=0, cutoff=None, show=False, xvals=None):
-
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -139,22 +141,24 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         # msg = ('Acceptable Ripple: {:.3f}dB'.format(cutoff))
         plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1)
         plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
-                    textcoords='offset points', ha='center', va='bottom',
-                    bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                    arrowprops=dict(arrowstyle='->', fc='yellow',
-                    connectionstyle='arc3, rad=0.5', color='red'))
+                     textcoords='offset points', ha='center', va='bottom',
+                     bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
+                     arrowprops=dict(arrowstyle='->', fc='yellow',
+                                     connectionstyle='arc3, rad=0.5', color='red'))
 
     try:
         if not isinstance(channelisation[0], tuple):
             channelisation = ((channelisation, None),)
     except IndexError:
-        Aqf.failed('List of channel responses out of range: {}'.format(channelisation))
+        Aqf.failed(
+            'List of channel responses out of range: {}'.format(channelisation))
     has_legend = False
     plt_line = []
     try:
         ax = plt.gca()
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY environment variable, check matplotlib backend')
+        LOGGER.exception(
+            'No display on $DISPLAY environment variable, check matplotlib backend')
         return False
 
     try:
@@ -189,16 +193,19 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
             if xvals:
-                plt_line_obj = plt.plot(xvals, plot_data, color=plt_color, **kwargs)
+                plt_line_obj = plt.plot(
+                    xvals, plot_data, color=plt_color, **kwargs)
             else:
                 plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
         except tkinter.TclError:
-            LOGGER.exception('No display on $DISPLAY environment variable, check matplotlib backend')
+            LOGGER.exception(
+                'No display on $DISPLAY environment variable, check matplotlib backend')
             return False
 
         if type(vlines) is list:
             try:
-                plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
+                plt.axvline(x=next(_vlines),
+                            linestyle='dashdot', color=plt_color)
                 vlines_plotd = True
             except StopIteration:
                 pass
@@ -267,7 +274,8 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                     color = plt_line[idx + hline_strt_idx][0].get_color()
                 except:
                     color = 'red'
-                plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
+                plt.axhline(lines, linestyle='dotted',
+                            color=color, linewidth=1.5)
 
                 if plot_type == 'eff':
                     msg = ('Requirement: {}%'.format(lines))
@@ -305,7 +313,8 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
     try:
         plt.grid(True)
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception(
+            'No display on $DISPLAY enviroment variable, check matplotlib backend')
         return False
     else:
         plt.hist(data_set, bins=bins, range=ranges)
@@ -326,7 +335,8 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
     try:
         fig = plt.plot(freqs, data)[0]
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception(
+            'No display on $DISPLAY enviroment variable, check matplotlib backend')
         return False
     axes = fig.get_axes()
     ybound = axes.get_ybound()
@@ -346,7 +356,8 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
     try:
         plt.grid(True)
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception(
+            'No display on $DISPLAY enviroment variable, check matplotlib backend')
         return False
     else:
         plt.ylabel('dB relative to VACC max')
@@ -354,7 +365,8 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
         plt.xlabel('Frequency (Hz)')
         if cutoff:
             msg = ('Channel isolation: {:.3f}dB'.format(cutoff))
-            plt.axhline(cutoff, color='red', ls='dotted', linewidth=1.5, label=msg)
+            plt.axhline(cutoff, color='red', ls='dotted',
+                        linewidth=1.5, label=msg)
 
         # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
         plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),

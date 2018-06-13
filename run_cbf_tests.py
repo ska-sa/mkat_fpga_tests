@@ -9,11 +9,13 @@
 # THIS SOFTWARE MAY NOT BE COPIED OR DISTRIBUTED IN ANY FORM WITHOUT THE      #
 # WRITTEN PERMISSION OF SKA SA.                                               #
 ###############################################################################
-
+import argcomplete
+import argparse
 import coloredlogs
 import glob
 import json
 import katcp
+import logging
 import os
 import platform
 import pwd
@@ -25,10 +27,8 @@ import subprocess
 import sys
 import threading
 import time
-import logging
 
 from corr2.utils import parse_ini_file
-from optparse import OptionParser
 from process_core_xml import process_xml_to_json
 from PyPDF2 import PdfFileMerger
 from report_generator.report import Report
@@ -44,150 +44,144 @@ _array_release = '3'
 
 
 def option_parser():
-    usage = """
-        Usage: %prog [options]
-        This script auto executes CBF Tests with selected arguments.
-        See Help for more information.
-        """
-    parser = OptionParser(usage)
-    parser.add_option('--loglevel',
+    parser = argparse.ArgumentParser(
+        description='This script auto executes CBF Tests with selected arguments.')
+    parser.add_argument('--loglevel',
                       action="store",
                       default="INFO",
                       dest='log_level',
                       help='log level to use, default INFO, options INFO, DEBUG, WARNING, ERROR')
 
-    parser.add_option("-q", "--quiet",
+    parser.add_argument("-q", "--quiet",
                       action="store_false",
                       dest="verbose",
                       help="Be more quiet")
 
-    parser.add_option("--nose",
+    parser.add_argument("--nose",
                       dest="nose_args",
                       action="store",
-                      type="string",
+                      type=str,
                       default=None,
-                      help="""Additional arguments to pass on to nosetests.
-                      eg: --nosetests \"-x -s -v\"""")
+                      help="Additional arguments to pass on to nosetests. eg: --nosetests -x -s -v")
 
-    parser.add_option("--acceptance",
+    parser.add_argument("--acceptance",
                       dest="site_acceptance",
-                      action="store_true",
+                      action="store",
                       default=False,
                       help="Will only run test marked '@site_acceptance' or "
                            " if in the Karoo(site) then also @site_only tests")
 
-    parser.add_option("--instrument-activate",
+    parser.add_argument("--instrument-activate",
                       dest="instrument_activate",
                       action="store_true",
                       default=False,
-                      help=("""launch an instrument. eg:
-                            ./run_cbf_tests.py -v --instrument-activate --4A4k"""))
+                      help="launch an instrument. eg:"
+                           "./run_cbf_tests.py -v --instrument-activate --4A4k")
 
-    parser.add_option("--dry_run",
+    parser.add_argument("--dry_run",
                       dest="dry_run",
                       action="store_true",
                       default=False,
                       help="Do a dry run. Print commands that would be called as well as generate"
                            "test procedures")
 
-    parser.add_option("--manual-test",
+    parser.add_argument("--no-manual-test",
                       dest="manual_test",
-                      action="store_true",
-                      default=False,
-                      help="Run manual tests and generate report if applicable")
+                      action="store_false",
+                      default=True,
+                      help="Exclude manual tests decorated with @manual_test in this test run")
 
-    parser.add_option("--available-tests",
+    parser.add_argument("--available-tests",
                       dest="available-tests",
                       action="store_true",
                       default=False,
                       help="Do a dry run. Print all tests available")
 
-    parser.add_option("--4k",
+    parser.add_argument("--4k",
                       action="store_const",
                       const='4k',
                       dest="mode",
                       default=None,
-                      help="Run the tests decorated with @instrument_bc8n856M4k")
+                      help="Run the tests decorated with @instrument_4k")
 
-    parser.add_option("--32k",
+    parser.add_argument("--32k",
                       action="store_const",
                       const='32k',
                       dest="mode",
                       default=None,
-                      help="Run the tests decorated with @instrument_bc8n856M32k")
+                      help="Run the tests decorated with @instrument_32k")
 
-    parser.add_option("--quick",
+    parser.add_argument("--quick",
                       dest="katreport_quick",
                       action="store_true",
                       default=False,
                       help="Only generate a small subset of the reports")
 
-    parser.add_option("--with_html",
+    parser.add_argument("--with_html",
                       dest="gen_html",
                       action="store_true",
                       default=False,
                       help="Generate HTML report output")
 
-    parser.add_option("--QTP",
+    parser.add_argument("--QTP",
                       dest="gen_qtp",
                       action="store_true",
                       default=False,
                       help="Generate PDF report output with Qualification Test Procedure")
 
-    parser.add_option("--QTR",
+    parser.add_argument("--QTR",
                       dest="gen_qtr",
                       action="store_true",
                       default=False,
                       help="Generate PDF report output with Qualification Test Report")
 
-    parser.add_option("--no_slow",
+    parser.add_argument("--no_slow",
                       dest="slow_test",
                       action="store_false",
                       default=True,
                       help="Exclude tests decorated with @slow in this test run")
 
-    parser.add_option("--report",
+    parser.add_argument("--report",
                       dest="report",
                       action="store",
-                      type="string",
+                      type=str,
                       default='local_&_test',
-                      help="Only generate the reports. No tests will be run.\n"
+                      help="Only generate the reports. No tests will be run."
                       "Valid options are: local, jenkins, skip and results. "
                       "'results' will print the katreport[_accept].json test results")
 
-    parser.add_option("--clean",
+    parser.add_argument("--clean",
                       dest="cleanup",
                       action="store_true",
                       default=False,
-                      help="""Cleanup reports from previous test run. Reports
-                      are replaced by default without --clean. Clean is
-                      useful with --quick to only generate the html of the
-                      test run report""")
+                      help="Cleanup reports from previous test run. Reports"
+                          " are replaced by default without --clean. Clean is"
+                          " useful with --quick to only generate the html of the"
+                          " test run report")
 
-    parser.add_option("--dev_update",
+    parser.add_argument("--dev_update",
                       dest="dev_update",
                       action="store_true",
                       default=False,
                       help="Do pip install update and install latest packages")
 
-    # parser.add_option("--jenkins",
+    # parser.add_argument("--jenkins",
     #                   dest="jenkins",
     #                   action="store_true",
     #                   default=False,
     #                   help="Run this command with the correct flags for jenkins.")
 
-    # parser.add_option("--manual_systype",
+    # parser.add_argument("--manual_systype",
     #                   dest="manual_systype",
     #                   action="store",
     #                   default=None,
     #                   help="Overwrite the system systype used for report generation on jenkins.")
-
-    (cmd_options, cmd_args) = parser.parse_args()
-
+    argcomplete.autocomplete(parser)
     if len(sys.argv[1:]) == 0:
         parser.print_help()
         sys.exit(1)
-    return cmd_options, cmd_args
+    else:
+        return parser.parse_args()
 
 def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, shell=False):
     if log_filename is False:
@@ -640,7 +634,8 @@ def generate_sphinx_docs(settings):
         status = run_command(settings, cmd, log_file)
         if status:
             logger.error("there was an error on copying build to ../%s/%s" % (dirName, build_dir))
-        # Copy katreport_dir directory
+        # ToDo MM 01/06/18
+        # Copy all csv files to katreport (for backup)
         logger.debug("copy ./%s to ../%s/%s" % (katreport_dir, dirName, build_dir))
         cmd = ['cp', '-r', katreport_dir, "../%s/%s" % (dirName, build_dir)]
         status = run_command(settings, cmd, log_file)
@@ -673,7 +668,7 @@ def run_nose_test(settings):
         cmd.append("--with-xunit")
         cmd.append("--logging-level=DEBUG")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
-        cmd.append("--logging-filter=%s" %__name__)
+        cmd.append("--logging-filter=%s" %__file__)
     cmd.append("--with-katreport")
 
     if settings.get('use_core_json') and settings.get('json_file'):
@@ -682,6 +677,7 @@ def run_nose_test(settings):
 
     # Build the nosetests filter.
     condition = {'OR': ['aqf_system_all'], 'AND': []}
+    # condition = {'OR': ['aqf_system_all and aqf_generic_test'], 'AND': []}
     # if settings.get('system_type'):
     #     # Include tests for this system type.
     #     condition['OR'].append("aqf_system_%s" % settings['system_type'])
@@ -725,15 +721,13 @@ def run_nose_test(settings):
             # run aqf_auto_test decorated with site_acceptance
             # and aqf_demo_tests decorated with site_acceptance
             # and aqf_site_tests
-            condition['AND'].append('(aqf_site_test or aqf_site_acceptance or aqf_manual_test)')
+            condition['AND'].append('(aqf_site_test or aqf_site_acceptance)')
         else:
             # For Qualification Testing:
             # run all tests except site_tests
-            condition['AND'].append('(not aqf_site_test or aqf_manual_test)')
+            condition['AND'].append('(not aqf_site_test)')
             pass
 
-    if not settings.get('slow_test'):
-        condition['AND'].append("not aqf_slow")
     # , 'aqf_generic_test'
     # Mix OR with AND
     condition['or_str'] = ' or '.join(condition['OR'])
@@ -752,7 +746,13 @@ def run_nose_test(settings):
         cmd.append('-A(%s)' % ' and '.join(condition['AND']))
     elif condition['or_str']:
         cmd.append('-A(%s)' % condition['or_str'])
-    cmd.append('-A(%s)' % 'aqf_generic_test')
+
+    # ToDo MM 01/06/2018
+    # To run manual tests or not - That is the question.
+    if not settings.get('manual_test'):
+        cmd.append('-A(%s)' %("(not aqf_manual_test)"))
+    if not settings.get('slow_test'):
+        cmd.append('-A(%s)' %("(not aqf_slow)"))
 
     katreport_control = []
     if settings.get('jenkins'):
@@ -1142,7 +1142,6 @@ def get_version_list():
     """Using katcp: Retrieve CBF information"""
     try:
         _katcp_req = katcp_request(7147, 'array-list')
-        print _katcp_req
         katcp_client_port, katcp_sensor_port = [i.arguments[1].split(',') for i in _katcp_req
                              if i.arguments[0].startswith('arr')][0]
     except Exception as e:
@@ -1165,7 +1164,7 @@ def generate_index(document):
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    options, args = option_parser()
+    options = option_parser()
     logging.getLogger('tornado').setLevel(logging.CRITICAL)
     log_level = None
     if options.log_level:
@@ -1190,7 +1189,7 @@ if __name__ == "__main__":
 
     settings['process_core'] = True
     settings['gather_system_settings'] = True
-    settings['tests'] = args
+    # settings['tests'] = args
     settings['me'] = os.path.abspath(__file__)
     settings['me_dir'] = os.path.dirname(settings['me'])
     settings['src_dir'], settings['test_dir'] = os.path.split(settings['me_dir'])
@@ -1235,6 +1234,7 @@ if __name__ == "__main__":
         settings['gather_system_settings'] = False
         settings['process_core'] = False
         settings['slow_test'] = False
+        settings['manual_test'] = False
         settings['report'] = 'skip'
 
     # if settings.get('demo'):
