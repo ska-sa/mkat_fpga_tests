@@ -49,7 +49,6 @@ if __name__ == "__main__":
 
     f = correlator.fhosts[0]
     config_ini = utils.parse_ini_file(config)
-
     f.get_system_information(filename=config_ini['fengine'].get('bitstream'))
 
     try:

@@ -1810,7 +1810,8 @@ class test_CBF(unittest.TestCase):
                 deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
                 while True:
                     try:
-                        queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
+                        queued_dump = self.receiver.data_queue.get(
+                            timeout=DUMP_TIMEOUT)
                         self.assertIsInstance(queued_dump, dict)
                     except Exception:
                         errmsg = ('Could not retrieve clean queued accumulation for freq(%s @ %s: '
