@@ -1542,6 +1542,7 @@ def Report_Images(image_list, caption_list=['']):
         LOGGER.info('Adding image to report: %s' % image)
         Aqf.image(image, caption)
 
+
 def wipd(f):
     """
     - "work in progress decorator"

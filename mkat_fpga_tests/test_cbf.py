@@ -14,7 +14,6 @@ from __future__ import division
 
 import casperfpga
 import corr2
-import csv
 import gc
 import glob
 import katcp
@@ -30,8 +29,6 @@ import spead2
 import struct
 import subprocess
 import sys
-import textwrap
-import threading
 import time
 import unittest
 
@@ -40,7 +37,6 @@ import numpy as np
 import pandas as pd
 
 from Corr_RX import CorrRx
-from corr2.fxcorrelator_xengops import VaccSynchAttemptsMaxedOut
 from katcp.testutils import start_thread_with_cleanup
 
 # MEMORY LEAKS DEBUGGING
@@ -1162,7 +1158,7 @@ class test_CBF(unittest.TestCase):
                 try:
                     reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(
                         timeout=30)
-                except:
+                except Exception:
                     reply, informs = self.corr_fix.katcp_rct.req.sensor_value(
                         timeout=30)
                 time.sleep(10)
@@ -1208,7 +1204,7 @@ class test_CBF(unittest.TestCase):
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
 
-        local_src_names = self.cam_sensors.custom_input_labels
+        # local_src_names = self.cam_sensors.custom_input_labels
         network_latency = float(
             self.conf_file['instrument_params']['network_latency'])
         cam_max_load_time = int(
@@ -1244,7 +1240,7 @@ class test_CBF(unittest.TestCase):
             int_time = self.cam_sensors.get_value('int_time')
             synch_epoch = self.cam_sensors.get_value('synch_epoch')
             # n_accs = self.cam_sensors.get_value('n_accs')]
-            no_chans = range(self.n_chans_selected)
+            # no_chans = range(self.n_chans_selected)
             time_stamp = initial_dump['timestamp']
             # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
             # int_time_ticks = n_accs * ticks_between_spectra
@@ -1262,9 +1258,10 @@ class test_CBF(unittest.TestCase):
                     'Get list of all the baselines present in the correlator output')
                 Aqf.progress('Selected input and baseline for testing respectively: %s, %s.' % (
                     test_source, baseline_index))
-                Aqf.progress('Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be '
-                             'applied %s integrations/accumulations in the future.' % (t_apply,
-                                                                                       t_apply_readable, curr_time, curr_time_readable, num_int))
+                Aqf.progress(
+                    'Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be '
+                    'applied %s integrations/accumulations in the future.' % (
+                        t_apply, t_apply_readable, curr_time, curr_time_readable, num_int))
             except KeyError:
                 Aqf.failed('Initial SPEAD accumulation does not contain correct baseline '
                            'ordering format.')
@@ -1374,7 +1371,7 @@ class test_CBF(unittest.TestCase):
                     msg = ("Discarding (#%d) Spead accumulation with dump timestamp: %s"
                            ", relevant to time to apply: %s"
                            "(Difference %.2f), Current cmc time: %s." % (num_discards,
-                                                                         dump['dump_timestamp'], setup_data['t_apply'], time_diff, time.time()))
+                            dump['dump_timestamp'], setup_data['t_apply'], time_diff, time.time()))
                     LOGGER.info(msg)
                     if num_discards <= 2:
                         Aqf.progress(msg)
@@ -1444,7 +1441,6 @@ class test_CBF(unittest.TestCase):
             return expected_phases
 
         def calc_actual_offset(setup_data):
-            no_ch = self.cam_sensors.get_value('n_chans')
             # mid_ch = no_ch / 2
             first_dump = actual_phases[0]
             # Determine average offset around 5 middle channels
@@ -1490,9 +1486,9 @@ class test_CBF(unittest.TestCase):
         fringe_rate = ant_delay[ant_idx][1][1]
 
         delay_data = np.array(
-            (gen_delay_data(delay, delay_rate, dump_counts+1, setup_data)))[1:]
+            (gen_delay_data(delay, delay_rate, dump_counts + 1, setup_data)))[1:]
         fringe_data = np.array(gen_fringe_data(
-            fringe_offset, fringe_rate, dump_counts+1, setup_data))[1:]
+            fringe_offset, fringe_rate, dump_counts + 1, setup_data))[1:]
         result = delay_data + fringe_data
         wrapped_results = ((result + np.pi) % (2 * np.pi) - np.pi)
 
@@ -1695,8 +1691,7 @@ class test_CBF(unittest.TestCase):
         try:
             Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
                      'SPEAD accumulation, determine the number of frequency channels')
-            initial_dump = self.receiver.get_clean_dump(
-                discard=num_discards*10)
+            initial_dump = self.receiver.get_clean_dump(discard=num_discards * 10)
             self.assertIsInstance(initial_dump, dict)
         except Exception:
             errmsg = 'Could not retrieve initial clean SPEAD accumulation: Queue is Empty.'
@@ -1749,10 +1744,10 @@ class test_CBF(unittest.TestCase):
             where_is_the_tone = np.argmax(initial_freq_response)
             max_tone_val = np.max(initial_freq_response)
             Aqf.note("Single peak found at channel %s, with max power of %.5f(%.5fdB)" % (
-                where_is_the_tone, max_tone_val, 10*np.log10(max_tone_val)))
+                where_is_the_tone, max_tone_val, 10 * np.log10(max_tone_val)))
 
-            plt_filename = '{}/{}_overall_channel_resolution_Initial_capture.png'.format(self.logs_path,
-                                                                                         self._testMethodName)
+            plt_filename = '{}/{}_overall_channel_resolution_Initial_capture.png'.format(
+                self.logs_path, self._testMethodName)
             plt_title = 'Initial Overall frequency response at %s' % test_chan
             caption = ('An overall frequency response at the centre frequency %s,'
                        'and selected baseline %s to test. Digitiser simulator is configured to '
@@ -1795,7 +1790,7 @@ class test_CBF(unittest.TestCase):
             except AssertionError:
                 failure_count += 1
                 errmsg = ('Could not retrieve clean accumulation for freq (%s @ %s: %sMHz).' % (
-                    i + 1, len(requested_test_freqs), freq/1e6))
+                    i + 1, len(requested_test_freqs), freq / 1e6))
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 if failure_count >= 5:
@@ -1815,7 +1810,7 @@ class test_CBF(unittest.TestCase):
                         self.assertIsInstance(queued_dump, dict)
                     except Exception:
                         errmsg = ('Could not retrieve clean queued accumulation for freq(%s @ %s: '
-                                  '%s MHz).' % (i + 1, len(requested_test_freqs), freq/1e6))
+                                  '%s MHz).' % (i + 1, len(requested_test_freqs), freq / 1e6))
                         LOGGER.exception(errmsg)
                         Aqf.failed(errmsg)
                         break
@@ -1839,8 +1834,9 @@ class test_CBF(unittest.TestCase):
                                 return
                             break
                         else:
-                            msg = ('Discarding subsequent dumps (%s) with dump timestamp (%s) '
-                                   'and DEngine timestamp (%s) with difference of %s.' % (
+                            msg = (
+                                'Discarding subsequent dumps (%s) with dump timestamp (%s) '
+                                'and DEngine timestamp (%s) with difference of %s.' % (
                                     discards, queued_dump['dump_timestamp'], deng_timestamp,
                                     timestamp_diff))
                             LOGGER.info(msg)
@@ -1922,9 +1918,8 @@ class test_CBF(unittest.TestCase):
                     actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[-1]]))
 
                 att_bw_min_max = [np.argwhere(plot_data == i)[0][0] for i in plot_data
-                                  if (abs(i) >= (cutoff-1)) and (abs(i) <= (cutoff+1))]
-                att_bw = actual_test_freqs[att_bw_min_max[-1]
-                                           ] - actual_test_freqs[att_bw_min_max[0]]
+                                  if (abs(i) >= (cutoff - 1)) and (abs(i) <= (cutoff + 1))]
+                att_bw = actual_test_freqs[att_bw_min_max[-1]] - actual_test_freqs[att_bw_min_max[0]]
 
             except Exception:
                 msg = ('Could not compute if, CBF performs channelisation such that the 53dB '
@@ -2032,9 +2027,10 @@ class test_CBF(unittest.TestCase):
             no_of_responses = 3
             center_bin = [150, 250, 350]
             y_axis_limits = (-90, 1)
-            legends = ['Channel {} / Sample {} \n@ {:.3f} MHz'.format(((test_chan + i) - 1), v,
-                                                                      self.cam_sensors.ch_center_freqs[test_chan + i] / 1e6)
-                       for i, v in zip(range(no_of_responses), center_bin)]
+            legends = [
+                'Channel {} / Sample {} \n@ {:.3f} MHz'.format(((test_chan + i) - 1), v,
+                      self.cam_sensors.ch_center_freqs[test_chan + i] / 1e6)
+                for i, v in zip(range(no_of_responses), center_bin)]
             #center_bin.append('Channel spacing: {:.3f}kHz'.format(856e6 / self.n_chans_selected / 1e3))
             center_bin.append(
                 'Channel spacing: {:.3f}kHz'.format(chan_spacing / 1e3))
@@ -2388,6 +2384,9 @@ class test_CBF(unittest.TestCase):
             dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale,
                                                 freq=self.cam_sensors.ch_center_freqs[1500],
                                                 fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
 
         try:
             Aqf.step('Change CBF input labels and confirm via CAM interface.')
@@ -2435,12 +2434,10 @@ class test_CBF(unittest.TestCase):
             input_labels = sorted(self.cam_sensors.input_labels)
             inputs_to_plot = random.shuffle(input_labels)
             inputs_to_plot = input_labels[:8]
-            bls_to_plot = [0, 2, 4, 8, 11, 14, 23, 33]
             baselines_lookup = get_baselines_lookup(self)
             present_baselines = sorted(baselines_lookup.keys())
             possible_baselines = set()
-            _ = [possible_baselines.add((li, lj))
-                 for li in input_labels for lj in input_labels]
+            [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
 
             test_bl = sorted(list(possible_baselines))
             Aqf.step('Confirm that each baseline (or its reverse-order counterpart) is present in '
@@ -6481,6 +6478,10 @@ class test_CBF(unittest.TestCase):
                                                 awgn_scale=0.0,
                                                 cw_scale=0.0, freq=100000000,
                                                 fft_shift=0, gain='32767+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
         self.dhost.outputs.out_1.scale_output(0)
         dump = get_clean_dump(self)
         baseline_lookup = get_baselines_lookup(self, dump)
@@ -6490,7 +6491,7 @@ class test_CBF(unittest.TestCase):
         inp = self.cam_sensors.get_values('input_labels')[0][0]
         inp_autocorr_idx = baseline_lookup[(inp, inp)]
         # FFT input sliding window size = 8 spectra
-        fft_sliding_window = dump['n_chans'].value * 2 * 8
+        # fft_sliding_window = dump['n_chans'].value * 2 * 8
         # Get number of ticks per dump and ensure it is divisible by 8 (FPGA
         # clock runs 8 times slower)
         dump_ticks = self.cam_sensors.get_values(
@@ -6514,7 +6515,7 @@ class test_CBF(unittest.TestCase):
         tckar_lower_idx = 0
         future_ticks = dump_ticks * future_dump
         found = False
-        prev_imp_loc = 0
+        # prev_imp_loc = 0
         first_run = True
         split_found = False
         single_step = False
@@ -6552,7 +6553,7 @@ class test_CBF(unittest.TestCase):
                                                                                  np.max(auto_corr), np.average(auto_corr))
                 dump_list.append(dval)
             # Find dump containing impulse, check that other dumps are empty.
-            val_found = 0
+            # val_found = 0
             auto_corr = []
             auto_corr_avg = []
             dumps_nzero = 0
@@ -6581,7 +6582,7 @@ class test_CBF(unittest.TestCase):
             if (dumps_nzero == 2):
                 Aqf.step('Two dumps found containing impulse.')
                 # Only start stepping by one once the split is close
-                split_found = True
+                # split_found = True
             elif dumps_nzero > 2:
                 Aqf.failed('Invalid data found in dumps.')
                 # for dmp in auto_corr:
@@ -6690,6 +6691,10 @@ class test_CBF(unittest.TestCase):
                                                 awgn_scale=0.0,
                                                 cw_scale=0.0, freq=100000000,
                                                 fft_shift=0, gain='32767+0j')
+        if not dsim_set_success:
+            Aqf.failed('Failed to configure digitise simulator levels')
+            return False
+
         self.dhost.outputs.out_1.scale_output(0)
         dump = get_clean_dump(self)
         baseline_lookup = get_baselines_lookup(self, dump)
@@ -6699,7 +6704,7 @@ class test_CBF(unittest.TestCase):
         inp = self.cam_sensors.input_labels[0][0]
         inp_autocorr_idx = baseline_lookup[(inp, inp)]
         # FFT input sliding window size = 8 spectra
-        fft_sliding_window = self.n_chans_selected * 2 * 8
+        # fft_sliding_window = self.n_chans_selected * 2 * 8
         # Get number of ticks per dump and ensure it is divisible by 8 (FPGA
         # clock runs 8 times slower)
         dump_ticks = self.cam_sensors.get_value(
@@ -6973,8 +6978,8 @@ class test_CBF(unittest.TestCase):
             # ch_bw = bw / nr_ch
             # ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
 
-            bw = self.cam_sensors.get_value('bandwidth')
-            nr_ch = self.n_chans_selected
+            # bw = self.cam_sensors.get_value('bandwidth')
+            # nr_ch = self.n_chans_selected
             ch_bw = self.cam_sensors.ch_center_freqs[1]
             ch_list = self.cam_sensors.ch_center_freqs
             freq_ch = int(round(cw_freq / ch_bw))
@@ -7073,7 +7078,7 @@ class test_CBF(unittest.TestCase):
                 auto_corr = dval[:, inp_autocorr_idx, :]
                 ch_val = auto_corr[freq_ch][0]
                 next_ch_val = 0
-                n_accs = self.cam_sensors.get_value('n_accs')
+                # n_accs = self.cam_sensors.get_value('n_accs')
                 ch_val_array = []
                 ch_val_array.append([ch_val, gain])
                 count = 0
@@ -7257,7 +7262,7 @@ class test_CBF(unittest.TestCase):
         cw_freq = channel_list[cw_chan_set]
         dsim_clk_factor = 1.712e9 / self.cam_sensors.sample_period
         bandwidth = self.cam_sensors.get_value("bandwidth")
-        eff_freq = (cw_freq + bandwidth) * dsim_clk_factor
+        # eff_freq = (cw_freq + bandwidth) * dsim_clk_factor
         channel_bandwidth = self.cam_sensors.delta_f
         input_labels = self.cam_sensors.input_labels
 
@@ -7275,8 +7280,8 @@ class test_CBF(unittest.TestCase):
             fft_shift = 32767
 
         Aqf.step('Digitiser simulator configured to generate a continuous wave at %s Hz (channel=%s),'
-                 ' with cw scale: %s, awgn scale: %s, eq gain: %s, fft shift: %s' % (cw_freq,
-                                                                                     cw_chan_set, cw_scale, awgn_scale, gain, fft_shift))
+                 ' with cw scale: %s, awgn scale: %s, eq gain: %s, fft shift: %s' % (
+                    cw_freq, cw_chan_set, cw_scale, awgn_scale, gain, fft_shift))
         dsim_set_success = False
         with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
             dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=cw_scale,
@@ -7351,8 +7356,7 @@ class test_CBF(unittest.TestCase):
         ve_desc = _results.get('Verification Event Description', 'TBD')
         Aqf.procedure(r'%s' % ve_desc)
         try:
-            assert (eval(os.getenv('MANUAL_TEST', 'False'))
-                    or eval(os.getenv('DRY_RUN', 'False')))
+            assert (eval(os.getenv('MANUAL_TEST', 'False')) or eval(os.getenv('DRY_RUN', 'False')))
         except AssertionError:
             results = r'%s' % _results.get("Verification Event Results", "TBD")
             if results != "TBD":
@@ -7382,8 +7386,6 @@ class test_CBF(unittest.TestCase):
             test_baseline = 0
             # [CBF-REQ-0053]
             min_bandwithd_req = 770e6
-            # [CBF-REQ-0126] CBF channel isolation
-            cutoff = 53  # dB
             # Channel magnitude responses for each frequency
             chan_responses = []
             last_source_freq = None
@@ -7445,11 +7447,11 @@ class test_CBF(unittest.TestCase):
                                     chan_spacing + (chan_spacing * 1 / 100)]
                 Aqf.step('Confirm that the number of calculated channel '
                          'frequency step is within requirement.')
-                msg = ('Verify that the calculated channel '
-                       'frequency ({} Hz)step size is between {} and {} Hz'.format(chan_spacing,
-                                                                                   req_chan_spacing / 2, req_chan_spacing))
-                Aqf.in_range(chan_spacing, req_chan_spacing /
-                             2, req_chan_spacing, msg)
+                msg = (
+                    'Verify that the calculated channel '
+                    'frequency ({} Hz)step size is between {} and {} Hz'.format(
+                        chan_spacing, req_chan_spacing / 2, req_chan_spacing))
+                Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
 
                 Aqf.step('Confirm that the channelisation spacing and confirm that it is '
                          'within the maximum tolerance.')
@@ -7474,14 +7476,14 @@ class test_CBF(unittest.TestCase):
                     LOGGER.debug('Getting channel response for freq %s @ %s: %s MHz.' % (
                         i + 1, len(requested_test_freqs), freq / 1e6))
 
-                self.dhost.sine_sources.sin_0.set(
-                    frequency=freq, scale=cw_scale)
+                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
                 this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
                 if this_source_freq == last_source_freq:
-                    LOGGER.debug('Skipping channel response for freq %s @ %s: %s MHz.\n'
-                                 'Digitiser frequency is same as previous.' % (
-                                     i + 1, len(requested_test_freqs), freq / 1e6))
+                    LOGGER.debug(
+                            'Skipping channel response for freq %s @ %s: %s MHz.\n'
+                            'Digitiser frequency is same as previous.' % (i + 1,
+                            len(requested_test_freqs), freq / 1e6))
                     continue  # Already calculated this one
                 else:
                     last_source_freq = this_source_freq
@@ -7526,9 +7528,11 @@ class test_CBF(unittest.TestCase):
                                 LOGGER.error(errmsg)
                                 break
                             else:
-                                msg = ('Discarding subsequent dumps (%s) with dump timestamp (%s) '
-                                       'and DEngine timestamp (%s) with difference of %s.' % (discards,
-                                                                                              queued_dump['dump_timestamp'], deng_timestamp, timestamp_diff))
+                                msg = (
+                                    'Discarding subsequent dumps (%s) with dump timestamp (%s) '
+                                    'and DEngine timestamp (%s) with difference of %s.' % (
+                                        discards, queued_dump['dump_timestamp'], deng_timestamp,
+                                        timestamp_diff))
                                 LOGGER.info(msg)
                         discards += 1
 
@@ -7538,8 +7542,7 @@ class test_CBF(unittest.TestCase):
 
             chan_responses = np.array(chan_responses)
             requested_test_freqs = np.asarray(requested_test_freqs)
-            csv_filename = '/'.join([self._katreport_dir,
-                                     r"CBF_Efficiency_Data.csv"])
+            csv_filename = '/'.join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
             np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs),
                        delimiter=",")
 
@@ -7552,23 +7555,22 @@ class test_CBF(unittest.TestCase):
             P_dB -= P_dB.max()
             f = f - f[P_dB > -3].mean()  # CHANGED: center on zero
 
-            # It's critical to get precise estimates of critical points so to minimize measurement resolution impact, up-sample!
+            # It's critical to get precise estimates of critical points so to minimize measurement
+            # resolution impact, up-sample!
             _f_, _P_dB_ = f, P_dB
-            _f10_ = np.linspace(f[0], f[-1], len(f)*10)  # up-sample 10x
+            _f10_ = np.linspace(f[0], f[-1], len(f) * 10)  # up-sample 10x
             # CHANGED: slightly better than np.interp(_f10_, f, P_dB) e.g. for poorly sampled data
-            P_dB = scipy.interpolate.interp1d(
-                f, P_dB, "quadratic", bounds_error=False)(_f10_)
+            P_dB = scipy.interpolate.interp1d(f, P_dB, "quadratic", bounds_error=False)(_f10_)
             f = _f10_
 
             # Measure critical bandwidths
             f_HPBW = f[P_dB >= -3.0]
             # CHANGED: with better interpolation don't need earlier "fudged" 3.05 & 6.05
             f_HABW = f[P_dB >= -6.0]
-            HPBW = (f_HPBW[-1] - f_HPBW[0])/binwidth
-            HABW = (f_HABW[-1] - f_HABW[0])/binwidth
-            h = 10**(P_dB / 10.)
-            NEBW = np.sum(h[:-1] * np.diff(f)) / \
-                binwidth  # Noise Equivalent BW
+            HPBW = (f_HPBW[-1] - f_HPBW[0]) / binwidth
+            HABW = (f_HABW[-1] - f_HABW[0]) / binwidth
+            h = 10 ** (P_dB / 10.)
+            NEBW = np.sum(h[:-1] * np.diff(f)) / binwidth  # Noise Equivalent BW
             Aqf.step("Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth "
                      "for each swept channel")
             Aqf.progress(
@@ -7584,13 +7586,13 @@ class test_CBF(unittest.TestCase):
             # Channel-to-channel separation intervals
             ch = f.searchsorted(f[0] + binwidth)
             # Scalloping loss at mid-point between channel peaks
-            SL = P_dB[pk+ch//2-1]
+            SL = P_dB[pk + ch // 2 - 1]
             # Max scalloping loss within 80% of a channel
-            SL80 = P_dB[pk:pk + int((0.8*ch)//2-1)].min()
+            SL80 = P_dB[pk:pk + int((0.8 * ch) // 2 - 1)].min()
             # Smooth it over 1/8th of a bin width to get rid of main lobe ripples
-            DDP = np.diff(scipy.signal.medfilt(np.diff(P_dB), (ch//16)*2+1))
+            DDP = np.diff(scipy.signal.medfilt(np.diff(P_dB), (ch // 16) * 2 + 1))
             # The first large inflection point after the peak is the null
-            mn = pk+ch//2 + (DDP[pk+ch//2:] > 0.01).argmax()
+            mn = pk + ch // 2 + (DDP[pk + ch // 2:] > 0.01).argmax()
             # The nearest one is typically the peak sidelobe
             SLL = P_dB[mn:].max()
             # Upper half of the channel & the excluding main lobe
@@ -7610,7 +7612,7 @@ class test_CBF(unittest.TestCase):
                 plt.show()
 
             cap = ("SLL = %.f, SL = %.1f(%.f), NE/3dB/6dB BW = %.2f/%.2f/%.2f, HPBW/NEBW = %4f, " % (
-                SLL, SL, SL80, NEBW, HPBW, HABW, HPBW/NEBW))
+                SLL, SL, SL80, NEBW, HPBW, HABW, HPBW / NEBW))
             filename = '{}/{}.png'.format(self.logs_path, self._testMethodName)
             Aqf.matplotlib_fig(filename, caption=cap, autoscale=True)
 
@@ -7630,11 +7632,10 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed(msg)
                 return
 
-        chan_responses, requested_test_freqs = pfb_data[:,
-                                                        0][1:], pfb_data[:, 1][1:]
+        chan_responses, requested_test_freqs = pfb_data[:, 0][1:], pfb_data[:, 1][1:]
         # Summarize isn't clever enough to cope with the spurious spike in first sample
         requested_test_freqs = np.asarray(requested_test_freqs)
-        chan_responses = 10*np.log10(np.abs(np.asarray(chan_responses)))
+        chan_responses = 10 * np.log10(np.abs(np.asarray(chan_responses)))
         try:
             binwidth = self.cam_sensors.get_value(
                 'bandwidth') / (self.n_chans_selected - 1)
