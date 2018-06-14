@@ -1618,7 +1618,7 @@ class test_CBF(unittest.TestCase):
             gain = '7+0j'
             fft_shift = 8191
             cw_scale = 0.9
-            awgn_scale = 0.1
+            awgn_scale = 0.15
             gain = '7+0j'
             fft_shift = 8191
         else:
@@ -5904,8 +5904,8 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(str(e))
 
         beam_quant_gain = 1.0/ants
-        Aqf.step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
-        set_beam_quant_gain(self, beam, beam_quant_gain)
+        #Aqf.step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
+        #set_beam_quant_gain(self, beam, beam_quant_gain)
 
         beam_dict = {}
         beam_pol = beam[-1]
@@ -6023,8 +6023,8 @@ class test_CBF(unittest.TestCase):
             return False
 
         out_func = []
-        num_pulse_caps = 100
-        pulse_step = 32        
+        num_pulse_caps = 200
+        pulse_step = 256       
         points_around_trg = 4
         chan_str = 0
         chan_stp = 511
