@@ -1153,10 +1153,8 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
     sdp_instance = [idx for idx, s in enumerate(
         output) if 'sdp-docker-registry.kat.ac.za' in s]
     # If sdp-docker-registry not found it is not running, return false
-    if sdp_instance:
-        return True
-    else:
-        return False
+
+    return True if sdp_instance else False
 
 
 def stop_katsdpingest_docker(self):
