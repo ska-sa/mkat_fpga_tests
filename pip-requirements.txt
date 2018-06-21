@@ -1,4 +1,5 @@
 # git+https://github.com/ska-sa/nosekatreport.git
+tornado==4.5.2
 alabaster
 ansicolors
 bitstring
@@ -6,6 +7,7 @@ bokeh
 breathe
 chainmap
 click
+coloredlogs
 coverage
 crypto
 cryptography
@@ -17,8 +19,9 @@ flake8-html
 h5py
 idna==2.5
 iniparse
+ipdb
 ipynose
-ipython[all]
+ipython
 jenkinsapi
 lxml
 matplotlib==2.0.2
@@ -30,7 +33,7 @@ nose
 nose-testconfig
 nosexcover
 ntplib
-numpy
+numpy==1.13.3
 pandas
 pandas
 parameterized
@@ -41,6 +44,7 @@ pyasn1
 pycrypto
 pylint
 pyOpenSSL
+PyPDF2
 requests[security]
 retrying
 sh
@@ -48,7 +52,6 @@ sphinx
 sphinxcontrib-napoleon
 traceback2
 trollius
-
 
 # Uncomment below if not installing these packages from a local source
 # git+https://github.com/ska-sa/casperfpga#egg=casperfpga

@@ -72,9 +72,12 @@ else:
 correlator.initialise(program=False)
 f_engines = AttrDict({f.host: f for f in correlator.fhosts})
 x_engines = AttrDict({x.host: x for x in correlator.xhosts})
-for fpga in correlator.fhosts + correlator.xhosts:
+for fpga in correlator.fhosts:
     if fpga.is_running():
-        fpga.get_system_information()
+        fpga.get_system_information(corr_conf['fengine']['bitstream'])
+for fpga in correlator.xhosts:
+    if fpga.is_running():
+        fpga.get_system_information(corr_conf['xengine']['bitstream'])
 
 print 'correlator is running'
 f = correlator.fhosts[0]

@@ -9,6 +9,14 @@
 # WRITTEN PERMISSION OF SKA SA.                                               #
 ###############################################################################
 """Helper routines for programtically producing ReStructuredText output."""
+import logging
+import coloredlogs
+log_level = 'DEBUG'
+logging.basicConfig(level=getattr(logging, log_level))
+logger = logging.getLogger(__file__)
+coloredlogs.install(level=log_level, logger=logger,
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : '
+       '%(lineno)d - %(message)s')
 
 
 class ReStProducer(object):
@@ -43,14 +51,14 @@ class ReStProducer(object):
             self._output.append('')
 
     def add_heading(self, level, heading, anchor=False):
-        """Add a headin.
+        """Add a heading.
 
         :param level: Str. Type of heading.
         :param heading: Str. Title of the heading.
         :param anchor: Boolean. If a anchor should be added, the anchor will
                         allow the heading to be referenced.
-
         """
+        # logger.debug('Adding %s heading, titled :%s' %(level, heading))
         assert('\n' not in heading)
         if anchor:
             self.add_anchor(heading)
@@ -64,6 +72,7 @@ class ReStProducer(object):
 
     def add_sourcecode(self, quote):
         """Add sourceode block, i.e. Quote text verbatim in a block-quote."""
+        # logger.debug('Adding sourcecode [reST]')
         if quote:
             self._ensure_empty_line()
             quote = str(quote).replace('\r', '\n').split('\n')
@@ -78,6 +87,7 @@ class ReStProducer(object):
 
     def add_figure(self, filename, caption, alt=None, legend=None,
                    align='center', figwidth='90%', width='80%', **options):
+        # logger.debug('Adding figure: %s [on reST]'%filename)
         self._ensure_empty_line()
         self._output.append(' .. figure:: {}'.format(filename))
         if alt:
@@ -93,9 +103,10 @@ class ReStProducer(object):
                 self.output.append(self.indent + ':{}: {}'.format(option, value))
         self._ensure_empty_line()
         self.add_indented_raw_text(caption, level=1)
-        if legend:
-            self._ensure_empty_line()
-            self.add_indented_raw_text(legend, level=1)
+        # if legend:
+        #     self._ensure_empty_line()
+        #     self.add_indented_raw_text(legend, level=1)
+        self._ensure_empty_line()
         self._ensure_empty_line()
 
     def add_raw_text(self, text):
@@ -170,7 +181,9 @@ class ReStProducer(object):
                 table_header = header_map
             self._ensure_empty_line()
             self._output.append(".. csv-table:: %s" % table_title)
-            header = ['"%s"' % x.title() for x in table_header]
+
+            # header = ['"%s"' % x.title() for x in table_header]
+            header = ['"%s"' % x for x in table_header]
             if hide_first_header:
                 header[0] = " "
             self._output.append("   :header: %s" % ",".join(header))
@@ -252,8 +265,13 @@ class ReStProducer(object):
         self._output = []
         self._header = set()
 
+    def page_break(self):
+        """Add page break on the current document"""
+        self._ensure_empty_line()
+        self._output.append(r".. raw:: latex \clearpage")
+
     def clean_text_block(self, text):
-        """Atempt to cleanup a text block to be better displayed in RST.
+        """Attempt to cleanup a text block to be better displayed in RST.
 
         :param text: String,
         :return: String.
@@ -287,21 +305,26 @@ class ReStProducer(object):
         elif style.lower() == 'italics':
             return "*%s*" % text
         else:
-            style = {'error': 'orange',
+            style = {
+                     'checkbox': 'lime',
+                     'control': 'gray',
+                     'error': 'red',
                      'fail': 'red',
                      'failed': 'red',
+                     'not tested': 'red',
+                     'not_tested': 'red',
+                     'pass': 'green',
+                     'passed': 'green',
+                     'progress': 'gray',
+                     'note': 'yellow',
                      'skip': 'blue',
                      'skipped': 'blue',
                      'tbd': 'blue',
-                     'pass': 'green',
-                     'passed': 'green',
-                     'exists': 'green',
-                     'waived': 'fuchsia',
-                     'control': 'gray',
-                     'checkbox': 'lime',
-                     'not implemented': 'orange',
+                     'test implemented': 'green',
+                     'test not implemented': 'red',
+                     'tested': 'green',
                      'unknown': 'gray',
-                     'progress': 'orange',
+                     'waived': 'red',
                      }.get(style.lower())
             if style:
                 style_line = ".. role:: %s" % style

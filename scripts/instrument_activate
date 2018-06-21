@@ -1,61 +1,48 @@
 #!/bin/bash
 # Automated instrument activation
 # Mpho Mphego
-
+set -x 
 if [ -z "$*" ];
-    then echo -e "Usage: $0 INSTRUMENT RESTART_CMC START_DSIM KATCP_HOST_IP CONF_PATH \n
+    then echo -e "Usage: $0 INSTRUMENT KATCP_HOST_IP ARRAY_NAME START_DSIM INSTRUMENT_OPS CONF_PATH \n
+
     INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)
-    RESTART_CMC: [y]/n
-    START_DSIM: [y]/n (If not restarted hosts will not be deprogrammed)
-    INSTRUMENT_OPTS: 1011 (Default) / Inststrument activate options, 1=enable, 0=disable [program, calibrate qdr, require synchronisation epoch, monitor vector accumulators]
-    KATCP_HOST_IP: localhost (Default) / IP
+    KATCP_HOST_IP: localhost (Default)/IP
+    ARRAY_NAME: array0 (Default)
+    START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)
+    INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
+                                     [program, configure, require synchronisation epoch, monitor vector accumulators]
     CONF_PATH: /etc/corr/templates/ (Default)"
     exit 1;
 fi
 
-export TERM=xterm
-PATH=/usr/local/sbin:/usr/local/bin:$PATH
+# Convert variable contents to lower case
+declare -l DSIM
 
-BLACK=$(tput setaf 0)
+export TERM=xterm
+PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
+KCPCMD=/usr/local/bin/kcpcmd
+
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
-YELLOW=$(tput setaf 3)
-LIME_YELLOW=$(tput setaf 190)
-POWDER_BLUE=$(tput setaf 153)
-BLUE=$(tput setaf 4)
-MAGENTA=$(tput setaf 5)
-CYAN=$(tput setaf 6)
-WHITE=$(tput setaf 7)
-BRIGHT=$(tput bold)
 NORMAL=$(tput sgr0)
-BLINK=$(tput blink)
-REVERSE=$(tput smso)
-UNDERLINE=$(tput smul)
 
-MACHINE=$(hostname)
 INSTRUMENT=$1
-RESTART_CMC=${2:-y}
-START_DSIM=${3:-y}
-INST_OPTS=${4:-1011}
-PROG=${INST_OPTS:0:1}
-CALQDR=${INST_OPTS:1:1}
-REPOCH=${INST_OPTS:2:1}
-MVACC=${INST_OPTS:3:1}
-MACHINE_IP=${5:-localhost}
+MACHINE=$(hostname)
+KATCP_HOST_IP=${2:-${MACHINE}}
+ARRAY_NAME=${3:-array0}
+START_DSIM=${4:-n}
+INSTRUMENT_OPTS=${5:-1110}
+PROG=${INSTRUMENT_OPTS:0:1}
+CONFIGURE=${INSTRUMENT_OPTS:1:1}
+REPOCH=${INSTRUMENT_OPTS:2:1}
+MVACC=${INSTRUMENT_OPTS:3:1}
+
 CONF_PATH=${6:-'/etc/corr/templates/'}
 CONF_PATH=${CONF_PATH}${INSTRUMENT}
+
 VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
 HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
 DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
-KCPCMD=/usr/local/bin/kcpcmd
-
-if [ $RESTART_CMC == y ]; then
-    sudo /etc/init.d/cmc stop
-    sleep 2
-    echo ''
-    sudo /etc/init.d/cmc start
-fi
-
 
 function repeatStr {
     input=$1
@@ -64,52 +51,66 @@ function repeatStr {
     echo "${myString// /$input }"
 }
 
-printf  "${GREEN}Initialisation ${INSTRUMENT} on ${MACHINE_IP} ${NORMAL}\n"
-let "NUM_INPUTS =  ($(grep source_names $CONF_PATH | grep -o , | wc -l)+1)/2"
+
+printf  "${GREEN}Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP} ${NORMAL}\n"
+let "NUM_INPUTS = ($(grep source_names ${CONF_PATH} | grep -o , | wc -l)+1)/2"
 ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
 
 printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
 
-export CORR2INI=$CONF_PATH;
-if [ $START_DSIM == y ]; then
-    printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
-    if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
-        then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
-    else
-        printf "${RED}Failed to deprogram ${NORMAL}\n\n";
-    fi
-    StopDMC="/usr/local/bin/stop-pseudo-dmc";
-    if [ -x "$(command -v $StopDMC)" ]; then
-        $StopDMC || $KCPCMD -t 30 -s localhost:9010 halt
-    fi
+export CORR2INI=${CONF_PATH};
+DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
+if [ ${START_DSIM} == y ]; then
+    #printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
+    #if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
+    #    then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
+    #else
+    #    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
+    #fi
 
-    sleep 5;
-    DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
-    /usr/local/bin/start-pseudo-dmc $DSIM;
-    printf '';
-    sleep 2;
-    /usr/local/bin/corr2_dsim_control.py --program --start --status;
+    while true; do
+        printf "${GREEN}Starting DEngine...${NORMAL}\n"
+        if [[ $DSIM = *"roach"* ]]; then
+            StopDMC="/usr/local/bin/stop-pseudo-dmc";
+            StartDMC="/usr/local/bin/start-pseudo-dmc";
+
+            if [ -x "$(command -v ${StopDMC})" ]; then
+                ${StopDMC} || ${KCPCMD} -t 30 -s localhost:9010 halt
+                sleep 10;
+            fi
+
+            if [ -x "$(command -v ${StartDMC})" ]; then
+                ${StartDMC} ${DSIM}
+                sleep 10;
+            fi
+        fi
+        corr2_dsim_control.py --loglevel INFO --program --start --zeros-sine --zeros-noise && break;
+    done;
+else
+    printf "${GREEN}Assuming DEngine is currently running...${NORMAL}\n"
 fi
-/usr/local/bin/corr2_dsim_control.py --zeros-sine --zeros-noise;
 
-printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n";
-while true;
-    do printf '';
-    $KCPCMD -t 31 -s ${MACHINE_IP}:7147 subordinate-halt array0  || true;
-    sleep 0.5;
-    ARRAY=$($KCPCMD -t 30 -s ${MACHINE_IP}:7147 subordinate-create array0 ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3);
-    printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n";
-    SYNC_EPOCH=$($KCPCMD -s ${MACHINE_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 6 -d' ');
-    SYNC_TIME=$(date -d @$SYNC_EPOCH)
-    printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n";
-    sleep 0.5;
-    $KCPCMD -t 500 -s $MACHINE_IP:$ARRAY instrument-activate $INSTRUMENT $PROG $CALQDR $REPOCH $MVACC && break;
-    sleep 2;
-done
-
+if [[ $DSIM = *"roach"* ]]; then
+    SYNC_EPOCH=$($KCPCMD -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
+else
+    SYNC_EPOCH=$(corr2_dsim_control.py --loglevel INFO --resync | grep ^Reset | cut -f7 -d ' ')
+fi
+SYNC_TIME=$(date -d @${SYNC_EPOCH})
+printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n"
 sleep 1;
-if [ $(echo ${MACHINE::4}) == 'cmc1' ]; then
-    printf "${GREEN} Copying config file over to CMC2 and CMC3${NORMAL}"
-    scp /etc/corr/array0-* ${USER}@10.103.254.3:/etc/corr
-    scp /etc/corr/array0-* ${USER}@10.103.254.6:/etc/corr
-fi
+
+printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n"
+${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME} || true
+# sleep 60
+ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
+printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n"
+${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} digitiser-synch-epoch ${SYNC_EPOCH}
+
+sleep 0.5;
+${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
+#sleep 2;
+
+#if [ $(echo ${MACHINE::4}) == "cmc3" ]; then
+#    printf "${GREEN} Copying config file over to CMC2${NORMAL}\n"
+#    scp /etc/corr/${ARRAY_NAME}-* ${USER}@10.103.254.3:/etc/corr
+#fi

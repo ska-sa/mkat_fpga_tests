@@ -10,7 +10,7 @@ from corr2.dsimhost_fpga import FpgaDsimHost
 import numpy as np
 from optparse import OptionParser
 
-LOGGER = logging.getLogger(__name__)
+#LOGGER = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     print 'Initialising correlator'
     correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
-    correlator.initialise(program=False)
+    #correlator.initialise(program=False)
 
     # Done during correlator init
     #for fpga in correlator.fhosts + correlator.xhosts:
@@ -48,6 +48,11 @@ if __name__ == "__main__":
     print 'correlator is running'
 
     f = correlator.fhosts[0]
+<<<<<<< HEAD
+    f.get_system_information(filename='/srv/bofs/feng/s_ct_2018-03-06_1933.fpg')
+=======
+    f.get_system_info(filename='/srv/bofs/feng/s_ct_2018-03-06_1933.fpg')
+>>>>>>> e50d8b5a914c570a2fa061f09a08356c0c9b320c
 
     try:
         #20ms in clock ticks
@@ -90,9 +95,9 @@ if __name__ == "__main__":
             ts_diff = fhost_end_ts-fhost_st_ts
             return ts_diff/loc_time_diff
         freq_ts_list = []
+        delay = opts.time_delta
+        print 'Estimating dsim clock frequency using direct register method with delay of {}'.format(delay)
         while True:
-            delay = opts.time_delta
-            print 'Estimating dsim clock frequency using direct register method with delay of {}'.format(delay)
             freq_ts = freq_get_ts(delay)
             freq_ts_list.append(freq_ts)
             print ('Frequency using get timestamp = {}'.format(freq_ts))

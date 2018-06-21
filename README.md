@@ -60,8 +60,7 @@ $ python run_cbf_tests.py --4A4k --no_slow
 The `python run_cbf_tests.py -h` script has several options. Please see `run_cbf_tests.py --help` for up-to-date detail.
 
 ```
-(Test)mmphego@dbelab04:~/src/mkat_fpga_tests (AR2-test-improvements)
-└─ [2017-09-08 14:57:47] $ >>> ./run_cbf_tests.py --help
+(Test)mmphego@dbelab04:~/src/mkat_fpga_tests$ ./run_cbf_tests.py 
 Usage: 
         Usage: run_cbf_tests.py [options]
         This script auto executes CBF Tests with selected arguments.
@@ -69,7 +68,8 @@ Usage:
 
 Options:
   -h, --help            show this help message and exit
-  -v, --verbose         Be more verbose
+  --loglevel=LOG_LEVEL  log level to use, default INFO, options INFO, DEBUG,
+                        WARNING, ERROR
   -q, --quiet           Be more quiet
   --nose=NOSE_ARGS      Additional arguments to pass on to nosetests.
                         eg: --nosetests "-x -s -v"
@@ -79,7 +79,7 @@ Options:
                         launch an instrument. eg:
                         ./run_cbf_tests.py -v --instrument-activate --4A4k
   --dry_run             Do a dry run. Print commands that would be called as
-                        well as generatetest procedures
+                        well as generate test procedures
   --available-tests     Do a dry run. Print all tests available
   --4A4k                Run the tests decorated with @instrument_bc8n856M4k
   --4A32k               Run the tests decorated with @instrument_bc8n856M32k
@@ -88,8 +88,11 @@ Options:
   --16A4k               Run the tests decorated with @instrument_bc32n856M4k
   --16A32k              Run the tests decorated with @instrument_bc32n856M32k
   --quick               Only generate a small subset of the reports
-  --no_html             Do not generate the html output
-  --with_pdf            Generate PDF report output
+  --with_html           Generate HTML report output
+  --QTP                 Generate PDF report output with Qualification Test
+                        Procedure
+  --QTR                 Generate PDF report output with Qualification Test
+                        Results
   --no_slow             Exclude tests decorated with @slow in this test run
   --report=REPORT       Only generate the reports. No tests will be run. Valid
                         options are: local, jenkins, skip and results.
@@ -109,6 +112,7 @@ Options:
 3. Whenever you find a bug, write a test case to cover it before fixing it
 4. Add edge-case tests to less critical code whenever someone has time to kil
 Credit: https://softwareengineering.stackexchange.com/a/754
+5. “Code is like humour. When you have to explain it, it’s bad.” – Cory House
 
 
 ## Contributors

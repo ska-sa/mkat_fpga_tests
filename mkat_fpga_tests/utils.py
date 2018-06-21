@@ -1,6 +1,8 @@
+# import threading
 import base64
 import contextlib
 import glob
+import pandas as pd
 import h5py
 import io
 import logging
@@ -8,18 +10,17 @@ import numpy as np
 import operator
 import os
 import pwd
-# import Queue
+import Queue
 import random
 import signal
-# import threading
+import subprocess
 import time
 import warnings
-import subprocess
+import struct
+import socket
 
 from collections import Mapping
-from concurrent.futures import TimeoutError
 from Crypto.Cipher import AES
-from getpass import getuser as getusername
 from inspect import currentframe
 from inspect import getframeinfo
 # MEMORY LEAKS DEBUGGING
@@ -36,6 +37,7 @@ except ImportError:
 
 from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
+from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 
 
@@ -43,10 +45,13 @@ from corr2.data_stream import StreamAddress
 LOGGER = logging.getLogger('mkat_fpga_tests')
 
 # Max range of the integers coming out of VACC
-VACC_FULL_RANGE = float(2 ** 31)
+VACC_FULL_RANGE = float(2**31)
 
 cam_timeout = 60
 
+# Define lambda functions to convert ip to int and back
+ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
+int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
 
 def complexise(input_data):
     """Convert input data shape (X,2) to complex shape (X)
@@ -138,30 +143,28 @@ def init_dsim_sources(dhost):
             try:
                 if sin_source.name != 'corr':
                     sin_source.set(repeat_n=0)
-            except NotImplementedError:
-                    LOGGER.exception('Failed to reset repeat on sin_%s' %sin_source.name)
-            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' %sin_source.name)
+                    assert sin_source.repeat == 0
+            except Exception:
+                    LOGGER.exception('Failed to reset repeat on sin_%s' % sin_source.name)
+            LOGGER.info('Digitiser simulator cw source %s reset to Zeros' % sin_source.name)
     except Exception:
-        LOGGER.error('Failed to reset sine sources on dhost.')
-        pass
+        LOGGER.exception('Failed to reset sine sources on dhost.')
 
     try:
         for noise_source in dhost.noise_sources:
             noise_source.set(scale=0)
             assert noise_source.scale == 0
-            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' %noise_source.name)
+            LOGGER.info('Digitiser simulator awg sources %s reset to Zeros' % noise_source.name)
     except Exception:
         LOGGER.error('Failed to reset noise sources on dhost.')
-        pass
 
     try:
         for output in dhost.outputs:
             output.select_output('signal')
             output.scale_output(1)
-            LOGGER.info('Digitiser simulator signal output %s selected.' %output.name)
+            LOGGER.info('Digitiser simulator signal output %s selected.' % output.name)
     except Exception:
         LOGGER.error('Failed to select output dhost.')
-        pass
 
 
 class CorrelatorFrequencyInfo(object):
@@ -336,13 +339,13 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
     """Get list of all the baselines present in the correlator output.
     Param:
         self: object
-    Return: dict:
+        Return: dict:
         baseline lookup with tuple of input label strings keys
         `(bl_label_A, bl_label_B)` and values bl_AB_ind, the index into the
         correlator dump's baselines
     """
     try:
-        bls_ordering = parameters(self)['bls_ordering']
+        bls_ordering = eval(self.cam_sensors.get_value('bls_ordering'))
         LOGGER.info('Retrieved bls ordering via CAM Interface')
     except Exception:
         bls_ordering = None
@@ -361,174 +364,83 @@ def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lo
         return baseline_lookup
 
 
-def clear_all_delays(self, num_int=25):
+def clear_all_delays(self):
     """Clears all delays on all fhosts.
     Param: object
-    Param: num_int: Number of intergrations for calculation time to apply delays and number of
-                    spead accumulation discards.
     Return: Boolean
     """
     try:
-        _parameters = parameters(self)
-        no_fengines = _parameters['no_fengines']
-        int_time = _parameters['int_time']
-        LOGGER.info('Retrieving test params via CAM Interface')
+        no_fengines = self.cam_sensors.get_value('n_fengs')
+        int_time = self.cam_sensors.get_value('int_time')
+        LOGGER.info('Retrieving test parameters via CAM Interface')
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
         LOGGER.exception('Retrieving number of fengines via corr object: %s' %no_fengines)
 
     delay_coefficients = ['0,0:0,0'] * no_fengines
-    _retries = 3
-    for _retry in range(_retries):
-        while True:
-            try:
-                dump = self.receiver.get_clean_dump()
-                dump_timestamp = dump['dump_timestamp']
-                t_apply = dump_timestamp + num_int * int_time
-                reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply,
-                                                                    *delay_coefficients)
-                errmsg = str(reply)
-                assert reply.reply_ok(), errmsg
-                LOGGER.info('[CBF-REQ-0110] Cleared delays via CAM int: %s' % str(reply))
-                dump = self.receiver.get_clean_dump(discard=num_int*2)
-                _max = int(np.max(np.angle(dump['xeng_raw'])))
-                _min = int(np.min(np.angle(dump['xeng_raw'])))
-                errmsg = 'Maximum/Minimum delays are not equal to zero ie not cleared'
-                assert _min ==_max == 0, errmsg
-                LOGGER.info('Delays cleared successfully.')
-                return True
-            except Exception as e:
-                LOGGER.error(errmsg)
-                LOGGER.exception('Failed to clear delays due to : %s, Max/Min delays found: %s/%s'%(
-                    str(e), np.max(np.angle(dump['xeng_raw'])), np.min(np.angle(dump['xeng_raw']))))
-                continue
-            break
-        if _retry == (_retries - 1):
-            return False
-
-
-def get_fftoverflow_qdrstatus(correlator):
-    """Get dict of all roaches present in the correlator
-    Param: Correlator object
-    Return: Dict:
-        Roach, QDR status, PFB counts
-    """
-    fhosts = {}
-    xhosts = {}
-    dicts = {'fhosts': {}, 'xhosts': {}}
-    fengs = correlator.fhosts
-    xengs = correlator.xhosts
-    for fhost in fengs:
-        fhosts[fhost.host] = {}
+    _retries = 10
+    errmsg = ''
+    while _retries:
+        _give_up = 40
+        _retries -= 1
         try:
-            fhosts[fhost.host]['QDR_okay'] = fhost.ct_okay()
-        except Exception:
-            return False
-        for pfb, value in fhost.registers.pfb_ctrs.read()['data'].iteritems():
-            fhosts[fhost.host][pfb] = value
-        for xhost in xengs:
-            xhosts[xhost.host] = {}
-            try:
-                xhosts[xhost.host]['QDR_okay'] = xhost.qdr_okay()
-            except Exception:
-                return False
-    dicts['fhosts'] = fhosts
-    dicts['xhosts'] = xhosts
-    return dicts
-
-
-def check_fftoverflow_qdrstatus(correlator, last_pfb_counts, status=False):
-    """Checks if FFT overflows and QDR status on roaches
-    Param: Correlator object, last known pfb counts
-    Return: list:
-        Roaches with QDR status errors
-    """
-    qdr_error_roaches = set()
-    try:
-        fftoverflow_qdrstatus = get_fftoverflow_qdrstatus(correlator)
-    except Exception:
-        return False
-    if fftoverflow_qdrstatus is not False:
-        curr_pfb_counts = get_pfb_counts(fftoverflow_qdrstatus['fhosts'].items())
-    else:
-        curr_pfb_counts = False
-    if curr_pfb_counts is not False:
-        for (curr_pfb_host, curr_pfb_value), (curr_pfb_host_x, last_pfb_value) in zip(
-                last_pfb_counts.items(), curr_pfb_counts.items()):
-            if curr_pfb_host is curr_pfb_host_x:
-                if curr_pfb_value != last_pfb_value:
-                    if status:
-                        Aqf.failed("PFB FFT overflow on {}".format(curr_pfb_host))
-
-        for hosts_status in fftoverflow_qdrstatus.values():
-            for host, _hosts_status in hosts_status.items():
-                if _hosts_status['QDR_okay'] is False:
-                    if status:
-                        Aqf.failed('QDR status on {} not Okay.'.format(host))
-                    qdr_error_roaches.add(host)
-
-        return list(qdr_error_roaches)
-
-def get_hosts_status(self, check_host_okay, list_sensor=None, engine_type=None, ):
-            LOGGER.info('Retrieving %s sensors for %s.' %(list_sensor, engine_type.upper()))
-            for _sensor in list_sensor:
+            dump = self.receiver.get_clean_dump()
+            deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+            discard = 0
+            while True:
+                dump = self.receiver.data_queue.get(timeout=10)
+                dump_timestamp = dump['dump_timestamp']
+                time_diff = np.abs(dump_timestamp - deng_timestamp)
+                if time_diff < 1:
+                    break
+                if discard > 10:
+                    raise AssertionError
+                discard += 1
+            errmsg = ('Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]' % (
+                dump_timestamp, deng_timestamp, time_diff))
+            t_apply = dump_timestamp + (20 * int_time)
+            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            errmsg = 'Delays command could not be executed in the given time'
+            assert reply.reply_ok(), errmsg
+            start_time = time.time()
+            end_time = 0
+            while True:
+                _give_up -= 1
                 try:
-                    _status_hosts = check_host_okay(self, engine=engine_type, sensor=_sensor)
-                    if _status_hosts is not (True or None):
-                        for _status in _status_hosts:
-                            LOGGER.error('Failed :%s\nFile: %s line: %s' %(_status,
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                except Exception as e:
-                    errmsg = 'Failed to verify if host is ok(%s) with error: %s' %(_sensor, str(e))
-                    LOGGER.exception(errmsg)
+                    LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    assert reply.reply_ok()
+                except Exception:
+                    LOGGER.exception("Weirdly I couldn't get the sensor values, fix it and figure it out")
+                else:
+                    delays_updated = list(set([int(i.arguments[-1]) for i in informs
+                                                if '.cd.delay' in i.arguments[2]]))[0]
+                    if delays_updated:
+                        LOGGER.info('Delays have been successfully set')
+                        end_time = time.time()
+                        break
+                if _give_up == 0:
+                    LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
+                    break
+            time_end = abs(end_time - start_time)
+            LOGGER.info('Time it took to set and confirm the delays %ss' % time_end)
+            dump = self.receiver.get_clean_dump(discard=10)
+            _max = int(np.max(np.angle(dump['xeng_raw'][:,33,:][5:-5])))
+            _min = int(np.min(np.angle(dump['xeng_raw'][:,0,:][5:-5])))
+            errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (_max, _min)
+            assert _min ==_max == 0, errmsg
+            LOGGER.info(
+                'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
+            return True
+        except AssertionError:
+            LOGGER.warning(errmsg)
+        except TypeError:
+            LOGGER.exception("Object has no attributes")
+            return False
+        except Exception:
+            LOGGER.exception(errmsg)
+    return False
 
-
-
-def check_host_okay(self, engine=None, sensor=None):
-    """
-    Function retrieves PFB, LRU, QDR, PHY and reorder status on all F/X-Engines via Cam interface.
-    :param: Object: self
-    :param: Str: F/X-engine
-    :param: Str: sensor
-    :rtype: Boolean or List
-    """
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=cam_timeout)
-        assert reply.reply_ok()
-    except Exception:
-        LOGGER.exception('Failed to retrieve sensor values via CAM interface.')
-        return None
-    else:
-        if engine == 'feng':
-            hosts = [_i.host.lower() for _i in self.correlator.fhosts]
-        elif engine == 'xeng':
-            hosts = [_i.host.lower() for _i in self.correlator.xhosts]
-        else:
-            LOGGER.error('Engine cannot be None')
-            return None
-
-        sensor_status = [[' '.join(i.arguments[2:]) for i in informs
-                         if i.arguments[2].endswith('ok') and not i.arguments[2].startswith('antenna')]
-                         for host in hosts]
-        _errors_list = []
-        for i in sensor_status:
-            try:
-                assert str(i[0].split()[-2]) == 'nominal'
-                return True
-            except AssertionError:
-                if sensor in i[0]:
-                    errmsg = '{} Failure/Error: {}'.format(sensor.upper(), i[0])
-                    LOGGER.error(errmsg)
-                    _errors_list.append(errmsg)
-            except IndexError:
-                LOGGER.fatal('The was an issue reading sensor-values via CAM interface, Investigate:'
-                             'File: %s line: %s' % (
-                                 getframeinfo(currentframe()).filename.split('/')[-1],
-                                 getframeinfo(currentframe()).lineno))
-                return None
-
-        return _errors_list
 
 
 def get_vacc_offset(xeng_raw):
@@ -558,7 +470,7 @@ def get_and_restore_initial_eqs(self):
         LOGGER.exception('Failed to retrieve gains via CAM int.')
         return
     else:
-        input_labels = parameters(self)['input_labels']
+        input_labels = self.cam_sensors.input_labels
         gain = reply.arguments[-1]
         initial_equalisations = {}
         for label in input_labels:
@@ -689,7 +601,7 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
     if set_fft_shift(self) is not True:
         LOGGER.error('Failed to set FFT-Shift via CAM interface')
 
-    sources = parameters(self)['input_labels']
+    sources = self.cam_sensors.input_labels
     source_gain_dict = dict(ChainMap(*[{i: '{}'.format(gain)} for i in sources]))
     try:
         LOGGER.info('Setting desired gain/eq via CAM interface.')
@@ -758,53 +670,37 @@ def get_delay_bounds(correlator):
     max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) *
                                 correlator.sample_rate_hz) / bitshift
     return {
-        'max_delay': max_delay,
-        'min_delay': min_delay,
-        'max_positive_delta_delay': max_positive_delta_delay,
-        'max_negative_delta_delay': max_negative_delta_delay,
-        'max_positive_phase_offset': max_positive_phase_offset,
-        'max_negative_phase_offset': max_negative_phase_offset,
-        'max_positive_delta_phase': max_positive_delta_phase,
-        'max_negative_delta_phase': max_negative_delta_phase
-    }
+            'max_delay_value': max_delay,
+            'min_delay_value': min_delay,
+            'max_delay_rate': max_positive_delta_delay,
+            'min_delay_rate': max_negative_delta_delay,
+            'max_phase_offset': max_positive_phase_offset,
+            'min_phase_offset': max_negative_phase_offset,
+            'max_phase_rate': max_positive_delta_phase,
+            'min_phase_rate': max_negative_delta_phase
+            }
 
 
-def disable_warnings_messages(spead2_warn=True, corr_warn=True, casperfpga_debug=True,
-                              plt_warn=True, np_warn=True, deprecated_warn=True, katcp_warn=True):
+def disable_warnings_messages():
     """This function disables all error warning messages
-    :param:
-        spead2 : Boolean
-        corr_rx : Boolean
-        plt : Boolean
-        np : Boolean
-        deprecated : Boolean
-    :rtype: None
     """
-    if spead2_warn:
-        logging.getLogger('spead2').setLevel(logging.ERROR)
-    if corr_warn:
-        logging.getLogger("corr2.corr_rx").setLevel(logging.FATAL)
-        logging.getLogger('corr2.digitiser_receiver').setLevel(logging.ERROR)
-        logging.getLogger('corr2.xhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('corr2.fhost_fpga').setLevel(logging.ERROR)
-        logging.getLogger('fxcorrelator_fengops').setLevel(logging.ERROR)
-        logging.getLogger('fhost_fpga').setLevel(logging.ERROR)
-    if casperfpga_debug:
-        logging.getLogger("casperfpga").setLevel(logging.FATAL)
-        logging.getLogger("casperfpga.katcp_fpga").setLevel(logging.FATAL)
-    if katcp_warn:
-        logging.getLogger('katcp').setLevel(logging.ERROR)
-        logging.getLogger('tornado.application').setLevel(logging.FATAL)
-    if plt_warn:
-        import matplotlib
-        warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
-    if np_warn:
-        # Ignoring all warnings raised when casting a complex dtype to a real dtype.
-        warnings.simplefilter("ignore", np.ComplexWarning)
-    if deprecated_warn:
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-        warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+    import matplotlib
+    warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+    # Ignoring all warnings raised when casting a complex dtype to a real dtype.
+    warnings.simplefilter("ignore", np.ComplexWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
+    ignored_loggers = [
+        "casperfpga", "casperfpga.casperfpga", "casperfpga.bitfield", "casperfpga.katcp_fpg",
+        "casperfpga.memory", "casperfpga.register", "casperfpga.transport_katcp",
+        "casperfpga.transort_skarab", "corr2.corr_rx", "corr2.fhost_fpga", "corr2.fhost_fpga",
+        "corr2.fxcorrelator_engops", "corr2.xhst_fpga", "katcp", "spead2", "tornado.application"
+        ]
+    # Ignore all loggings except Critical if any
+    for logger_name in ignored_loggers:
+        logging.getLogger(logger_name).setLevel(logging.CRITICAL)
+    logging.getLogger('nose.plugins.nosekatreport').setLevel(logging.INFO)
 
 class Text_Style(object):
     """Text manipulation"""
@@ -816,9 +712,6 @@ class Text_Style(object):
         self.GREEN = '\033[92m'
         self.YELLOW = '\033[93m'
         self.RED = '\033[91m'
-
-    def Bold(self, msg=None):
-        return (self.BOLD + msg + self.END)
 
     def Red(self, msg=None):
         return (self.RED + msg + self.END)
@@ -921,21 +814,6 @@ def restore_src_names(self):
         return False
 
 
-def deprogram_hosts(self, timeout=60):
-    """Function that de-programs F and X Engines
-    :param: Object
-    :rtype: None
-    """
-    try:
-        hosts = self.correlator.xhosts + self.correlator.fhosts
-        threaded_fpga_function(hosts, timeout, 'deprogram')
-        LOGGER.info('F/X-engines deprogrammed successfully .')
-        return True
-    except Exception:
-        LOGGER.error('Failed to de-program all connected hosts.')
-        return False
-
-
 def blindwrite(host):
     """Writes junk to host memory
     :param: host object
@@ -1035,19 +913,6 @@ def executed_by():
         Aqf.hop('Test ran by: Jenkins on system {} on {}.\n'.format(os.uname()[1].upper(),
                                                                     time.ctime()))
 
-def cbf_title_report(instrument):
-    """Automagiccaly edit Sphinx index.rst file with title + instrument"""
-
-    # Use file to refer to the file object
-    with io.open("index.rst", "r+") as file:
-        data = file.read()
-    title = data[data.find('yellow')+len('yellow'):data.find('==')]
-    data = data.replace(title, '\n\n\nCBF Qualification and Acceptance Reports (%s)\n'%instrument)
-    new_data = data
-
-    with io.open("index.rst", "w+") as file:
-        file.write(new_data)
-
 def encode_passwd(pw_encrypt, key=None):
     """This function encrypts a string with base64 algorithm
     :param: pw_encrypt: Str
@@ -1074,39 +939,6 @@ def decode_passwd(pw_decrypt, key=None):
         decoded = _cipher.decrypt(base64.b64decode(pw_decrypt))
         return decoded.strip()
 
-
-class GracefullInterruptHandler(object):
-    """
-    Control-C keyboard interrupt handler.
-    :param: Signal type
-    :rtype: None
-    """
-
-    def __init__(self, sig=signal.SIGINT):
-        self.sig = sig
-
-    def __enter__(self):
-        self.interrupted = False
-        self.released = False
-
-        self.original_handler = signal.getsignal(self.sig)
-
-        def handler(signum, frame):
-            self.release()
-            self.interrupted = True
-        signal.signal(self.sig, handler)
-        return self
-
-    def __exit__(self, type, value, to):
-        self.release()
-
-    def release(self):
-        if self.released:
-            return False
-        signal.signal(self.sig, self.original_handler)
-        self.released = True
-        return True
-
 def create_logs_directory(self):
     """
     Create custom `logs_instrument` directory on the test dir to store generated images
@@ -1120,201 +952,129 @@ def create_logs_directory(self):
         os.makedirs(path)
     return path
 
-def which_instrument(self, instrument):
-    """Get running instrument, and if not instrument is running return default
-    :param: str:- instrument e.g. bc8n856M4k
-    :rtype: str:- instrument
-    """
-    running_inst = self.corr_fix.get_running_instrument()
-    try:
-        assert running_inst is not False
-        _running_inst = running_inst
-    except AssertionError:
-        _running_inst = instrument
-    except AttributeError:
-        LOGGER.exception('Something horribly went wrong, Failed to retrieve running instrument. '
-                         'Returning default instrument %s'%instrument)
-        _running_inst = instrument
-    return _running_inst
 
-def parameters(self):
-    """
-    Get all parameters you need to calculate dump time stamp or related.
-    param: self: object
-    param: spead: xeng_raw
-    rtype: dict : int time, scale factor timestamp, sync time, n accs, and etc
-    """
-    LOGGER.info("Getting all parameters needed to calculate dump time stamp and etc via CAM int.")
-    _errmsg = ('Timed out when retrieving capture lists, using default capture as: '
-               'baseline_correlation_products')
-    # Default output product for instrument.
-    output_product_ = 'baseline_correlation_products'
-    with RunTestWithTimeout(cam_timeout, _errmsg):
+class GetSensors(object):
+    """Easily get sensor values without much work"""
+    def __init__(self, corr_fix):
+        self.req = corr_fix.katcp_rct.req
+        self.sensors = corr_fix.katcp_rct.sensor
+
+    def get_value(self, _name):
+        """
+        Get sensor Value(s)
+
+        Parameters
+        ----------
+        str: sensor name e.g. n_bls
+
+        Return
+        ---------
+        List or Str or None: sensor value"""
+        if any(_name in s for s in dir(self.sensors)):
+            _attribute = [s for s in dir(self.sensors) if _name in s][0]
+            return getattr(self.sensors, _attribute).get_value()
+
+    @property
+    def input_labels(self):
+        """
+        Simplified input labels(s)
+
+        Return
+        ---------
+        List: simplified input labels
+        """
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.capture_list(timeout=cam_timeout)
-            assert reply.reply_ok()
-            output_product = [i.arguments[0] for i in informs if
-                self.correlator.configd['xengine']['output_products'] in i.arguments][0]
-            output_product_ = output_product.lower().replace('-', '_')
-            beam0_output_product = [i.arguments[0] for i in informs if
-                self.correlator.configd['beam0']['output_products'] in i.arguments][0]
-            beam1_output_product = [i.arguments[0] for i in informs if
-                self.correlator.configd['beam1']['output_products'] in i.arguments][0]
-        except KeyError:
-            msg = 'Instrument does not contain beamforming capabilities'
-            LOGGER.info(msg)
-            beam0_output_product = beam1_output_product = None
-        except Exception as e:
-            msg = 'Failed to retrieve output products: %s'%str(e)
-            LOGGER.exception(msg)
+            input_labelling = eval(self.sensors.input_labelling.get_value())
+            input_labels = [x[0] for x in [list(i) for i in input_labelling]]
+        except Exception:
+            input_labels = str(self.req.input_labels()).split()[2:]
+        return input_labels
 
-    katcp_rct = self.corr_fix.katcp_rct.sensor
-    try:
-        int_time = getattr(katcp_rct, '{}_int_time'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve integration time via CAM int')
-        int_time = None
+    @property
+    def custom_input_labels(self):
+        """
+        Simplified custom input labels(s)
 
-    try:
-        scale_factor_timestamp = katcp_rct.scale_factor_timestamp.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve scale_factor_timestamp via CAM int')
-        scale_factor_timestamp = None
+        Return
+        ---------
+        List: simplified custom input labels
+        """
+        n_ants = int(self.get_value('n_ants'))
+        return ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
 
-    try:
-        synch_epoch = katcp_rct.sync_time.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve synch_epoch via CAM int')
-        synch_epoch = None
+    @property
+    def ch_center_freqs(self):
+        """
+        Calculates the center frequencies of all channels.
+        First channel center frequency is 0.
+        Second element can be used as the channel bandwidth
 
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.sensor_value()
-        n_accs = [i.arguments[2::2] for i in informs if 'accs' in i.arguments[2]][0][-1]
-        n_accs = float(n_accs)
-    except Exception:
-        LOGGER.exception('Failed to retrieve n_accs via CAM int')
-        n_accs = None
+        Return
+        ---------
+        List: channel center frequencies
+        """
+        n_chans = float(self.get_value('n_chans'))
+        bandwidth = float(self.get_value('bandwidth'))
+        ch_bandwidth = bandwidth / n_chans
+        f_start = 0. # Center freq of the first channel
+        return f_start + np.arange(n_chans) * ch_bandwidth
 
-    try:
-        bandwidth = katcp_rct.bandwidth.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve bandwidth via CAM int.')
-        bandwidth = None
+    @property
+    def sample_period(self):
+        """
+        Get sample rate and return sample period
+        """
+        return 1/float(self.get_value('adc_sample_rate'))
 
-    try:
-        bls_ordering = eval(getattr(katcp_rct, '{}_bls_ordering'.format(output_product_)).get_value())
-    except Exception:
-        LOGGER.exception('Failed to retrieve bls_ordering via CAM int.')
-        bls_ordering = None
+    @property
+    def fft_period(self):
+        """
+        Get FFT Period
+        """
+        return self.sample_period * 2 * float(self.get_value('n_chans'))
 
-    try:
-        input_labelling = eval(katcp_rct.input_labelling.get_value())
-        input_labels = [x[0] for x in [list(i) for i in input_labelling]]
-    except Exception:
-        LOGGER.exception('Failed to retrieve input labels via CAM int.')
-        reply, informs = self.corr_fix.katcp_rct.req.input_labels()
-        if reply.reply_ok():
-            input_labels = reply.arguments[1:]
+    @property
+    def delta_f(self):
+        """
+        Get Correlator bandwidth
+        """
+        return float(self.get_value('bandwidth')/(self.get_value('n_chans') - 1))
 
-    try:
-        clock_rate = getattr(katcp_rct, '{}_clock_rate'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve clock_rate via CAM int.')
-        clock_rate = None
+    def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
+        """Calculate frequency points to sweep over a test channel.
 
-    try:
-        destination = getattr(katcp_rct, '{}_destination'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve destination via CAM int.')
-        destination = None
+        Parameters
+        =========
+        chan : int
+           Channel number around which to place frequency samples
+        samples_per_chan: int
+           Number of frequency points per channel
+        chans_around: int
+           Number of channels to include around the test channel. I.e. value 1 will
+           include one extra channel above and one below the test channel.
 
-    try:
-        n_bls = getattr(katcp_rct, '{}_n_bls'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve n_bls via CAM int.')
-        n_bls = None
+        Will put frequency sample on channel boundary if 2 or more points per channel are
+        requested, and if will place a point in the centre of the channel if an odd number
+        of points are specified.
 
-    try:
-        n_chans = getattr(katcp_rct, '{}_n_chans'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve n_chans via CAM int.')
-        n_chans = None
+        """
+        assert samples_per_chan > 0
+        assert chans_around > 0
+        assert 0 <= chan < self.get_value('n_chans')
+        assert 0 <= chan + chans_around < self.get_value('n_chans')
+        assert 0 <= chan - chans_around < self.get_value('n_chans')
 
-    try:
-        xeng_acc_len = getattr(katcp_rct, '{}_xeng_acc_len'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve xeng_acc_len via CAM int.')
-        xeng_acc_len = None
+        start_chan = chan - chans_around
+        end_chan = chan + chans_around
+        if samples_per_chan == 1:
+            return self.ch_center_freqs[start_chan:end_chan + 1]
+        start_freq = self.ch_center_freqs[start_chan] - self.delta_f / 2
+        end_freq = self.ch_center_freqs[end_chan] + self.delta_f / 2
+        sample_spacing = self.delta_f / (samples_per_chan - 1)
+        num_samples = int(np.round((end_freq - start_freq) / sample_spacing)) + 1
+        return np.linspace(start_freq, end_freq, num_samples)
 
-    try:
-        xeng_out_bits_per_sample = getattr(
-            katcp_rct, '{}_xeng_out_bits_per_sample'.format(output_product_)).get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve xeng_out_bits_per_sample via CAM int.')
-        xeng_out_bits_per_sample = None
 
-    try:
-        no_fengines = katcp_rct.n_fengs.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of fengines via CAM int.')
-        no_fengines = None
-
-    try:
-        no_xengines = katcp_rct.n_xengs.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
-        no_xengines = None
-
-    try:
-        adc_sample_rate = katcp_rct.adc_sample_rate.get_value()
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
-        adc_sample_rate = None
-
-    try:
-        n_ants = int(katcp_rct.n_ants.get_value())
-        custom_src_names = ['inp0{:02d}_{}'.format(x, i) for x in xrange(n_ants) for i in 'xy']
-    except Exception:
-        LOGGER.exception('Failed to retrieve no of xengines via CAM int.')
-        n_ants = None
-        custom_src_names = None
-    try:
-        network_latency = self.corr_fix.katcp_rct.MAX_LOOP_LATENCY
-    except Exception:
-        LOGGER.exception('Failed to retrieve network latency')
-        network_latency = None
-    try:
-        katcp_host, katcp_port = self.corr_fix.katcp_rct.address
-    except Exception:
-        LOGGER.exception('Failed not connected to katcp')
-        katcp_host, katcp_port = [0]*2
-
-    return {
-        'adc_sample_rate': adc_sample_rate,
-        'bandwidth': bandwidth,
-        'beam0_output_product': beam0_output_product,
-        'beam1_output_product': beam1_output_product,
-        'bls_ordering': bls_ordering,
-        'clock_rate': clock_rate,
-        'custom_src_names': custom_src_names,
-        'destination': destination,
-        'input_labelling': input_labelling,
-        'input_labels': input_labels,
-        'int_time': int_time,
-        'katcp_host': katcp_host,
-        'katcp_port': katcp_port,
-        'n_accs': n_accs,
-        'n_ants': n_ants,
-        'n_bls': n_bls,
-        'n_chans': n_chans,
-        'network_latency': network_latency,
-        'no_fengines': no_fengines,
-        'no_xengines': no_xengines,
-        'output_product': output_product,
-        'scale_factor_timestamp': scale_factor_timestamp,
-        'synch_epoch': synch_epoch,
-        'xeng_acc_len': xeng_acc_len,
-        'xeng_out_bits_per_sample': xeng_out_bits_per_sample,}
 
 def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=4096,
                               ticks_between_spectra=8192, channels_per_heap=256, spectra_per_heap=256):
@@ -1325,36 +1085,28 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
         False if katsdpingest docer not started
         True if katsdpingest docker started
     """
+    user_id = pwd.getpwuid(os.getuid()).pw_uid
+    cmd = ['docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
+           '/ramdisk:/ramdisk', 'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
+           'bf_ingest.py', '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
+           '--channels={}'.format(channels), '--ticks-between-spectra={}'.format(ticks_between_spectra),
+           '--channels-per-heap={}'.format(channels_per_heap), '--spectra-per-heap={}'.format(
+            spectra_per_heap), '--file-base=/ramdisk', '--log-level=DEBUG']
+
     stop_katsdpingest_docker(self)
     try:
-        user_id = pwd.getpwuid(os.getuid()).pw_uid
-        output = subprocess.check_output([
-                     'docker',
-                     'run',
-                     '-u',
-                     '{}'.format(user_id),
-                     '-d',
-                     '--net=host',
-                     '-v',
-                     '/ramdisk:/ramdisk',
-                     'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
-                     'bf_ingest.py',
-                     '--cbf-spead={}+{}:{} '.format(beam_ip, partitions-1,beam_port),
-                     '--channels={}'.format(channels),
-                     '--ticks-between-spectra={}'.format(ticks_between_spectra),
-                     '--channels-per-heap={}'.format(channels_per_heap),
-                     '--spectra-per-heap={}'.format(spectra_per_heap),
-                     '--file-base=/ramdisk',
-                     '--log-level=DEBUG'])
+        LOGGER.info('Executing docker command to run KAT SDP injest node')
+        output = subprocess.check_output(cmd)
     except subprocess.CalledProcessError:
         errmsg = ('Could not start sdp-docker-registry container, '
                   'ensure SDP Ingest image has been built successfully')
         Aqf.failed(errmsg)
         LOGGER.exception(errmsg)
         return False
+
     time.sleep(5)
     try:
-        output = subprocess.check_output(['docker','ps'])
+        output = subprocess.check_output(['docker', 'ps'])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1384,7 +1136,7 @@ def stop_katsdpingest_docker(self):
     if sdp_instance:
         for idx in sdp_instance:
             try:
-                kill_output = subprocess.check_output(['docker','kill',output[idx-1]])
+                kill_output = subprocess.check_output(['docker', 'kill', output[idx-1]])
             except subprocess.CalledProcessError:
                 errmsg = 'Could not kill sdp-docker-registry container'
                 Aqf.failed(errmsg)
@@ -1401,7 +1153,7 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_time=0.1):
     """ Capture beamformer data
 
     Parameters
@@ -1411,10 +1163,9 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
     beam_dict:
         Dictionary containing input:weight key pairs e.g.
         beam_dict = {'m000_x': 1.0, 'm000_y': 1.0}
-    target_pb:
-        Target passband in Hz
-    target_cfreq:
-        Target center frequency in Hz
+        If beam_dict = None weights will not be set
+    ingest_kcp_client:
+        katcp client for ingest node, if None one will be created.
     capture_time:
         Number of seconds to capture beam data
 
@@ -1430,113 +1181,103 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
 
     """
     beamdata_dir = '/ramdisk'
-    _timeout = 60
-    if os.uname()[1] == 'cmc2':
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
-    elif os.uname()[1] == 'cmc3':
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
-    else:
-        ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+    _timeout = 10
 
-    ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
-
-    dsim_clk_factor = 1.712e9 / self.corr_freqs.sample_freq
-    Aqf.step('Configure beam %s passband and set to desired center frequency(%s).'%(beam,
-        target_cfreq))
-    try:
-        reply, informs = self.corr_fix.katcp_rct.req.beam_passband(beam, target_pb, target_cfreq)
-        assert reply.reply_ok()
-    except AssertionError:
-        Aqf.failed('Beam passband not successfully set (requested cf = {}, pb = {}): {}'.format(
-            target_cfreq, target_pb, reply.arguments))
-        return
-    else:
-        pb = float(reply.arguments[2]) * dsim_clk_factor
-        cf = float(reply.arguments[3]) * dsim_clk_factor
-        Aqf.progress('Beam {} passband set to {} at center frequency {}'.format(
-            reply.arguments[1], pb, cf))
+    import katcp
+    # Create a katcp client to connect to katcpingest if one not specified
+    if ingest_kcp_client == None:
+        if os.uname()[1] == 'cmc2':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
+        elif os.uname()[1] == 'cmc3':
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc3']
+        else:
+            ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node']
+        ingst_nd_p = self.corr_fix._test_config_file['beamformer']['ingest_node_port']
+        try:
+            ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
+            ingest_kcp_client.setDaemon(True)
+            ingest_kcp_client.start()
+            self.addCleanup(ingest_kcp_client.stop)
+            is_connected = ingest_kcp_client.wait_connected(_timeout)
+            if not is_connected:
+                errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
+                ingest_kcp_client.stop()
+                raise RuntimeError(errmsg)
+        except Exception as e:
+            LOGGER.exception(str(e))
+            Aqf.failed(str(e))
 
     # Build new dictionary with only the requested beam keys:value pairs
     in_wgts = {}
     beam_pol = beam[-1]
-    for key in beam_dict:
-        if key.find(beam_pol) != -1:
-            in_wgts[key] = beam_dict[key]
+    if beam_dict:
+        for key in beam_dict:
+            if key.find(beam_pol) != -1:
+                in_wgts[key] = beam_dict[key]
 
-    for key in in_wgts:
-        Aqf.step('Confirm that the Input {} weight has been set to the desired weight.'.format(
-            key))
-        try:
-            reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
-            assert reply.reply_ok()
-        except AssertionError:
-            Aqf.failed('Beam weights not successfully set')
-        except Exception as e:
-            errmsg = 'Test failed due to %s'%str(e)
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
-        else:
-            Aqf.passed('Antenna input {} weight set to {}\n'.format(key, reply.arguments[1]))
-
-    try:
-        import katcp
-        kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
-        kcp_client.setDaemon(True)
-        kcp_client.start()
-        self.addCleanup(kcp_client.stop)
-        is_connected = kcp_client.wait_connected(_timeout)
-        if not is_connected:
-            errmsg = 'Could not connect to %s:%s, timed out.' %(ingst_nd, ingst_nd_p)
-            kcp_client.stop()
-            raise RuntimeError(errmsg)
-        LOGGER.info('Issue a beam data capture-initialisation cmd and issue metadata via CAM int')
-        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-init'),
-            timeout=_timeout)
-        errmsg = 'Failed to issues capture-init on %s:%s'%(ingst_nd, ingst_nd_p)
-        assert reply.reply_ok(), errmsg
-    except Exception:
-        LOGGER.exception(errmsg)
-        Aqf.failed(errmsg)
-
+        # Replace beam_dict with in_wgts as this is a bug hack
+        Aqf.step('Setting input weights, this may take a long time, check log output for progress...')
+        print_list = ''
+        for key in in_wgts:
+            LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+                key))
+            try:
+                reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, key, in_wgts[key])
+                assert reply.reply_ok()
+            except AssertionError:
+                Aqf.failed('Beam weights not successfully set: {}'.format(reply))
+            except Exception as e:
+                errmsg = 'Test failed due to %s'%str(e)
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+            else:
+                LOGGER.info('Antenna input {} weight set to {}'.format(key, reply.arguments[1]))
+                print_list += ('{}:{}, '.format(key,reply.arguments[1]))
+                in_wgts[key] = float(reply.arguments[1])
+        Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
     try:
+        LOGGER.info('Issue {} capture start via CAM int'.format(beam))
         for i in xrange(2):
             reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
         errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
         assert reply.reply_ok(), errmsg
         reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+        errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam,str(reply))
+        assert reply.reply_ok(), errmsg
     except AssertionError:
         errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
         Aqf.failed(errmsg)
-    else:
-        LOGGER.info('Capture-init successfully issued on %s and Data transmission for '
-                    'beam %s started'%(ingst_nd, beam))
-    Aqf.wait(capture_time, 'Capturing beam data for ')
     try:
-        LOGGER.info('Issue data capture stop via CAM int')
-        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
-        assert reply.reply_ok()
-    except AssertionError:
-        errmsg = 'Failed to stop Data transmission.'
-        Aqf.failed(errmsg)
-        LOGGER.exception(errmsg)
-
-    try:
-        if not is_connected:
-            kcp_client.stop()
-            raise RuntimeError('Could not connect to corr2_servlet, timed out.')
-
-        reply, informs = kcp_client.blocking_request(katcp.Message.request('capture-done'),
+        LOGGER.info('Issue ingest node capture-init.')
+        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
             timeout=_timeout)
-        assert reply.reply_ok()
+        errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
+    except Exception as e:
+        print e
+        LOGGER.exception(e)
+        LOGGER.exception(errmsg)
+        Aqf.failed(errmsg)
+    LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
+    time.sleep(capture_time)
+    try:
+        LOGGER.info('Issue ingest node capture-done.')
+        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-done'),
+            timeout=_timeout)
+        errmsg = 'Failed to issues ingest node capture-done: {}'.format(str(reply))
+        assert reply.reply_ok(), errmsg
     except Exception:
-        errmsg = ('Failed to issue capture-done kcpcmd command on %s:%s' % (ingst_nd, ingst_nd_p))
         Aqf.failed(errmsg)
         LOGGER.error(errmsg)
-        return
-    else:
-        LOGGER.info('Data capture-done issued on %s and Data transmission for beam %s stopped.'%(
-            ingst_nd, beam))
+    try:
+        LOGGER.info('Issue {} capture stop via CAM int'.format(beam))
+        reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+        errmsg = 'Failed to issue capture_stop for beam {}: {}'.format(beam,str(reply))
+        assert reply.reply_ok(), errmsg
+    except AssertionError:
+        Aqf.failed(errmsg)
+        LOGGER.exception(errmsg)
 
     try:
         LOGGER.info('Getting latest beam data captured in %s'%beamdata_dir)
@@ -1547,26 +1288,27 @@ def capture_beam_data(self, beam, beam_dict, target_pb, target_cfreq, capture_ti
         Aqf.failed('Failed to get the latest beamformer data: %s'%str(e))
         return
     else:
-        Aqf.progress('Reading h5py data file(%s)[%s] and extracting the beam data.\n'%(newest_f,
+        LOGGER.info('Reading h5py data file(%s)[%s] and extracting the beam data.\n'%(newest_f,
             newest_f_timestamp))
         with h5py.File(newest_f, 'r') as fin:
             data = fin['Data'].values()
             for element in data:
-                if element.name.find('captured_timestamps') > -1:
-                    cap_ts = np.array(element.value)
-                elif element.name.find('bf_raw') > -1:
+                # if element.name.find('captured_timestamps') > -1:
+                #     cap_ts = np.array(element.value)
+                if element.name.find('bf_raw') > -1:
                     bf_raw = np.array(element.value)
                 elif element.name.find('timestamps') > -1:
                     bf_ts = np.array(element.value)
                 elif element.name.find('flags') > -1:
                     bf_flags = np.array(element.value)
         os.remove(newest_f)
-        return bf_raw, bf_flags, bf_ts, in_wgts, pb, cf
+        return bf_raw, bf_flags, bf_ts, in_wgts
 
 def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
     """
         If num_wgts_to_set = -1 all inputs will be set
     """
+    beam_dict = dict.fromkeys(beam_dict, 0)
     ctr = 0
     for key in beam_dict:
         if ctr < num_wgts_to_set or num_wgts_to_set == -1:
@@ -1574,20 +1316,30 @@ def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
             ctr += 1
     return beam_dict
 
+def populate_beam_dict_idx(self, index, value, beam_dict):
+    """
+        Set specified beam index to weight, all other values to 0
+    """
+    for key in beam_dict:
+        key_idx = int(filter(str.isdigit, key))
+        if key_idx == index:
+            beam_dict[key] = value
+        else:
+            beam_dict[key] = 0
+    return beam_dict
+
 def set_beam_quant_gain(self, beam, gain):
     try:
         reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(beam, gain)
-        if reply.reply_ok():
-            actual_beam_gain = float(reply.arguments[1])
-            msg = ('[CBF-REQ-0117] Requested beamformer level adjust gain of {:.2f}, '
-                   'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
-            Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
-        else:
-            raise Exception
+        assert reply.reply_ok()
+        actual_beam_gain = float(reply.arguments[1])
+        msg = ('Requested beamformer level adjust gain of {:.2f}, '
+               'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
+        Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
+        return actual_beam_gain
     except Exception, e:
         Aqf.failed('Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
         return 0
-    return actual_beam_gain
 
 
 class DictEval(object):
@@ -1597,3 +1349,130 @@ class DictEval(object):
     # Alt use (Not ideal): locals().update(adict)
     def __init__(self, adict):
         self.__dict__.update(adict)
+
+
+def FPGA_Connect(hosts, _timeout=30):
+    """Utility to connect to hosts via Casperfpga"""
+    fpgas = False
+    retry = 10
+    while not fpgas:
+        try:
+            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout)
+        except RuntimeError:
+            retry -= 1
+            if retry == 0:
+                errmsg = 'ERROR: Could not connect to SKARABs'
+                return False
+    return fpgas
+
+def get_clean_dump(self):
+    retries=20
+    while retries:
+        retries -= 1
+        try:
+            dump = self.receiver.get_clean_dump(discard=3)
+            dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+            errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
+            assert isinstance(dump, dict), errmsg
+            discard = 0
+            while True:
+                dump = self.receiver.data_queue.get(timeout=10)
+                assert isinstance(dump, dict), errmsg
+                dump_timestamp = dump['dump_timestamp']
+                time_diff = np.abs(dump_timestamp - dhost_timestamp)
+                if time_diff < 1:
+                    msg = ('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)'
+                           ' [diff: %s] within %s retries and discarded %s dumps' % (dump_timestamp,
+                            dhost_timestamp, time_diff, retries, discard))
+                    LOGGER.info(msg)
+                    break
+                else:
+                    msg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
+                                dump_timestamp, dhost_timestamp, time_diff))
+                    LOGGER.info(msg)
+                if discard > 10:
+                    errmsg = 'Could not retrieve clean queued SPEAD accumulation.'
+                    raise AssertionError, errmsg
+                discard += 1
+
+        except AssertionError:
+            LOGGER.warning(errmsg)
+        except Queue.Empty:
+            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+            LOGGER.exception(errmsg)
+            if retries < 15:
+                LOGGER.exception('Exiting brutally with no Accumulation')
+                return False
+        else:
+            return dump
+
+
+class CSV_Reader(object):
+    """
+    Manual Tests CSV reader
+
+    Parameters
+    ---------
+        csv_filename: str, Valid path to csv file/url
+        set_index: str, If you want to change the index, set name
+    Returns
+    -------
+        result: Pandas DataFrame
+    """
+    def __init__(self, csv_filename, set_index=None):
+        self.csv_filename = csv_filename
+        self.set_index = set_index
+
+    @property
+    def load_csv(self):
+        """
+        Load csv file
+
+        Parameters
+        ----------
+            object
+
+        Returns
+        -------
+            result: Pandas DataFrame
+        """
+        try:
+            assert self.csv_filename
+            df = pd.read_csv(self.csv_filename)
+            df = df.replace(np.nan, "TBD", regex=True)
+            df = df.fillna(method='ffill')
+        except:
+            return False
+        else:
+            return df.set_index(self.set_index) if self.set_index else df
+
+    def csv_to_dict(self, ve_number=None):
+        """
+        CSV contents to Dict
+
+        Parameters
+        ----------
+            ve_number: Verification Event Number e.g. CBF.V.1.11
+
+        Returns
+        -------
+        result: dict
+        """
+        return dict(self.load_csv.loc[ve_number]) if ve_number else None
+
+def Report_Images(image_list, caption=''):
+    """Add an image to the report
+
+    Parameters
+    ----------
+    image_list : list
+        list of names of the image files.
+    caption : list
+        List of caption text to go with the image
+
+    Note a copy of the file will be made, and the test name as well as step number
+    will be prepended to filename to ensure that it is unique
+    """
+    for image in image_list:
+        LOGGER.info('Adding image to report: %s' % image)
+        Aqf.image(image, caption)

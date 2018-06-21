@@ -1,0 +1,51 @@
+% Author: M.Mphego; based on template by M. Welz and A. Pinska
+\documentclass[11pt,english,twoside]{article}
+\usepackage{katdoc}
+\usepackage{graphicx}
+
+% Static fields
+\newcommand{\docClient}{National Research Foundation (NRF)}
+\newcommand{\docProject}{MeerKAT}
+\newcommand{\docCopyright}{\copyright SKA SA}
+\newcommand{\docClassification}{Company Confidential}
+
+\newcommand{\docType}{QTR: Qualification Test Report}
+\newcommand{\docId}{M1200-0000-055-1}
+\newcommand{\docRevision}{1.0}
+\newcommand{\docDate}{\today}
+
+
+% Format: \addcontributor{Role}{Name}{Designation}{Affiliation}{Date}
+\newcommand{\docApproval}{
+    \addcontributor{Submitted by}{T. van Balla}{CBF System Engineer}{SKA SA}{}
+    \addcontributor{Approved by}{J. Manley}{CBF Technical Lead}{SKA SA}{}
+    \addcontributor{Accepted by}{T. Abbott}{MeerKAT System Engineer}{SKA SA}{}
+    }
+
+% Format: \addcontributor{Role}{Name}{Designation}{Affiliation}{Date}
+\newcommand{\docPerform}{
+    \addcontributor{Performed by}{M. Mphego}{Test \& Verification Engineer}{SKA SA}{}
+    \addcontributor{Witnessed by}{T. van Balla}{CBF System Engineer}{SKA SA}{}
+    }
+
+% Format: \addchange{Revision}{Date}{ECN}{Comments}
+\newcommand{\docHistory}{
+    \addchange{1.0}{\today}{N/A}{Initial Version}
+    \addchange{}{}{}{}
+    \addchange{}{}{}{}
+    }
+% Format: \addprogram{Role}{Package}{Version}
+\newcommand{\docSoftware}{
+    \addprogram{Text processor}{\LaTeX}{3.141592-1.40.3 (Web2C 7.5.6)}{}
+    \addprogram{Editor}{sublime text}{3.0 (Build 3143)}{}
+    \addprogram{RTF Generation}{CORE}{8.0 (SP 6)}{MeerKAT.xml}
+    }
+\renewcommand{\floatpagefraction}{0.8}
+
+
+\author{T. van Balla}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\title{MeerKAT Correlator-Beamformer Array Release 3  (bc8n856M4k) Qualification Test Report}
+\makekatdocbeginning
+\end{document}
