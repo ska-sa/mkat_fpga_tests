@@ -224,6 +224,7 @@ class test_CBF(unittest.TestCase):
                 data_output_port, start_channels, stop_channels))
             Aqf.note('Configuring SPEAD receiver to capture %s channels from %s to %s.' % (
                 stop_channels - start_channels + 1, start_channels, stop_channels))
+            import IPython; globals().update(locals()); IPython.embed(header='Python Debugger')
             self.receiver = CorrRx(product_name=output_product, katcp_ip=katcp_ip,
                                    katcp_port=katcp_port, port=data_output_port, channels=(start_channels,
                                                                                            stop_channels))

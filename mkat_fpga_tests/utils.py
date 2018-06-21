@@ -2,22 +2,23 @@
 import base64
 import contextlib
 import glob
-import pandas as pd
 import h5py
 import io
+import katcp
 import logging
 import numpy as np
 import operator
 import os
+import pandas as pd
 import pwd
 import Queue
 import random
 import signal
+import socket
+import struct
 import subprocess
 import time
 import warnings
-import struct
-import socket
 
 from collections import Mapping
 from Crypto.Cipher import AES
@@ -842,27 +843,6 @@ def restore_src_names(self):
         LOGGER.exception('Failed to restore CBF source names back to default.')
         return False
 
-
-def blindwrite(host):
-    """Writes junk to host memory
-    :param: host object
-    :rtype: Boolean
-    """
-    junk_msg = ('0x' + ''.join(x.encode('hex')
-                               for x in 'oidhsdvwsfvbgrfbsdceijfp3ioejfg'))
-    try:
-        for i in xrange(1000):
-            host.blindwrite('qdr0_memory', junk_msg)
-            host.blindwrite('qdr1_memory', junk_msg)
-        LOGGER.info('Wrote junk chars to QDR\'s memory on host: %s.' %
-                    host.host)
-        return True
-    except:
-        LOGGER.error(
-            'Failed to write junk chars to QDR\'s memory on host: %s.' % host.host)
-        return False
-
-
 def human_readable_ip(hex_ip):
     hex_ip = hex_ip[2:]
     return '.'.join([str(int(x + y, 16)) for x, y in zip(hex_ip[::2], hex_ip[1::2])])
@@ -1226,7 +1206,6 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
     beamdata_dir = '/ramdisk'
     _timeout = 10
 
-    import katcp
     # Create a katcp client to connect to katcpingest if one not specified
     if ingest_kcp_client == None:
         if os.uname()[1] == 'cmc2':
@@ -1432,6 +1411,7 @@ def get_clean_dump(self):
         retries -= 1
         try:
             dump = self.receiver.get_clean_dump(discard=3)
+            assert hasattr(self.dhost.registers, 'sys_clkcounter'), "Dhost is broken, missing sys_clkcounter"
             dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
             errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
             assert isinstance(dump, dict), errmsg
@@ -1442,9 +1422,10 @@ def get_clean_dump(self):
                 dump_timestamp = dump['dump_timestamp']
                 time_diff = np.abs(dump_timestamp - dhost_timestamp)
                 if time_diff < 1:
-                    msg = ('Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)'
-                           ' [diff: %s] within %s retries and discarded %s dumps' % (dump_timestamp,
-                                                                                     dhost_timestamp, time_diff, retries, discard))
+                    msg = (
+                        'Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)'
+                        ' [diff: %s] within %s retries and discarded %s dumps' % (dump_timestamp,
+                           dhost_timestamp, time_diff, retries, discard))
                     LOGGER.info(msg)
                     break
                 else:
