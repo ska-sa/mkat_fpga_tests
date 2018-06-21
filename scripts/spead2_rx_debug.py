@@ -7,6 +7,7 @@ import coloredlogs
 import sys
 import time
 
+
 from corr2 import utils
 from corr2.corr_rx import CorrRx
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -47,7 +48,6 @@ def SpeadRx(config_file, rx_port, dsim_start, capture_start, debug, verbose):
     finally:
         logger = logging.getLogger(__name__)
         coloredlogs.install(level=_level,logger=logger)
-
 
     if dsim_start and config_file:
         corr_conf = utils.parse_ini_file(config_file, ['dsimengine'])
@@ -100,3 +100,4 @@ def SpeadRx(config_file, rx_port, dsim_start, capture_start, debug, verbose):
 
 if __name__ == '__main__':
     SpeadRx()
+

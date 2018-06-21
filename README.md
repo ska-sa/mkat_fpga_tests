@@ -65,7 +65,6 @@ Usage:
         Usage: run_cbf_tests.py [options]
         This script auto executes CBF Tests with selected arguments.
         See Help for more information.
-        
 
 Options:
   -h, --help            show this help message and exit
@@ -114,6 +113,7 @@ Options:
 4. Add edge-case tests to less critical code whenever someone has time to kil
 Credit: https://softwareengineering.stackexchange.com/a/754
 5. “Code is like humour. When you have to explain it, it’s bad.” – Cory House
+
 
 ## Contributors
 

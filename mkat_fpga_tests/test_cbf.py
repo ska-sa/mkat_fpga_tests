@@ -104,6 +104,7 @@ class test_CBF(unittest.TestCase):
         else:
 
             # See: https://docs.python.org/2/library/functions.html#super
+
             if set_dsim_epoch is False:
                 try:
                     LOGGER.info('This should only run once...')
@@ -546,7 +547,6 @@ class test_CBF(unittest.TestCase):
         # The CBF shall, on request via the CAM interface, report sensors that identify the installed
         # configuration of the CBF unambiguously, including hardware, software and firmware part
         # numbers and versions.
-
         Aqf.procedure(TestProcedure.ReportConfiguration)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -658,6 +658,7 @@ class test_CBF(unittest.TestCase):
     def test__subarray(self):
         self._test_global_manual("CBF.V.3.56")
 
+
     @manual_test
     @generic_test
     @aqf_vr('CBF.V.3.37')
@@ -666,7 +667,6 @@ class test_CBF(unittest.TestCase):
         self._test_global_manual("CBF.V.3.37")
         image_files = sorted(glob.glob(self._images_dir + '/CBF.V.3.37*'))
         Report_Images(image_files)
-
 
     @manual_test
     @generic_test
@@ -851,6 +851,7 @@ class test_CBF(unittest.TestCase):
     @aqf_requirements("CBF-REQ-0161", "CBF-REQ-0186")
     def test__safe_physical_design_ve(self):
         self._test_global_manual("CBF.V.3.47")
+
 
     @manual_test
     @generic_test
@@ -1108,7 +1109,6 @@ class test_CBF(unittest.TestCase):
                 except:
                     reply, informs = self.corr_fix.katcp_rct.req.sensor_value(timeout=30)
                 time.sleep(10)
-
             _errored_sensors_ = ', '.join(sorted(list(set([i.arguments[2] for i in informs
                                                            if 'error' in i.arguments[-2]]))))
             _warning_sensors_ = ', '.join(sorted(list(set([i.arguments[2] for i in informs
@@ -1606,6 +1606,7 @@ class test_CBF(unittest.TestCase):
         try:
             Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
                      'SPEAD accumulation, determine the number of frequency channels')
+
             initial_dump = self.receiver.get_clean_dump(discard=30)
             self.assertIsInstance(initial_dump, dict)
         except Exception:
@@ -1613,6 +1614,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
             return
+
         else:
             bls_to_test = eval(self.cam_sensors.get_value('bls_ordering'))[test_baseline]
             Aqf.progress('Randomly selected frequency channel to test: {} and '
@@ -1684,6 +1686,7 @@ class test_CBF(unittest.TestCase):
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             # self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
+
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -1712,6 +1715,7 @@ class test_CBF(unittest.TestCase):
                 # No of spead heap discards relevant to vacc
                 discards = 0
                 max_wait_dumps = 50
+
                 deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
                 while True:
                     try:
@@ -1782,7 +1786,6 @@ class test_CBF(unittest.TestCase):
                      "There's a channel offset of %s" % (test_chan, where_is_the_tone,
                         np.abs(test_chan - where_is_the_tone)))
             test_chan += np.abs(test_chan - where_is_the_tone)
-
 
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
@@ -1978,6 +1981,7 @@ class test_CBF(unittest.TestCase):
                         '{co_high_src_freq}) is within the range of {desired_cutoff_resp} +- 1% '
                         'relative to channel centre response.'.format(**locals()))
 
+
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, cutoff=53, plots_debug=False,
                         log_power=True):
         """Test channel spacing and out-of-channel response
@@ -2081,6 +2085,7 @@ class test_CBF(unittest.TestCase):
                  'complete L-band.')
         channel_response_lst = []
         print_counts = 4
+
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         failure_count = 0
         if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
@@ -4710,7 +4715,7 @@ class test_CBF(unittest.TestCase):
                     gain_inc = 5
                 else:
                     target = 6
-                    gain_inc = 200
+                    gain_inc = 400
                 gain = gain + gain_inc
                 gain_vector[rand_ch] = gain
                 try:
