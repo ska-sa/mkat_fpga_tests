@@ -67,7 +67,7 @@ if [ ${START_DSIM} == y ]; then
     #else
     #    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
     #fi
-
+    trap 'Oh Well, I am exiting!!!!!' INT
     while true; do
         printf "${GREEN}Starting DEngine...${NORMAL}\n"
         if [[ $DSIM = *"roach"* ]]; then
