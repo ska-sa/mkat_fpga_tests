@@ -1,9 +1,7 @@
 # import threading
 import base64
-import contextlib
 import glob
 import h5py
-import io
 import katcp
 import logging
 import numpy as np
@@ -22,8 +20,6 @@ import warnings
 
 from collections import Mapping
 from Crypto.Cipher import AES
-from inspect import currentframe
-from inspect import getframeinfo
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
@@ -36,12 +32,14 @@ try:
 except ImportError:
     from chainmap import ChainMap
 
-from casperfpga.utils import threaded_fpga_function
 from casperfpga.utils import threaded_fpga_operation
 from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 
 from nose.plugins.attrib import attr
+
+from contextlib import contextmanager
+
 
 # LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('mkat_fpga_tests')
@@ -54,10 +52,12 @@ cam_timeout = 60
 # Define lambda functions to convert ip to int and back
 
 
-def ip2int(ipstr): return struct.unpack('!I', socket.inet_aton(ipstr))[0]
+def ip2int(ipstr):
+    return struct.unpack('!I', socket.inet_aton(ipstr))[0]
 
 
-def int2ip(n): return socket.inet_ntoa(struct.pack('!I', n))
+def int2ip(n):
+    return socket.inet_ntoa(struct.pack('!I', n))
 
 
 def complexise(input_data):
@@ -124,9 +124,8 @@ def nonzero_baselines(xeng_raw):
 
 def all_nonzero_baselines(xeng_raw):
     """Return baseline indices that have all non-zero data"""
-    def non_zerobls(bldata): return np.all(
-        np.linalg.norm(
-            bldata.astype(np.float64), axis=1) != 0)
+    def non_zerobls(bldata):
+        return np.all(np.linalg.norm(bldata.astype(np.float64), axis=1) != 0)
     return baseline_checker(xeng_raw, non_zerobls)
 
 
@@ -400,7 +399,6 @@ def clear_all_delays(self):
     _retries = 3
     errmsg = ''
     while _retries:
-        _give_up = 40
         _retries -= 1
         try:
             dump = self.receiver.get_clean_dump()
@@ -447,16 +445,15 @@ def clear_all_delays(self):
             #        LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
             #        break
             #time_end = abs(end_time - start_time)
-            LOGGER.info(
-                'Time it took to set and confirm the delays %ss' % time_end)
-            dump = self.receiver.get_clean_dump(discard=num_int+2)
+            LOGGER.info('Time it took to set and confirm the delays {}s'.format(time_end))
+            dump = self.receiver.get_clean_dump(discard=(num_int + 2))
             _max = int(np.max(np.angle(dump['xeng_raw'][:, 33, :][5:-5])))
             _min = int(np.min(np.angle(dump['xeng_raw'][:, 0, :][5:-5])))
             errmsg = 'Max/Min delays found: %s/%s ie not cleared' % (
                 _max, _min)
             assert _min == _max == 0, errmsg
-            LOGGER.info(
-                'Delays cleared successfully. Dump timestamp is in-sync with epoch: %s' % time_diff)
+            LOGGER.info('Delays cleared successfully. Dump timestamp is in-sync with epoch: {}'.format(
+                time_diff))
             return True
         except AssertionError:
             LOGGER.warning(errmsg)
@@ -606,15 +603,12 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
 
     def set_fft_shift(self):
         try:
-            reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(
-                fft_shift, timeout=cam_timeout)
+            reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift, timeout=cam_timeout)
             assert reply.reply_ok()
-            LOGGER.info(
-                'F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
+            LOGGER.info('F-Engines FFT shift set to {} via CAM interface'.format(fft_shift))
             return True
         except Exception as e:
-            errmsg = 'Failed to set FFT shift via CAM interface due to %s' % str(
-                e)
+            errmsg = 'Failed to set FFT shift via CAM interface due to {}'.format(str(e))
             LOGGER.exception(errmsg)
             return False
 
@@ -631,14 +625,12 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
         if len(eq_level) is not 1:
             for i, v in source_gain_dict.items():
                 LOGGER.info('Input %s gain set to %s' % (i, v))
-                reply, informs = self.corr_fix.katcp_rct.req.gain(
-                    i, v, timeout=cam_timeout)
+                reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
                 assert reply.reply_ok()
         else:
             eq_level = eq_level[0]
             LOGGER.info('Setting gain levels to all inputs to %s' % (eq_level))
-            reply, informs = self.corr_fix.katcp_rct.req.gain_all(
-                eq_level, timeout=cam_timeout)
+            reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
             assert reply.reply_ok()
         LOGGER.info('Gains set successfully: Reply:- %s' % str(reply))
         return True
@@ -719,45 +711,16 @@ def disable_warnings_messages():
         "casperfpga", "casperfpga.casperfpga", "casperfpga.bitfield", "casperfpga.katcp_fpg",
         "casperfpga.memory", "casperfpga.register", "casperfpga.transport_katcp",
         "casperfpga.transort_skarab", "corr2.corr_rx", "corr2.fhost_fpga", "corr2.fhost_fpga",
-        "corr2.fxcorrelator_engops", "corr2.xhst_fpga", "katcp", "spead2", "tornado.application"
+        "corr2.fxcorrelator_fengops", "corr2.xhost_fpga", "katcp", "spead2", "tornado.application",
+        "corr2",
     ]
     # Ignore all loggings except Critical if any
     for logger_name in ignored_loggers:
-        logging.getLogger(logger_name).setLevel(logging.CRITICAL)
+        logging. getLogger(logger_name).setLevel(logging.CRITICAL)
     logging.getLogger('nose.plugins.nosekatreport').setLevel(logging.INFO)
 
 
-class Text_Style(object):
-    """Text manipulation"""
-
-    def __init__(self):
-        self.BOLD = '\033[1m'
-        self.UNDERLINE = '\033[4m'
-        self.END = '\033[0m'
-        self.GREEN = '\033[92m'
-        self.YELLOW = '\033[93m'
-        self.RED = '\033[91m'
-
-    def Red(self, msg=None):
-        return (self.RED + msg + self.END)
-
-    def Green(self, msg=None):
-        return (self.GREEN + msg + self.END)
-
-    def Yellow(self, msg=None):
-        return (self.YELLOW + msg + self.END)
-
-    def Bold(self, msg=None):
-        return (self.BOLD + msg + self.END)
-
-    def Underline(self, msg=None):
-        return (self.UNDERLINE + msg + self.END)
-
-
-Style = Text_Style()
-
-
-@contextlib.contextmanager
+@contextmanager
 def ignored(*exceptions):
     """
     Context manager to ignore specified exceptions
@@ -802,23 +765,6 @@ def retryloop(attempts, timeout):
     raise RetryError('Failed to after %s attempts' % attempts)
 
 
-def clear_host_status(self, timeout=60):
-    """Clear the status registers and counters on this host
-    :param: Self (Object):
-    :param: timeout: Int
-    :rtype: Boolean
-    """
-    try:
-        hosts = self.correlator.fhosts + self.correlator.xhosts
-        threaded_fpga_function(hosts, timeout, 'clear_status')
-        LOGGER.info('Cleared status registers and counters on all F/X-Engines.')
-        return True
-    except Exception:
-        LOGGER.error(
-            'Failed to clear status registers and counters on all F/X-Engines.')
-        return False
-
-
 def restore_src_names(self):
     """Restore default CBF input/source names.
     :param: Object
@@ -842,6 +788,7 @@ def restore_src_names(self):
     except Exception:
         LOGGER.exception('Failed to restore CBF source names back to default.')
         return False
+
 
 def human_readable_ip(hex_ip):
     hex_ip = hex_ip[2:]
@@ -896,7 +843,7 @@ class TestTimeout:
         signal.alarm(0)
 
 
-@contextlib.contextmanager
+@contextmanager
 def RunTestWithTimeout(test_timeout, errmsg='Test Timed-out'):
     """
     Context manager to execute tests with a timeout
@@ -1042,7 +989,7 @@ class GetSensors(object):
         """
         Get sample rate and return sample period
         """
-        return 1/float(self.get_value('adc_sample_rate'))
+        return 1 / float(self.get_value('adc_sample_rate'))
 
     @property
     def fft_period(self):
@@ -1056,7 +1003,7 @@ class GetSensors(object):
         """
         Get Correlator bandwidth
         """
-        return float(self.get_value('bandwidth')/(self.get_value('n_chans') - 1))
+        return float(self.get_value('bandwidth') / (self.get_value('n_chans') - 1))
 
     def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
@@ -1107,7 +1054,7 @@ def start_katsdpingest_docker(self, beam_ip, beam_port, partitions, channels=409
     cmd = ['docker', 'run', '-u', '{}'.format(user_id), '-d', '--net=host', '-v',
            '/ramdisk:/ramdisk', 'sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing',
            'bf_ingest.py', '--cbf-spead={}+{}:{} '.format(
-               beam_ip, partitions-1, beam_port),
+               beam_ip, partitions - 1, beam_port),
            '--channels={}'.format(channels), '--ticks-between-spectra={}'.format(
                ticks_between_spectra),
            '--channels-per-heap={}'.format(channels_per_heap), '--spectra-per-heap={}'.format(
@@ -1157,15 +1104,14 @@ def stop_katsdpingest_docker(self):
     if sdp_instance:
         for idx in sdp_instance:
             try:
-                kill_output = subprocess.check_output(
-                    ['docker', 'kill', output[idx-1]])
+                kill_output = subprocess.check_output(['docker', 'kill', output[idx - 1]])
             except subprocess.CalledProcessError:
                 errmsg = 'Could not kill sdp-docker-registry container'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
                 return False
             killed_id = kill_output.split()[0]
-            if killed_id != output[idx-1]:
+            if killed_id != output[idx - 1]:
                 errmsg = 'Could not kill sdp-docker-registry container'
                 Aqf.failed(errmsg)
                 LOGGER.exception(errmsg)
@@ -1207,7 +1153,7 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
     _timeout = 10
 
     # Create a katcp client to connect to katcpingest if one not specified
-    if ingest_kcp_client == None:
+    if ingest_kcp_client is None:
         if os.uname()[1] == 'cmc2':
             ingst_nd = self.corr_fix._test_config_file['beamformer']['ingest_node_cmc2']
         elif os.uname()[1] == 'cmc3':
@@ -1397,10 +1343,11 @@ def FPGA_Connect(hosts, _timeout=30):
     while not fpgas:
         try:
             fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout)
-        except RuntimeError:
+        except Exception as e:
             retry -= 1
             if retry == 0:
-                errmsg = 'ERROR: Could not connect to SKARABs'
+                errmsg = 'ERROR: Could not connect to SKARABs - {}'.format(e)
+                LOGGER.error(errmsg)
                 return False
     return fpgas
 
@@ -1434,7 +1381,7 @@ def get_clean_dump(self):
                     LOGGER.info(msg)
                 if discard > 10:
                     errmsg = 'Could not retrieve clean queued SPEAD accumulation.'
-                    raise AssertionError, errmsg
+                    raise AssertionError(errmsg)
                 discard += 1
 
         except AssertionError:
@@ -1484,7 +1431,8 @@ class CSV_Reader(object):
             df = pd.read_csv(self.csv_filename)
             df = df.replace(np.nan, "TBD", regex=True)
             df = df.fillna(method='ffill')
-        except:
+        except Exception as e:
+            LOGGER.error("could not load the csv file: {}".format(e))
             return False
         else:
             return df.set_index(self.set_index) if self.set_index else df
