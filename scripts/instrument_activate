@@ -1,7 +1,6 @@
 #!/bin/bash
 # Automated instrument activation
 # Mpho Mphego
-set -x
 if [ -z "$*" ];
     then echo -e "Usage: $0 INSTRUMENT KATCP_HOST_IP ARRAY_NAME START_DSIM INSTRUMENT_OPS CONF_PATH \n
 
@@ -14,6 +13,9 @@ if [ -z "$*" ];
     CONF_PATH: /etc/corr/templates/ (Default)"
     exit 1;
 fi
+
+#set -x
+set -x
 
 # Convert variable contents to lower case
 declare -l DSIM
@@ -31,7 +33,7 @@ MACHINE=$(hostname)
 KATCP_HOST_IP=${2:-${MACHINE}}
 ARRAY_NAME=${3:-array0}
 START_DSIM=${4:-n}
-INSTRUMENT_OPTS=${5:-1110}
+INSTRUMENT_OPTS=${5:-1000}
 PROG=${INSTRUMENT_OPTS:0:1}
 CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
@@ -53,10 +55,10 @@ function repeatStr {
 
 
 printf  "${GREEN}Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP} ${NORMAL}\n"
-let "NUM_INPUTS = ($(grep source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2"
+NUM_INPUTS=$((($(grep ^source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2))
 ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
 
-printf "${GREEN}FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
+printf "${GREEN}No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
 
 export CORR2INI=${CONF_PATH};
 DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
@@ -67,7 +69,7 @@ if [ ${START_DSIM} == y ]; then
     #else
     #    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
     #fi
-    trap 'Oh Well, I am exiting!!!!!' INT
+    trap 'echo Oh Well, I am exiting!!!!!' SIGINT SIGTERM
     while true; do
         printf "${GREEN}Starting DEngine...${NORMAL}\n"
         if [[ $DSIM = *"roach"* ]]; then
@@ -84,7 +86,7 @@ if [ ${START_DSIM} == y ]; then
                 sleep 10;
             fi
         fi
-        corr2_dsim_control.py --loglevel INFO --program --start --zeros-sine --zeros-noise && break;
+        $(which corr2_dsim_control.py) --program --start --zeros-sine --zeros-noise && break;
     done;
 else
     printf "${GREEN}Assuming DEngine is currently running...${NORMAL}\n"
@@ -93,14 +95,14 @@ fi
 if [[ $DSIM = *"roach"* ]]; then
     SYNC_EPOCH=$($KCPCMD -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
 else
-    SYNC_EPOCH=$(corr2_dsim_control.py --loglevel INFO --resync | grep ^Reset | cut -f7 -d ' ')
+    SYNC_EPOCH=$($(which corr2_dsim_control.py) --resync | grep ^Reset | cut -f7 -d ' ')
 fi
 SYNC_TIME=$(date -d @${SYNC_EPOCH})
 printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n"
 sleep 1;
 
 printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n"
-${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME} || true
+${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME}
 # sleep 60
 ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
 printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n"

@@ -202,12 +202,12 @@ class CorrelatorFixture(object):
                         continue
                     if _retries == 0:
                         break
-                if _retries == 0:
-                    self.start_correlator(instrument=self.instrument)
+                # if _retries == 0:
+                #     self.start_correlator(instrument=self.instrument)
             else:
                 LOGGER.error('No Config file (/etc/corr/array*-instrument), '
                              'Starting correlator with default instrument: %s' % (self.instrument))
-                self.start_correlator(instrument=self.instrument)
+                # self.start_correlator(instrument=self.instrument)
 
     @property
     def katcp_rct(self):
@@ -346,19 +346,6 @@ class CorrelatorFixture(object):
                     LOGGER.exception('Failed to connect to katcp')
             else:
                 return self._katcp_rct_sensor
-
-    @property
-    def issue_metadata(self):
-        """Issue Spead metadata"""
-        try:
-            reply, informs = self.katcp_rct.req.capture_meta(
-                self.product_name, timeout=_timeout)
-            assert reply.reply_ok()
-        except Exception:
-            LOGGER.exception('Failed to issue new metadata')
-            return False
-        else:
-            return True
 
     @property
     def start_x_data(self):
