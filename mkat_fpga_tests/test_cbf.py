@@ -255,7 +255,7 @@ class test_CBF(unittest.TestCase):
             self.addCleanup(self.corr_fix.stop_x_data)
             self.addCleanup(self.receiver.stop)
             self.addCleanup(executed_by)
-            self.addCleanup(self._systems_tests)
+            # self.addCleanup(self._systems_tests)
             self.addCleanup(gc.collect)
             return True
 
