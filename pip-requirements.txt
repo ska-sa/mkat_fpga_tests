@@ -1,4 +1,4 @@
-# git+https://github.com/ska-sa/nosekatreport.git
+git+https://github.com/ska-sa/nosekatreport.git@karoocbf
 alabaster
 ansicolors
 # https://argcomplete.readthedocs.io/en/latest/#
@@ -24,6 +24,7 @@ ipdb
 ipynose
 ipython
 jenkinsapi
+katcp
 lxml
 matplotlib==2.0.2
 memory_profiler
@@ -47,6 +48,7 @@ pycrypto
 pylint
 pyOpenSSL
 PyPDF2
+pyserial
 requests[security]
 retrying
 sh
