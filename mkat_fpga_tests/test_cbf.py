@@ -260,7 +260,9 @@ class test_CBF(unittest.TestCase):
                 test_chan = random.choice(range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Coarse L-band")
                 num_discards = 1
-                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3,
+                #self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3,
+                #                          num_discards=num_discards)
+                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=1000e3,
                                           num_discards=num_discards)
             else:
                 Aqf.failed(self.errmsg)
@@ -392,10 +394,11 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                self._test_product_baselines()
-                self._test_back2back_consistency()
-                self._test_freq_scan_consistency()
-                self._test_spead_verify()
+                #self._test_product_baselines()
+                #self._test_back2back_consistency()
+                #self._test_freq_scan_consistency()
+                #self._test_spead_verify()
+                self._test_product_baseline_leakage()
             else:
                 Aqf.failed(self.errmsg)
 
@@ -1128,7 +1131,7 @@ class test_CBF(unittest.TestCase):
         if not confirm_out_dest_ip(self):
             Aqf.failed('Output destination IP is not the same as the one stored in the register, '
                        'i.e. data is being spewed elsewhere.')
-        set_default_eq(self)
+            set_default_eq(self)
         # ---------------------------------------------------------------
         try:
             msg = ('Checking system sensors stability')
@@ -1612,21 +1615,35 @@ class test_CBF(unittest.TestCase):
 
         print_counts = 3
 
-        if '4k' in self.instrument:
-            cw_scale = 0.7
+        if '1k' in self.instrument:
+            cw_scale = 0.9
+            awgn_scale = 0.0
+            gain = '6+0j'
+            fft_shift = 8191
+        elif '4k' in self.instrument:
+            cw_scale = 0.9
             awgn_scale = 0.085
             gain = '7+0j'
             fft_shift = 8191
-            cw_scale = 0.9
-            awgn_scale = 0.15
-            gain = '7+0j'
-            fft_shift = 8191
-        else:
+            #cw_scale = 0.9
+            #awgn_scale = 0.1
+            #gain = '7+0j'
+            #fft_shift = 8191
+            #cw_scale = 0.9
+            #awgn_scale = 0.0
+            #gain = '7+0j'
+            #fft_shift = 8191
+        elif '32k':
             # 32K
             cw_scale = 0.375
             awgn_scale = 0.085
             gain = '11+0j'
             fft_shift = 32767
+        else:
+            msg = 'Instrument not found: {}'.format(self.instrument)
+            LOGGER.exception(msg)
+            Aqf.failed(msg)
+
 
         Aqf.step('Digitiser simulator configured to generate a continuous wave (cwg0), '
                  'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
@@ -1814,6 +1831,7 @@ class test_CBF(unittest.TestCase):
                 aqf_plot_channels(this_freq_response, plt_filename, plt_title, caption=caption,
                                   ylimits=y_axis_limits, cutoff=new_cutoff)
 
+
         if not where_is_the_tone == test_chan:
             Aqf.note("We expect the channel response at %s, but in essence it is in channel %s, ie "
                      "There's a channel offset of %s" % (test_chan, where_is_the_tone,
@@ -1840,7 +1858,7 @@ class test_CBF(unittest.TestCase):
             plt_filename = '{}/{}_Channel_Response.png'.format(self.logs_path,
                 self._testMethodName)
             plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90,
-                normalise=True)
+                normalise=True, no_clip=True)
             plt_caption = ('Frequency channel {} @ {}MHz response vs source frequency and '
                            'selected baseline {} / {} to test.'.format(test_chan, expected_fc / 1e6,
                             test_baseline, bls_to_test))
@@ -1879,7 +1897,7 @@ class test_CBF(unittest.TestCase):
             # Plot channel response for central 80% of channel
             graph_name_central = '{}/{}_central.png'.format(self.logs_path, self._testMethodName)
             plot_data_central = loggerise(central_chan_responses[:, test_chan], dynamic_range=90,
-                                          normalise=True)
+                                          normalise=True, no_clip=True)
 
             n_chans = self.n_chans_selected
             caption = ('Channel {} central response vs source frequency on max channels {} and '
@@ -6016,15 +6034,16 @@ class test_CBF(unittest.TestCase):
         dsim_set_success = False
         with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
             dsim_set_success =set_input_levels(self, awgn_scale=0.0, cw_scale=0.0, freq=0,fft_shift=0,
-                                               gain='32767+0j')
+                                               gain=1023)
+            #gain='32767+0j')
         self.dhost.outputs.out_1.scale_output(0)
         if not dsim_set_success:
             Aqf.failed('Failed to configure digitise simulator levels')
             return False
 
         out_func = []
-        num_pulse_caps = 200
-        pulse_step = 256       
+        num_pulse_caps = 100
+        pulse_step = 256     
         points_around_trg = 4
         chan_str = 0
         chan_stp = 511
@@ -6050,7 +6069,8 @@ class test_CBF(unittest.TestCase):
                 Aqf.progress('Target specra found at index {} of beam capture '
                              'containing {} spectra'.format(trgt_spectra_idx, bf_ts.shape[0]))
                 for i in range(trgt_spectra_idx-points_around_trg,trgt_spectra_idx+1):
-                    spectra_mean_val = np.sum(np.abs(complexise(bf_raw[chan_str:chan_stp,i,:])))/(chan_stp-chan_str)
+                    #spectra_mean_val = np.sum(np.abs(complexise(bf_raw[chan_str:chan_stp,i,:])))/(chan_stp-chan_str)
+                    spectra_mean_val = np.max(np.abs(complexise(bf_raw[chan_str:chan_stp,i,:])))
                     spectra_ts = bf_ts[i]
                     ts_delta = future_mcount-int(spectra_ts)
                     print ('{}:{}'.format(ts_delta,spectra_mean_val))
@@ -7398,3 +7418,249 @@ class test_CBF(unittest.TestCase):
             Aqf.failed(msg)
         # else:
         #     subprocess.check_call(["rm", csv_filename])
+
+    def _test_product_baseline_leakage(self):
+        test_heading("CBF Baseline Correlation Product Leakage")
+        if '4k' in self.instrument:
+            # 4K
+            awgn_scale = 0.0645
+            gain = '113+0j'
+            fft_shift = 511
+        else:
+            # 32K
+            awgn_scale = 0.063
+            gain = '344+0j'
+            fft_shift = 4095
+
+        Aqf.step('Digitiser simulator configured to generate Gaussian noise, '
+                 'with scale: {}, eq gain: {}, fft shift: {}'.format(awgn_scale, gain, fft_shift))
+        dsim_set_success = False
+        with RunTestWithTimeout(dsim_timeout, errmsg='D-Engine configuration timed out, failing test'):
+            dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, corr_noise=False,
+                                            fft_shift=fft_shift, gain=gain)
+
+        Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
+                 'of all the correlator input labels via Cam interface.')
+        try:
+            test_dump = self.receiver.get_clean_dump()
+            self.assertIsInstance(test_dump, dict)
+        except AssertionError:
+            errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+        else:
+            # Get bls ordering from get dump
+            Aqf.step('Get list of all possible baselines (including redundant baselines) present '
+                     'in the correlator output from SPEAD accumulation')
+
+            bls_ordering = eval(self.cam_sensors.get_value('bls_ordering'))
+            input_labels = sorted(self.cam_sensors.input_labels)
+            inputs_to_plot = random.shuffle(input_labels)
+            inputs_to_plot = input_labels[:8]
+            bls_to_plot = [0, 2, 4, 8, 11, 14, 23, 33]
+            baselines_lookup = get_baselines_lookup(self)
+            present_baselines = sorted(baselines_lookup.keys())
+            possible_baselines = set()
+            _ = [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
+
+            test_bl = sorted(list(possible_baselines))
+            Aqf.step('Confirm that each baseline (or its reverse-order counterpart) is present in '
+                     'the correlator output')
+
+            baseline_is_present = {}
+            for test_bl in possible_baselines:
+                baseline_is_present[test_bl] = (test_bl in present_baselines or
+                                                test_bl[::-1] in present_baselines)
+            # Select some baselines to plot
+            plot_baselines = ((input_labels[0], input_labels[0]),
+                              (input_labels[0], input_labels[1]),
+                              (input_labels[0], input_labels[2]),
+                              (input_labels[-1], input_labels[-1]),
+                              (input_labels[-1], input_labels[-2]))
+            plot_baseline_inds = []
+            for bl in plot_baselines:
+                if bl in baselines_lookup:
+                    plot_baseline_inds.append(baselines_lookup[bl])
+                else:
+                    plot_baseline_inds.append(baselines_lookup[bl[::-1]])
+
+            plot_baseline_legends = tuple('{bl[0]}, {bl[1]}: {ind}'.format(bl=bl, ind=ind)
+                for bl, ind in zip(plot_baselines, plot_baseline_inds))
+
+            msg = 'Confirm that all baselines are present in correlator output.'
+            Aqf.is_true(all(baseline_is_present.values()), msg)
+            test_data = test_dump['xeng_raw']
+            Aqf.step('Expect all baselines and all channels to be '
+                     'non-zero with Digitiser Simulator set to output AWGN.')
+            msg = 'Confirm that no baselines have all-zero visibilities.'
+            Aqf.is_false(zero_baselines(test_data), msg)
+
+            msg = 'Confirm that all baseline visibilities are non-zero across all channels'
+            Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data), msg)
+
+            Aqf.step('Save initial f-engine equalisations, and ensure they are '
+                     'restored at the end of the test')
+
+            initial_equalisations = get_and_restore_initial_eqs(self)
+            Aqf.passed('Stored initial F-engine equalisations: %s' % initial_equalisations)
+
+            def prt_arr(array, print_len=4):
+                try:
+                    if len(array) < print_len:
+                        print_len = len(array)
+                        out_arr = array[:print_len]
+                        out_arr = ', '.join([str(e) for e in out_arr])
+                    else:
+                        out_arr = array[:print_len]
+                        out_arr = ', '.join([str(e) for e in out_arr])+', ...'
+                except:
+                    out_arr = str(array)
+
+                return out_arr
+
+            ref_auto = True
+            ref_x = True
+            ref_y = True
+            idnt = ' '*28
+            auto_phase = []
+            auto_mag = []
+            cross_phase = []
+            cross_mag = []
+            for inputs,index in baselines_lookup.iteritems():
+                # Auto correlations
+                if inputs[0][-1]==inputs[1][-1]:
+                    test_data_complex = complexise(test_data[:,index,:])
+                    phase = np.angle(test_data_complex)
+                    mag = np.abs(test_data_complex)
+                    auto_phase.append(phase)
+                    auto_mag.append(mag)
+                    if ref_auto:
+                        ref_auto_phase = phase
+                        ref_auto_mag = mag
+                        ref_auto = False
+                        Aqf.step('Using {}, baseline {}, as an auto-correlation reference with:\n{}\n{}'
+                                ''.format(inputs,index,
+                                          idnt+'Magnitude: '+prt_arr(mag),
+                                          idnt+'Phase:     '+prt_arr(phase)))
+                    else:
+                        phase_match = (ref_auto_phase == phase)
+                        mag_match = (ref_auto_mag == mag)
+                        if not(np.all(mag_match)):
+                            err_idx = np.where(np.invert(mag_match))
+                            err_arr = np.take(mag,err_idx)[0]
+                            ref_arr = np.take(ref_auto_mag,err_idx)[0]
+                            err_idx = err_idx[0]
+                            Aqf.failed('{}, baseline {}, auto-correlation magnitudes do not match:\n{}\n{}\n{}'
+                                       ''.format(inputs,index,
+                                                 idnt+'Error indices:    '+prt_arr(err_idx),
+                                                 idnt+'Reference values: '+prt_arr(ref_arr),
+                                                 idnt+'Magnitude values: '+prt_arr(err_arr)))
+                        elif not(np.all(phase_match)):
+                            err_idx = np.where(np.invert(phase_match))
+                            err_arr = np.take(phase,err_idx)[0]
+                            ref_arr = np.take(ref_auto_phase,err_idx)[0]
+                            err_idx = err_idx[0]
+                            Aqf.failed('{}, baseline {}, auto-correlation phases do not match:\n{}\n{}\n{}'
+                                       ''.format(inputs,index,
+                                                 idnt+'Error indices:    '+prt_arr(err_idx),
+                                                 idnt+'Reference values: '+prt_arr(ref_arr),
+                                                 idnt+'Phase values:     '+prt_arr(err_arr)))
+                        else:
+                            Aqf.passed('{}, baseline {}, is an auto-correlation, magnitude and phase matches:\n{}\n{}'
+                                       ''.format(inputs,index, 
+                                                 idnt+'Magnitude values: '+prt_arr(mag),
+                                                 idnt+'Phase values:     '+prt_arr(phase)))
+
+            for inputs,index in baselines_lookup.iteritems():
+                # Cross correlations
+                if inputs[0][-1]!=inputs[1][-1]:
+                    test_data_complex = complexise(test_data[:,index,:])
+                    phase = np.angle(test_data_complex)
+                    mag = np.abs(test_data_complex)
+                    cross_phase.append(phase)
+                    cross_mag.append(mag)
+                    if inputs[0][-1] == 'x':
+                        if ref_x:
+                            ref_phase_x = phase
+                            ref_mag_x = mag
+                            ref_x = False
+                            Aqf.step('Using {}, baseline {}, as a x-pol cross-correlation reference with:\n{}\n{}'
+                                    ''.format(inputs,index,
+                                              idnt+'Magnitude: '+prt_arr(mag),
+                                              idnt+'Phase:     '+prt_arr(phase)))
+                        else:
+                            phase_match = (ref_phase_x == phase)
+                            mag_match = (ref_mag_x == mag)
+                            if not(np.all(mag_match)):
+                                err_idx = np.where(np.invert(mag_match))
+                                err_arr = np.take(mag,err_idx)[0]
+                                ref_arr = np.take(ref_auto_mag,err_idx)[0]
+                                err_idx = err_idx[0]
+                                Aqf.failed('{}, baseline {}, x-pol cross-correlation magnitudes do not match:\n{}\n{}\n{}'
+                                           ''.format(inputs,index,
+                                                     idnt+'Error indices:    '+prt_arr(err_idx),
+                                                     idnt+'Reference values: '+prt_arr(ref_arr),
+                                                     idnt+'Magnitude values: '+prt_arr(err_arr)))
+                            elif not(np.all(phase_match)):
+                                err_idx = np.where(np.invert(phase_match))
+                                err_arr = np.take(phase,err_idx)[0]
+                                ref_arr = np.take(ref_auto_phase,err_idx)[0]
+                                err_idx = err_idx[0]
+                                Aqf.failed('{}, baseline {}, x-pol cross-correlation phases do not match:\n{}\n{}\n{}'
+                                           ''.format(inputs,index,
+                                                     idnt+'Error indices:    '+prt_arr(err_idx),
+                                                     idnt+'Reference values: '+prt_arr(ref_arr),
+                                                     idnt+'Phase values:     '+prt_arr(err_arr)))
+                            else:
+                                Aqf.passed('{}, baseline {}, is a x-poll cross-correlation, magnitude and phase matches:\n{}\n{}'
+                                           ''.format(inputs,index, 
+                                                     idnt+'Magnitude values: '+prt_arr(mag),
+                                                     idnt+'Phase values:     '+prt_arr(phase)))
+
+
+                    else:
+                        if ref_y:
+                            ref_phase_y = phase
+                            ref_mag_y = mag
+                            ref_y = False
+                            Aqf.step('Using {}, baseline {}, as a y-pol cross-correlation reference with:\n{}\n{}'
+                                    ''.format(inputs,index,
+                                              idnt+'Magnitude: '+prt_arr(mag),
+                                              idnt+'Phase:     '+prt_arr(phase)))
+                        else:
+                            phase_match = (ref_phase_y == phase)
+                            mag_match = (ref_mag_y == mag)
+                            if False and not(np.all(mag_match)):
+                                err_idx = np.where(np.invert(mag_match))
+                                err_arr = np.take(mag,err_idx)[0]
+                                ref_arr = np.take(ref_auto_mag,err_idx)[0]
+                                err_idx = err_idx[0]
+                                Aqf.failed('{}, baseline {}, y-pol cross-correlation magnitudes do not match:\n{}\n{}\n{}'
+                                           ''.format(inputs,index,
+                                                     idnt+'Error indices:    '+prt_arr(err_idx),
+                                                     idnt+'Reference values: '+prt_arr(ref_arr),
+                                                     idnt+'Magnitude values: '+prt_arr(err_arr)))
+                            elif not(np.all(phase_match)):
+                                err_idx = np.where(np.invert(phase_match))
+                                err_arr = np.take(phase,err_idx)[0]
+                                ref_arr = np.take(ref_auto_phase,err_idx)[0]
+                                err_idx = err_idx[0]
+                                Aqf.failed('{}, baseline {}, y-pol cross-correlation phases do not match:\n{}\n{}\n{}'
+                                           ''.format(inputs,index,
+                                                     idnt+'Error indices:    '+prt_arr(err_idx),
+                                                     idnt+'Reference values: '+prt_arr(ref_arr),
+                                                     idnt+'Phase values:     '+prt_arr(err_arr)))
+                            else:
+                                Aqf.passed('{}, baseline {}, is a y-poll cross-correlation, magnitude and phase matches:\n{}\n{}'
+                                           ''.format(inputs,index,
+                                                     idnt+'Magnitude values: '+prt_arr(mag),
+                                                     idnt+'Phase values:     '+prt_arr(phase)))
+
+            plt_filename = '{}/{}_autocorrelation_channel_response.png'.format(self.logs_path,
+                self._testMethodName)
+            plt_caption = ('Channel reponses for all auto correlation baselines.')
+            plt_title = ('Channel reponses for all auto correlation baselines.')
+            aqf_plot_channels(auto_mag, plot_filename=plt_filename,plot_title=plt_title)
+
+            import IPython;IPython.embed()
+

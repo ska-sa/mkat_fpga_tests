@@ -178,7 +178,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             kwargs['label'] = legend
         if log_dynamic_range is not None:
             plot_data = loggerise(plot_data, log_dynamic_range, normalise_to=log_normalise_to,
-                                  normalise=normalise)
+                                  normalise=normalise, no_clip=True)
             ylbl = 'Channel response [dB]'
         else:
             if plot_type == 'eff':

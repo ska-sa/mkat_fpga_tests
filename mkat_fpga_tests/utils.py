@@ -78,15 +78,16 @@ def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
 
-def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None):
+def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None, no_clip=False):
     with np.errstate(divide='ignore'):
         log_data = 10 * np.log10(data)
     if normalise_to:
         max_log = normalise_to
     else:
         max_log = np.max(log_data)
-    min_log_clip = max_log - dynamic_range
-    log_data[log_data < min_log_clip] = min_log_clip
+    if not(no_clip):
+        min_log_clip = max_log - dynamic_range
+        log_data[log_data < min_log_clip] = min_log_clip
     if normalise:
         log_data = np.asarray(log_data) - np.max(log_data)
     return log_data
@@ -560,7 +561,7 @@ def set_default_eq(self):
 
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None, gain=None,
-                     cw_src=0):
+                     cw_src=0, corr_noise=True):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
@@ -581,12 +582,23 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
             source 0 or 1
     Return: Bool
     """
+    self.dhost.noise_sources.noise_corr.set(scale=0)
+    self.dhost.noise_sources.noise_0.set(scale=0)
+    self.dhost.noise_sources.noise_1.set(scale=0)
+    self.dhost.sine_sources.sin_0.set(frequency=0, scale=0)
+    self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
+    time.sleep(0.1)
     if cw_scale is not None:
         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
         self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
 
     if awgn_scale is not None:
-        self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+        if corr_noise:
+            self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+        else:
+            self.dhost.noise_sources.noise_0.set(scale=awgn_scale)
+            self.dhost.noise_sources.noise_1.set(scale=awgn_scale)
+            
 
     def set_fft_shift(self):
         try:
