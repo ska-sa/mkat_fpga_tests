@@ -48,6 +48,7 @@ pycrypto
 pylint
 pyOpenSSL
 PyPDF2
+python-dotenv
 pyserial
 requests[security]
 retrying
