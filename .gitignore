@@ -37,3 +37,5 @@ tmp/
 matplotlibrc
 /matplotlibrc
 .env
+.venv
+*.log

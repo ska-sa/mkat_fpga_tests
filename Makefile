@@ -49,7 +49,9 @@ help:
 clean:
 	rm -rf $(BUILDDIR)/*
 	$(MAKE) clean -C docs/Cover_Page
+	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock"
 	git checkout -- docs/*
+	rm -rf .venv
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
@@ -176,3 +178,5 @@ pseudoxml:
 	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
 	@echo
 	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."
+venv:
+	@bash scripts/setup_virtualenv.sh $(pwd) true

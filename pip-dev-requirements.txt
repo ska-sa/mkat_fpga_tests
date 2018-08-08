@@ -1,7 +1,6 @@
 git+https://github.com/ska-sa/nosekatreport.git@karoocbf
 alabaster
 ansicolors
-# https://argcomplete.readthedocs.io/en/latest/#
 argcomplete
 bitstring
 bokeh
@@ -16,6 +15,7 @@ dpkt
 fabric==2.2.2
 fire
 flake8
+jinja2>=2.9.0
 flake8-html
 h5py
 idna==2.5
@@ -59,11 +59,8 @@ tornado==4.5.2
 traceback2
 trollius
 
-# Uncomment below if not installing these packages from a local source
-# git+https://github.com/ska-sa/casperfpga#egg=casperfpga
-# git+https://github.com/ska-sa/corr2#egg=corr2
-# git+https://github.com/ska-sa/katcp-python#egg=katcp
-# git+https://github.com/ska-sa/PySPEAD#egg=spead
-# git+https://katpull:katpull4git@github.com/ska-sa/katpoint.git#egg=katpoint
+# Uncomment below if running a development environment
+git+https://github.com/ska-sa/casperfpga@devel
+git+https://github.com/ska-sa/corr2@devel
 
 

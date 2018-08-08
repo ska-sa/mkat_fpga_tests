@@ -7,80 +7,75 @@
 # Abort on any errors
 set -e
 
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+NORMAL=$(tput sgr0)
+
 if [ -z "$*" ];
-    then echo -e "Usage: bash $0 DEST_PATH SYS_PACKAGES\n
-    DEST_PATH: Workspace path
-    SYS_PACKAGES: Boolean:- if true, virtual env will also use system packages (Default:false)\n";
+    then echo -e "Usage: bash $0 SYS_PACKAGES\n
+    Automated virtualenv and system packages installer which installs on cwd
+    SYS_PACKAGES: Boolean:- if true, virtualenv will also use system packages (Default:false)\n";
     exit 1;
 fi
 
 # MAIN
-DEST_PATH=$1
-SYS_PACKAGES=${2:-false}
+SYS_PACKAGES=${1:-false}
 
 # ---------------------
-echo -e "Working in: ${DEST_PATH}\n"
-cd "${DEST_PATH}"
-# Create virtual enviroment and include Python system packages
+VIRTUAL_ENV=".venv"
+printf "${GREEN}Installing ${VIRTUAL_ENV} in current working directory${NORMAL}\n"
 if [ "${SYS_PACKAGES}" = true ] ; then
-    echo -e "Creating virtualenv venv directory and including system packages\n"
-    virtualenv venv --system-site-packages
+    # Create virtual environment and include Python system packages
+    printf "${GREEN}Creating virtualenv venv directory and including system packages${NORMAL}\n"
+    $(which virtualenv) "$VIRTUAL_ENV" -q --system-site-packages
 else
-    echo -e "Creating virtualenv venv directory without system packages\n"
-    virtualenv venv
+    printf "${GREEN}Creating virtualenv venv directory without system packages${NORMAL}\n"
+    $(which virtualenv) "$VIRTUAL_ENV" -q
 fi
-source ./venv/bin/activate
+printf "${GREEN}Sourcing virtualenv and...${NORMAL}\n"
+source "$VIRTUAL_ENV"/bin/activate
+
+printf "${GREEN}Confirm that you are in a virtualenv${NORMAL}\n\n"
+which python
+printf "\n\n\n"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
-    echo -e "Could not create virtual env. $VIRTUAL_ENV\n"
+    printf "${RED}Could not create virtualenv: $VIRTUAL_ENV${NORMAL}\n"
     exit 2
 fi
 
 #
-function install_pip_requirements {
+function install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
-    WARNING=$2                   # If this is a depricated filename give a warning.
     if [ -f "$FILENAME" ]; then
-        if $WARNING; then
-            echo "!!! The use of $FILENAME is depricated."
-            echo "!!! Please put you PIP build requirements"
-            echo "!!! into pip-requirements.txt"
+        if $SYS_PACKAGES; then
+            printf "${RED}!!! The use of $FILENAME is depricated.${NORMAL}\n"
+            printf "${RED}!!! Please put you PIP build requirements${NORMAL}\n"
+            printf "${RED}!!! into pip-dev-requirements.txt${NORMAL}\n\n"
         fi
-        # pip install --trusted-host pypi.camlab.kat.ac.za --pre -r $FILENAME
-        cat $FILENAME | grep -v -e "^$" -e "^#" | sort -u | while read line
-        do
-            # python "$(which pip)" install --no-cache-dir $line
-            python "$(which pip)" install --no-cache-dir -q --trusted-host pypi.camlab.kat.ac.za $line
-            # python "$(which pip)" install --trusted-host pypi.camlab.kat.ac.za --pre $line
-            echo -n "."
-        done
+        pip install -r $FILENAME
     fi                           # do nothing if file is not found.
 }
 
-# You can ignore the https by using index-url and passing the http url as a parameter then set it as the trusted source.
-# InsecurePlatformWarning: A true SSLContext object is not available.
-# This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail.
-# You can upgrade to a newer version of Python to solve this.
-python "$(which pip)" install --no-cache-dir --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
-# Install pip dependencies
-install_pip_requirements pip-requirements.txt true
-# Install core dependencies if pre_setup.sh script is available
-PRE_SETUP="${DEST_PATH}/pre_setup.sh"
-if [ -f "${PRE_SETUP}" ]
-then
-    "${PRE_SETUP}"
+if "${SYS_PACKAGES}"; then
+
+    # You can ignore the https by using index-url and passing the http url as a parameter then set it as the trusted source.
+    # InsecurePlatformWarning: A true SSLContext object is not available.
+    # This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail.
+    # You can upgrade to a newer version of Python to solve this.
+    pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+    printf "${GREEN}Installing development pip dependencies if using system site packages${NORMAL}\n"
+    install_pip_requirements pip-dev-requirements.txt
+    printf "${GREEN}DONE...${NORMAL}\n"
+
+    if [ -f "./setup.py" ]; then
+        printf "${GREEN}Installing setup.py${NORMAL}\n";
+        # Install with dependencies.
+        python setup.py install -f;
+    fi
 fi
 
-
-# DEPRECATED, setup.py does this automagically
-# Install Self.
-# If the given DEST_PATH contains a setup.py we will install it.
-# Previously had the install of self in the pip-build-requirements.txt
-# as a line with a '.'. That worked but on occasion we got wierd errors.
-# SETUP="${DEST_PATH}/setup.py"
-# if [ -f "${SETUP}" ]; then
-#     cd "${DEST_PATH}"
-#     echo -e "Installing setup.py\n"
-#     # Install with dependencies.
-#     python "$(which pip)" install --trusted-host pypi.camlab.kat.ac.za --pre .
-# fi
+if [ -f "./pre_setup.sh" ]; then
+    printf "${GREEN}Install core dependencies if pre_setup.sh script is available${NORMAL}\N"
+    bash ./pre_setup.sh
+fi
