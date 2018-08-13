@@ -8,14 +8,15 @@ if [ -z "$*" ];
     KATCP_HOST_IP: localhost (Default)/IP
     ARRAY_NAME: array0 (Default)
     START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)
+    DEVMODE: y/[n] [DevMode]automagically download new bitstreams from https://github.com/ska-sa/mkat_fpga/devel
     INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
                                      [program, configure, require synchronisation epoch, monitor vector accumulators]
-    CONF_PATH: /etc/corr/templates/ (Default)"
+    CONF_PATH_DIR: /etc/corr/templates/ (Default)"
     exit 1;
 fi
 
-#set -x
-set -x
+# This will give verbose output and also will abort your script immediately if part of the script fails.
+set -ex
 
 # Convert variable contents to lower case
 declare -l DSIM
@@ -33,18 +34,16 @@ MACHINE=$(hostname)
 KATCP_HOST_IP=${2:-${MACHINE}}
 ARRAY_NAME=${3:-array0}
 START_DSIM=${4:-n}
-INSTRUMENT_OPTS=${5:-1000}
+DEVMODE=${5:-n}
+INSTRUMENT_OPTS=${6:-1000}
 PROG=${INSTRUMENT_OPTS:0:1}
 CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
 MVACC=${INSTRUMENT_OPTS:3:1}
 
-CONF_PATH=${6:-'/etc/corr/templates/'}
-CONF_PATH=${CONF_PATH}${INSTRUMENT}
+CONF_PATH_DIR=${6:-'/etc/corr/templates/'}
+CONF_PATH=${CONF_PATH_DIR}${INSTRUMENT}
 
-VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
-HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
-DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
 
 function repeatStr {
     input=$1
@@ -53,25 +52,55 @@ function repeatStr {
     echo "${myString// /$input }"
 }
 
+function print_function {
+    STRING=$1
+    printf "${GREEN}$STRING ${NORMAL}\n"
+}
 
-printf  "${GREEN}Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP} ${NORMAL}\n"
+function cleanup {
+    print_function "Code cleanup!!!!!!"
+    print_function "rm /tmp/*fpgs and reset ${CONF_PATH_DIR}!!!!!!"
+    excode=$?
+    cd $CONF_PATH_DIR && git checkout -- $INSTRUMENT && cd -
+    rm -rf /tmp/*.fpg >> /dev/null
+    exit $excode
+}
+# Some cleaning up before exiting.
+trap cleanup EXIT
+
+if [ $DEVMODE == y ]; then
+    print_function "Downloading latest bitstreams from github.com and replacing bitstream location on template"
+    BITSTREAMS=`grep ^bitstream $CONF_PATH | cut -f3 -d " "`
+    if $(echo "${BITSTREAMS}" | grep -q "/tmp") && $(ls /tmp/*.fpg 1> /dev/null 2>&1); then
+        print_function "Seems like bitstreams are already in /tmp"
+    else
+        for bitstream in $BITSTREAMS; do
+            FILENAME="/tmp/`echo ${bitstream} | rev | cut -d'/' -f1 | rev`";
+            URL=`echo $bitstream | cut -c15-`
+            print_function "Downloading file: https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
+            wget -q -O $FILENAME "https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
+            print_function "Replacing: ${bitstream}, with ${FILENAME} on ${CONF_PATH}\n\n"
+            sed -i -e "s=$bitstream=$FILENAME=" $CONF_PATH
+        done
+        print_function "New bitstream destination:\n\n`grep ^bitstream $CONF_PATH`"
+        printf "\n\n\n"
+    fi
+fi
+
+VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
+HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
+DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
+
+print_function "Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP}"
 NUM_INPUTS=$((($(grep ^source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2))
 ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
 
-printf "${GREEN}No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} ${NORMAL}\n"
-
+print_function "No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} "
 export CORR2INI=${CONF_PATH};
 DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
 if [ ${START_DSIM} == y ]; then
-    #printf "${GREEN}Deprogramming hosts ${NORMAL}\n\n";
-    #if /usr/local/bin/corr2_deprogram.py >> /dev/null 2>&1;
-    #    then printf "${GREEN}All Hosts deprogrammed ${NORMAL}\n\n";
-    #else
-    #    printf "${RED}Failed to deprogram ${NORMAL}\n\n";
-    #fi
-    trap 'echo Oh Well, I am exiting!!!!!' SIGINT SIGTERM
     while true; do
-        printf "${GREEN}Starting DEngine...${NORMAL}\n"
+        print_function "Starting DEngine..."
         if [[ $DSIM = *"roach"* ]]; then
             StopDMC="/usr/local/bin/stop-pseudo-dmc";
             StartDMC="/usr/local/bin/start-pseudo-dmc";
@@ -89,30 +118,24 @@ if [ ${START_DSIM} == y ]; then
         $(which corr2_dsim_control.py) --program --start --zeros-sine --zeros-noise && break;
     done;
 else
-    printf "${GREEN}Assuming DEngine is currently running...${NORMAL}\n"
+    print_function "Assuming DEngine is currently running..."
 fi
 
 if [[ $DSIM = *"roach"* ]]; then
     SYNC_EPOCH=$($KCPCMD -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
 else
-    SYNC_EPOCH=$($(which corr2_dsim_control.py) --resync | grep ^Reset | cut -f7 -d ' ')
+    SYNC_EPOCH=$($(which corr2_dsim_control.py) -c $CONF_PATH --resync | grep ^Reset | cut -f7 -d ' ')
 fi
+
 SYNC_TIME=$(date -d @${SYNC_EPOCH})
-printf "${GREEN}\nSynchronisation Epoch = ${SYNC_TIME} ${NORMAL}\n"
+print_function "\nSynchronisation Epoch = ${SYNC_TIME}\n"
 sleep 1;
-
 printf "${GREEN}Initialising INSTRUMENT: ${INSTRUMENT} ${NORMAL}\n\n"
+print_function "$Initialising INSTRUMENT: ${INSTRUMENT}\n"
 ${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME}
-# sleep 60
+sleep 1
 ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
-printf "${GREEN}\nPort number seems to be ${ARRAY} ${NORMAL}\n"
+print_function "$Port number seems to be ${ARRAY}"
 ${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} digitiser-synch-epoch ${SYNC_EPOCH}
-
-sleep 0.5;
+sleep 1;
 ${KCPCMD} -t 1000 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
-#sleep 2;
-
-#if [ $(echo ${MACHINE::4}) == "cmc3" ]; then
-#    printf "${GREEN} Copying config file over to CMC2${NORMAL}\n"
-#    scp /etc/corr/${ARRAY_NAME}-* ${USER}@10.103.254.3:/etc/corr
-#fi
