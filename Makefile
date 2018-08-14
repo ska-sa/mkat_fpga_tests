@@ -26,7 +26,7 @@ help:
 	@echo "  html       to make standalone HTML files"
 	@echo "  latex      to make LaTeX files, you can set PAPER=a4 or PAPER=letter"
 	@echo "  latexpdf   to make LaTeX files and run them through pdflatex"
-	@echo "  venv       to install Python virtual environment on .venv"
+	@echo "  bootstrap  to automagically install Python virtual environment, and all dependencies in .venv"
 	@echo "  tests      to run all tests in mkat_fpga_tests/test_cbf.py"
 
 clean:
@@ -54,7 +54,7 @@ latexpdf:
 	$(MAKE) -C $(BUILDDIR)/latex all-pdf
 	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
 
-venv:
+bootstrap:
 	@bash scripts/setup_virtualenv.sh $(pwd) true
 
 tests:
