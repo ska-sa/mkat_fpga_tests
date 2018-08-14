@@ -76,6 +76,6 @@ if "${SYS_PACKAGES}"; then
 fi
 
 if [ -f "scripts/pre_setup.sh" ]; then
-    printf "${GREEN}Install core dependencies if pre_setup.sh script is available${NORMAL}\N"
+    printf "${GREEN}Install core dependencies if pre_setup.sh script is available${NORMAL}\n\n"
     bash scripts/pre_setup.sh
 fi
