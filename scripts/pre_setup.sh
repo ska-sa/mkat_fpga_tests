@@ -89,6 +89,7 @@ if [ -f "${VENV}" ]; then
         fi
         printf "\n"
     done
+    export PATH=".venv/bin":"${PATH}"
     bash --rcfile "${VENV}" -i
 else
     printf "\n VIRTUAL ENVIROMENT MISSING!!!!!!!!!!!!!\n"

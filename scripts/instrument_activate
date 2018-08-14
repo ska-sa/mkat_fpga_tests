@@ -60,16 +60,16 @@ function print_function {
     printf "${GREEN}$STRING ${NORMAL}\n"
 }
 
-function cleanup {
-    print_function "Code cleanup!!!!!!"
-    excode=$?
-    cd $CONF_PATH_DIR && git checkout -- $INSTRUMENT > /dev/null 2>&1 && cd -
-    exit $excode
-}
+# function cleanup {
+#     print_function "Code cleanup!!!!!!"
+#     excode=$?
+#     cd $CONF_PATH_DIR && git checkout -- $INSTRUMENT > /dev/null 2>&1 && cd -
+#     exit $excode
+# }
 
 if [ $DEVMODE == y ]; then
     # Some cleaning up before exiting.
-    trap cleanup EXIT
+    # trap cleanup EXIT
     print_function "Downloading latest DEVEL bitstreams from github.com and replacing bitstream location on template."
     BITSTREAMS=`grep ^bitstream $CONF_PATH | cut -f3 -d " "`
     if $(echo "${BITSTREAMS}" | grep -q "/tmp") && $(ls /tmp/*.fpg 1> /dev/null 2>&1); then
