@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # Automated system packages installer
 # Note: Include this file in the jenkins job script to setup the virtualenv.
 # Author: Mpho Mphego <mmphego@ska.ac.za>
@@ -32,12 +33,12 @@ else
     printf "${GREEN}Creating virtualenv venv directory without system packages${NORMAL}\n"
     $(which virtualenv) "$VIRTUAL_ENV" -q
 fi
-printf "${GREEN}Sourcing virtualenv and...${NORMAL}\n"
-source "$VIRTUAL_ENV"/bin/activate
+"$VIRTUAL_ENV"/bin/pip install -q -U pip setuptools
+printf "${GREEN}Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH...${NORMAL}\n"
+source "${VIRTUAL_ENV}/bin/activate"
+export PATH="${VIRTUAL_ENV}/bin:$PATH"
 
-printf "${GREEN}Confirm that you are in a virtualenv${NORMAL}\n\n"
-which python
-printf "\n\n\n"
+printf "${GREEN}Confirm that you are in a virtualenv: $(which python) ${NORMAL}\n\n\n"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
     printf "${RED}Could not create virtualenv: $VIRTUAL_ENV${NORMAL}\n"
@@ -64,7 +65,7 @@ if "${SYS_PACKAGES}"; then
     # This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail.
     # You can upgrade to a newer version of Python to solve this.
     pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
-    printf "${GREEN}Installing development pip dependencies if using system site packages${NORMAL}\n"
+    printf "${GREEN}Installing development pip dependencies, with system site packages${NORMAL}\n"
     install_pip_requirements pip-dev-requirements.txt
     printf "${GREEN}DONE...${NORMAL}\n"
 
@@ -76,6 +77,6 @@ if "${SYS_PACKAGES}"; then
 fi
 
 if [ -f "scripts/pre_setup.sh" ]; then
-    printf "${GREEN}Install core dependencies if pre_setup.sh script is available${NORMAL}\n\n"
+    printf "${GREEN}Install core dependencies, if pre_setup.sh script is available${NORMAL}\n\n"
     bash scripts/pre_setup.sh
 fi

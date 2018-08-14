@@ -17,12 +17,14 @@ fi
 
 # This will abort the script immediately if part of the script fails.
 set -e
+# This will give verbose output and also will abort the script immediately if part of the script fails.
+# set -ex
 
 # Convert variable contents to lower case
 declare -l DSIM
 
 export TERM=xterm
-PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
+# PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
 KCPCMD=/usr/local/bin/kcpcmd
 
 RED=$(tput setaf 1)
@@ -60,16 +62,12 @@ function print_function {
 
 function cleanup {
     print_function "Code cleanup!!!!!!"
-    print_function "rm /tmp/*fpgs and reset ${CONF_PATH_DIR}!!!!!!"
     excode=$?
-    cd $CONF_PATH_DIR && git checkout -- $INSTRUMENT && cd -
-    rm -rf /tmp/*.fpg >> /dev/null
+    cd $CONF_PATH_DIR && git checkout -- $INSTRUMENT > /dev/null 2>&1 && cd -
     exit $excode
 }
 
 if [ $DEVMODE == y ]; then
-    # This will give verbose output and also will abort the script immediately if part of the script fails.
-    set -ex
     # Some cleaning up before exiting.
     trap cleanup EXIT
     print_function "Downloading latest DEVEL bitstreams from github.com and replacing bitstream location on template."

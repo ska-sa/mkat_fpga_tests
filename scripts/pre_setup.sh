@@ -1,10 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # Automated python dependencies retrieval and installation,
 # This script will install all CBF-Testing dependencies namely:-
 #       spead2, corr2, casperfpga and katcp-python
 # These packages will be cloned from their git repositories and installed in /usr/local/src which
 # is a dependency default directory for CBF-Testing, and assuming that the latest CMC Software is installed and functional
-# Mpho Mphego <mmphego@ska.ac.za>
+
+# Author: Mpho Mphego <mmphego@ska.ac.za>
 
 # Abort on any errors
 set -e
@@ -12,7 +14,7 @@ VENV=".venv/bin/activate"
 
 if [ -f "${VENV}" ]; then
 
-    source $VENV
+    source "${VENV}"
     # Special spead2 hacksauce for dbelab04 with old GCC. This will be
     # fixed properly by upgrading the test system GCC
     export PATH=/opt/gcc4.9.3/bin:"${PATH}"
@@ -87,4 +89,7 @@ if [ -f "${VENV}" ]; then
         fi
         printf "\n"
     done
+    bash --rcfile "${VENV}" -i
+else
+    printf "\n VIRTUAL ENVIROMENT MISSING!!!!!!!!!!!!!\n"
 fi

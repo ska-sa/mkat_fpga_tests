@@ -27,13 +27,14 @@ help:
 	@echo "  latex      to make LaTeX files, you can set PAPER=a4 or PAPER=letter"
 	@echo "  latexpdf   to make LaTeX files and run them through pdflatex"
 	@echo "  venv       to install Python virtual environment on .venv"
+	@echo "  tests      to run all tests in mkat_fpga_tests/test_cbf.py"
 
 clean:
 	rm -rf $(BUILDDIR)/*
 	$(MAKE) clean -C docs/Cover_Page
 	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock"
 	git checkout -- docs/*
-	rm -rf .venv
+	rm -rf .venv /tmp/*fpgs
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
@@ -55,3 +56,6 @@ latexpdf:
 
 venv:
 	@bash scripts/setup_virtualenv.sh $(pwd) true
+
+tests:
+	@bash -c ". .venv/bin/activate; nosetests -sv --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF"
