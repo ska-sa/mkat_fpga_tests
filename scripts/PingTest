@@ -1,6 +1,6 @@
 #!/bin/bash
 set +e
-for A in $(cat /var/lib/misc/dnsmasq.leases | cut -f 4 -d " " | grep ^skarab);do
+for A in $(cat /var/lib/misc/dnsmasq.leases | cut -f 4 -d " " | grep ^skarab | sort);do
     ping -c 2 $A > /dev/null 2>&1;
     if [ $? -eq 0 ]; then
         printf "Host %s is Up!!\n" $A;

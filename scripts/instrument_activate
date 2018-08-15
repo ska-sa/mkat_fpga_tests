@@ -9,7 +9,7 @@ if [ -z "$*" ];
     ARRAY_NAME: array0 (Default)
     START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)
     DEVMODE: y/[n] [DevMode] automagically download new bitstreams from https://github.com/ska-sa/mkat_fpga/devel
-    INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
+    INSTRUMENT_OPTS: 1000 (Default) :instrument-activate options, 1=enable, 0=disable
                                      [program, configure, require synchronisation epoch, monitor vector accumulators]
     CONF_PATH_DIR: /etc/corr/templates/ (Default)"
     exit 1;
@@ -38,7 +38,7 @@ ARRAY_NAME=${3:-array0}
 START_DSIM=${4:-n}
 DEVMODE=${5:-n}
 
-INSTRUMENT_OPTS=${6:-1110}
+INSTRUMENT_OPTS=${6:-1000}
 PROG=${INSTRUMENT_OPTS:0:1}
 CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
@@ -112,7 +112,7 @@ if [ ${START_DSIM} == y ]; then
                 sleep 10;
             fi
         fi
-        sleep 1;
+        sleep 3;
         $(which corr2_dsim_control.py) -c ${CONF_PATH} --program --start --zeros-sine --zeros-noise && break;
     done;
 else
@@ -129,7 +129,7 @@ SYNC_TIME=$(date -d @${SYNC_EPOCH})
 print_function "Synchronisation Epoch, set to (Readable): ${SYNC_TIME}"
 sleep 1;
 print_function "$Initialising INSTRUMENT: ${INSTRUMENT}"
-${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME}
+${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME} || true
 sleep 1
 ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
 print_function "Port :${ARRAY} created on ${ARRAY_NAME}"
