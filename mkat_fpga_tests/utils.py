@@ -1167,7 +1167,8 @@ def stop_katsdpingest_docker(self):
         return False
     return True
 
-def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, capture_time=0.1,
+                      start_only=False, stop_only=False):
     """ Capture beamformer data
 
     Parameters
@@ -1192,6 +1193,10 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
             present
         bf_ts:
             Expected timestamps
+        start_only:
+            Only start a capture and return, capture_time will be ignored. Only returns a ingest_kcp_client handle
+        stop_only:
+            Only stop a capture and return data, this will fail if a capture was not started. Requires a ingest_kcp_client.
 
     """
     beamdata_dir = '/ramdisk'
@@ -1249,31 +1254,34 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
                 in_wgts[key] = float(reply.arguments[1])
         Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
-    try:
-        LOGGER.info('Issue {} capture start via CAM int'.format(beam))
-        for i in xrange(2):
-            reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
-        errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
-        assert reply.reply_ok(), errmsg
-        reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
-        errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam,str(reply))
-        assert reply.reply_ok(), errmsg
-    except AssertionError:
-        errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
-        Aqf.failed(errmsg)
-    try:
-        LOGGER.info('Issue ingest node capture-init.')
-        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
-            timeout=_timeout)
-        errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
-        assert reply.reply_ok(), errmsg
-    except Exception as e:
-        print e
-        LOGGER.exception(e)
-        LOGGER.exception(errmsg)
-        Aqf.failed(errmsg)
-    LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
-    time.sleep(capture_time)
+    if not(stop_only):
+        try:
+            LOGGER.info('Issue {} capture start via CAM int'.format(beam))
+            for i in xrange(2):
+                reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
+            errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
+            assert reply.reply_ok(), errmsg
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+            errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam,str(reply))
+            assert reply.reply_ok(), errmsg
+        except AssertionError:
+            errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
+            Aqf.failed(errmsg)
+        try:
+            LOGGER.info('Issue ingest node capture-init.')
+            reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
+                timeout=_timeout)
+            errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
+            assert reply.reply_ok(), errmsg
+        except Exception as e:
+            print e
+            LOGGER.exception(e)
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+        if start_only:
+            return ingest_kcp_client
+        LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
+        time.sleep(capture_time)
     try:
         LOGGER.info('Issue ingest node capture-done.')
         reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-done'),
