@@ -16,7 +16,7 @@ if [ -z "$*" ];
 fi
 
 # This will abort the script immediately if part of the script fails.
-set -e
+set -ex
 # This will give verbose output and also will abort the script immediately if part of the script fails.
 # set -ex
 
@@ -38,7 +38,7 @@ ARRAY_NAME=${3:-array0}
 START_DSIM=${4:-n}
 DEVMODE=${5:-n}
 
-INSTRUMENT_OPTS=${6:-1000}
+INSTRUMENT_OPTS=${6:-1110}
 PROG=${INSTRUMENT_OPTS:0:1}
 CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
@@ -112,8 +112,8 @@ if [ ${START_DSIM} == y ]; then
                 sleep 10;
             fi
         fi
-        sleep 3;
         $(which corr2_dsim_control.py) -c ${CONF_PATH} --program --start --zeros-sine --zeros-noise && break;
+        sleep 5;
     done;
 else
     print_function "We assuming that the DEngine is currently running..."
@@ -127,12 +127,17 @@ fi
 
 SYNC_TIME=$(date -d @${SYNC_EPOCH})
 print_function "Synchronisation Epoch, set to (Readable): ${SYNC_TIME}"
-sleep 1;
-print_function "$Initialising INSTRUMENT: ${INSTRUMENT}"
-${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME} || true
-sleep 1
-ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
-print_function "Port :${ARRAY} created on ${ARRAY_NAME}"
-${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} digitiser-synch-epoch ${SYNC_EPOCH}
-sleep 1;
-${KCPCMD} -t 1000 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
+if [ ${SYNC_EPOCH} != 0 ]; then
+    sleep 1;
+    print_function "$Initialising INSTRUMENT: ${INSTRUMENT}"
+    ${KCPCMD} -t 31 -s ${KATCP_HOST_IP}:7147 subordinate-halt ${ARRAY_NAME} || true
+    sleep 1
+    ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
+    print_function "Port :${ARRAY} created on ${ARRAY_NAME}"
+    ${KCPCMD} -t 500 -s $KATCP_HOST_IP:${ARRAY} digitiser-synch-epoch ${SYNC_EPOCH}
+    sleep 1;
+    ${KCPCMD} -t 1000 -s $KATCP_HOST_IP:${ARRAY} instrument-activate ${INSTRUMENT} ${PROG} ${CONFIGURE} ${REPOCH} ${MVACC}
+else
+    print_function "Restart the DEngine, Having issues!!!"
+    exit 1
+fi
