@@ -13,12 +13,12 @@ coverage
 crypto
 cryptography
 dpkt
-fabric==2.2.2
+fabric==1.12
 fire
 flake8
 flake8-html
 h5py
-idna==2.5
+idna>=2.5
 iniparse
 ipdb
 ipynose
@@ -35,7 +35,7 @@ nose
 nose-testconfig
 nosexcover
 ntplib
-numpy==1.13.3
+numpy>=1.13.3
 pandas
 pandas
 parameterized
@@ -55,7 +55,7 @@ retrying
 sh
 sphinx
 sphinxcontrib-napoleon
-tornado==4.5.2
+tornado>=4.3
 traceback2
 trollius
 
