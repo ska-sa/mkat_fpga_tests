@@ -9,7 +9,7 @@ if [ -z "$*" ];
     ARRAY_NAME: array0 (Default)
     START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)
     DEVMODE: y/[n] [DevMode] automagically download new bitstreams from https://github.com/ska-sa/mkat_fpga/devel
-    INSTRUMENT_OPTS: 1000 (Default) :instrument-activate options, 1=enable, 0=disable
+    INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
                                      [program, configure, require synchronisation epoch, monitor vector accumulators]
     CONF_PATH_DIR: /etc/corr/templates/ (Default)"
     exit 1;
@@ -79,7 +79,7 @@ if [ $DEVMODE == y ]; then
             FILENAME="/tmp/`echo ${bitstream} | rev | cut -d'/' -f1 | rev`";
             URL=`echo $bitstream | cut -c15-`
             print_function "Downloading file: https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
-            wget --tries=5 -q -O $FILENAME "https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
+            wget --tries=5 -O $FILENAME "https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
             print_function "Replacing: ${bitstream}, with ${FILENAME} on ${CONF_PATH}\n\n"
             sed -i -e "s=$bitstream=$FILENAME=" $CONF_PATH
         done
@@ -98,7 +98,8 @@ print_function "No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${H
 
 DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
 if [ ${START_DSIM} == y ]; then
-    while true; do
+    COUNT=1
+    while [ "${COUNT}" -le 5 ]; do
         print_function "Starting DEngine..."
         if [[ $DSIM = *"roach"* ]]; then
             StopDMC="/usr/local/bin/stop-pseudo-dmc";
@@ -112,6 +113,7 @@ if [ ${START_DSIM} == y ]; then
                 sleep 10;
             fi
         fi
+        (( COUNT++ ));
         $(which corr2_dsim_control.py) -c ${CONF_PATH} --program --start --zeros-sine --zeros-noise && break;
         sleep 5;
     done;

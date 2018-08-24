@@ -1,7 +1,6 @@
-git+https://github.com/ska-sa/nosekatreport.git@karoocbf
+git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
 alabaster
 ansicolors
-# https://argcomplete.readthedocs.io/en/latest/#
 argcomplete
 bitstring
 bokeh
@@ -13,7 +12,6 @@ coverage
 crypto
 cryptography
 dpkt
-fabric==1.12
 fire
 flake8
 flake8-html
