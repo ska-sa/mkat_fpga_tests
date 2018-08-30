@@ -1,13 +1,28 @@
 #!/usr/bin/env python
 
 # Brutal way of replacing fhosts,xhosts and dhost in template(s)
+<< << << < HEAD
 import argcomplete
 import argparse
 import fileinput
 import re
 import sys
 
+
 def get_skarabs_from_leaf(leafs, ip_prefix='100'):
+
+
+== == == =
+import argparse
+import argcomplete
+import sys
+import fileinput
+
+
+def get_skarabs_from_leaf(leafs):
+
+
+>>>>>> > group_delay
     dnsmasq_leases = '/var/lib/misc/dnsmasq.leases'
     with open(dnsmasq_leases) as f:
         dnsmasq_leases_data = f.readlines()
@@ -16,12 +31,13 @@ def get_skarabs_from_leaf(leafs, ip_prefix='100'):
                    for host in i.split() if host.startswith('skarab')])
     return list(skarabs) if skarabs is not None else False
 
+
 def main():
     parser = argparse.ArgumentParser(description='Simplified way of replacing fhosts, xhosts and dhost '
                                                  'from config templates')
-    parser.add_argument('-l','--leaf', help='Specify which LEAF contains the skarabs needed',
+    parser.add_argument('-l', '--leaf', help='Specify which LEAF contains the skarabs needed',
                         required=True, nargs='+')
-    parser.add_argument('-f','--config', help='Specify which config file, look in /etc/corr/templates',
+    parser.add_argument('-f', '--config', help='Specify which config file, look in /etc/corr/templates',
                         required=True)
     argcomplete.autocomplete(parser)
     args = vars(parser.parse_args())
@@ -47,8 +63,8 @@ def main():
         n_inputs = int(result.group(1))
         assert len(skarab_list[:n_inputs]) == n_inputs
         fhosts = 'hosts = %s\n' % ','.join(skarab_list[:n_inputs])
-        assert len(skarab_list[n_inputs:n_inputs*2]) == n_inputs
-        xhosts = 'hosts = %s\n' % ','.join(skarab_list[n_inputs:n_inputs*2])
+        assert len(skarab_list[n_inputs:n_inputs * 2]) == n_inputs
+        xhosts = 'hosts = %s\n' % ','.join(skarab_list[n_inputs:n_inputs * 2])
         dhost = 'host = %s\n' % skarab_list[-1]
         print('Replacing fhost with: %s' % fhosts)
         print('Replacing xhost with: %s' % xhosts)
@@ -58,12 +74,12 @@ def main():
     else:
         # Brutal search and replace: regular-expressions recommended [future ToDo].
         with open(config) as f:
-           config_file = f.readlines()
+            config_file = f.readlines()
         fengine_ind = config_file.index('[fengine]\n') + 1
         xengine_ind = config_file.index('[xengine]\n') + 1
         dengine_ind = config_file.index('[dsimengine]\n') + 1
-        config_file[fengine_ind:fengine_ind+1] = [fhosts]
-        config_file[xengine_ind:xengine_ind+1] = [xhosts]
+        config_file[fengine_ind:fengine_ind + 1] = [fhosts]
+        config_file[xengine_ind:xengine_ind + 1] = [xhosts]
         config_file[config_file.index(
             [i for i in config_file[dengine_ind:] if 'host = ' in i][0])] = dhost
         with open(config, 'w') as f:
@@ -77,6 +93,7 @@ def main():
         #     if line.strip().startswith('host = '):
         #         line = dhost
         #     sys.stdout.write(line)
+
 
 if __name__ == "__main__":
     main()

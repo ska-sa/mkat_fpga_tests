@@ -1,23 +1,21 @@
 #!/usr/bin/python
 
-import argcomplete
-import argparse
+import os
+import logging
+import time
 import casperfpga
 import corr2
-import itertools
-import logging
-import logging
-import os
-import socket
-import struct
-import time
-import time
-import unittest
+import argparse
+import argcomplete
 
 from corr2 import fxcorrelator
 from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
 
+import unittest
+import logging
+import time
+import itertools
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -26,7 +24,7 @@ from unittest.util import strclass
 
 from katcp.testutils import start_thread_with_cleanup
 from corr2.dsimhost_fpga import FpgaDsimHost
-from corr2.corr_rx import CorrRx
+#from corr2.corr_rx import CorrRx
 
 from collections import namedtuple
 
@@ -35,8 +33,12 @@ from casperfpga import utils as fpgautils
 
 LOGGER = logging.getLogger(__name__)
 
-ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
-int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
+
+def ip2int(ipstr): return struct.unpack('!I', socket.inet_aton(ipstr))[0]
+
+
+def int2ip(n): return socket.inet_ntoa(struct.pack('!I', n))
+
 
 class AttrDict(dict):
     """
@@ -46,20 +48,23 @@ class AttrDict(dict):
     http://jiaaro.com/making-python-objects-that-act-like-javascrip
     """
 
+
 def check_x_rx_reorder(c):
     for x in c.xhosts:
         stat = x.get_rx_reorder_status()
-        for i,xeng in enumerate(stat):
+        for i, xeng in enumerate(stat):
             for key, value in xeng.iteritems():
                 if key.find('err') != -1 and value != 0:
-                    print('{} Xeng {}: {}: {}'.format(x.host,i,key,value))
+                    print('{} Xeng {}: {}: {}'.format(x.host, i, key, value))
+
 
 def check_f_rx_reorder(c):
     for f in c.fhosts:
         stat = f.get_rx_reorder_status()
         for key, value in stat.iteritems():
             if key.find('err') != -1 and value != 0:
-                print('{}: {}: {}'.format(f.host,key,value))
+                print('{}: {}: {}'.format(f.host, key, value))
+
 
 def clear_all(c):
     for f in c.fhosts:
@@ -67,17 +72,18 @@ def clear_all(c):
     for x in c.xhosts:
         x.clear_status()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '-c', '--config', type=str, action='store', default='',
-            help='Instrument config file')
+        '-c', '--config', type=str, action='store', default='',
+        help='Instrument config file')
     parser.add_argument(
-            '-d', '--dsim_present', action='store_true', default=False,
-            help='Initialise DSIM')
+        '-d', '--dsim_present', action='store_true', default=False,
+        help='Initialise DSIM')
     parser.add_argument(
-            '-p', '--program', action='store_true', default=False,
-            help='Program SKARABS during initialise')
+        '-p', '--program', action='store_true', default=False,
+        help='Program SKARABS during initialise')
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
@@ -115,5 +121,5 @@ if __name__ == "__main__":
 
     xhost = c.xhosts[0]
     x = c.xhosts[0]
-    import IPython;IPython.embed()
-
+    import IPython
+    IPython.embed()

@@ -85,15 +85,16 @@ def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
 
 
-def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None):
+def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None, no_clip=False):
     with np.errstate(divide='ignore'):
         log_data = 10 * np.log10(data)
     if normalise_to:
         max_log = normalise_to
     else:
         max_log = np.max(log_data)
-    min_log_clip = max_log - dynamic_range
-    log_data[log_data < min_log_clip] = min_log_clip
+    if not(no_clip):
+        min_log_clip = max_log - dynamic_range
+        log_data[log_data < min_log_clip] = min_log_clip
     if normalise:
         log_data = np.asarray(log_data) - np.max(log_data)
     return log_data
@@ -573,7 +574,7 @@ def set_default_eq(self):
 
 
 def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None, gain=None,
-                     cw_src=0):
+                     cw_src=0, corr_noise=True):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
     and quantiser gain to optimum levels - Hardcoded.
@@ -594,12 +595,23 @@ def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=
             source 0 or 1
     Return: Bool
     """
+    self.dhost.noise_sources.noise_corr.set(scale=0)
+    self.dhost.noise_sources.noise_0.set(scale=0)
+    self.dhost.noise_sources.noise_1.set(scale=0)
+    self.dhost.sine_sources.sin_0.set(frequency=0, scale=0)
+    self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
+    time.sleep(0.1)
     if cw_scale is not None:
         self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
         self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
 
     if awgn_scale is not None:
-        self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+        if corr_noise:
+            self.dhost.noise_sources.noise_corr.set(scale=awgn_scale)
+        else:
+            self.dhost.noise_sources.noise_0.set(scale=awgn_scale)
+            self.dhost.noise_sources.noise_1.set(scale=awgn_scale)
+
 
     def set_fft_shift(self):
         try:
@@ -1122,7 +1134,8 @@ def stop_katsdpingest_docker(self):
     return True
 
 
-def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_time=0.1):
+def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, capture_time=0.1,
+                      start_only=False, stop_only=False):
     """ Capture beamformer data
 
     Parameters
@@ -1147,6 +1160,10 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
             present
         bf_ts:
             Expected timestamps
+        start_only:
+            Only start a capture and return, capture_time will be ignored. Only returns a ingest_kcp_client handle
+        stop_only:
+            Only stop a capture and return data, this will fail if a capture was not started. Requires a ingest_kcp_client.
 
     """
     beamdata_dir = '/ramdisk'
@@ -1184,7 +1201,6 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
             if key.find(beam_pol) != -1:
                 in_wgts[key] = beam_dict[key]
 
-        # Replace beam_dict with in_wgts as this is a bug hack
         Aqf.step(
             'Setting input weights, this may take a long time, check log output for progress...')
         print_list = ''
@@ -1209,33 +1225,34 @@ def capture_beam_data(self, beam, beam_dict, ingest_kcp_client=None, capture_tim
                 in_wgts[key] = float(reply.arguments[1])
         Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
-    try:
-        LOGGER.info('Issue {} capture start via CAM int'.format(beam))
-        for i in xrange(2):
-            reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
-        errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
-        assert reply.reply_ok(), errmsg
-        reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
-        errmsg = 'Failed to issue capture_start for beam {}: {}'.format(
-            beam, str(reply))
-        assert reply.reply_ok(), errmsg
-    except AssertionError:
-        errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
-        Aqf.failed(errmsg)
-    try:
-        LOGGER.info('Issue ingest node capture-init.')
-        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
-                                                            timeout=_timeout)
-        errmsg = 'Failed to issues ingest node capture-init: {}'.format(
-            str(reply))
-        assert reply.reply_ok(), errmsg
-    except Exception as e:
-        print e
-        LOGGER.exception(e)
-        LOGGER.exception(errmsg)
-        Aqf.failed(errmsg)
-    LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
-    time.sleep(capture_time)
+    if not(stop_only):
+        try:
+            LOGGER.info('Issue {} capture start via CAM int'.format(beam))
+            for i in xrange(2):
+                reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
+            errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
+            assert reply.reply_ok(), errmsg
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+            errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam, str(reply))
+            assert reply.reply_ok(), errmsg
+        except AssertionError:
+            errmsg = ' .'.join([errmsg, 'Failed to start Data transmission.'])
+            Aqf.failed(errmsg)
+        try:
+            LOGGER.info('Issue ingest node capture-init.')
+            reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-init'),
+                timeout=_timeout)
+            errmsg = 'Failed to issues ingest node capture-init: {}'.format(str(reply))
+            assert reply.reply_ok(), errmsg
+        except Exception as e:
+            print e
+            LOGGER.exception(e)
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
+        if start_only:
+            return ingest_kcp_client
+        LOGGER.info('Capturing beam data for {} seconds'.format(capture_time))
+        time.sleep(capture_time)
     try:
         LOGGER.info('Issue ingest node capture-done.')
         reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request('capture-done'),
@@ -1320,7 +1337,7 @@ def set_beam_quant_gain(self, beam, gain):
                'actual gain set to {:.2f}.'.format(gain, actual_beam_gain))
         Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
         return actual_beam_gain
-    except Exception, e:
+    except Exception as e:
         Aqf.failed(
             'Failed to set beamformer quantiser gain via CAM interface, {}'.format(str(e)))
         return 0

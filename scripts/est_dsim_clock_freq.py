@@ -24,6 +24,7 @@ if __name__ == "__main__":
     if opts.config_file:
         if os.path.isfile(opts.config_file):
             config = opts.config_file
+            ini_file = utils.parse_ini_file(config)
         else:
             parser.error('Specified file does not exist.')
     else:
@@ -39,22 +40,21 @@ if __name__ == "__main__":
 
     print 'Initialising correlator'
     correlator = fxcorrelator.FxCorrelator('rts correlator', config_source=config)
-    #correlator.initialise(program=False)
+    correlator.initialise(program=False, configure=False)
 
-    # Done during correlator init
-    #for fpga in correlator.fhosts + correlator.xhosts:
-    #    if fpga.is_running():
-    #        fpga.get_system_information()
+    for fpga in correlator.fhosts:
+        if fpga.is_running():
+            fpga.get_system_information(ini_file['fengine']['bitstream'])
     print 'correlator is running'
-
     f = correlator.fhosts[0]
     config_ini = utils.parse_ini_file(config)
     f.get_system_information(filename=config_ini['fengine'].get('bitstream'))
 
     try:
         #20ms in clock ticks
-        ticks_20ms = 0.02*1712000000
-        ticks_20ms = pow(2,32)-ticks_20ms
+        ticks_20ms = 0.02 * 1712000000
+        ticks_20ms = pow(2, 32) - ticks_20ms
+
         def get_ts():
             lsw = f.registers.local_time_lsw.read()
             msw = f.registers.local_time_msw.read()
@@ -62,20 +62,21 @@ if __name__ == "__main__":
             msw = msw['data']['timestamp_msw']
             #Check that lsw is not within 20 ms of wrapping
             if lsw > ticks_20ms:
-                return (msw<<32)+lsw
+                return (msw << 32) + lsw
             else:
                 return False
         #Function to check freq using fhost.get_local_time
         #This is unreliable. get_local_time takes too long to return
+
         def freq_get_local_time(delay=10):
             start_time = time.time()
             fhost_st_ts = f.get_local_time()
             time.sleep(delay)
             end_time = time.time()
             fhost_end_ts = f.get_local_time()
-            loc_time_diff = end_time-start_time
-            ts_diff = fhost_end_ts-fhost_st_ts
-            return ts_diff/loc_time_diff
+            loc_time_diff = end_time - start_time
+            ts_diff = fhost_end_ts - fhost_st_ts
+            return ts_diff / loc_time_diff
 
         #Function to check freq reading raw local time registers
         def freq_get_ts(delay=10):
@@ -88,9 +89,9 @@ if __name__ == "__main__":
             while not fhost_end_ts:
                 end_time = time.time()
                 fhost_end_ts = get_ts()
-            loc_time_diff = end_time-start_time
-            ts_diff = fhost_end_ts-fhost_st_ts
-            return ts_diff/loc_time_diff
+            loc_time_diff = end_time - start_time
+            ts_diff = fhost_end_ts - fhost_st_ts
+            return ts_diff / loc_time_diff
         freq_ts_list = []
         delay = opts.time_delta
         print 'Estimating dsim clock frequency using direct register method with delay of {}'.format(delay)
@@ -103,5 +104,3 @@ if __name__ == "__main__":
         freq_list = np.asarray(freq_ts_list)
         print ('Standard deviation of samples: {}').format(freq_list.std())
         pass
-
-
