@@ -24,35 +24,26 @@ import matplotlib.ticker as ticker
 import pickle
 
 # %% Define useful functions
-
-
 def clear_plots():
     plt.close('all')
 
-
 clear_plots()
+
 # Function to convert linear values to dB
-
-
 def pow2dB(val_lin):
     val_dB = 10*np.log10(val_lin)
     return val_dB
 
 # Function to convert dB values to linear
-
-
 def dB2pow(val_dB):
     val_lin = 10**(val_dB/10)
     return val_lin
 
 # %% Analyse beam data function
-
-
 def analyse_beam_data(bf_raw, skarab_or_roach=True, do_save=False, dsim_settings=[54832000, 0.08, 0.05], cbf_settings=[8191, 110], spectra_use='all', chans_to_use=2**9, xlim=[20, 21], dsim_factor=1.0, ref_input_label='dummy', bandwidth=856e6, n_chans=4096):
     '''
     SKARAB System Level Test 1:
         - This function takes in a list of beam test data for a particular polarisation and analyses (displays/plots) the spectral as well as time domain data response.
-
         Parameters:
             bf_raw: Beamformer capture of shape[channels, num_captures, polarisations]
             skarab_or_roach: True for skarab data, False for roach data, e.g. and default skarab_or_roach = True
@@ -64,7 +55,6 @@ def analyse_beam_data(bf_raw, skarab_or_roach=True, do_save=False, dsim_settings
             xlim: limit x-axis in zoom plots by this range in ms, e.g. and default xlim = [20,21]
             dsim_factor: Dsim clock factor = real_dsim_sample_frequency / nominal_sample_frequency
             ref_input_label: Input for which weight was set to 1, all other input weights set to zero
-
         Returns:
             Plots of:
             - Waterfall plot of dataset (arb dB of magnitude data)

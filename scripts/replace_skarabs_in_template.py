@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Brutal way of replacing fhosts,xhosts and dhost in template(s)
+<<<<<<< HEAD
 import argcomplete
 import argparse
 import fileinput
@@ -8,6 +9,14 @@ import re
 import sys
 
 def get_skarabs_from_leaf(leafs, ip_prefix='100'):
+=======
+import argparse
+import argcomplete
+import sys
+import fileinput
+
+def get_skarabs_from_leaf(leafs):
+>>>>>>> group_delay
     dnsmasq_leases = '/var/lib/misc/dnsmasq.leases'
     with open(dnsmasq_leases) as f:
         dnsmasq_leases_data = f.readlines()
