@@ -1,4 +1,5 @@
 git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
+termcolor
 alabaster
 ansicolors
 argcomplete
