@@ -38,6 +38,8 @@ def cls_end_aqf(cls):
     return cls
 
 # Todo, Fix this function
+
+
 def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
                            plot_title='', plot_units=None, caption='', dump_counts=5,
                            show=False, ):
@@ -164,11 +166,11 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             annotate_text = vlines[-1]
             vlines = vlines[:-1]
 
-        if type(vlines) is list:
+        if isinstance(vlines, list):
             _vlines = iter(vlines)
         else:
             _vlines = vlines
-    except:
+    except BaseException:
         pass
 
     plt.grid(True)
@@ -197,7 +199,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             LOGGER.exception('No display on $DISPLAY environment variable, check matplotlib backend')
             return False
 
-        if type(vlines) is list:
+        if isinstance(vlines, list):
             try:
                 plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
                 vlines_plotd = True
@@ -232,7 +234,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
                 add_hxline(cutoff, msg)
                 msg = ('CBF channel isolation: -53dB')
                 add_hxline(-53, msg)
-        except:
+        except BaseException:
             pass
     else:
         plt.xlabel('Channel number')
@@ -258,7 +260,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
-        if type(hlines) is not list:
+        if not isinstance(hlines, list):
             lines = hlines
             msg = ('{:.3f}dB'.format(lines))
             plt.axhline(lines, linestyle='dotted', linewidth=1.5)
@@ -266,7 +268,7 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
             for idx, lines in enumerate(hlines):
                 try:
                     color = plt_line[idx + hline_strt_idx][0].get_color()
-                except:
+                except BaseException:
                     color = 'red'
                 plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
 
@@ -376,7 +378,7 @@ def test_heading(heading):
 
 def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
                 log_dynamic_range=None, log_normalise_to=1, normalise=False, hlines=None,
-                vlines=None, ylimits=None, xlabel=None, ylabel=None, 
+                vlines=None, ylimits=None, xlabel=None, ylabel=None,
                 hline_strt_idx=0, cutoff=None, show=False):
     """
         Simple magnitude plot         return: None
@@ -384,7 +386,7 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
         -------
         aqf_plot_xy(([x_axis_points],[y_axis_points])
                      'plot_file_name', 'plot_title')
-        `data` contains x_axis and y_axis points, arrays must be same lenght. 
+        `data` contains x_axis and y_axis points, arrays must be same lenght.
         If `data` is a two dimentional list it is interpreted as a multi-line plot with
         `data` containing:
         `((plot1_data, legend1), (plot2_data, legend2), ... )`
@@ -404,10 +406,10 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
     try:
         data_fixed = []
         for i, data_pair in enumerate(data):
-            if not isinstance(data_pair[-1],str):
+            if not isinstance(data_pair[-1], str):
                 data_fixed.append((data[i], None),)
         if data_fixed:
-            data=data_fixed
+            data = data_fixed
     except IndexError:
         Aqf.failed('List of channel responses out of range: {}'.format(data))
     has_legend = False
@@ -424,11 +426,11 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
             annotate_text = vlines[-1]
             vlines = vlines[:-1]
 
-        if type(vlines) is list:
+        if isinstance(vlines, list):
             _vlines = iter(vlines)
         else:
             _vlines = vlines
-    except:
+    except BaseException:
         pass
 
     plt.grid(True)
@@ -458,7 +460,7 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
             return False
         dotted_line = True
 
-        if type(vlines) is list:
+        if isinstance(vlines, list):
             try:
                 plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
                 vlines_plotd = True
@@ -506,7 +508,7 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
         plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
-        if type(hlines) is not list:
+        if not isinstance(hlines, list):
             lines = hlines
             msg = ('{:.3f}dB'.format(lines))
             plt.axhline(lines, linestyle='dotted', linewidth=1.5)
@@ -514,7 +516,7 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
             for idx, lines in enumerate(hlines):
                 try:
                     color = plt_line[idx + hline_strt_idx][0].get_color()
-                except:
+                except BaseException:
                     color = 'red'
                 plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
 
