@@ -39,7 +39,7 @@ from signal import SIGKILL
 # List all core test python module dependencies
 _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
 
-_revision ='1.0'
+_revision = '1.0'
 _array_release = '3'
 
 
@@ -155,9 +155,9 @@ def option_parser():
                       action="store_true",
                       default=False,
                       help="Cleanup reports from previous test run. Reports"
-                          " are replaced by default without --clean. Clean is"
-                          " useful with --quick to only generate the html of the"
-                          " test run report")
+                        " are replaced by default without --clean. Clean is"
+                        " useful with --quick to only generate the html of the"
+                        " test run report")
 
     parser.add_argument("--dev_update",
                       dest="dev_update",
@@ -182,6 +182,7 @@ def option_parser():
         sys.exit(1)
     else:
         return parser.parse_args()
+
 
 def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, shell=False):
     if log_filename is False:
@@ -215,7 +216,7 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
             logger.debug('Writing %s to file: %s' % (' '.join(cmd), log_filename))
             return subprocess.call(cmd, stderr=fh, stdout=fh)
     else:
-        logger.debug('Run command with stderr: %s' %cmd)
+        logger.debug('Run command with stderr: %s' % cmd)
         kwargs_cmd = {'env': os.environ}
         try:
             if shell:
@@ -235,7 +236,7 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
 def run_command_output(settings, cmd):
     """Run a command and return output."""
     if settings.get('dry_run') and 'nosetests' in cmd:
-        logger.info('Dry-Run with command: %s' %cmd)
+        logger.info('Dry-Run with command: %s' % cmd)
         return
     else:
         try:
@@ -297,6 +298,7 @@ def do_dev_update(settings):
     run_command(settings, [_pip, 'install', '-U', 'pip'])
     run_command(settings, [_pip, 'install', '-U', '-r', 'pip-requirements.txt'])
 
+
 def get_system_info():
     _system = os.uname()
     system = {'system_type': '', 'site': '', 'system_config': ''}
@@ -317,11 +319,12 @@ def get_system_info():
     logger.debug('Retrieved system information')
     return system
 
+
 def process_core_data(settings):
     """Process the CORE XML file if JSON file is not there or old."""
 
     # Setup.
-    if settings.has_key('me_dir'):
+    if 'me_dir' in settings:
         temp_core_export = '/'.join([settings['me_dir'], 'tmp', 'CORE_EXPORT'])
         if not os.path.exists(temp_core_export):
             os.makedirs(temp_core_export)
@@ -349,10 +352,9 @@ def process_core_data(settings):
         core_backup = settings.get('core_backup')
         logger.debug('Retrieving CORE.xml from backup dir: %s' % core_backup)
         if os.path.exists(core_backup):
-            latest_core_xml = max(glob.iglob(os.path.join(core_backup ,'*.[Xx][Mm][Ll]')),
+            latest_core_xml = max(glob.iglob(os.path.join(core_backup, '*.[Xx][Mm][Ll]')),
                 key=os.path.getctime)
-            logger.debug('CORE.xml file name %s @ %.2f Mb' % (os.path.split(latest_core_xml)[-1]
-              , os.path.getsize(latest_core_xml) / 1e6))
+            logger.debug('CORE.xml file name %s @ %.2f Mb' % (os.path.split(latest_core_xml)[-1], os.path.getsize(latest_core_xml) / 1e6))
             settings['xml_file'] = latest_core_xml
         else:
             errmsg = 'CORE.xml file does not exist in %s dir' % core_backup
@@ -376,6 +378,7 @@ def process_core_data(settings):
     if os.path.isfile(settings['json_file']):
         settings['use_core_json'] = True
 
+
 def create_log_func(settings):
     """Return the log function.
 
@@ -396,7 +399,7 @@ def create_log_func(settings):
             level = 'DEBUG'
         # Todo(Martin): Filter verbosity on message level.
         if level in allowed_levels:  # Closure
-            print "%s"%(time.strftime("%H:%M:%S", time.localtime())), level, "++", " ".join(
+            print "%s" % (time.strftime("%H:%M:%S", time.localtime())), level, "++", " ".join(
                 [str(s) for s in args])
 
     log_levels = ['ERROR', 'WARNING', 'INFO', 'DEBUG']
@@ -408,6 +411,7 @@ def create_log_func(settings):
         allowed_levels.pop()
     return __log_func
 
+
 def replaceAll(file, searchExp, replaceExp):
     """Search and replace"""
     with open(file, 'r') as f:
@@ -417,6 +421,7 @@ def replaceAll(file, searchExp, replaceExp):
     with open(file, 'w') as f:
         for line in newlines:
             f.write(line)
+
 
 def generate_sphinx_docs(settings):
     os.chdir(settings['base_dir'])
@@ -475,6 +480,7 @@ def generate_sphinx_docs(settings):
        katreport/cbf_timescale_unlinked_qualification_results.rst
        katreport/katreport_system.rst
     """
+
     def verbose_cmd_exec(log_level, cmd):
         if settings.get('log_level') == log_level:
             logger.debug('Executed CMD: %s' % cmd)
@@ -484,7 +490,7 @@ def generate_sphinx_docs(settings):
 
     try:
         logger.debug(
-          'Cleaning up previous builds, Note: Backup can be found on ../CBF_Tests_Reports dir')
+            'Cleaning up previous builds, Note: Backup can be found on ../CBF_Tests_Reports dir')
         verbose_cmd_exec('DEBUG', ['make', 'clean'])
         assert settings.get('gen_html', False)
     except AssertionError:
@@ -501,39 +507,39 @@ def generate_sphinx_docs(settings):
     else:
         logger.info("Generating LATEX/PDF document from reST")
         document_data = {
-                'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test ' % _array_release,
-                'documented_instrument': settings.get('system_type', 'Unknown'),
-                'array_release': _array_release,
-                'document_number': {
-                                    'QTP': 'M1200-0000-054 ',
-                                    'QTR': 'M1200-0000-055',
-                                    'bc8n856M4k': ['M1200-0000-055-1',
-                                                   '4 Antenna System running in Wideband Coarse (4K) mode'
-                                                   ' with a beamformer'],
-                                    'bc8n856M32k':  ['M1200-0000-055-2',
-                                                   '4 Antenna System running in Wideband Fine (32K) mode'],
-                                    'bc16n856M4k':  ['M1200-0000-055-3',
-                                                   '8 Antenna System running in Wideband Coarse (4K) mode'
-                                                   ' with a beamformer'],
-                                    'bc16n856M32k': ['M1200-0000-055-4',
-                                                   '8 Antenna System running in Wideband Fine (32K) mode'],
-                                    'bc32n856M4k':  ['M1200-0000-55-5',
-                                                   '16 Antenna System running in Wideband Coarse (4K) mode'
-                                                   ' with a beamformer'],
-                                    'bc32n856M32k': ['M1200-0000-55-6',
-                                                   '16 Antenna System running in Wideband Fine (32K) mode'],
-                                    'bc64n856M4k':  ['M1200-0000-55-7',
-                                                   '32 Antenna System running in Wideband Coarse (4K) mode'
-                                                   ' with a beamformer'],
-                                    'bc64n856M32k': ['M1200-0000-55-8',
-                                                   '32 Antenna System running in Wideband Fine (32K) mode'],
-                                    'bc128n856M4k':  ['M1200-0000-55-9',
-                                                   '64 Antenna System running in Wideband Coarse (4K) mode'
-                                                   ' with a beamformer'],
-                                    'bc128n856M32k': ['M1200-0000-55-10',
-                                                   '64 Antenna System running in Wideband Fine (32K) mode'],
-                                    },
-                        }
+            'project': 'MeerKAT Correlator-Beamformer Array Release %s Qualification Test ' % _array_release,
+            'documented_instrument': settings.get('system_type', 'Unknown'),
+            'array_release': _array_release,
+            'document_number': {
+                'QTP': 'M1200-0000-054 ',
+                'QTR': 'M1200-0000-055',
+                'bc8n856M4k': ['M1200-0000-055-1',
+                               '4 Antenna System running in Wideband Coarse (4K) mode'
+                               ' with a beamformer'],
+                'bc8n856M32k': ['M1200-0000-055-2',
+                                '4 Antenna System running in Wideband Fine (32K) mode'],
+                'bc16n856M4k': ['M1200-0000-055-3',
+                                '8 Antenna System running in Wideband Coarse (4K) mode'
+                                ' with a beamformer'],
+                'bc16n856M32k': ['M1200-0000-055-4',
+                                 '8 Antenna System running in Wideband Fine (32K) mode'],
+                'bc32n856M4k': ['M1200-0000-55-5',
+                                '16 Antenna System running in Wideband Coarse (4K) mode'
+                                ' with a beamformer'],
+                'bc32n856M32k': ['M1200-0000-55-6',
+                                 '16 Antenna System running in Wideband Fine (32K) mode'],
+                'bc64n856M4k': ['M1200-0000-55-7',
+                                '32 Antenna System running in Wideband Coarse (4K) mode'
+                                ' with a beamformer'],
+                'bc64n856M32k': ['M1200-0000-55-8',
+                                 '32 Antenna System running in Wideband Fine (32K) mode'],
+                'bc128n856M4k': ['M1200-0000-55-9',
+                                 '64 Antenna System running in Wideband Coarse (4K) mode'
+                                 ' with a beamformer'],
+                'bc128n856M32k': ['M1200-0000-55-10',
+                                  '64 Antenna System running in Wideband Fine (32K) mode'],
+            },
+        }
         _filename = os.path.join(settings.get('me_dir'),
             settings.get("katreport_dir"), 'latex_data.json')
         if settings.get('gen_qtp'):
@@ -614,9 +620,9 @@ def generate_sphinx_docs(settings):
                 for pdf in pdfs:
                     merger.append(pdf)
                 merger.write(filename)
-                logger.debug("Merged MeerKAT cover page with %s"%filename)
+                logger.debug("Merged MeerKAT cover page with %s" % filename)
                 os.rename(filename, '/'.join([latex_dir, filename]))
-                logger.info("Moved %s back into build directory"%filename)
+                logger.info("Moved %s back into build directory" % filename)
 
 
         now = time.localtime()
@@ -668,7 +674,7 @@ def run_nose_test(settings):
         cmd.append("--with-xunit")
         cmd.append("--logging-level=DEBUG")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
-        cmd.append("--logging-filter=%s" %__file__)
+        cmd.append("--logging-filter=%s" % __file__)
     cmd.append("--with-katreport")
 
     if settings.get('use_core_json') and settings.get('json_file'):
@@ -676,7 +682,7 @@ def run_nose_test(settings):
 
 
     # Build the nosetests filter.
-    condition = {'OR': ['aqf_system_all'], 'AND': []}
+    condition = {'OR': [], 'AND': []}
     # condition = {'OR': ['aqf_system_all and aqf_generic_test'], 'AND': []}
     # if settings.get('system_type'):
     #     # Include tests for this system type.
@@ -691,23 +697,23 @@ def run_nose_test(settings):
         condition['AND'].append("(not aqf_site_only)")
 
     if settings.get('site_acceptance'):
-       if settings.get('system_location', '').lower().startswith(_site_location.lower()):
-           # Include site_only tests if in the Karoo
-           condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
-       else:
-           condition['AND'].append("aqf_site_acceptance or aqf_manual_test")
+        if settings.get('system_location', '').lower().startswith(_site_location.lower()):
+            # Include site_only tests if in the Karoo
+            condition['AND'].append("(aqf_site_acceptance or aqf_site_only)")
+        else:
+            condition['AND'].append("aqf_site_acceptance or aqf_manual_test")
 
     if settings.get('mode'):
         _instrument = settings.get('mode')
-        _decorated_instrument = 'aqf_instrument_%s'%_instrument
+        _decorated_instrument = 'aqf_instrument_%s' % _instrument
         if settings.get('site_acceptance'):
             # For Acceptance
             # run tests decorated with aqf_instrument_MODE and site_acceptance
             # and aqf_site_tests
             _conditions = '(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))' % _decorated_instrument
             condition['AND'].append(_conditions)
-        elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32') \
-                or _instrument.startswith('bc64')or _instrument.startswith('bc128')) and \
+        elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32')
+                or _instrument.startswith('bc64')or _instrument.startswith('bc128')) and
                 settings['system_location'].lower() == 'lab'):
             logger.error("Test can ONLY be ran on SITE!!!!!!!!")
             sys.exit(1)
@@ -736,9 +742,9 @@ def run_nose_test(settings):
         if condition['AND'][-1].startswith('('):
             try:
                 assert settings['mode'] is None
-                condition['AND'][-1] = condition['AND'][-1].replace('(','').replace(')','')
+                condition['AND'][-1] = condition['AND'][-1].replace('(', '').replace(')', '')
             except AssertionError:
-                condition['AND'][-1] = condition['AND'][-1].replace('(','')
+                condition['AND'][-1] = condition['AND'][-1].replace('(', '')
         if not condition['AND'][-2].startswith('('):
             condition['AND'][-2] = '(' + condition['AND'][-2]
         cmd.append('-A(%s)' % ' and '.join(condition['AND']))
@@ -750,9 +756,9 @@ def run_nose_test(settings):
     # ToDo MM 01/06/2018
     # To run manual tests or not - That is the question.
     if not settings.get('manual_test'):
-        cmd.append('-A(%s)' %("(not aqf_manual_test)"))
+        cmd.append('-A(%s)' % ("(not aqf_manual_test)"))
     if not settings.get('slow_test'):
-        cmd.append('-A(%s)' %("(not aqf_slow)"))
+        cmd.append('-A(%s)' % ("(not aqf_slow)"))
 
     katreport_control = []
     if settings.get('jenkins'):
@@ -788,6 +794,7 @@ def run_nose_test(settings):
     logger.debug("Running nosetests with following command: %s" % cmd)
     return run_command(settings, cmd, shell=True)
 
+
 def _downloadfile(url, filename):
     from urllib2 import urlopen, HTTPError
     logger.info("Download {} from {}".format(filename, url))
@@ -800,29 +807,31 @@ def _downloadfile(url, filename):
         filename = None
     return filename
 
+
 def get_filename(what, settings):
     katreport_dir = settings["katreport_dir"]
     files = {
-                'test': os.path.join(settings['me_dir'],
-                                  '{}/katreport.json'.format(katreport_dir)),
-                'system': os.path.join(settings['me_dir'],
-                                    '{}/katreport_system.json'.format(katreport_dir)),
-                'core': settings.get('json_file', '')
-             }
+        'test': os.path.join(settings['me_dir'],
+                             '{}/katreport.json'.format(katreport_dir)),
+        'system': os.path.join(settings['me_dir'],
+                               '{}/katreport_system.json'.format(katreport_dir)),
+        'core': settings.get('json_file', '')
+    }
     return files.get(what, None)
+
 
 def generate_report(settings):
     report_type = settings['report'].lower()
     katreport_dir = settings["katreport_dir"]
     files = {
-                'test': get_filename('test', settings),
-                'system': get_filename('system', settings),
-                'core': get_filename('core', settings)
-            }
+        'test': get_filename('test', settings),
+        'system': get_filename('system', settings),
+        'core': get_filename('core', settings)
+    }
     urls_for_jenkins = {
-                            'test': "katreport.json",
-                            'system': "katreport_system.json"
-                        }
+        'test': "katreport.json",
+        'system': "katreport_system.json"
+    }
 
     # TODO(MS) Get this from the command line so that it can be passed in for
     # each different document generation.
@@ -863,6 +872,7 @@ def generate_report(settings):
     report.clear()
     report.write_rst_cbf_files(os.path.join(settings['me_dir'], katreport_dir),
                                settings['build_dir'], settings["katreport_dir"], 'cbf')
+
 
 def show_test_results(settings):
     """Helper function to print test results
@@ -905,18 +915,19 @@ def show_test_results(settings):
 
     print "===Meta==="
     for item in sorted(test_data["Meta"].keys()):
-        print "    ",item.ljust(20),": ",test_data["Meta"][item]
+        print "    ", item.ljust(20), ": ", test_data["Meta"][item]
 
     tests = [item for item in test_data.keys() if item != 'Meta']
     for test in tests:
-        print "\n-------",test,"------"
+        print "\n-------", test, "------"
         for item in sorted(test_data[test].keys()):
-            if item not in ['steps','description']:
-                print "    ",item.ljust(20),": ",test_data[test][item]
+            if item not in ['steps', 'description']:
+                print "    ", item.ljust(20), ": ", test_data[test][item]
         # IF verbose, print description and steps at the end
         if settings["verbose"]:
             for item in ['description', 'steps']:
-                print "    ",item.ljust(20),": ",test_data[test][item]
+                print "    ", item.ljust(20), ": ", test_data[test][item]
+
 
 def do_cleanup(settings):
     """Run make clean and remove previous run."""
@@ -930,6 +941,7 @@ def do_cleanup(settings):
     except os.error:
         pass
 
+
 def gather_system_settings(settings):
     """Get information of the system we are running on."""
     try:
@@ -941,13 +953,13 @@ def gather_system_settings(settings):
 
     filename = os.path.join(settings['me_dir'], settings["katreport_dir"], 'katreport_system.json')
     data = {
-                # 'pip_version':  {
-                #                 },
-                # 'dpkg_version': {
-                #                 },
-                # # 'vcs_version':  {
-                #                 }
-            }
+        # 'pip_version':  {
+        #                 },
+        # 'dpkg_version': {
+        #                 },
+        # # 'vcs_version':  {
+        #                 }
+    }
     _items = ['site', 'system_type', 'system_location', 'system_config']
     for item in _items:
         data[item] = settings[item]
@@ -979,55 +991,56 @@ def gather_system_settings(settings):
     # Here we define the labels that katreport will use. Dont want katreport
     # to have to much knowledge of this file.
     data['Labels'] = {
-                        # 'pip_version': {
-                        #                     'label': 'Python Modules',
-                        #                     'description': 'Versions of python '
-                        #                     'modules managed by pip. This data was '
-                        #                     'obtained by running "pip freeze."'
-                        #                 },
-                        # 'vcs_version': {
-                        #                     'label': 'Versions from VCS',
-                        #                     'description': 'Output from '
-                        #                     'kat-versioncontrol.py'
-                        #                 },
-                        # 'dpkg_version': {
-                        #                     'label': 'Installed Software',
-                        #                     'description': 'Versions of software '
-                        #                     'installed on this system.'
-                        #                 },
-                        # 'username':     {
-                        #                     'label': 'Unix User',
-                        #                     'description': 'The name of the user who executed the '
-                        #                     'tests:'
-                        #                 },
-                        'system_location': {
-                                            'label': 'Test Configuration - Hardware',
-                                            'description': 'Hardware information: '
-                                        },
-                        'system_config': {
-                                            'label': 'Test Configuration - Software',
-                                            'description': 'Software Information: ',
-                                        },
-                        'system_type': {
-                                            'label': 'CBF Instrument Under Test',
-                                            'description': 'The name of the instrument that was ran:'
-                                        },
+        # 'pip_version': {
+        #                     'label': 'Python Modules',
+        #                     'description': 'Versions of python '
+        #                     'modules managed by pip. This data was '
+        #                     'obtained by running "pip freeze."'
+        #                 },
+        # 'vcs_version': {
+        #                     'label': 'Versions from VCS',
+        #                     'description': 'Output from '
+        #                     'kat-versioncontrol.py'
+        #                 },
+        # 'dpkg_version': {
+        #                     'label': 'Installed Software',
+        #                     'description': 'Versions of software '
+        #                     'installed on this system.'
+        #                 },
+        # 'username':     {
+        #                     'label': 'Unix User',
+        #                     'description': 'The name of the user who executed the '
+        #                     'tests:'
+        #                 },
+        'system_location': {
+            'label': 'Test Configuration - Hardware',
+            'description': 'Hardware information: '
+        },
+        'system_config': {
+            'label': 'Test Configuration - Software',
+            'description': 'Software Information: ',
+        },
+        'system_type': {
+            'label': 'CBF Instrument Under Test',
+            'description': 'The name of the instrument that was ran:'
+        },
 
-                        # 'dist':         {
-                        #                     'label': 'OS Distribution',
-                        #                     'description': 'Distribution of the Operating System:'
-                        #                 },
-                        # 'uname':        {
-                        #                     'label': 'Linux Kernel',
-                        #                     'description': 'Current Linux Kernel:'},
-                        #                     'ip_addresses': {
-                        #                                         'label': 'IP Adresses',
-                        #                                         'description': 'IP Adresses of the '
-                        #                                         'system test was ran on:'
-                        #                                     }
-                     }
+        # 'dist':         {
+        #                     'label': 'OS Distribution',
+        #                     'description': 'Distribution of the Operating System:'
+        #                 },
+        # 'uname':        {
+        #                     'label': 'Linux Kernel',
+        #                     'description': 'Current Linux Kernel:'},
+        #                     'ip_addresses': {
+        #                                         'label': 'IP Adresses',
+        #                                         'description': 'IP Adresses of the '
+        #                                         'system test was ran on:'
+        #                                     }
+    }
     with open(filename, 'w') as fh:
         fh.write(json.dumps(data, indent=4))
+
 
 def verify_dependecies(module_name):
     """
@@ -1040,6 +1053,7 @@ def verify_dependecies(module_name):
         logger.error("Test dependency module missing, please reinstall %s." % module_name)
     #    sys.exit(1)
 
+
 def kill_pid(proc_name):
     """
     Retrieve process pid and send kill signal
@@ -1049,13 +1063,14 @@ def kill_pid(proc_name):
     except Exception:
         pass
 
+
 def plot_backend(_filename, oldcontent, newcontent):
     """
     matplotlib backend support
     """
     current_user = pwd.getpwuid(os.getuid())[0]
     try:
-        with open(_filename,'r') as f:
+        with open(_filename, 'r') as f:
             newlines = []
             for line in f.readlines():
                 newlines.append(line.replace(oldcontent, newcontent))
@@ -1065,15 +1080,17 @@ def plot_backend(_filename, oldcontent, newcontent):
     except Exception:
         pass
 
+
 def PyCompile(settings):
     """
     Compile python file, if encounter errors exit.
     """
     try:
         py_compile.compile(settings.get('tests', False), doraise=True)
-    except Exception, e:
+    except Exception as e:
         logger.exception('Failed to run the python compiler')
         sys.exit(1)
+
 
 def katcp_request(port=7147, katcprequest='help', timeout=10):
     """
@@ -1116,6 +1133,7 @@ def katcp_request(port=7147, katcprequest='help', timeout=10):
         client = None
         return informs
 
+
 def get_running_instrument():
     """
     Using katcp: Retrieve running instrument if available
@@ -1138,6 +1156,7 @@ def get_running_instrument():
         if sensors:
             return sensors.values()
 
+
 def get_version_list():
     """Using katcp: Retrieve CBF information"""
     try:
@@ -1150,6 +1169,7 @@ def get_version_list():
     else:
         return katcp_request(katcp_client_port, 'version-list')
 
+
 def generate_index(document):
     """Sphinx-build index.rst generator"""
     def _writer(document):
@@ -1159,6 +1179,8 @@ def generate_index(document):
     if document:
         logger.debug('Writing data to index.rst file:\n%s' % document)
         _writer(document)
+
+
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -1261,7 +1283,7 @@ if __name__ == "__main__":
     if os.path.exists(settings.get('scripts')):
         cmdPath = ''.join([i for i in glob.glob('scripts/*') if 'instrument_activate' in i])
         if settings['mode'] and settings['instrument_activate'] and os.path.isfile(cmdPath):
-            logger.info('Starting and instrument: %s' %settings['mode'])
+            logger.info('Starting and instrument: %s' % settings['mode'])
             cmd = ['bash', 'scripts/instrument_activate', 'localhost', settings.get('mode')]
             # Allow instrument to be activated in 200 seconds
             timeout = 200
@@ -1269,9 +1291,9 @@ if __name__ == "__main__":
             initInstrument.daemon = True
             status = initInstrument.run_the_process()
             if status is 0:
-                logger.info('Instrument %s activated ok!'%settings.get('mode'))
+                logger.info('Instrument %s activated ok!' % settings.get('mode'))
             else:
-                msg = 'Failed to initialise %s instrument!'%settings.get('mode')
+                msg = 'Failed to initialise %s instrument!' % settings.get('mode')
                 logger.error(msg)
                 raise RuntimeError(msg)
 
@@ -1303,7 +1325,7 @@ if __name__ == "__main__":
     if settings.get('log_level') == 'DEBUG':
         print "=========settings========="
         for key in settings:
-            print key,":",settings[key]
+            print key, ":", settings[key]
         print "=========================="
 
     condition = ((settings['report'] in ['local_&_test', 'skip'] or settings.get(
@@ -1315,7 +1337,7 @@ if __name__ == "__main__":
     elif settings['report'] not in ['skip']:
         # try:
         if settings.get('gen_html', False) or settings.get('gen_qtp', False) or settings.get(
-              'gen_qtr', False):
+                'gen_qtr', False):
             generate_report(settings)
             generate_sphinx_docs(settings)
         # except Exception as e:
