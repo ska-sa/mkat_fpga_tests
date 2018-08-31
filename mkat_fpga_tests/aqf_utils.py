@@ -445,6 +445,8 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
         pass
 
     plt.grid(True)
+    dotted_line = False
+    linestyle = 'solid'
     for plot_data, legend in data:
         kwargs = {}
         if legend:
@@ -461,10 +463,13 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
 
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
-            plt_line_obj = plt.plot(plot_data[0], plot_data[1], color=plt_color, **kwargs)
+            if dotted_line:
+                linestyle = 'dotted'
+            plt_line_obj = plt.plot(plot_data[0], plot_data[1], color=plt_color, linestyle=linestyle, **kwargs)
         except tkinter.TclError:
             LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
             return False
+        dotted_line = True
 
         if isinstance(vlines, list):
             try:
@@ -539,11 +544,10 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
                      arrowprops=dict(arrowstyle='->', fc='yellow',
                                      connectionstyle='arc3, rad=0.5', color='red'))
 
-        #if has_legend:
-        #    import IPython;IPython.embed()
-        #    plt.legend(fontsize=9, fancybox=True,
-        #               loc='center left', bbox_to_anchor=(1, .8),
-        #               borderaxespad=0.).set_alpha(0.5)
+    if has_legend:
+        plt.legend(fontsize=9, fancybox=True,
+                   loc='center left', bbox_to_anchor=(1, .8),
+                   borderaxespad=0.).set_alpha(0.5)
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:

@@ -1194,6 +1194,7 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
             Aqf.failed(str(e))
 
     # Build new dictionary with only the requested beam keys:value pairs
+    # Put into an ordered list
     in_wgts = {}
     beam_pol = beam[-1]
     if beam_dict:
@@ -1201,29 +1202,56 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
             if key.find(beam_pol) != -1:
                 in_wgts[key] = beam_dict[key]
 
+        n_ants = self.cam_sensors.get_value('n_ants')
+        if len(in_wgts) != n_ants:
+            errmsg = 'Number of weights in beam_dict does not equal number of antennas. Programmatic error.'
+            Aqf.failed(errmsg)
+            LOGGER.error(errmsg)
+        weight_list = []
+        for key in sorted(in_wgts.iterkeys()):
+            weight_list.append(in_wgts[key])
+        Aqf.step('Weights to set: {}'.format(weight_list))
+
         Aqf.step(
             'Setting input weights, this may take a long time, check log output for progress...')
-        print_list = ''
-        for key in in_wgts:
-            LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
-                key))
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
-                    beam, key, in_wgts[key])
-                assert reply.reply_ok()
-            except AssertionError:
-                Aqf.failed(
-                    'Beam weights not successfully set: {}'.format(reply))
-            except Exception as e:
-                errmsg = 'Test failed due to %s' % str(e)
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
-            else:
-                LOGGER.info('Antenna input {} weight set to {}'.format(
-                    key, reply.arguments[1]))
-                print_list += ('{}:{}, '.format(key, reply.arguments[1]))
-                in_wgts[key] = float(reply.arguments[1])
-        Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
+        try:
+            reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+                beam, *weight_list)
+            assert reply.reply_ok()
+        except AssertionError:
+            Aqf.failed(
+                'Beam weights not successfully set: {}'.format(reply))
+        except Exception as e:
+            errmsg = 'Test failed due to %s' % str(e)
+            Aqf.failed(errmsg)
+            LOGGER.exception(errmsg)
+        else:
+            LOGGER.info('{} weights set to {}'.format(
+                beam, reply.arguments[1:]))
+            Aqf.passed('Antenna input weights for {} set to: {}'.format(beam, reply.arguments[1:]))
+
+        # Old method of setting weights
+        #print_list = ''
+        #for key in in_wgts:
+        #    LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+        #        key))
+        #    try:
+        #        reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+        #            beam, key, in_wgts[key])
+        #        assert reply.reply_ok()
+        #    except AssertionError:
+        #        Aqf.failed(
+        #            'Beam weights not successfully set: {}'.format(reply))
+        #    except Exception as e:
+        #        errmsg = 'Test failed due to %s' % str(e)
+        #        Aqf.failed(errmsg)
+        #        LOGGER.exception(errmsg)
+        #    else:
+        #        LOGGER.info('Antenna input {} weight set to {}'.format(
+        #            key, reply.arguments[1]))
+        #        print_list += ('{}:{}, '.format(key, reply.arguments[1]))
+        #        in_wgts[key] = float(reply.arguments[1])
+        #Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
     if not(stop_only):
         try:
