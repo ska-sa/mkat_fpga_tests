@@ -425,7 +425,7 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
-    @wipd #Test still under development, Alec will put it under test_informal
+    @wipd  # Test still under development, Alec will put it under test_informal
     @instrument_4k
     def test_group_delay(self):
         #Aqf.procedure(TestProcedure.Beamformer)

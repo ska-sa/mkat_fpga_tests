@@ -1194,7 +1194,7 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
             Aqf.failed(str(e))
 
     # Build new dictionary with only the requested beam keys:value pairs
-    # Put into an ordered list 
+    # Put into an ordered list
     in_wgts = {}
     beam_pol = beam[-1]
     if beam_dict:
