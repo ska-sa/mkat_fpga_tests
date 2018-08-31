@@ -1,5 +1,0 @@
-#!/bin/bash
-sudo /etc/init.d/jenkins-swarm-client.sh stop
-sudo service docker stop
-sudo service docker start
-sudo /etc/init.d/jenkins-swarm-client.sh start

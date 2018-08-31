@@ -1,10 +1,11 @@
 #!/usr/bin/python
-from mkat_fpga_tests import correlator_fixture
-from optparse import OptionParser
+import logging
+import os
 import matplotlib.pyplot as plt
 import numpy as np
-import logging, os
 from corr2 import utils
+from mkat_fpga_tests import correlator_fixture
+from optparse import OptionParser
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     instrument_state = corr_fix.ensure_instrument(instrument)
     if not instrument_state:
         errmsg = ('Could not initialise instrument or ensure running instrument: {}'.format(
-                                                                                    instrument))
+            instrument))
         print errmsg
         quit()
     reply, informs = corr_fix.katcp_rct.req.input_labels()
@@ -65,9 +66,5 @@ if __name__ == "__main__":
         plt.plot(quant_snap)
     if opts.hist:
         plt.figure()
-        plt.hist(quant_snap, bins=64, range=(0,1.5))
+        plt.hist(quant_snap, bins=64, range=(0, 1.5))
     plt.show()
-
-
-
-

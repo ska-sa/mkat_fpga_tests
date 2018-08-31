@@ -1,9 +1,10 @@
 #!/usr/bin/python
-from mkat_fpga_tests import correlator_fixture
-from optparse import OptionParser
 import matplotlib.pyplot as plt
 import numpy as np
-import logging, os
+import os
+import logging
+from mkat_fpga_tests import correlator_fixture
+from optparse import OptionParser
 from corr2 import utils
 
 LOGGER = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     instrument_state = corr_fix.ensure_instrument(instrument)
     if not instrument_state:
         errmsg = ('Could not initialise instrument or ensure running instrument: {}'.format(
-                                                                                    instrument))
+            instrument))
         print errmsg
         quit()
     reply, informs = corr_fix.katcp_rct.req.input_labels()
@@ -56,24 +57,20 @@ if __name__ == "__main__":
     else:
         print ('Could not get input labels, error message: {}'.format(reply))
         quit()
-    reply,informs = corr_fix.katcp_rct.req.adc_snapshot(inp)
+    reply, informs = corr_fix.katcp_rct.req.adc_snapshot(inp)
     if reply.reply_ok():
         msg = informs[0]
         adc_data = msg.arguments[1]
         adc_data = adc_data[1:-1]
-        adc_data = map(float,adc_data.split(','))
+        adc_data = map(float, adc_data.split(','))
     if opts.raw:
         plt.figure()
         plt.plot(adc_data)
     if opts.hist:
         plt.figure()
-        plt.hist(adc_data, bins=256, range=(-1,1))
+        plt.hist(adc_data, bins=256, range=(-1, 1))
     if opts.fft:
         plt.figure()
-        chans = len(adc_data)/2
+        chans = len(adc_data) / 2
         plt.plot(np.log10(np.abs(np.fft.fft(adc_data)))[0:chans])
     plt.show()
-
-
-
-

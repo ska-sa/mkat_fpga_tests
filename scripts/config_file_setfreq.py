@@ -1,14 +1,14 @@
 #!/usr/bin/python
 import logging
 import time
-from tempfile import mkstemp
-from shutil import move
-from os import remove, close, path
+import numpy as np
 from corr2 import fxcorrelator
 from corr2 import utils
 from corr2.dsimhost_fpga import FpgaDsimHost
-import numpy as np
 from optparse import OptionParser
+from os import remove, close, path
+from shutil import move
+from tempfile import mkstemp
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,25 +28,25 @@ if __name__ == "__main__":
     else:
         parser.error('Specify a valid config file.')
 
-    bandwidth = int(opts.sample_clock_freq/2)
-    true_cfreq = bandwidth/2
-    sample_clock = bandwidth*2
+    bandwidth = int(opts.sample_clock_freq / 2)
+    true_cfreq = bandwidth / 2
+    sample_clock = bandwidth * 2
     print('Setting Sample frequency = {}Hz, Bandwidth = {}Hz, True center frequency = {}Hz'
           .format(sample_clock, bandwidth, true_cfreq))
 
-    pattern = {'sample_rate_hz':sample_clock, 
-               'bandwidth':bandwidth,
-               'true_cf':true_cfreq,
-               'center_freq':true_cfreq}
+    pattern = {'sample_rate_hz': sample_clock,
+               'bandwidth': bandwidth,
+               'true_cf': true_cfreq,
+               'center_freq': true_cfreq}
     #Create temp file
     fh, abs_path = mkstemp()
-    with open(abs_path,'w') as new_file:
+    with open(abs_path, 'w') as new_file:
         with open(opts.config_file) as old_file:
             for line in old_file:
                 key = [x for x in pattern if x in line]
-                if key and (line.find('#')==-1):
+                if key and (line.find('#') == -1):
                     key = key[0]
-                    new_file.write(key+' = {}\n'.format(pattern[key]))
+                    new_file.write(key + ' = {}\n'.format(pattern[key]))
                 else:
                     new_file.write(line)
     close(fh)
