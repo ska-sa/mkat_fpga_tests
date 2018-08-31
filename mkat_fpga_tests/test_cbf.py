@@ -5598,6 +5598,7 @@ class test_CBF(unittest.TestCase):
                 if int(filter(str.isdigit, key)) == ref_input:
                     ref_input_label = key
                     break
+            Aqf.step('{} used as a randomised reference input for this test'.format(ref_input_label))
             weight = 1.0
             beam_dict = populate_beam_dict_idx(
                 self, ref_input, weight, beam_dict)
@@ -5627,17 +5628,22 @@ class test_CBF(unittest.TestCase):
             mean_vals = []
             exp_mean_vals = []
             weight_lbls = []
+            # Create a list of weights to send
+            weight_list = [0] * ants
 
             retry_cnt = 0
             while weight <= 4:
+                weight_list[ref_input] = round(weight, 1)
+
                 # Set weight for reference input, the rest are all zero
+                # TODO: check that this actually checks that the correct weight has been set
                 LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
                     ref_input_label))
                 try:
                     reply, informs = self.katcp_req.beam_weights(
-                        beam, ref_input_label, round(weight, 1))
+                        beam, *weight_list)
                     assert reply.reply_ok()
-                    actual_weight = float(reply.arguments[1])
+                    actual_weight = float(reply.arguments[1 + ref_input])
                     retry_cnt = 0
                 except AssertionError:
                     retry_cnt += 1
@@ -6025,6 +6031,7 @@ class test_CBF(unittest.TestCase):
             if int(filter(str.isdigit, key)) == ref_input:
                 ref_input_label = key
                 break
+        Aqf.step('{} used as a randomised reference input for this test'.format(ref_input_label))
         weight = 1.0
         #beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
         beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
@@ -6267,6 +6274,7 @@ class test_CBF(unittest.TestCase):
             if int(filter(str.isdigit, key)) == ref_input:
                 ref_input_label = key
                 break
+        Aqf.step('{} used as a randomised reference input for this test'.format(ref_input_label))
         weight = 1.0
         beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
         # To Do: set beam weights
@@ -8164,7 +8172,10 @@ class test_CBF(unittest.TestCase):
                 return False
             data = dump['xeng_raw']
             freq_response = complexise(data[:, baseline_index, :])
-            return 10 * np.log10(np.abs(freq_response[test_channel]))
+            if freq_response[test_channel] == 0:
+                return 0
+            else:
+                return 10 * np.log10(np.abs(freq_response[test_channel]))
 
         Aqf.hop('Requesting input labels.')
         try:
@@ -8215,7 +8226,9 @@ class test_CBF(unittest.TestCase):
                 exp_y_val = curr_val
                 exp_x_val = 20 * np.log10(cw_scale)
             step = curr_val - prev_val
-            if np.abs(step) < 0.2 or curr_val < 0:
+            if curr_val == 0:
+                break
+            if np.abs(step) < 0.2:
                 min_cnt -= 1
             else:
                 min_cnt = min_cnt_val
@@ -8225,6 +8238,10 @@ class test_CBF(unittest.TestCase):
             output_power.append(curr_val)
             cw_scale = cw_scale / 2
             max_cnt -= 1
+        output_power = np.array(output_power)
+        output_power_max = output_power.max()
+        output_power = output_power - output_power_max
+        exp_y_val = exp_y_val - output_power_max
 
         plt_filename = '{}_cbf_response_{}_{}_{}.png'.format(self._testMethodName, gain, noise_scale, cw_start_scale)
         plt_title = 'CBF Response (Linearity Test)'
@@ -8240,6 +8257,6 @@ class test_CBF(unittest.TestCase):
         #import IPython;IPython.embed()
         aqf_plot_xy(zip(([x_val_array, output_power], [x_val_array, y_exp]), ['Response', 'Expected']),
                     plt_filename, plt_title, caption,
-                    xlabel='Input Power [dB]',
-                    ylabel='Integrated Output Power [dB]')
-        Aqf.end(passed=True, message='TBD')
+                    xlabel='Input Power [dBm]',
+                    ylabel='Integrated Output Power [dBfs]')
+        Aqf.end(passed=True, message='Linearity plot generated.')
