@@ -57,5 +57,9 @@ latexpdf:
 bootstrap:
 	@bash scripts/setup_virtualenv.sh $(pwd) true
 
-tests:
-	@bash -c ". .venv/bin/activate; nosetests -sv mkat_fpga_tests/test_cbf.py:test_CBF"
+tests1k:
+	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --1k"
+tests4k:
+	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --4k"
+tests32k:
+	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --32k"
