@@ -760,6 +760,8 @@ def run_nose_test(settings):
     if not settings.get('slow_test'):
         cmd.append('-A(%s)' % ("(not aqf_slow)"))
 
+    cmd.append('-A(aqf_generic_test)')
+
     katreport_control = []
     if settings.get('jenkins'):
         katreport_control.append('jenkins')
