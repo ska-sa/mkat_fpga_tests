@@ -19,8 +19,8 @@ def meth_end_aqf(meth):
     @functools.wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
-        #Aqf.end(traceback=True)
-        Aqf.end(traceback=False)
+        Aqf.end(traceback=True)
+        # Aqf.end(traceback=False)
 
     return decorated
 
@@ -391,7 +391,8 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
                 vlines=None, ylimits=None, xlabel=None, ylabel=None,
                 hline_strt_idx=0, cutoff=None, show=False):
     """
-        Simple magnitude plot         return: None
+        Simple magnitude plot
+        return: None
         Example
         -------
         aqf_plot_xy(([x_axis_points],[y_axis_points])

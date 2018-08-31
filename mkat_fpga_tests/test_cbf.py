@@ -68,7 +68,7 @@ dsim_timeout = 60
 
 
 @cls_end_aqf
-@system('all')
+@system('meerkat')
 class test_CBF(unittest.TestCase):
     """ Unit-testing class for mkat_fpga_tests"""
     cur_path = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
@@ -273,9 +273,11 @@ class test_CBF(unittest.TestCase):
                     range(n_chans)[:self.n_chans_selected])
                 test_heading("CBF Channelisation Wideband Coarse L-band")
                 num_discards = 1
-                #self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3,
-                #                          num_discards=num_discards)
-                self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=1000e3,
+                if n_chans > 2048:
+                    self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=250e3,
+                                              num_discards=num_discards)
+                else:
+                    self._test_channelisation(test_chan, no_channels=n_chans, req_chan_spacing=1000e3,
                                           num_discards=num_discards)
             else:
                 Aqf.failed(self.errmsg)
@@ -376,6 +378,26 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
+    @generic_test
+    @aqf_vr('TBD')
+    @aqf_requirements("TBD")
+    def test_linearity(self):
+        #Aqf.procedure(TestProcedure.LBandEfficiency)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._test_linearity(test_channel=100,
+                                cw_start_scale=1,
+                                noise_scale=0.001,
+                                gain='10+j',
+                                fft_shift=8191,
+                                max_steps=20)
+            else:
+                Aqf.failed(self.errmsg)
+
+
     @instrument_4k
     @aqf_vr('CBF.V.3.34')
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
@@ -403,6 +425,19 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed(self.errmsg)
 
+    @wipd #Test still under development, Alec will put it under test_informal
+    @instrument_4k
+    def test_group_delay(self):
+        #Aqf.procedure(TestProcedure.Beamformer)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._test_group_delay()
+            else:
+                Aqf.failed(self.errmsg)
+
     @generic_test
     @aqf_vr('CBF.V.4.4')
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
@@ -413,10 +448,10 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                #self._test_product_baselines()
-                #self._test_back2back_consistency()
-                #self._test_freq_scan_consistency()
-                #self._test_spead_verify()
+                self._test_product_baselines()
+                self._test_back2back_consistency()
+                self._test_freq_scan_consistency()
+                self._test_spead_verify()
                 self._test_product_baseline_leakage()
             else:
                 Aqf.failed(self.errmsg)
@@ -1711,6 +1746,10 @@ class test_CBF(unittest.TestCase):
             msg = 'Instrument not found: {}'.format(self.instrument)
             LOGGER.exception(msg)
             Aqf.failed(msg)
+
+        # Why is this necessary
+        # http://library.nrao.edu/public/memos/ovlbi/OVLBI_038.pdf
+        # https://www.prosoundtraining.com/2010/03/11/hand-in-hand-phase-and-group-delay/
         Aqf.note('Residual delay is excluded from this test.')
         Aqf.step('Digitiser simulator configured to generate a continuous wave (cwg0), '
                  'with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}'.format(cw_scale,
@@ -6068,18 +6107,6 @@ class test_CBF(unittest.TestCase):
         #                  xlabel='Samples')
 
 
-    #Test still under development, Alec will put it under test_informal
-    @instrument_4k
-    def test_group_delay(self):
-        #Aqf.procedure(TestProcedure.Beamformer)
-        try:
-            assert eval(os.getenv('DRY_RUN', 'False'))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_group_delay()
-            else:
-                Aqf.failed(self.errmsg)
 
     def _test_group_delay(self, beam_idx=0):
         """
@@ -6410,6 +6437,10 @@ class test_CBF(unittest.TestCase):
             #num_found = 0
             #captured_list = []
             #for trgt_mcount in mcount_list[:-1]:
+            try:
+                assert future_mcount
+            except Exception:
+                return False
             trgt_spectra_idx = np.where(bf_ts > future_mcount)[0]
             if trgt_spectra_idx.size == 0:
                 LOGGER.warning('Target spectra timestamp too late by {} seconds'
@@ -7931,7 +7962,7 @@ class test_CBF(unittest.TestCase):
                      'restored at the end of the test')
 
             initial_equalisations = get_and_restore_initial_eqs(self)
-            Aqf.passed('Stored initial F-engine equalisations: %s' % initial_equalisations)
+            Aqf.passed('Stored initial F-engine equalisations')
 
             def prt_arr(array, print_len=4):
                 try:
@@ -7967,10 +7998,11 @@ class test_CBF(unittest.TestCase):
                         ref_auto_phase = phase
                         ref_auto_mag = mag
                         ref_auto = False
-                        Aqf.step('Using {}, baseline {}, as an auto-correlation reference with:\n{}\n{}'
-                                ''.format(inputs, index,
-                                          idnt + 'Magnitude: ' + prt_arr(mag),
-                                          idnt + 'Phase:     ' + prt_arr(phase)))
+                        Aqf.step(
+                            'Using {}, baseline {}, as an auto-correlation '
+                            'reference with:\n{}\n{}'.format(inputs, index,
+                                idnt + 'Magnitude: ' + prt_arr(mag),
+                                idnt + 'Phase:  ' + prt_arr(phase)))
                     else:
                         phase_match = (ref_auto_phase == phase)
                         mag_match = (ref_auto_mag == mag)
@@ -8090,29 +8122,6 @@ class test_CBF(unittest.TestCase):
             plt_caption = ('Channel reponses for all auto correlation baselines.')
             plt_title = ('Channel reponses for all auto correlation baselines.')
             aqf_plot_channels(auto_mag, plot_filename=plt_filename, plot_title=plt_title)
-
-            import IPython
-            IPython.embed()
-
-    @generic_test
-    @aqf_vr('TBD')
-    @aqf_requirements("TBD")
-    def test_linearity(self):
-        #Aqf.procedure(TestProcedure.LBandEfficiency)
-        try:
-            assert eval(os.getenv('DRY_RUN', 'False'))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_linearity(test_channel=100,
-                                cw_start_scale=1,
-                                noise_scale=0.001,
-                                gain='10+j',
-                                fft_shift=8191,
-                                max_steps=20)
-            else:
-                Aqf.failed(self.errmsg)
-
 
     def _test_linearity(self, test_channel, cw_start_scale, noise_scale, gain, fft_shift, max_steps):
            # # Get instrument parameters

@@ -58,4 +58,4 @@ bootstrap:
 	@bash scripts/setup_virtualenv.sh $(pwd) true
 
 tests:
-	@bash -c ". .venv/bin/activate; nosetests -sv --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF"
+	@bash -c ". .venv/bin/activate; nosetests -sv mkat_fpga_tests/test_cbf.py:test_CBF"
