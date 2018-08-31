@@ -7803,7 +7803,10 @@ class test_CBF(unittest.TestCase):
                 return False
             data = dump['xeng_raw']
             freq_response = complexise(data[:, baseline_index, :])
-            return 10*np.log10(np.abs(freq_response[test_channel]))
+            if freq_response[test_channel] == 0:
+                return 0
+            else:
+                return 10*np.log10(np.abs(freq_response[test_channel]))
 
         Aqf.hop('Requesting input labels.')
         try:
@@ -7854,7 +7857,9 @@ class test_CBF(unittest.TestCase):
                 exp_y_val = curr_val
                 exp_x_val = 20*np.log10(cw_scale)
             step = curr_val-prev_val
-            if np.abs(step) < 0.2 or curr_val < 0:
+            if curr_val == 0:
+                break
+            if np.abs(step) < 0.2:
                 min_cnt -= 1
             else:
                 min_cnt = min_cnt_val
@@ -7864,6 +7869,10 @@ class test_CBF(unittest.TestCase):
             output_power.append(curr_val)
             cw_scale = cw_scale/2
             max_cnt -= 1
+        output_power = np.array(output_power)
+        output_power_max = output_power.max()
+        output_power = output_power - output_power_max
+        exp_y_val = exp_y_val - output_power_max
 
         plt_filename = '{}_cbf_response_{}_{}_{}.png'.format(self._testMethodName,gain,noise_scale,cw_start_scale)
         plt_title = 'CBF Response (Linearity Test)'
@@ -7879,7 +7888,7 @@ class test_CBF(unittest.TestCase):
         #import IPython;IPython.embed()
         aqf_plot_xy(zip(([x_val_array,output_power],[x_val_array,y_exp]),['Response','Expected']), 
                      plt_filename, plt_title, caption, 
-                     xlabel='Input Power [dB]',
-                     ylabel='Integrated Output Power [dB]')
-        Aqf.end(passed=True, message='TBD')
+                     xlabel='Input Power [dBm]',
+                     ylabel='Integrated Output Power [dBfs]')
+        Aqf.end(passed=True, message='Linearity plot generated.')
 
