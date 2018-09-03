@@ -54,7 +54,7 @@ retrying
 sh
 sphinx
 sphinxcontrib-napoleon
-tornado>=4.3
+tornado==4.3
 traceback2
 trollius
 
