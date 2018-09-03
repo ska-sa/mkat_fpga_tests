@@ -98,8 +98,17 @@ else
     $(command -v pip) install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 fi
 
-install_pip_requirements "pip-dev-requirements.txt"
 
+function pre_setup(){
+
+if [ -f "scripts/pre_setup.sh" ]; then
+    gprint "Install core dependencies, if pre_setup.sh script is available..."
+    bash scripts/pre_setup.sh "${VERBOSE}"
+fi
+}
+
+function post_setup(){
+install_pip_requirements "pip-dev-requirements.txt"
 if [ -f "./setup.py" ]; then
     gprint "Installing setup.py";
     # Install with dependencies.
@@ -110,8 +119,7 @@ if [ -f "./setup.py" ]; then
     fi
 fi
 gprint "DONE!!!!\n\n"
+}
 
-if [ -f "scripts/pre_setup.sh" ]; then
-    gprint "Install core dependencies, if pre_setup.sh script is available..."
-    bash scripts/pre_setup.sh "${VERBOSE}"
-fi
+pre_setup
+post_setup
