@@ -1,5 +1,4 @@
 git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
-termcolor
 alabaster
 ansicolors
 argcomplete
@@ -7,7 +6,6 @@ bitstring
 bokeh
 breathe
 chainmap
-click
 coloredlogs
 coverage
 crypto
@@ -36,7 +34,6 @@ nosexcover
 ntplib
 numpy>=1.13.3
 pandas
-pandas
 parameterized
 paramiko>=2.4
 pep8
@@ -47,13 +44,15 @@ pycrypto
 pylint
 pyOpenSSL
 PyPDF2
-python-dotenv
 pyserial
+python-dotenv
 requests[security]
 retrying
+scipy==1.1.0
 sh
 sphinx
 sphinxcontrib-napoleon
+termcolor
 tornado==4.3
 traceback2
 trollius

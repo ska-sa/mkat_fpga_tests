@@ -36,11 +36,12 @@ if [ -f "${VENV}" ]; then
     # fixed properly by upgrading the test system GCC
     export PATH=/opt/gcc4.9.3/bin:"${PWD}/.venv/bin":"${PATH}"
 
-    declare -a PYTHON_SRC_PACKAGES=(spead2 casperfpga corr2 katcp-python)
+    declare -a PYTHON_SRC_PACKAGES=(spead2 casperfpga corr2)
     PYTHON_SRC_DIR=/usr/local/src
     SPEAD2_URL=https://pypi.python.org/packages/a1/0f/9cf4ab8923a14ff349d5e85c89ec218ab7a790adfdcbd11877393d0c5bba/spead2-1.1.1.tar.gz
     PYTHON_SETUP_FILE=setup.py
 
+    $(command -v pip) install 'git+https://github.com/ska-sa/katcp-python#egg=katcp'
     function pip_installer {
         pkg="$1"
         export PYTHON_PKG="${pkg}"
