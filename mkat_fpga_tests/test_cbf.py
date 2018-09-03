@@ -139,6 +139,7 @@ class test_CBF(unittest.TestCase):
                     assert reply.reply_ok(), errmsg
                     LOGGER.info('Digitiser sync epoch set successfully')
                     set_dsim_epoch = self._dsim_set = True
+                    self.fhosts, self.xhosts = get_hosts(self, 'fhost'), get_hosts(self, 'xhost')
                 except Exception:
                     Aqf.failed(errmsg)
                     LOGGER.exception(errmsg)
@@ -574,7 +575,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 self._test_delays_control()
                 clear_all_delays(self)
-                restore_src_names(self)
+                #restore_src_names(self)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -596,7 +597,7 @@ class test_CBF(unittest.TestCase):
                 self._test_fringe_offset()
                 self._test_delay_inputs()
                 clear_all_delays(self)
-                restore_src_names(self)
+                # restore_src_names(self)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -2967,8 +2968,6 @@ class test_CBF(unittest.TestCase):
                             'Confirm that the SPEAD accumulations have stopped being produced.')
 
                 self.corr_fix.halt_array
-                xhosts = self.correlator.xhosts
-                fhosts = self.correlator.fhosts
 
                 while retries and not corr_init:
                     Aqf.step(
@@ -2993,7 +2992,7 @@ class test_CBF(unittest.TestCase):
                         Aqf.failed(
                             'Failed to enable/start output product capturing.')
                     host = (
-                        xhosts + fhosts)[random.randrange(len(xhosts + fhosts))]
+                        self.xhosts + self.fhosts)[random.randrange(len(self.xhosts + self.fhosts))]
                     msg = ('Confirm that the instrument is initialised by checking if a '
                            'random host: {} is programmed and running.'.format(host.host))
                     Aqf.is_true(host, msg)
@@ -3580,7 +3579,7 @@ class test_CBF(unittest.TestCase):
 
         def get_lru_status(self, host):
 
-            if host in self.correlator.fhosts:
+            if host in self.fhosts:
                 engine_type = 'feng'
             else:
                 engine_type = 'xeng'
@@ -3633,10 +3632,8 @@ class test_CBF(unittest.TestCase):
             else:
                 Aqf.failed('Failed to read %s sensor' % (host.host))
 
-        fhost = self.correlator.fhosts[random.randrange(
-            len(self.correlator.fhosts))]
-        xhost = self.correlator.xhosts[random.randrange(
-            len(self.correlator.xhosts))]
+        fhost = self.fhosts[random.randrange(len(self.fhosts))]
+        xhost = self.xhosts[random.randrange(len(self.xhosts))]
         ip_new = '239.101.2.250'
 
         Aqf.step('Randomly selected %s host that is being used to produce the test '
@@ -3852,8 +3849,6 @@ class test_CBF(unittest.TestCase):
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         with ignored(Queue.Empty):
             get_clean_dump(self)
-        xhosts = self.correlator.xhosts
-        fhosts = self.correlator.fhosts
 
         Aqf.step(
             'Capture stopped, deprogramming hosts by halting the katcp connection.')
@@ -3887,7 +3882,7 @@ class test_CBF(unittest.TestCase):
                     LOGGER.exception(errmsg)
 
         if corr_init:
-            host = xhosts[random.randrange(len(xhosts))]
+            host = self.xhosts[random.randrange(len(self.xhosts))]
             Aqf.is_true(host.is_running(), 'Confirm that the instrument is initialised by checking if '
                                            '%s is programmed.' % host.host)
             self.set_instrument()
@@ -3914,8 +3909,7 @@ class test_CBF(unittest.TestCase):
                        'corresponding to the %s instrument product' % (no_channels, instrument))
                 Aqf.equals(4096, self.cam_sensors.get_value('no_chans'), msg)
 
-                final_time = end_time - start_time - \
-                    float(self.corr_fix.halt_wait_time)
+                final_time = end_time - start_time - float(self.corr_fix.halt_wait_time)
                 minute = 60.0
                 msg = ('Confirm that instrument switching to %s '
                        'time is less than one minute' % instrument)
@@ -4550,12 +4544,8 @@ class test_CBF(unittest.TestCase):
             from casperfpga import utils as fpgautils
             Aqf.step('List of all processing nodes')
             Aqf.progress('D-Engine :{}'.format(self.dhost.host))
-            # fhosts = [fhost.host for fhost in self.correlator.fhosts]
-            fhosts = self.corr_fix.corr_config.get('fengine').get('hosts')
-            Aqf.progress('List of F-Engines :{}'.format(fhosts))
-            #xhosts = [xhost.host for xhost in self.correlator.xhosts]
-            xhosts = self.corr_fix.corr_config.get('xengine').get('hosts')
-            Aqf.progress('List of X-Engines :{}\n'.format(xhosts))
+            Aqf.progress('List of F-Engines :{}'.format(self.fhosts))
+            Aqf.progress('List of X-Engines :{}\n'.format(self.xhosts))
             skarabs = FPGA_Connect(self._hosts)
             if skarabs:
                 version_info = fpgautils.threaded_fpga_operation(skarabs, timeout=_timeout,
@@ -4633,7 +4623,7 @@ class test_CBF(unittest.TestCase):
                                                                                   spead2_version))
 
             try:
-                bitstream_dir = self.correlator.configd['xengine']['bitstream']
+                bitstream_dir = self.corr_fix.configd.get('xengine').get('bitstream')
                 mkat_dir, _ = os.path.split(os.path.split(os.path.dirname(
                     os.path.realpath(bitstream_dir)))[0])
                 _, mkat_name = os.path.split(mkat_dir)

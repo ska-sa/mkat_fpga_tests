@@ -32,7 +32,6 @@ try:
 except ImportError:
     from chainmap import ChainMap
 
-from casperfpga.utils import threaded_fpga_operation
 from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 
@@ -179,88 +178,6 @@ def init_dsim_sources(dhost):
         LOGGER.error('Failed to select output dhost.')
 
 
-class CorrelatorFrequencyInfo(object):
-    """Derive various bits of correlator frequency info using correlator config"""
-
-    def __init__(self, corr_config):
-        """Initialise the class
-
-        Parameters
-        ==========
-        corr_config : dict
-            Correlator config dict as in :attr:`corr2.fxcorrelator.FxCorrelator.configd`
-
-        """
-        try:
-            self.corr_config = corr_config
-            self.n_chans = int(corr_config['fengine']['n_chans'])
-            assert isinstance(self.n_chans, int)
-            # Number of frequency channels
-            self.bandwidth = float(corr_config['fengine']['bandwidth'])
-            assert isinstance(self.bandwidth, float)
-            # Correlator bandwidth
-            self.delta_f = self.bandwidth / self.n_chans
-            assert isinstance(self.delta_f, float)
-            # Spacing between frequency channels
-            f_start = 0.  # Center freq of the first bin
-            self.chan_freqs = f_start + np.arange(self.n_chans) * self.delta_f
-            # Channel centre frequencies
-            self.sample_freq = float(
-                corr_config['FxCorrelator']['sample_rate_hz'])
-            assert isinstance(self.sample_freq, float)
-            self.sample_period = 1 / self.sample_freq
-            self.fft_period = self.sample_period * 2 * self.n_chans
-            """Time length of a single FFT"""
-            self.xeng_accumulation_len = int(
-                corr_config['xengine']['accumulation_len'])
-            self.corr_destination, self.corr_rx_port = corr_config['xengine']['output_destinations_base'].split(
-                ':')
-            self.corr_rx_port = int(self.corr_rx_port)
-        except Exception:
-            LOGGER.exception(
-                'Failed to retrieve various bits of corr freq from corr config')
-
-    def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
-        """Calculate frequency points to sweep over a test channel.
-
-        Parameters
-        =========
-        chan : int
-           Channel number around which to place frequency samples
-        samples_per_chan: int
-           Number of frequency points per channel
-        chans_around: int
-           Number of channels to include around the test channel. I.e. value 1 will
-           include one extra channel above and one below the test channel.
-
-        Will put frequency sample on channel boundary if 2 or more points per channel are
-        requested, and if will place a point in the centre of the chanel if an odd number
-        of points are specified.
-
-        """
-        try:
-            assert samples_per_chan > 0
-            assert chans_around > 0
-            assert 0 <= chan < self.n_chans
-            assert 0 <= chan + chans_around < self.n_chans
-            assert 0 <= chan - chans_around < self.n_chans
-
-            start_chan = chan - chans_around
-            end_chan = chan + chans_around
-            if samples_per_chan == 1:
-                return self.chan_freqs[start_chan:end_chan + 1]
-
-            start_freq = self.chan_freqs[start_chan] - self.delta_f / 2
-            end_freq = self.chan_freqs[end_chan] + self.delta_f / 2
-            sample_spacing = self.delta_f / (samples_per_chan - 1)
-            num_samples = int(np.round(
-                (end_freq - start_freq) / sample_spacing)) + 1
-            return np.linspace(start_freq, end_freq, num_samples)
-        except Exception:
-            LOGGER.error(
-                'Failed to calculate frequency points to sweep over a test channel')
-
-
 def get_dsim_source_info(dsim):
     """Return a dict with all the current sine, noise and output settings of a dsim"""
     info = dict(sin_sources={}, noise_sources={}, outputs={})
@@ -307,50 +224,6 @@ def iterate_recursive_dict(dictionary, keys=()):
                 yield rv
     else:
         yield (keys, dictionary)
-
-
-def get_feng_snapshots(feng_fpga, timeout=5):
-    snaps = {}
-    for snap in feng_fpga.snapshots:
-        snaps[snap.name] = snap.read(
-            man_valid=False, man_trig=False, timeout=timeout)
-    return snaps
-
-
-def get_snapshots(instrument, timeout=60):
-    try:
-        f_snaps = threaded_fpga_operation(instrument.fhosts, timeout,
-                                          (get_feng_snapshots,))
-        return dict(feng=f_snaps)
-    except Exception:
-        return False
-
-
-def rearrange_snapblock(snap_data, reverse=False):
-    segs = []
-    for segment in sorted(snap_data.keys(), reverse=reverse):
-        segs.append(snap_data[segment])
-    return np.column_stack(segs).flatten()
-
-
-def get_quant_snapshot(self, input_name, timeout=5):
-    """Get the quantiser snapshot of named input. Snapshot will be assembled"""
-    data_sources = [_source
-                    for _input, _source in self.correlator.fengine_sources.iteritems()
-                    if input_name == _input][0]
-
-    snap_name = 'snap_quant{}_ss'.format(data_sources.source_number)
-    snap = data_sources.host.snapshots[snap_name]
-    snap_data = snap.read(
-        man_valid=False, man_trig=False, timeout=timeout)['data']
-
-    def get_part(qd, part):
-        return {k: v for k, v in qd.items() if k.startswith(part)}
-
-    real = rearrange_snapblock(get_part(snap_data, 'real'))
-    imag = rearrange_snapblock(get_part(snap_data, 'imag'))
-    quantiser_spectrum = real + 1j * imag
-    return quantiser_spectrum
 
 
 def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lookup=False):
@@ -544,32 +417,19 @@ def get_pfb_counts(status_dict):
     return pfb_list
 
 
-def get_adc_snapshot(fpga):
-    data = fpga.get_adc_snapshots()
-    rv = {'p0': [], 'p1': []}
-    for ctr in range(0, len(data['p0']['d0'])):
-        for ctr2 in range(0, 8):
-            rv['p0'].append(data['p0']['d%i' % ctr2][ctr])
-            rv['p1'].append(data['p1']['d%i' % ctr2][ctr])
-    return rv
-
-
 def set_default_eq(self):
     """ Iterate through config sources and set eq's as per config file
     Param: Correlator: Object
     Return: None
     """
     try:
-        eq_levels = complex(
-            self.correlator.configd['fengine']['default_eq_poly'])
-        reply, informs = self.corr_fix.katcp_rct.req.gain_all(
-            eq_levels, timeout=cam_timeout)
+        eq_levels = complex(self.corr_fix.configd.get('fengine').get('default_eq_poly'))
+        reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_levels, timeout=cam_timeout)
         assert reply.reply_ok()
         LOGGER.info('Reset gains to default values from config file.\n')
         return True
     except Exception:
-        LOGGER.exception(
-            'Failed to set gains on all inputs with %s ' % (eq_levels))
+        LOGGER.exception('Failed to set gains on all inputs with %s ' % (eq_levels))
         return False
 
 
@@ -664,7 +524,7 @@ def get_delay_bounds(correlator):
     phase offset and phase offset rate
 
     """
-    fhost = correlator.fhosts[0]
+    fhost = get_hosts('fhosts')[0]
     # Get maximum delay value
     reg_info = fhost.registers.delay0.block_info
     reg_bw = int(reg_info['bitwidths'])
@@ -814,8 +674,8 @@ def confirm_out_dest_ip(self):
     """
     parse_address = StreamAddress._parse_address_string
     try:
-        xhost = self.correlator.xhosts[random.randrange(
-            len(self.correlator.xhosts))]
+        xhosts = get_hosts('xhosts')
+        xhost = xhosts[random.randrange(xhosts)]
         int_ip = int(xhost.registers.gbe_iptx.read()['data']['reg'])
         xhost_ip = inet_ntoa(pack(">L", int_ip))
         dest_ip = list(parse_address(
@@ -1529,3 +1389,25 @@ def wipd(f):
             pass
     """
     return attr('wip')(f)
+
+
+def get_hosts(self, hosts=None, sensor='hostname-functional-mapping'):
+    """
+    Get list of f/xhosts from sensors or config
+    return:
+    list
+    """
+    try:
+        assert hosts
+        reply, informs = self.katcp_req_sensors.sensor_value(sensor)
+        assert reply.reply_ok()
+    except AssertionError:
+        if hosts.startswith('fhost'):
+            engine = self.corr_fix.corr_config.get('fengine')
+        else:
+            engine = self.corr_fix.corr_config.get('xengine')
+        return engine.get('hosts', [])
+    else:
+        informs = (eval(informs[0].arguments[-1]))
+        informs = dict((val, key) for key, val in informs.iteritems())
+        return [v for i, v in informs.iteritems() if i.startswith(hosts)]

@@ -34,7 +34,7 @@ clean:
 	$(MAKE) clean -C docs/Cover_Page
 	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock"
 	git checkout -- docs/*
-	rm -rf .venv /tmp/*fpgs
+	rm -rf .venv /tmp/*.fpg
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
@@ -63,3 +63,5 @@ tests4k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --4k"
 tests32k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --32k"
+sanitytest:
+	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=ERROR mkat_fpga_tests/test_cbf.py:test_CBF.test_baseline_correlation_product"

@@ -15,11 +15,6 @@ CURDIR="${PWD}"
 VENV=".venv/bin/activate"
 
 VERBOSE=${1:-false}
-if [ "${VERBOSE}" = true ]; then
-    set -ex
-else
-    set -e
-fi
 
 function gprint (){
     printf "%s$1%s\n" "${GREEN}" "${NORMAL}";
@@ -28,6 +23,13 @@ function gprint (){
 function rprint (){
     printf "%s$1%s\n" "${RED}" "${NORMAL}";
 }
+
+if [ "${VERBOSE}" = true ]; then
+    gprint "MORE Verbose"
+    set -ex
+else
+    set -e
+fi
 
 if [ -f "${VENV}" ]; then
 
@@ -41,15 +43,11 @@ if [ -f "${VENV}" ]; then
     SPEAD2_URL=https://pypi.python.org/packages/a1/0f/9cf4ab8923a14ff349d5e85c89ec218ab7a790adfdcbd11877393d0c5bba/spead2-1.1.1.tar.gz
     PYTHON_SETUP_FILE=setup.py
 
-    $(command -v pip) install 'git+https://github.com/ska-sa/katcp-python#egg=katcp'
+    $(command -v pip) install -U 'git+https://github.com/ska-sa/katcp-python#egg=katcp'
+
     function pip_installer {
         pkg="$1"
         export PYTHON_PKG="${pkg}"
-
-        if [ "${pkg}" = 'katcp-python' ]; then
-            pkg="katcp"
-        fi
-
         if $(command -v python) -c "import os; pypkg = os.environ['PYTHON_PKG']; __import__(pypkg)" &> /dev/null; then
             gprint "${pkg} Package already installed";
         else
@@ -78,9 +76,9 @@ if [ -f "${VENV}" ]; then
         # NO SUDOing when automating
         # env PATH=$PATH sudo pip install -v .
         if [ "${VERBOSE}" = true ]; then
-            $(command -v pip) install -v .
+            env CC=/opt/gcc4.9.3 $(command -v pip) install .
         else
-            $(command -v pip) install -q .
+            env CC=/opt/gcc4.9.3 $(command -v pip) install -q .
         fi
         gprint "Successfully installed ${pkg} in ${INSTALL_DIR}"
     }
@@ -90,7 +88,7 @@ if [ -f "${VENV}" ]; then
         printf "\n\n"
         if python -c "import os; pypkg = os.environ['PYTHON_PKG']; __import__(pypkg)" &> /dev/null; then
             rprint "${pkg} Package already installed";
-        elif [ "${pkg}" = 'spead2' ]; then
+        elif [ "${pkg}" = "spead2" ]; then
             if [ -d "${INSTALL_DIR}" ]; then
                 gprint "${pkg} directory exists."
                 export PYTHON_PKG="${pkg}"
@@ -111,12 +109,13 @@ if [ -f "${VENV}" ]; then
                     spead2_installer "${pkg}"
                 fi
             fi
-        elif [ -d "${INSTALL_DIR}" ]; then
-            gprint "${pkg} directory exists."
-            pip_installer "${pkg}"
+        # elif [ -d "${INSTALL_DIR}" ]; then
+        #     gprint "${pkg} directory exists."
+        #     pip_installer "${pkg}"
         else
             rprint "${pkg} directory doesnt exist cloning."
-            $(command -v git) clone git@github.com:ska-sa/"${pkg}".git "${PYTHON_SRC_DIR}"/"${pkg}" && cd "$_"
+            cd "${PYTHON_SRC_DIR}"
+            $(command -v git) clone --branch devel --depth 1 git@github.com:ska-sa/"${pkg}".git && cd "$_"
             pip_installer "${pkg}"
         fi
         $(command -v python) -c "import $pkg; print $pkg.__file__" || true
