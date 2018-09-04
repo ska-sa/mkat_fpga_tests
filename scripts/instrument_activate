@@ -15,25 +15,12 @@ if [ -z "$*" ];
     exit 1;
 fi
 
-function print_function {
-    STRING=$1
-    printf "%s$STRING%s\n" "${GREEN}" "${NORMAL}"
-}
 
-# This will abort the script immediately if part of the script fails.
-set -e
-# This will give verbose output and also will abort the script immediately if part of the script fails.
-if [ "${DEVMODE}" == y ]; then
-    print_function "Verbose Mode!!!!"
-    set -ex;
-fi
-
+#-------------------------------------------------------------------------------------------
+export TERM=xterm
 # Convert variable contents to lower case
 declare -l DSIM
-
-export TERM=xterm
 # PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
-KCPCMD=/usr/local/bin/kcpcmd
 
 # RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
@@ -54,7 +41,26 @@ MVACC=${INSTRUMENT_OPTS:3:1}
 
 CONF_PATH_DIR=${6:-'/etc/corr/templates/'}
 CONF_PATH=${CONF_PATH_DIR}${INSTRUMENT}
-echo $CONF_PATH
+#-------------------------------------------------------------------------------------------
+
+function gprint (){
+    STRING=$1
+    printf "%s${STRING}%s\n" "${GREEN}" "${NORMAL}";
+}
+
+function rprint (){
+    STRING=$1
+    printf "%s${STRING}%s\n" "${RED}" "${NORMAL}";
+}
+
+if [ "${DEVMODE}" == y ]; then
+    # This will give verbose output and also will abort the script immediately if part of the script fails.
+    gprint "Verbose Mode!!!!"
+    set -ex;
+else
+    # This will abort the script immediately if part of the script fails.
+    set -e
+fi
 
 function repeatStr {
     input=$1
@@ -63,54 +69,53 @@ function repeatStr {
     echo "${myString// /$input }"
 }
 
-
 if [ -d ".venv" ];then
     # shellcheck disable=SC1091
-    print_function "Working on VirtualEnv."
+    gprint "Working on VirtualEnv."
     . .venv/bin/activate
 fi
 
 if [ "${DEVMODE}" == y ]; then
     # Some cleaning up before exiting.
     # trap cleanup EXIT
-    print_function "Downloading latest DEVEL bitstreams from github.com and replacing bitstream location on template."
+    gprint "Downloading latest DEVEL bitstreams from github.com and replacing bitstream location on template."
     BITSTREAMS_LIST=`grep ^bitstream $CONF_PATH | cut -f3 -d " "`
     BITSTREAMS=(${BITSTREAMS_LIST// /})
     if $(echo "${BITSTREAMS_LIST}" | grep -q "/tmp") && $(ls /tmp/*.fpg 1> /dev/null 2>&1); then
-        print_function "Seems like bitstreams are already in /tmp"
+        gprint "Seems like bitstreams are already in /tmp"
     else
         for bitstream in "${BITSTREAMS[@]}"; do
             FILENAME="/tmp/`echo ${bitstream} | rev | cut -d'/' -f1 | rev`";
             URL=`echo $bitstream | cut -c15-`
-            print_function "Downloading file: https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
+            gprint "Downloading file: https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
             wget -q --tries=5 -O "${FILENAME}" "https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}" || exit 1;
-            print_function "Replacing: ${bitstream}, with ${FILENAME} on ${CONF_PATH}\n\n"
+            gprint "Replacing: ${bitstream}, with ${FILENAME} on ${CONF_PATH}\n\n"
             sed -i -e "s=$bitstream=$FILENAME=" "${CONF_PATH}"
         done
-        print_function "New bitstream destination:\n\n`grep ^bitstream $CONF_PATH`\n\n\n"
+        gprint "New bitstream destination:\n\n`grep ^bitstream $CONF_PATH`\n\n\n"
     fi
 fi
 
 
-print_function "Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP}"
+gprint "Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP}"
 VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
 HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
 DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
 NUM_INPUTS=$((($(grep ^source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2))
 ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
-print_function "No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} "
+gprint "No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} "
 
 DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
 if [ "${START_DSIM}" == y ]; then
     COUNT=1
     while [ "${COUNT}" -le 5 ]; do
-        print_function "Starting DEngine..."
+        gprint "Starting DEngine..."
         if [[ "${DSIM}" = *"roach"* ]]; then
             StopDMC="/usr/local/bin/stop-pseudo-dmc";
             StartDMC="/usr/local/bin/start-pseudo-dmc";
 
             if [ -x "$(command -v ${StopDMC})" ]; then
-                "${StopDMC}" || "${KCPCMD}" -t 30 -s localhost:9010 halt
+                "${StopDMC}" || kcpcmd -t 30 -s localhost:9010 halt
                 sleep 10;
             elif [ -x "$(command -v ${StartDMC})" ]; then
                 "${StartDMC}" "${DSIM}"
@@ -122,28 +127,37 @@ if [ "${START_DSIM}" == y ]; then
         sleep 5;
     done;
 else
-    print_function "We assuming that the DEngine is currently running..."
+    gprint "We assuming that the DEngine is currently running..."
 fi
 
 if [[ "${DSIM}" = *"roach"* ]]; then
-    SYNC_EPOCH=$($KCPCMD -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
+    SYNC_EPOCH=$(kcpcmd -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
 else
     SYNC_EPOCH=$($(which corr2_dsim_control.py) -c ${CONF_PATH} --resync | grep ^Reset | cut -f7 -d ' ')
 fi
 
 SYNC_TIME=$(date -d @${SYNC_EPOCH})
-print_function "Synchronisation Epoch, set to (Readable): ${SYNC_TIME}"
+gprint "Synchronisation Epoch, set to (Readable): ${SYNC_TIME}"
 if [ "${SYNC_EPOCH}" != 0 ]; then
     sleep 1;
-    print_function "$Initialising INSTRUMENT: ${INSTRUMENT}"
-    "${KCPCMD}" -t 31 -s "${KATCP_HOST_IP}":7147 subordinate-halt "${ARRAY_NAME}" || true
+    gprint "$Initialising INSTRUMENT: ${INSTRUMENT}"
+    kcpcmd -t 31 -s "${KATCP_HOST_IP}":7147 subordinate-halt "${ARRAY_NAME}" || true
     sleep 1
-    ARRAY=$(${KCPCMD} -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
-    print_function "Port :${ARRAY} created on ${ARRAY_NAME}"
-    "${KCPCMD}" -t 500 -s "${KATCP_HOST_IP}":"${ARRAY}" digitiser-synch-epoch "${SYNC_EPOCH}"
+    ARRAY=$(kcpcmd -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
+    gprint "Port :${ARRAY} created on ${ARRAY_NAME}"
+    kcpcmd -t 500 -s "${KATCP_HOST_IP}":"${ARRAY}" digitiser-synch-epoch "${SYNC_EPOCH}"
     sleep 1;
-    "${KCPCMD}" -t 1000 -s "${KATCP_HOST_IP}":"${ARRAY}" instrument-activate "${INSTRUMENT}" "${PROG}" "${CONFIGURE}" "${REPOCH}" "${MVACC}"
+    kcpcmd -t 1000 -s "${KATCP_HOST_IP}":"${ARRAY}" instrument-activate "${INSTRUMENT}" "${PROG}" "${CONFIGURE}" "${REPOCH}" "${MVACC}";
+    PORT=$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' | cut -f2 -d',');
+    kcpcmd -t 60 -s "${KATCP_HOST_IP}":"${PORT}" sensor-value > sensors.txt;
+    if (cat sensors.txt | grep -a 'ct.err' | grep 'error'); then
+        rprint "Corner Turn Errors!!!!";
+        rprint "Your mileage may vary!!!";
+        exit 1;
+    else
+        gprint "No Errors on Sensors";
+    fi
+    rm -rf sensors.txt || true;
 else
-    print_function "Restart the DEngine, Having issues!!!"
-    exit 1
+    rprint "Restart the DEngine, Having issues!!!" && exit 1;
 fi

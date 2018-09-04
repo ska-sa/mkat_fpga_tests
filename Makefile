@@ -64,4 +64,4 @@ tests4k:
 tests32k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --32k"
 sanitytest:
-	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=ERROR mkat_fpga_tests/test_cbf.py:test_CBF.test_baseline_correlation_product"
+	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=FATAL mkat_fpga_tests/test_cbf.py:test_CBF.test_baseline_correlation_product"
