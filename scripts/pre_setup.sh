@@ -43,7 +43,7 @@ if [ -f "${VENV}" ]; then
     SPEAD2_URL=https://pypi.python.org/packages/a1/0f/9cf4ab8923a14ff349d5e85c89ec218ab7a790adfdcbd11877393d0c5bba/spead2-1.1.1.tar.gz
     PYTHON_SETUP_FILE=setup.py
 
-    $(command -v pip) install -q -U 'git+https://github.com/ska-sa/katcp-python#egg=katcp'
+    $(command -v  python) -W ignore::Warning -m pip install -q -U 'git+https://github.com/ska-sa/katcp-python#egg=katcp'
 
     function pip_installer {
         pkg="$1"
@@ -58,9 +58,9 @@ if [ -f "${VENV}" ]; then
                 continue
             else
                 if [ "${VERBOSE}" = true ]; then
-                    $(command -v pip) install -e .
+                    $(command -v  python) -W ignore::Warning -m pip install -e .
                 else
-                    $(command -v pip) install -q -e .
+                    $(command -v  python) -W ignore::Warning -m pip install -q -e .
                 fi
                 # NO SUDOing when automating
                 # sudo python setup.py install --force
@@ -76,9 +76,9 @@ if [ -f "${VENV}" ]; then
         # NO SUDOing when automating
         # env PATH=$PATH sudo pip install -v .
         if [ "${VERBOSE}" = true ]; then
-            env CC=/opt/gcc4.9.3/bin/gcc CXX=/opt/gcc4.9.3/bin/g++ $(command -v pip) install .
+            env CC=/opt/gcc4.9.3/bin/gcc CXX=/opt/gcc4.9.3/bin/g++ $(command -v  python) -W ignore::Warning -m pip install .
         else
-            env CC=/opt/gcc4.9.3/bin/gcc CXX=/opt/gcc4.9.3/bin/g++ $(command -v pip) install -q .
+            env CC=/opt/gcc4.9.3/bin/gcc CXX=/opt/gcc4.9.3/bin/g++ $(command -v  python) -W ignore::Warning -m pip install -q .
         fi
         gprint "Successfully installed ${pkg} in ${INSTALL_DIR}"
     }
@@ -118,10 +118,10 @@ if [ -f "${VENV}" ]; then
         else
             gprint "Installing ${pkg} from GitHub(bleeding edge)"
             if [ "${VERBOSE}" = true ]; then
-                $(command -v pip) install --no-deps --pre -I --no-warn-conflicts --isolated \
+                $(command -v  python) -W ignore::Warning -m pip install --no-deps --pre -I --no-warn-conflicts --isolated \
                 --force-reinstall git+https://github.com/ska-sa/"${pkg}"@devel#egg="${pkg}"
             else
-                $(command -v pip) install -q --no-deps --pre -I --no-warn-conflicts --isolated \
+                $(command -v  python) -W ignore::Warning -m pip install -q --no-deps --pre -I --no-warn-conflicts --isolated \
                 --force-reinstall git+https://github.com/ska-sa/"${pkg}"@devel#egg="${pkg}"
             fi
             [ "$?" = 0 ] && gprint "Installation Successful" || rprint "${pkg} installation FAILED!!!"

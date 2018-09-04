@@ -62,7 +62,7 @@ else
     fi
 fi
 
-"$VIRTUAL_ENV"/bin/pip install -q -U pip setuptools
+"$VIRTUAL_ENV"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 source "${VIRTUAL_ENV}/bin/activate"
 export PATH="${VIRTUAL_ENV}/bin:$PATH"
@@ -80,9 +80,9 @@ function install_pip_requirements() {
     gprint "Installing development pip dependencies from ${FILENAME} file."
     if [ -f "$FILENAME" ]; then
         if [ "${VERBOSE}" = true ]; then
-            $(command -v pip) install -r $FILENAME
+            $(command -v python) -W ignore::Warning -m pip install -r $FILENAME
         else
-            $(command -v pip) install -q -r $FILENAME
+            $(command -v python) -W ignore::Warning -m pip install -q -r $FILENAME
         fi
     fi                           # do nothing if file is not found.
 }
@@ -93,9 +93,9 @@ function install_pip_requirements() {
 # This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail.
 # You can upgrade to a newer version of Python to solve this.
 if [ "${VERBOSE}" = true ]; then
-    $(command -v pip) install --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+    $(command -v python) -W ignore::Warning -m pip install --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 else
-    $(command -v pip) install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+    $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 fi
 
 
