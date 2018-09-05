@@ -173,15 +173,13 @@ class test_CBF(unittest.TestCase):
             LOGGER.info(
                 'Yeyyy!!! Got running instrument from sensors: %s' % self.instrument)
         except Exception:
-            errmsg = ('No running instrument on array: %s, Exiting....' %
-                      self.corr_fix.array_name)
+            errmsg = ('No running instrument on array: %s, Exiting....' % self.corr_fix.array_name)
             LOGGER.exception(errmsg)
             Aqf.end(message=errmsg)
             sys.exit(errmsg)
 
         if self._dsim_set:
-            Aqf.step(
-                'Configure a digitiser simulator to be used as input source to F-Engines.')
+            Aqf.step('Configure a digitiser simulator to be used as input source to F-Engines.')
             msg = 'Digitiser Simulator running on host: %s' % self.dhost.host
             Aqf.progress(msg)
             LOGGER.info(msg)
@@ -242,8 +240,7 @@ class test_CBF(unittest.TestCase):
             self.assertIsInstance(_test_dump, dict, self.errmsg)
             self.n_chans_selected = int(_test_dump.get('n_chans_selected',
                                                        self.cam_sensors.get_value('n_chans')))
-            LOGGER.info(
-                'Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
+            LOGGER.info('Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
         except Exception as e:
             Aqf.failed('%s' % str(e))
             LOGGER.exception('%s' % str(e))
@@ -315,7 +312,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 test_heading("CBF Channelisation Wideband Coarse SFDR L-band")
                 n_ch_to_test = int(
-                    self.conf_file['instrument_params']['sfdr_ch_to_test'])
+                    self.conf_file['instrument_params'].get('sfdr_ch_to_test', 20))
                 self._test_sfdr_peaks(
                     required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
             else:
@@ -334,7 +331,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 test_heading("CBF Channelisation Wideband Fine SFDR L-band")
                 n_ch_to_test = int(
-                    self.conf_file['instrument_params']['sfdr_ch_to_test'])
+                    self.conf_file['instrument_params'].get('sfdr_ch_to_test', 20))
                 self._test_sfdr_peaks(
                     required_chan_spacing=30e3, no_channels=n_ch_to_test)  # Hz
             else:

@@ -140,7 +140,7 @@ SYNC_TIME=$(date -d @${SYNC_EPOCH})
 gprint "Synchronisation Epoch, set to (Readable): ${SYNC_TIME}"
 if [ "${SYNC_EPOCH}" != 0 ]; then
     sleep 1;
-    gprint "$Initialising INSTRUMENT: ${INSTRUMENT}"
+    gprint "Initialising INSTRUMENT: ${INSTRUMENT}"
     kcpcmd -t 31 -s "${KATCP_HOST_IP}":7147 subordinate-halt "${ARRAY_NAME}" || true
     sleep 1
     ARRAY=$(kcpcmd -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
@@ -155,7 +155,7 @@ if [ "${SYNC_EPOCH}" != 0 ]; then
         rprint "Your mileage may vary!!!";
         exit 1;
     else
-        gprint "No Errors on Sensors";
+        gprint "No Corner Turn Errors!!!!";
     fi
     rm -rf sensors.txt || true;
 else
