@@ -22,7 +22,7 @@ export TERM=xterm
 declare -l DSIM
 # PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
 
-# RED=$(tput setaf 1)
+RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 NORMAL=$(tput sgr0)
 
@@ -124,6 +124,9 @@ if [ "${START_DSIM}" == y ]; then
         fi
         (( COUNT++ ));
         $(command -v corr2_dsim_control.py) --config "${CONF_PATH}" --program --start --zeros-sine --zeros-noise && break;
+        if [ "${COUNT}" -eq 5 ]; then
+            rprint "Failed to start the DSim...." && exit 1;
+        fi
         sleep 5;
     done;
 else
