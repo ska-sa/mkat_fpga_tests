@@ -3936,47 +3936,39 @@ class test_CBF(unittest.TestCase):
                 delay_rate, delay_value, fringe_offset, fringe_rate))
 
             try:
-                actual_data, _delay_coefficients = self._get_actual_data(
-                    setup_data, dump_counts, delay_coefficients)
+                actual_phases = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
             except TypeError as e:
                 errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
                           .format(e))
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
                 return
-            actual_phases = [phases for phases, response in actual_data]
-            actual_response = [response for phases, response in actual_data]
-
-            if _delay_coefficients is not None:
-                expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                          _delay_coefficients, actual_phases)
             else:
                 expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                           delay_coefficients, actual_phases)
 
-            no_chans = range(self.n_chans_selected)
-            plot_units = 'ns/s'
-            plot_title = 'Randomly generated delay rate {} {}'.format(
-                delay_rate * 1e9, plot_units)
-            plot_filename = '{}/{}_delay_rate.png'.format(
-                self.logs_path, self._testMethodName)
-            caption = ('Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n'
-                       'Note: Dashed line indicates expected value and solid line indicates '
-                       'actual values received from SPEAD accumulation.')
+                no_chans = range(self.n_chans_selected)
+                plot_units = 'ns/s'
+                plot_title = 'Randomly generated delay rate {} {}'.format(
+                    delay_rate * 1e9, plot_units)
+                plot_filename = '{}/{}_delay_rate.png'.format(
+                    self.logs_path, self._testMethodName)
+                caption = ('Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n'
+                           'Note: Dashed line indicates expected value and solid line indicates '
+                           'actual values received from SPEAD accumulation.')
 
-            msg = ('Observe the change in the phase slope, and confirm the phase change is as '
-                   'expected.')
-            Aqf.step(msg)
-            if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
-                Aqf.failed('Delays could not be applied at time_apply: {} '
-                           'is in the past'.format(setup_data['t_apply']))
-            else:
+                msg = ('Observe the change in the phase slope, and confirm the phase change is as '
+                       'expected.')
+                Aqf.step(msg)
+                # if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+                #     Aqf.failed('Delays could not be applied at time_apply: {} '
+                #                'is in the past'.format(setup_data['t_apply']))
+                # else:
                 actual_phases_ = np.unwrap(actual_phases)
                 degree = 1.0
                 radians = (degree / 360) * np.pi * 2
                 decimal = len(str(degree).split('.')[-1])
-                expected_phases_ = np.unwrap(
-                    [phase for label, phase in expected_phases])
+                expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 expected_phases_ = expected_phases_[:, 0:self.n_chans_selected]
                 for i in xrange(0, len(expected_phases_) - 1):
                     delta_expected = np.abs(
@@ -4067,29 +4059,21 @@ class test_CBF(unittest.TestCase):
             Aqf.progress('Delay Rate: %s, Delay Value: %s, Fringe Offset: %s, Fringe Rate: %s ' % (
                 delay_rate, delay_value, fringe_offset, fringe_rate))
             try:
-                actual_data, _delay_coefficients = self._get_actual_data(setup_data, dump_counts,
-                                                                         delay_coefficients)
+                actual_phases = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
             except TypeError as e:
                 errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
                           .format(e))
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
                 return
-
-            actual_phases = [phases for phases, response in actual_data]
-            actual_response = [response for phases, response in actual_data]
-
-            if _delay_coefficients is not None:
-                expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                          _delay_coefficients, actual_phases)
             else:
                 expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                           delay_coefficients, actual_phases)
 
-            if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
-                Aqf.failed('Delays could not be applied at time_apply: {} '
-                           'is in the past'.format(setup_data['t_apply']))
-            else:
+            # if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+            #     Aqf.failed('Delays could not be applied at time_apply: {} '
+            #                'is in the past'.format(setup_data['t_apply']))
+            # else:
                 no_chans = range(self.n_chans_selected)
                 plot_units = 'rads/sec'
                 plot_title = 'Randomly generated fringe rate {} {}'.format(fringe_rate,
@@ -4136,10 +4120,8 @@ class test_CBF(unittest.TestCase):
                         Aqf.less(abs_diff, radians, msg)
 
                         try:
-                            delta_actual_s = delta_actual - \
-                                (delta_actual % degree)
-                            delta_expected_s = delta_expected - \
-                                (delta_expected % degree)
+                            delta_actual_s = delta_actual - (delta_actual % degree)
+                            delta_expected_s = delta_expected - (delta_expected % degree)
                             np.testing.assert_almost_equal(delta_actual_s, delta_expected_s,
                                                            decimal=decimal)
                         except AssertionError:
@@ -4155,11 +4137,9 @@ class test_CBF(unittest.TestCase):
 
                             actual_phases_i = (delta_actual, actual_phases[i])
                             if len(expected_phases[i]) == 2:
-                                expected_phases_i = (
-                                    delta_expected, expected_phases[i][-1])
+                                expected_phases_i = (delta_expected, expected_phases[i][-1])
                             else:
-                                expected_phases_i = (
-                                    delta_expected, expected_phases[i])
+                                expected_phases_i = (delta_expected, expected_phases[i])
 
                             aqf_plot_phase_results(
                                 no_chans, actual_phases_i, expected_phases_i,
@@ -4195,27 +4175,20 @@ class test_CBF(unittest.TestCase):
                 delay_rate, delay_value, fringe_offset, fringe_rate))
 
             try:
-                actual_data, _delay_coefficients = self._get_actual_data(
-                    setup_data, dump_counts, delay_coefficients)
+                actual_phases = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
             except TypeError as e:
                 errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
                           .format(e))
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
                 return
-            actual_phases = [phases for phases, response in actual_data]
-            actual_response = [response for phases, response in actual_data]
-            if _delay_coefficients is not None:
-                expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                          _delay_coefficients, actual_phases)
             else:
                 expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                           delay_coefficients, actual_phases)
-
-            if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
-                Aqf.failed('Delays could not be applied at time_apply: {} '
-                           'is in the past'.format(setup_data['t_apply']))
-            else:
+            # if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+            #     Aqf.failed('Delays could not be applied at time_apply: {} '
+            #                'is in the past'.format(setup_data['t_apply']))
+            # else:
                 no_chans = range(self.n_chans_selected)
                 plot_units = 'rads'
                 plot_title = 'Randomly generated fringe offset {:.3f} {}'.format(
@@ -4440,8 +4413,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.progress('%s of %s will be set on input %s. Note: All other parameters '
                                  'will be set to zero' % (_name.title(), _values, input_source))
                     try:
-                        actual_data, _delay_coefficients = self._get_actual_data(
-                            setup_data, dump_counts, delay_coefficients)
+                        actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
                     except TypeError:
                         errmsg = 'Failed to set the delays/fringes'
                         Aqf.failed(errmsg)
