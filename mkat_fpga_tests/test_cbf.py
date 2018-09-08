@@ -216,8 +216,8 @@ class test_CBF(unittest.TestCase):
             LOGGER.info('Connecting to katcp on %s' % katcp_ip)
             start_channels = int(
                 self.conf_file['instrument_params']['start_channels'])
-            stop_channels = int(
-                self.conf_file['instrument_params']['stop_channels'])
+            stop_channels = 2047#int(
+#                self.conf_file['instrument_params']['stop_channels'])
             LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' % (
                 data_output_port, start_channels, stop_channels))
             Aqf.note('Configuring SPEAD receiver to capture %s channels from %s to %s.' % (
@@ -2742,8 +2742,7 @@ class test_CBF(unittest.TestCase):
                             LOGGER.exception(errmsg)
                             return False
                         else:
-                            initial_max_freq = np.max(
-                                this_freq_dump['xeng_raw'])
+                            initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     else:
                         try:
                             this_freq_dump = self.receiver.get_clean_dump(discard=10)
@@ -2753,7 +2752,14 @@ class test_CBF(unittest.TestCase):
                             Aqf.failed(errmsg)
                             LOGGER.exception(errmsg)
 
-                    this_freq_data = this_freq_dump['xeng_raw']
+                    try:
+                        this_freq_data = this_freq_dump['xeng_raw']
+                        assert this_freq_data
+                    except AssertionError:
+                        errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+                        Aqf.failed(errmsg)
+                        LOGGER.exception(errmsg)
+                        return False
                     dumps_data.append(this_freq_data)
                     this_freq_response = normalised_magnitude(
                         this_freq_data[:, test_baseline, :])
