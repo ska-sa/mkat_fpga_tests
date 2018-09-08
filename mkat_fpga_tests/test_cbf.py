@@ -2674,7 +2674,11 @@ class test_CBF(unittest.TestCase):
                         msg = (
                             'Confirm that the expected baselines visibilities are \'Zeros\'.\n')
                         Aqf.step(msg)
-                        Aqf.equals(actual_z_bls, expected_z_bls, msg)
+                        try:
+                            assert actual_z_bls == expected_z_bls
+                            Aqf.passed(msg)
+                        except AssertionError:
+                            Aqf.failed(msg)
 
                         # Sum of all baselines powers expected to be non zeros
                         sum_of_bl_powers = (
@@ -7875,7 +7879,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels via Cam interface.')
         try:
-            test_dump = self.receiver.get_clean_dump()
+            test_dump = self.receiver.get_clean_dump(discard=50)
             self.assertIsInstance(test_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
