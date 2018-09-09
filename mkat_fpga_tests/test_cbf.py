@@ -216,6 +216,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.info('Connecting to katcp on %s' % katcp_ip)
             start_channels = int(
                 self.conf_file['instrument_params']['start_channels'])
+            # ToDo maybe select stop channels depending on the no of ants
             stop_channels = 2047#int(
 #                self.conf_file['instrument_params']['stop_channels'])
             LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' % (
@@ -242,8 +243,8 @@ class test_CBF(unittest.TestCase):
                                                        self.cam_sensors.get_value('n_chans')))
             LOGGER.info('Confirmed number of channels %s, from initial dump' % self.n_chans_selected)
         except Exception as e:
-            Aqf.failed('%s' % str(e))
-            LOGGER.exception('%s' % str(e))
+            Aqf.failed(str(e))
+            LOGGER.exception(str(e))
             return False
         else:
             # Run system tests before each test is ran

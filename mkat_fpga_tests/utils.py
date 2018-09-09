@@ -1027,7 +1027,7 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
 
     """
     beamdata_dir = '/ramdisk'
-    _timeout = 10
+    _timeout = 60
 
     # Create a katcp client to connect to katcpingest if one not specified
     if ingest_kcp_client is None:
@@ -1076,7 +1076,7 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
             'Setting input weights, this may take a long time, check log output for progress...')
         try:
             reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
-                beam, *weight_list)
+                beam, *weight_list, timeout=60)
             assert reply.reply_ok()
         except AssertionError:
             Aqf.failed(
@@ -1117,10 +1117,10 @@ def capture_beam_data(self, beam, beam_dict=None, ingest_kcp_client=None, captur
         try:
             LOGGER.info('Issue {} capture start via CAM int'.format(beam))
             for i in xrange(2):
-                reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam)
+                reply, informs = self.corr_fix.katcp_rct.req.capture_meta(beam, timeout=60)
             errmsg = 'Failed to issue new Metadata: {}'.format(str(reply))
             assert reply.reply_ok(), errmsg
-            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam, timeout=60)
             errmsg = 'Failed to issue capture_start for beam {}: {}'.format(beam, str(reply))
             assert reply.reply_ok(), errmsg
         except AssertionError:
@@ -1218,7 +1218,7 @@ def populate_beam_dict_idx(self, index, value, beam_dict):
 def set_beam_quant_gain(self, beam, gain):
     try:
         reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(
-            beam, gain)
+            beam, gain, timeout=60)
         assert reply.reply_ok()
         actual_beam_gain = float(reply.arguments[1])
         msg = ('Requested beamformer level adjust gain of {:.2f}, '
