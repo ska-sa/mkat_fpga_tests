@@ -2610,6 +2610,9 @@ class test_CBF(unittest.TestCase):
             #                          columns=list(sorted(present_baselines)))
 
             for count, inp in enumerate(input_labels, start=1):
+                if count > 10:
+                    break
+            
                 old_eq = complex(initial_equalisations[inp])
                 Aqf.step('Iteratively set gain/equalisation correction on relevant '
                          'input %s set to %s.' % (inp, old_eq))
@@ -2665,17 +2668,23 @@ class test_CBF(unittest.TestCase):
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i])
-                                            for i in actual_z_bls_indices])
-                        msg = ('Confirm that the expected baseline visibilities are non-zero with '
-                               'non-zero inputs')
-                        Aqf.step(msg)
-                        msg = msg + ' (%s) and,' % (sorted(nonzero_inputs))
-                        Aqf.equals(actual_nz_bls, expected_nz_bls, msg)
-
-                        msg = (
-                            'Confirm that the expected baselines visibilities are \'Zeros\'.\n')
-                        Aqf.step(msg)
-                        Aqf.equals(actual_z_bls, expected_z_bls, msg)
+                                            for i in actual_z_bls_indices])                        
+                        try:
+                            msg = ('Confirm that the expected baseline visibilities are non-zero with '
+                               'non-zero inputs')                        
+                            Aqf.step(msg)
+                            msg = msg + ' (%s) and,' % (sorted(nonzero_inputs))
+                            assert actual_nz_bls == expected_nz_bls
+                            Aqf.passed(msg)
+                        except AssertionError:
+                            Aqf.failed(msg)                        
+                        try:
+                            msg = ('Confirm that the expected baselines visibilities are \'Zeros\'.\n')                        
+                            Aqf.step(msg)
+                            assert actual_z_bls == expected_z_bls
+                            Aqf.passed(msg)
+                        except AssertionError:
+                            Aqf.failed(msg)
 
                         # Sum of all baselines powers expected to be non zeros
                         sum_of_bl_powers = (
