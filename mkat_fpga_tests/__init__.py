@@ -97,6 +97,7 @@ class CorrelatorFixture(object):
         self._correlator_started = not int(
             nose_test_config.get('start_correlator', False))
         self.test_config = self._test_config_file
+        # ToDo get array name from file...instead of test config file
         self.subarray = self.test_config['instrument_params']['subarray']
         self.config_filename = max(
             iglob('/etc/corr/{}-*'.format(self.subarray)), key=os.path.getctime)
