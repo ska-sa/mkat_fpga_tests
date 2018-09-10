@@ -672,6 +672,7 @@ def run_nose_test(settings):
         cmd.append('-v')
         cmd.append('-s')
         cmd.append("--with-xunit")
+        cmd.append("--with-html")
         cmd.append("--logging-level=DEBUG")
         cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
         cmd.append("--logging-filter=%s" % __file__)

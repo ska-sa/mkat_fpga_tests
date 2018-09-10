@@ -57,6 +57,7 @@ termcolor
 tornado==4.3
 traceback2
 trollius
+nose-htmloutput
 
 # Uncomment below if running a development environment
 git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga

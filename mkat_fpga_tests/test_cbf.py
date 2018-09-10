@@ -2619,7 +2619,7 @@ class test_CBF(unittest.TestCase):
             for count, inp in enumerate(input_labels, start=1):
                 if count > 10:
                     break
-            
+
                 old_eq = complex(initial_equalisations[inp])
                 Aqf.step('Iteratively set gain/equalisation correction on relevant '
                          'input %s set to %s.' % (inp, old_eq))
@@ -2675,18 +2675,18 @@ class test_CBF(unittest.TestCase):
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i])
-                                            for i in actual_z_bls_indices])                        
+                                            for i in actual_z_bls_indices])
                         try:
                             msg = ('Confirm that the expected baseline visibilities are non-zero with '
-                               'non-zero inputs')                        
+                               'non-zero inputs')
                             Aqf.step(msg)
                             msg = msg + ' (%s) and,' % (sorted(nonzero_inputs))
                             assert actual_nz_bls == expected_nz_bls
                             Aqf.passed(msg)
                         except AssertionError:
-                            Aqf.failed(msg)                        
+                            Aqf.failed(msg)
                         try:
-                            msg = ('Confirm that the expected baselines visibilities are \'Zeros\'.\n')                        
+                            msg = ('Confirm that the expected baselines visibilities are \'Zeros\'.\n')
                             Aqf.step(msg)
                             assert actual_z_bls == expected_z_bls
                             Aqf.passed(msg)
@@ -2727,7 +2727,7 @@ class test_CBF(unittest.TestCase):
                  '({:.3f}Hz with FFT-length {}) in order for each FFT to be '
                  'identical.'.format(expected_fc / 1e6, source_period_in_samples))
 
-        try:            
+        try:
             this_freq_dump = self.receiver.get_clean_dump(discard=50)
             assert isinstance(this_freq_dump, dict)
         except AssertionError:
