@@ -593,7 +593,7 @@ class test_CBF(unittest.TestCase):
                 self._test_delay_rate()
                 self._test_fringe_rate()
                 self._test_fringe_offset()
-                self._test_delay_inputs()
+                #self._test_delay_inputs()
                 clear_all_delays(self)
                 # restore_src_names(self)
             else:
@@ -1455,7 +1455,8 @@ class test_CBF(unittest.TestCase):
             chan_resp.append(freq_response)
             data = complexise(dval[:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
-        return zip(phases, chan_resp), actual_delay_coef
+        #return zip(phases, chan_resp), actual_delay_coef
+        return zip(phases, chan_resp)
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
 
@@ -2489,7 +2490,11 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels via Cam interface.')
         try:
-            test_dump = self.receiver.get_clean_dump(discard=50)
+            if len(source_names) > 32:
+                _discards = 60
+            else:
+                _discards = 30
+            test_dump = self.receiver.get_clean_dump(discard=_discards)
             # test_dump = get_clean_dump(self)
             self.assertIsInstance(test_dump, dict)
         except AssertionError:
@@ -2541,10 +2546,12 @@ class test_CBF(unittest.TestCase):
                      'non-zero with Digitiser Simulator set to output AWGN.')
             msg = 'Confirm that no baselines have all-zero visibilities.'
             Aqf.is_false(zero_baselines(test_data), msg)
-
-            msg = 'Confirm that all baseline visibilities are non-zero across all channels'
-            Aqf.equals(nonzero_baselines(test_data),
-                       all_nonzero_baselines(test_data), msg)
+            try:
+                msg = 'Confirm that all baseline visibilities are non-zero across all channels'
+                assert nonzero_baselines(test_data) == all_nonzero_baselines(test_data)
+                Aqf.passed(msg)
+            except AssertionError:
+                Aqf.failed(msg)
 
             Aqf.step('Save initial f-engine equalisations, and ensure they are '
                      'restored at the end of the test')
@@ -2581,7 +2588,7 @@ class test_CBF(unittest.TestCase):
             set_zero_gains()
             read_zero_gains()
 
-            test_data = self.receiver.get_clean_dump(discard=50)
+            test_data = self.receiver.get_clean_dump(discard=_discards)
 
             Aqf.is_false(nonzero_baselines(test_data['xeng_raw']),
                          'Confirm that all baseline visibilities are \'Zero\'.\n')
@@ -2634,7 +2641,7 @@ class test_CBF(unittest.TestCase):
                     try:
                         Aqf.step('Retrieving SPEAD accumulation and confirm if gain/equalisation '
                                  'correction has been applied.')
-                        test_dump = self.receiver.get_clean_dump(discard=30)
+                        test_dump = self.receiver.get_clean_dump(discard=_discards)
                         # test_dump = get_clean_dump(self)
                         self.assertIsInstance(test_dump, dict)
                     except Exception:
@@ -2720,7 +2727,7 @@ class test_CBF(unittest.TestCase):
                  '({:.3f}Hz with FFT-length {}) in order for each FFT to be '
                  'identical.'.format(expected_fc / 1e6, source_period_in_samples))
 
-        try:
+        try:            
             this_freq_dump = self.receiver.get_clean_dump(discard=50)
             assert isinstance(this_freq_dump, dict)
         except AssertionError:
@@ -2744,7 +2751,7 @@ class test_CBF(unittest.TestCase):
                 for dump_no in xrange(3):
                     if dump_no == 0:
                         try:
-                            this_freq_dump = self.receiver.get_clean_dump(discard=10)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=30)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2755,7 +2762,7 @@ class test_CBF(unittest.TestCase):
                             initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     else:
                         try:
-                            this_freq_dump = self.receiver.get_clean_dump(discard=10)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=30)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -5616,7 +5623,7 @@ class test_CBF(unittest.TestCase):
                     ref_input_label))
                 try:
                     reply, informs = self.katcp_req.beam_weights(
-                        beam, *weight_list)
+                        beam, *weight_list, timeout=60)
                     assert reply.reply_ok()
                     actual_weight = float(reply.arguments[1 + ref_input])
                     retry_cnt = 0
@@ -5867,9 +5874,9 @@ class test_CBF(unittest.TestCase):
             assert running_instrument.endswith('4k'), msg
             Aqf.step('Discontinue any capturing of %s and %s, if active.' %
                      (beams[0], beams[1]))
-            reply, informs = self.katcp_req.capture_stop(beams[0])
+            reply, informs = self.katcp_req.capture_stop(beams[0], timeout=60)
             assert reply.reply_ok(), str(reply)
-            reply, informs = self.katcp_req.capture_stop(beams[1])
+            reply, informs = self.katcp_req.capture_stop(beams[1], timeout=60)
             assert reply.reply_ok(), str(reply)
 
             # Get instrument parameters
@@ -6486,11 +6493,11 @@ class test_CBF(unittest.TestCase):
         local_src_names = self.cam_sensors.custom_input_labels
         try:
             reply, informs = self.katcp_req.capture_stop(
-                'beam_0x')
+                'beam_0x', timeout=60)
             reply, informs = self.katcp_req.capture_stop(
-                'beam_0y')
+                'beam_0y', timeout=60)
             reply, informs = self.katcp_req.capture_stop(
-                'c856M4k')
+                'c856M4k', timeout=60)
             reply, informs = self.katcp_req.input_labels(
                 *local_src_names)
             if reply.reply_ok():
@@ -6545,12 +6552,12 @@ class test_CBF(unittest.TestCase):
                 break
         try:
             reply, informs = self.katcp_req.quantiser_snapshot(
-                inp)
+                inp, timeout=60)
         except Exception:
             Aqf.failed('Failed to grab quantiser snapshot.')
         quant_snap = [eval(v) for v in (reply.arguments[1:][1:])]
         try:
-            reply, informs = self.katcp_req.adc_snapshot(inp)
+            reply, informs = self.katcp_req.adc_snapshot(inp, timeout=60)
         except Exception:
             Aqf.failed('Failed to grab adc snapshot.')
         fpga = self.correlator.fhosts[0]
