@@ -5600,7 +5600,7 @@ class test_CBF(unittest.TestCase):
                 # Use weights from previous test
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(
                     beam, beam_dict=beam_dict, conf_data_type=True)
-            except TypeError as e:
+            except Exception as e:
                 errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
@@ -5668,7 +5668,7 @@ class test_CBF(unittest.TestCase):
                     weight_lbls.append(weight)
                     Aqf.progress('Captured mean value = {:.2f}, Calculated mean value '
                                  '(using reference value) = {:.2f}'.format(cap_mean, exp_mean))
-                except TypeError as e:
+                except Exception as e:
                     errmsg = 'Failed to retrieve beamformer data'
                     Aqf.failed(errmsg)
                     LOGGER.error(errmsg)
@@ -5709,7 +5709,7 @@ class test_CBF(unittest.TestCase):
             try:
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(
                     beam, beam_dict, rl)
-            except IndexError as e:
+            except Exception as e:
                 errmsg = 'Failed to retrieve beamformer data'
                 Aqf.failed(errmsg)
                 LOGGER.error(errmsg)
@@ -5833,7 +5833,7 @@ class test_CBF(unittest.TestCase):
                         subs_to_cap=n_substrms_to_cap)
                     if failed:
                         aligned_failed = True
-                except IndexError as e:
+                except Exception as e:
                     errmsg = 'Failed to retrieve beamformer data'
                     Aqf.failed(errmsg)
                     LOGGER.error(errmsg)
@@ -6057,51 +6057,51 @@ class test_CBF(unittest.TestCase):
                         'Beam captured missed more than %s%% heaps. Retrying...' % (perc * 100))
                     Aqf.failed(
                         'Beam captured missed more than %s%% heaps. Retrying...' % (perc * 100))
-        # Print missed heaps
-        idx = start_substream
-        for part in flags:
-            missed_heaps = np.where(part > 0)[0]
-            if missed_heaps.size > 0:
-                LOGGER.info('Missed heaps for substream {} at heap indexes {}'.format(idx,
-                                                                                      missed_heaps))
-            idx += 1
-        # Combine all missed heap flags. These heaps will be discarded
-        flags = np.sum(flags, axis=0)
-        # Find longest run of uninterrupted data
-        # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
-        iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
-        absdiff = np.abs(np.diff(iszero))
-        # Runs start and end where absdiff is 1.
-        ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
-        # Find max run
-        max_run = ranges[np.argmax(np.diff(ranges))]
-        bf_raw_strt = max_run[0] * spectra_per_heap
-        bf_raw_stop = max_run[1] * spectra_per_heap
-        bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
-        bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
+            # Print missed heaps
+            idx = start_substream
+            for part in flags:
+                missed_heaps = np.where(part > 0)[0]
+                if missed_heaps.size > 0:
+                    LOGGER.info('Missed heaps for substream {} at heap indexes {}'.format(idx,
+                                                                                          missed_heaps))
+                idx += 1
+            # Combine all missed heap flags. These heaps will be discarded
+            flags = np.sum(flags, axis=0)
+            # Find longest run of uninterrupted data
+            # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
+            iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
+            absdiff = np.abs(np.diff(iszero))
+            # Runs start and end where absdiff is 1.
+            ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+            # Find max run
+            max_run = ranges[np.argmax(np.diff(ranges))]
+            bf_raw_strt = max_run[0] * spectra_per_heap
+            bf_raw_stop = max_run[1] * spectra_per_heap
+            bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
+            bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
 
-        np.save('skarab_bf_data_plus.np', bf_raw)
-        #return True
-        from bf_time_analysis import analyse_beam_data
-        analyse_beam_data(bf_raw, dsim_settings=[freq, cw_scale, awgn_scale],
-                cbf_settings=[fft_shift, gain],
-                do_save=True,
-                spectra_use='all',
-                chans_to_use=n_substrms_to_cap_m * ch_per_substream,
-                xlim=[20, 21],
-            dsim_factor=1.0,
-            ref_input_label=ref_input_label,
-            bandwidth=bw)
+            np.save('skarab_bf_data_plus.np', bf_raw)
+            #return True
+            from bf_time_analysis import analyse_beam_data
+            analyse_beam_data(bf_raw, dsim_settings=[freq, cw_scale, awgn_scale],
+                    cbf_settings=[fft_shift, gain],
+                    do_save=True,
+                    spectra_use='all',
+                    chans_to_use=n_substrms_to_cap_m * ch_per_substream,
+                    xlim=[20, 21],
+                dsim_factor=1.0,
+                ref_input_label=ref_input_label,
+                bandwidth=bw)
 
-        #aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
-        #                  plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
-        #                    self._testMethodName, beam),
-        #                  plot_title=('Beam = {}\n'
-        #                    'Input = CW offset by {} Hz from the center of bin {}'
-        #                    .format(beam, center_bin_offset_freq, cw_ch)),
-        #                  log_dynamic_range=None, #90, log_normalise_to=1,
-        #                  ylabel='Beam Output',
-        #                  xlabel='Samples')
+            #aqf_plot_channels(beam_data[0:50, cw_ch-strt_ch_idx],
+            #                  plot_filename='{}/{}_beam_cw_offset_from_centerbin_{}.png'.format(self.logs_path,
+            #                    self._testMethodName, beam),
+            #                  plot_title=('Beam = {}\n'
+            #                    'Input = CW offset by {} Hz from the center of bin {}'
+            #                    .format(beam, center_bin_offset_freq, cw_ch)),
+            #                  log_dynamic_range=None, #90, log_normalise_to=1,
+            #                  ylabel='Beam Output',
+            #                  xlabel='Samples')
 
 
 
@@ -6273,7 +6273,7 @@ class test_CBF(unittest.TestCase):
             try:
                 bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam,
                         ingest_kcp_client=ingest_kcp_client, stop_only=True)
-            except TypeError as e:
+            except Exception as e:
                 errmsg = ('Failed to capture beam data: %s\n\n Confirm that Docker container is '
                          'running and also confirm the igmp version = 2 ' % str(e))
                 Aqf.failed(errmsg)
