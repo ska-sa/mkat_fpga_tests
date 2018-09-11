@@ -214,11 +214,9 @@ class test_CBF(unittest.TestCase):
             katcp_ip = self.corr_fix.katcp_client
             katcp_port = int(self.corr_fix.katcp_rct.port)
             LOGGER.info('Connecting to katcp on %s' % katcp_ip)
-            start_channels = int(
-                self.conf_file['instrument_params']['start_channels'])
             # ToDo maybe select stop channels depending on the no of ants
-            stop_channels = 2047#int(
-#                self.conf_file['instrument_params']['stop_channels'])
+            start_channels = int(self.conf_file['instrument_params'].get('start_channels', 0))
+            stop_channels = int(self.conf_file['instrument_params'].get('stop_channels', 2047))
             LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' % (
                 data_output_port, start_channels, stop_channels))
             Aqf.note('Configuring SPEAD receiver to capture %s channels from %s to %s.' % (
@@ -2489,10 +2487,11 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
                  'of all the correlator input labels via Cam interface.')
         try:
-            if len(source_names) > 32:
+            if self.cam_sensors.sensors.n_ants.value > 16:
                 _discards = 60
             else:
                 _discards = 30
+
             test_dump = self.receiver.get_clean_dump(discard=_discards)
             # test_dump = get_clean_dump(self)
             self.assertIsInstance(test_dump, dict)
@@ -2618,7 +2617,6 @@ class test_CBF(unittest.TestCase):
             for count, inp in enumerate(input_labels, start=1):
                 if count > 10:
                     break
-
                 old_eq = complex(initial_equalisations[inp])
                 Aqf.step('Iteratively set gain/equalisation correction on relevant '
                          'input %s set to %s.' % (inp, old_eq))
@@ -2727,7 +2725,11 @@ class test_CBF(unittest.TestCase):
                  'identical.'.format(expected_fc / 1e6, source_period_in_samples))
 
         try:
-            this_freq_dump = self.receiver.get_clean_dump(discard=50)
+            if self.cam_sensors.sensors.n_ants.value > 16:
+                _discards = 50
+            else:
+                _discards = 10
+            this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
             assert isinstance(this_freq_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2750,7 +2752,7 @@ class test_CBF(unittest.TestCase):
                 for dump_no in xrange(3):
                     if dump_no == 0:
                         try:
-                            this_freq_dump = self.receiver.get_clean_dump(discard=30)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2761,7 +2763,7 @@ class test_CBF(unittest.TestCase):
                             initial_max_freq = np.max(this_freq_dump['xeng_raw'])
                     else:
                         try:
-                            this_freq_dump = self.receiver.get_clean_dump(discard=30)
+                            this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2770,7 +2772,7 @@ class test_CBF(unittest.TestCase):
 
                     try:
                         this_freq_data = this_freq_dump['xeng_raw']
-                        assert this_freq_data
+                        assert isinstance(this_freq_data, np.ndarray)
                     except AssertionError:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                         Aqf.failed(errmsg)
