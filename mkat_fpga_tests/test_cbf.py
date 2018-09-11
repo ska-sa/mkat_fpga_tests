@@ -112,6 +112,7 @@ class test_CBF(unittest.TestCase):
             if set_dsim_epoch is False:
                 try:
                     LOGGER.info('This should only run once...')
+                    self.fhosts, self.xhosts = get_hosts(self, 'fhost'), get_hosts(self, 'xhost')
                     if not self.dhost.is_running():
                         errmsg = 'Dsim is not running, ensure dsim is running before test commences'
                         Aqf.end(message=errmsg)
@@ -139,7 +140,6 @@ class test_CBF(unittest.TestCase):
                     assert reply.reply_ok(), errmsg
                     LOGGER.info('Digitiser sync epoch set successfully')
                     set_dsim_epoch = self._dsim_set = True
-                    self.fhosts, self.xhosts = get_hosts(self, 'fhost'), get_hosts(self, 'xhost')
                 except Exception:
                     Aqf.failed(errmsg)
                     LOGGER.exception(errmsg)
@@ -606,7 +606,6 @@ class test_CBF(unittest.TestCase):
         # The CBF shall, on request via the CAM interface, report sensors that identify the installed
         # configuration of the CBF unambiguously, including hardware, software and firmware part
         # numbers and versions.
-
         Aqf.procedure(TestProcedure.ReportConfiguration)
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
@@ -4536,8 +4535,18 @@ class test_CBF(unittest.TestCase):
             from casperfpga import utils as fpgautils
             Aqf.step('List of all processing nodes')
             Aqf.progress('D-Engine :{}'.format(self.dhost.host))
-            Aqf.progress('List of F-Engines :{}'.format(self.fhosts))
-            Aqf.progress('List of X-Engines :{}\n'.format(self.xhosts))
+            try:
+                fhosts, xhosts = self.fhosts, self.xhosts
+            except AttributeError:
+                fhosts = [self.corr_fix.corr_config['fengine']['hosts']]
+                xhosts = [self.corr_fix.corr_config['xengine']['hosts']]
+
+            Aqf.progress('List of F-Engines :{}'.format(', '.join(fhosts)))
+            Aqf.progress('List of X-Engines :{}\n'.format(', '.join(xhosts)))
+            self._hosts = list(np.concatenate(
+                [i.get('hosts', None).split(',') for i in self.corr_fix.corr_config.values()
+                if i.get('hosts')]))
+
             skarabs = FPGA_Connect(self._hosts)
             if skarabs:
                 version_info = fpgautils.threaded_fpga_operation(skarabs, timeout=_timeout,
@@ -4720,9 +4729,6 @@ class test_CBF(unittest.TestCase):
                 pass
 
         test_heading('CBF Processing Node Version Information')
-        self._hosts = list(np.concatenate(
-            [i.get('hosts', None).split(',') for i in self.corr_fix.corr_config.values()
-             if i.get('hosts')]))
 
         get_skarab_config()
 

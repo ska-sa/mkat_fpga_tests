@@ -72,7 +72,7 @@ function repeatStr {
 if [ -d ".venv" ];then
     # shellcheck disable=SC1091
     gprint "Working on VirtualEnv."
-    . .venv/bin/activate
+    . .venv/bin/activate || true;
 fi
 
 if [ "${DEVMODE}" == y ]; then
