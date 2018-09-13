@@ -588,7 +588,7 @@ def disable_warnings_messages():
     ]
     # Ignore all loggings except Critical if any
     for logger_name in ignored_loggers:
-        logging. getLogger(logger_name).setLevel(logging.CRITICAL)
+        logging.getLogger(logger_name).setLevel(logging.CRITICAL)
     logging.getLogger('nose.plugins.nosekatreport').setLevel(logging.INFO)
 
 
