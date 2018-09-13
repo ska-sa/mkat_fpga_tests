@@ -571,7 +571,6 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 self._test_delays_control()
                 clear_all_delays(self)
-                #restore_src_names(self)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -591,9 +590,8 @@ class test_CBF(unittest.TestCase):
                 self._test_delay_rate()
                 self._test_fringe_rate()
                 self._test_fringe_offset()
-                #self._test_delay_inputs()
+                self._test_delay_inputs()
                 clear_all_delays(self)
-                # restore_src_names(self)
             else:
                 Aqf.failed(self.errmsg)
 
@@ -1280,7 +1278,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Retrieve initial SPEAD accumulation, in-order to calculate all '
                  'relevant parameters.')
         try:
-            initial_dump = get_clean_dump(self)
+            initial_dump = self.get_clean_dump()
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue might be Empty.'
             Aqf.failed(errmsg)
@@ -1346,9 +1344,9 @@ class test_CBF(unittest.TestCase):
                                                   delay_coefficients))
             assert reply.reply_ok(), errmsg
             actual_delay_coef = reply.arguments[1:]
+            assert 'updated' in actual_delay_coef[0]
             cmd_load_time = round(load_done_time - load_strt_time, 3)
-            Aqf.step(
-                'Fringe/Delay load command took {} seconds'.format(cmd_load_time))
+            Aqf.step('Fringe/Delay load command took {} seconds'.format(cmd_load_time))
             #_give_up = int(setup_data['num_int'] * setup_data['int_time'] * 3)
             # while True:
             #    _give_up -= 1
@@ -1430,6 +1428,12 @@ class test_CBF(unittest.TestCase):
                     elif time_diff < 3:
                         Aqf.progress(msg)
 
+        def _force_discard():
+            dump = self.receiver.data_queue.get()
+            dump = self.receiver.data_queue.get()
+        # For debugging, for some weird reason we have to discard 2 dumps before capturing the
+        # data with the change in phase
+        _force_discard()
         for i in xrange(dump_counts - 1):
             Aqf.progress(
                 'Getting subsequent SPEAD accumulation {}.'.format(i + 1))
@@ -1452,7 +1456,6 @@ class test_CBF(unittest.TestCase):
             chan_resp.append(freq_response)
             data = complexise(dval[:, setup_data['baseline_index'], :])
             phases.append(np.angle(data))
-        #return zip(phases, chan_resp), actual_delay_coef
         return zip(phases, chan_resp)
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
@@ -2242,7 +2245,7 @@ class test_CBF(unittest.TestCase):
         Aqf.step('Capture an initial correlator SPEAD accumulation, determine the '
                  'number of frequency channels.')
         try:
-            initial_dump = get_clean_dump(self)
+            initial_dump = self.get_clean_dump()
             self.assertIsInstance(initial_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -2300,7 +2303,7 @@ class test_CBF(unittest.TestCase):
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
             try:
-                this_freq_dump = get_clean_dump(self)
+                this_freq_dump = self.get_clean_dump()
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 errmsg = ('Could not retrieve clean SPEAD accumulation')
@@ -2493,7 +2496,7 @@ class test_CBF(unittest.TestCase):
                 _discards = 30
 
             test_dump = self.receiver.get_clean_dump(discard=_discards)
-            # test_dump = get_clean_dump(self)
+            # test_dump = self.get_clean_dump()
             self.assertIsInstance(test_dump, dict)
         except AssertionError:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2639,7 +2642,7 @@ class test_CBF(unittest.TestCase):
                         Aqf.step('Retrieving SPEAD accumulation and confirm if gain/equalisation '
                                  'correction has been applied.')
                         test_dump = self.receiver.get_clean_dump(discard=_discards)
-                        # test_dump = get_clean_dump(self)
+                        # test_dump = self.get_clean_dump()
                         self.assertIsInstance(test_dump, dict)
                     except Exception:
                         errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -2849,7 +2852,7 @@ class test_CBF(unittest.TestCase):
                                                           repeat_n=source_period_in_samples)
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
-                            # this_freq_dump = get_clean_dump(self)
+                            # this_freq_dump = self.get_clean_dump()
                             this_freq_dump = self.receiver.get_clean_dump(
                                 discard=20)
                             assert isinstance(this_freq_dump, dict)
@@ -2867,7 +2870,7 @@ class test_CBF(unittest.TestCase):
                                                           repeat_n=source_period_in_samples)
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
-                            # this_freq_dump = get_clean_dump(self)
+                            # this_freq_dump = self.get_clean_dump()
                             this_freq_dump = self.receiver.get_clean_dump(
                                 discard=20)
                             assert isinstance(this_freq_dump, dict)
@@ -2953,7 +2956,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         try:
-            this_freq_dump = get_clean_dump(self)
+            this_freq_dump = self.get_clean_dump()
         except Queue.Empty:
             errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
             Aqf.failed(errmsg)
@@ -2982,7 +2985,7 @@ class test_CBF(unittest.TestCase):
                 corr_init = False
                 _empty = True
                 with ignored(Queue.Empty):
-                    get_clean_dump(self)
+                    self.get_clean_dump()
                     _empty = False
 
                 Aqf.is_true(_empty,
@@ -3020,7 +3023,7 @@ class test_CBF(unittest.TestCase):
 
                     try:
                         self.assertIsInstance(self.receiver, CorrRx)
-                        freq_dump = get_clean_dump(self)
+                        freq_dump = self.get_clean_dump()
                         assert np.shape(freq_dump['xeng_raw'])[
                             0] == self.n_chans_selected
                     except Queue.Empty:
@@ -3041,7 +3044,7 @@ class test_CBF(unittest.TestCase):
                                'channels {no_channels} corresponding to the {instrument} '
                                'instrument product'.format(**locals()))
                         try:
-                            spead_chans = get_clean_dump(self)
+                            spead_chans = self.get_clean_dump()
                         except Queue.Empty:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                             Aqf.failed(errmsg)
@@ -3076,7 +3079,7 @@ class test_CBF(unittest.TestCase):
                             Aqf.hop('Getting Frequency SPEAD accumulation #{} with Digitiser simulator '
                                     'configured to generate cw at {:.3f}MHz'.format(i, freq / 1e6))
                             try:
-                                this_freq_dump = get_clean_dump(self)
+                                this_freq_dump = self.get_clean_dump()
                             except Queue.Empty:
                                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                                 Aqf.failed(errmsg)
@@ -3093,7 +3096,7 @@ class test_CBF(unittest.TestCase):
                         self.dhost.sine_sources.sin_0.set(
                             frequency=freq, scale=0.125)
                         try:
-                            this_freq_dump = get_clean_dump(self)
+                            this_freq_dump = self.get_clean_dump()
                         except Queue.Empty:
                             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                             Aqf.failed(errmsg)
@@ -3576,7 +3579,7 @@ class test_CBF(unittest.TestCase):
 
         def get_spead_data():
             try:
-                dump = get_clean_dump(self)
+                dump = self.get_clean_dump()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
@@ -3728,7 +3731,7 @@ class test_CBF(unittest.TestCase):
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         try:
-            initial_dump = get_clean_dump(self)
+            initial_dump = self.get_clean_dump()
             assert isinstance(initial_dump, dict)
         except Exception:
             errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -3829,7 +3832,7 @@ class test_CBF(unittest.TestCase):
                     expected_response = np.abs(
                         quantiser_spectrum) ** 2 * no_accs
                     try:
-                        dump = get_clean_dump(self)
+                        dump = self.get_clean_dump()
                         assert isinstance(dump, dict)
                     except Exception:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -3869,7 +3872,7 @@ class test_CBF(unittest.TestCase):
                  'configured to output correlated noise')
         self.dhost.noise_sources.noise_corr.set(scale=0.25)
         with ignored(Queue.Empty):
-            get_clean_dump(self)
+            self.get_clean_dump()
 
         Aqf.step(
             'Capture stopped, deprogramming hosts by halting the katcp connection.')
@@ -3911,7 +3914,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.hop('Capturing SPEAD Accumulation after re-initialisation to confirm '
                         'that the instrument activated is valid.')
                 self.assertIsInstance(self.receiver, CorrRx)
-                re_dump = get_clean_dump(self)
+                re_dump = self.get_clean_dump()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 LOGGER.exception(errmsg)
@@ -3936,7 +3939,7 @@ class test_CBF(unittest.TestCase):
                        'time is less than one minute' % instrument)
                 Aqf.less(final_time, minute, msg)
 
-    def _test_delay_rate(self, plot_diagram=True):
+    def _test_delay_rate(self):
         msg = ("CBF Delay and Phase Compensation Functional VR: -- Delay Rate")
         test_heading(msg)
         setup_data = self._delays_setup()
@@ -3960,7 +3963,8 @@ class test_CBF(unittest.TestCase):
                 delay_rate, delay_value, fringe_offset, fringe_rate))
 
             try:
-                actual_phases = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_phases = [phases for phases, response in actual_data]
             except TypeError as e:
                 errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
                           .format(e))
@@ -3984,10 +3988,6 @@ class test_CBF(unittest.TestCase):
                 msg = ('Observe the change in the phase slope, and confirm the phase change is as '
                        'expected.')
                 Aqf.step(msg)
-                # if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
-                #     Aqf.failed('Delays could not be applied at time_apply: {} '
-                #                'is in the past'.format(setup_data['t_apply']))
-                # else:
                 actual_phases_ = np.unwrap(actual_phases)
                 degree = 1.0
                 radians = (degree / 360) * np.pi * 2
@@ -4057,11 +4057,11 @@ class test_CBF(unittest.TestCase):
                                                                            self._testMethodName, i),
                             plot_title='Delay Rate:\nActual vs Expected Phase Response',
                             plot_units=plot_units, caption=caption)
-                if plot_diagram:
-                    aqf_plot_phase_results(no_chans, actual_phases, expected_phases, plot_filename,
+
+                aqf_plot_phase_results(no_chans, actual_phases, expected_phases, plot_filename,
                                            plot_title, plot_units, caption, dump_counts)
 
-    def _test_fringe_rate(self, plot_diagram=True):
+    def _test_fringe_rate(self):
         msg = ("CBF Delay and Phase Compensation Functional VR: -- Fringe rate")
         test_heading(msg)
         setup_data = self._delays_setup()
@@ -4083,7 +4083,9 @@ class test_CBF(unittest.TestCase):
             Aqf.progress('Delay Rate: %s, Delay Value: %s, Fringe Offset: %s, Fringe Rate: %s ' % (
                 delay_rate, delay_value, fringe_offset, fringe_rate))
             try:
-                actual_phases = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_phases = [phases for phases, response in actual_data]
+
             except TypeError as e:
                 errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
                           .format(e))
@@ -4092,12 +4094,8 @@ class test_CBF(unittest.TestCase):
                 return
             else:
                 expected_phases = self._get_expected_data(setup_data, dump_counts,
-                                                          delay_coefficients, actual_phases)
+                    delay_coefficients, actual_phases)
 
-            # if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
-            #     Aqf.failed('Delays could not be applied at time_apply: {} '
-            #                'is in the past'.format(setup_data['t_apply']))
-            # else:
                 no_chans = range(self.n_chans_selected)
                 plot_units = 'rads/sec'
                 plot_title = 'Randomly generated fringe rate {} {}'.format(fringe_rate,
@@ -4172,11 +4170,10 @@ class test_CBF(unittest.TestCase):
                                 plot_title='Fringe Rate: Actual vs Expected Phase Response',
                                 plot_units=plot_units, caption=caption)
 
-                if plot_diagram:
-                    aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
+                aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                            plot_filename, plot_title, plot_units, caption)
 
-    def _test_fringe_offset(self, plot_diagram=True):
+    def _test_fringe_offset(self):
         msg = ("CBF Delay and Phase Compensation Functional VR: Fringe offset")
         test_heading(msg)
         setup_data = self._delays_setup()
@@ -4199,7 +4196,8 @@ class test_CBF(unittest.TestCase):
                 delay_rate, delay_value, fringe_offset, fringe_rate))
 
             try:
-                actual_phases = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_phases = [phases for phases, response in actual_data]
             except TypeError as e:
                 errmsg = ('Could not retrieve actual delay rate data. Aborting test: Exception: {}'
                           .format(e))
@@ -4209,10 +4207,6 @@ class test_CBF(unittest.TestCase):
             else:
                 expected_phases = self._get_expected_data(setup_data, dump_counts,
                                                           delay_coefficients, actual_phases)
-            # if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
-            #     Aqf.failed('Delays could not be applied at time_apply: {} '
-            #                'is in the past'.format(setup_data['t_apply']))
-            # else:
                 no_chans = range(self.n_chans_selected)
                 plot_units = 'rads'
                 plot_title = 'Randomly generated fringe offset {:.3f} {}'.format(
@@ -4287,8 +4281,8 @@ class test_CBF(unittest.TestCase):
                             plot_title=(
                                 'Fringe Offset:\nActual vs Expected Phase Response'),
                             plot_units=plot_units, caption=caption)
-                if plot_diagram:
-                    aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
+
+                aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
                                            plot_filename, plot_title, plot_units, caption)
 
     def _test_delay_inputs(self):
@@ -4314,7 +4308,7 @@ class test_CBF(unittest.TestCase):
                 expected_phases -= np.max(expected_phases) / 2.
                 Aqf.step('Clear all coarse and fine delays for all inputs before testing input %s.'
                          % delayed_input)
-                delays_cleared = clear_all_delays(self)
+                delays_cleared = True;#clear_all_delays(self)
                 if not delays_cleared:
                     Aqf.failed(
                         'Delays were not completely cleared, data might be corrupted.\n')
@@ -4323,32 +4317,28 @@ class test_CBF(unittest.TestCase):
                         'Cleared all previously applied delays prior to test.\n')
                     delays = [0] * setup_data['num_inputs']
                     # Get index for input to delay
-                    test_source_idx = input_labels.index()
+                    test_source_idx = input_labels.index(delayed_input)
                     Aqf.step('Selected input to test: {}'.format(delayed_input))
                     delays[test_source_idx] = test_delay_val
                     Aqf.step('Randomly selected delay value ({}) relevant to sampling period'.format(
                         test_delay_val))
-                    delay_coefficients = [
-                        '{},0:0,0'.format(dv) for dv in delays]
+                    delay_coefficients = ['{},0:0,0'.format(dv) for dv in delays]
                     int_time = setup_data['int_time']
                     num_int = setup_data['num_int']
                     try:
-                        this_freq_dump = get_clean_dump(self)
-                        t_apply = this_freq_dump['dump_timestamp'] + \
-                            (num_int * int_time)
+                        this_freq_dump = self.receiver.get_clean_dump()
+                        t_apply = this_freq_dump['dump_timestamp'] + (num_int * int_time)
                         t_apply_readable = this_freq_dump['dump_timestamp_readable']
-                        Aqf.step(
-                            'Delays will be applied with the following parameters:')
+                        Aqf.step('Delays will be applied with the following parameters:')
                         Aqf.progress('Current cmc time: %s (%s)' %
                                      (time.time(), time.strftime("%H:%M:%S")))
-                        Aqf.progress('Current Dump timestamp: %s (%s)' % (this_freq_dump['dump_timestamp'],
-                                                                          this_freq_dump['dump_timestamp_readable']))
+                        Aqf.progress('Current Dump timestamp: %s (%s)' % (
+                            this_freq_dump['dump_timestamp'],
+                            this_freq_dump['dump_timestamp_readable']))
                         Aqf.progress('Time delays will be applied: %s (%s)' % (
                             t_apply, t_apply_readable))
-                        Aqf.progress('Delay coefficients: %s' %
-                                     delay_coefficients)
-                        reply, _informs = self.katcp_req.delays(
-                            t_apply, *delay_coefficients)
+                        Aqf.progress('Delay coefficients: %s' % delay_coefficients)
+                        reply, _informs = self.katcp_req.delays(t_apply, *delay_coefficients)
                         assert reply.reply_ok()
                     except Exception:
                         errmsg = '%s' % str(reply).replace('\_', ' ')
@@ -4356,13 +4346,13 @@ class test_CBF(unittest.TestCase):
                         LOGGER.error(errmsg)
                         return
                     else:
-                        Aqf.is_true(reply.reply_ok(),
-                                    'CAM Reply: {}'.format(str(reply)))
+                        Aqf.is_true(reply.reply_ok(), str(reply).replace('\_', ' '))
                         Aqf.passed(
                             'Delays where successfully applied on input: {}'.format(delayed_input))
                     try:
-                        Aqf.step('Getting SPEAD accumulation (while discarding subsequent dumps) containing '
-                                 'the change in delay(s) on input: %s.' % (test_source_idx))
+                        Aqf.step(
+                            'Getting SPEAD accumulation (while discarding subsequent dumps) containing '
+                            'the change in delay(s) on input: %s.' % (test_source_idx))
                         dump = self.receiver.get_clean_dump(discard=35)
                     except Exception:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -4414,7 +4404,7 @@ class test_CBF(unittest.TestCase):
                     Aqf.step(
                         'Calculate the parameters to be used for setting %s.' % _new_name)
                     delay_coefficients = 0
-                    dump = get_clean_dump(self)
+                    dump = self.get_clean_dump()
                     t_apply = (dump['dump_timestamp'] + num_int * int_time)
                     setup_data['t_apply'] = t_apply
                     no_inputs = [0] * setup_data['num_inputs']
@@ -4463,7 +4453,7 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.passed(
                 "Confirm that the user can disable Delays and/or Phase changes via CAM interface.")
-        dump = get_clean_dump(self)
+        dump = self.get_clean_dump()
         t_apply = (dump['dump_timestamp'] + num_int * int_time)
         no_inputs = [0] * setup_data['num_inputs']
         input_source = setup_data['test_source']
@@ -4767,7 +4757,7 @@ class test_CBF(unittest.TestCase):
             try:
                 Aqf.progress('Retrieving initial SPEAD accumulation, in-order to confirm the number of '
                              'channels in the SPEAD data.')
-                test_dump = get_clean_dump(self)
+                test_dump = self.get_clean_dump()
                 assert isinstance(test_dump, dict)
             except Exception:
                 errmsg = 'Could not retrieve clean SPEAD accumulation, as Queue is Empty.'
@@ -6714,7 +6704,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         self.dhost.outputs.out_1.scale_output(0)
-        dump = get_clean_dump(self)
+        dump = self.get_clean_dump()
         baseline_lookup = get_baselines_lookup(self, dump)
         sync_time = self.cam_sensors.get_values('synch_epoch')
         scale_factor_timestamp = self.cam_sensors.get_values(
@@ -6756,7 +6746,7 @@ class test_CBF(unittest.TestCase):
                 offset = manual_offset
             else:
                 offset = tick_array[int(tckar_idx)]
-            dump = get_clean_dump(self)
+            dump = self.get_clean_dump()
             print dump['timestamp']
             dump_ts = dump['timestamp']
             dump_abs_t = datetime.datetime.fromtimestamp(
@@ -6927,7 +6917,7 @@ class test_CBF(unittest.TestCase):
             return False
 
         self.dhost.outputs.out_1.scale_output(0)
-        dump = get_clean_dump(self)
+        dump = self.get_clean_dump()
         baseline_lookup = get_baselines_lookup(self, dump)
         sync_time = self.cam_sensors.get_value('synch_epoch')
         scale_factor_timestamp = self.cam_sensors.get_value(
@@ -6954,7 +6944,7 @@ class test_CBF(unittest.TestCase):
             list1 = []
             for step in range(shift_nr):
                 set_offset = set_offset + input_spec_ticks
-                dump = get_clean_dump(self)
+                dump = self.get_clean_dump()
                 dump_ts = dump['timestamp']
                 sync_time = self.cam_sensors.get_value('synch_epoch')
                 scale_factor_timestamp = self.cam_sensors.get_value(
@@ -7297,7 +7287,7 @@ class test_CBF(unittest.TestCase):
             set_gain(inp, gain_str)
 
             try:
-                dump = get_clean_dump(self)
+                dump = self.get_clean_dump()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
@@ -7326,7 +7316,7 @@ class test_CBF(unittest.TestCase):
                         'Setting quantiser gain of {} for input {}.'.format(gain_str, inp))
                     set_gain(inp, gain_str)
                     try:
-                        dump = get_clean_dump(self)
+                        dump = self.get_clean_dump()
                     except Queue.Empty:
                         errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                         Aqf.failed(errmsg)
@@ -7430,7 +7420,7 @@ class test_CBF(unittest.TestCase):
 
         if profile == 'cw':
             try:
-                dump = get_clean_dump(self)
+                dump = self.get_clean_dump()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
@@ -7650,7 +7640,7 @@ class test_CBF(unittest.TestCase):
             try:
                 Aqf.step('Randomly select a frequency channel to test. Capture an initial correlator '
                          'SPEAD accumulation, determine the number of frequency channels')
-                initial_dump = get_clean_dump(self)
+                initial_dump = self.get_clean_dump()
                 self.assertIsInstance(initial_dump, dict)
             except Exception:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
@@ -7720,7 +7710,7 @@ class test_CBF(unittest.TestCase):
 
                 try:
                     this_freq_dump = self.receiver.get_clean_dump()
-                    # get_clean_dump(self)
+                    # self.get_clean_dump()
                     self.assertIsInstance(this_freq_dump, dict)
                 except AssertionError:
                     errmsg = ('Could not retrieve clean SPEAD accumulation')
@@ -8250,3 +8240,46 @@ class test_CBF(unittest.TestCase):
                     xlabel='Input Power [dBm]',
                     ylabel='Integrated Output Power [dBfs]')
         Aqf.end(passed=True, message='Linearity plot generated.')
+
+    def get_clean_dump(self):
+        retries = 20
+        while retries:
+            retries -= 1
+            try:
+                dump = self.receiver.get_clean_dump(discard=3)
+                assert hasattr(self.dhost.registers, 'sys_clkcounter'), "Dhost is broken, missing sys_clkcounter"
+                dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
+                errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
+                assert isinstance(dump, dict), errmsg
+                discard = 0
+                while True:
+                    dump = self.receiver.data_queue.get(timeout=10)
+                    assert isinstance(dump, dict), errmsg
+                    dump_timestamp = dump['dump_timestamp']
+                    time_diff = np.abs(dump_timestamp - dhost_timestamp)
+                    if time_diff < 1:
+                        msg = (
+                            'Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)'
+                            ' [diff: %s] within %s retries and discarded %s dumps' % (dump_timestamp,
+                               dhost_timestamp, time_diff, retries, discard))
+                        LOGGER.info(msg)
+                        break
+                    else:
+                        msg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
+                            dump_timestamp, dhost_timestamp, time_diff))
+                        LOGGER.info(msg)
+                    if discard > 10:
+                        errmsg = 'Could not retrieve clean queued SPEAD accumulation.'
+                        raise AssertionError(errmsg)
+                    discard += 1
+
+            except AssertionError:
+                LOGGER.warning(errmsg)
+            except Queue.Empty:
+                errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
+                LOGGER.exception(errmsg)
+                if retries < 15:
+                    LOGGER.exception('Exiting brutally with no Accumulation')
+                    return False
+            else:
+                return dump

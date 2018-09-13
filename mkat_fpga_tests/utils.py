@@ -275,7 +275,7 @@ def clear_all_delays(self):
     while _retries:
         _retries -= 1
         try:
-            dump = self.receiver.get_clean_dump()
+            dump = self.receiver.get_clean_dump(discard=1)
             deng_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
             discard = 0
             while True:
@@ -1257,48 +1257,6 @@ def FPGA_Connect(hosts, _timeout=30):
     return fpgas
 
 
-def get_clean_dump(self):
-    retries = 20
-    while retries:
-        retries -= 1
-        try:
-            dump = self.receiver.get_clean_dump(discard=3)
-            assert hasattr(self.dhost.registers, 'sys_clkcounter'), "Dhost is broken, missing sys_clkcounter"
-            dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get('timestamp')
-            errmsg = 'Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!' % retries
-            assert isinstance(dump, dict), errmsg
-            discard = 0
-            while True:
-                dump = self.receiver.data_queue.get(timeout=10)
-                assert isinstance(dump, dict), errmsg
-                dump_timestamp = dump['dump_timestamp']
-                time_diff = np.abs(dump_timestamp - dhost_timestamp)
-                if time_diff < 1:
-                    msg = (
-                        'Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)'
-                        ' [diff: %s] within %s retries and discarded %s dumps' % (dump_timestamp,
-                           dhost_timestamp, time_diff, retries, discard))
-                    LOGGER.info(msg)
-                    break
-                else:
-                    msg = ('Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]' % (
-                        dump_timestamp, dhost_timestamp, time_diff))
-                    LOGGER.info(msg)
-                if discard > 10:
-                    errmsg = 'Could not retrieve clean queued SPEAD accumulation.'
-                    raise AssertionError(errmsg)
-                discard += 1
-
-        except AssertionError:
-            LOGGER.warning(errmsg)
-        except Queue.Empty:
-            errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
-            LOGGER.exception(errmsg)
-            if retries < 15:
-                LOGGER.exception('Exiting brutally with no Accumulation')
-                return False
-        else:
-            return dump
 
 
 class CSV_Reader(object):

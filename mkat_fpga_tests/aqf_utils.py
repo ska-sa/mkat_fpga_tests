@@ -86,9 +86,9 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend()
     fig1 = plt.gcf()  # Get Current Figure
+
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
-
         plt.show()
         plt.draw()
         fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
