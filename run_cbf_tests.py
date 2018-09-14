@@ -47,123 +47,123 @@ def option_parser():
     parser = argparse.ArgumentParser(
         description='This script auto executes CBF Tests with selected arguments.')
     parser.add_argument('--loglevel',
-                      action="store",
-                      default="INFO",
-                      dest='log_level',
-                      help='log level to use, default INFO, options INFO, DEBUG, WARNING, ERROR')
+                        action="store",
+                        default="INFO",
+                        dest='log_level',
+                        help='log level to use, default INFO, options INFO, DEBUG, WARNING, ERROR')
 
     parser.add_argument("-q", "--quiet",
-                      action="store_false",
-                      dest="verbose",
-                      help="Be more quiet")
+                        action="store_false",
+                        dest="verbose",
+                        help="Be more quiet")
 
     parser.add_argument("--nose",
-                      dest="nose_args",
-                      action="store",
-                      type=str,
-                      default=None,
-                      help="Additional arguments to pass on to nosetests. eg: --nosetests -x -s -v")
+                        dest="nose_args",
+                        action="store",
+                        type=str,
+                        default=None,
+                        help="Additional arguments to pass on to nosetests. eg: --nosetests -x -s -v")
 
     parser.add_argument("--acceptance",
-                      dest="site_acceptance",
-                      action="store",
-                      default=False,
-                      help="Will only run test marked '@site_acceptance' or "
-                           " if in the Karoo(site) then also @site_only tests")
+                        dest="site_acceptance",
+                        action="store",
+                        default=False,
+                        help="Will only run test marked '@site_acceptance' or "
+                        " if in the Karoo(site) then also @site_only tests")
 
     parser.add_argument("--instrument-activate",
-                      dest="instrument_activate",
-                      action="store_true",
-                      default=False,
-                      help="launch an instrument. eg:"
-                           "./run_cbf_tests.py -v --instrument-activate --4A4k")
+                        dest="instrument_activate",
+                        action="store_true",
+                        default=False,
+                        help="launch an instrument. eg:"
+                        "./run_cbf_tests.py -v --instrument-activate --4A4k")
 
     parser.add_argument("--dry_run",
-                      dest="dry_run",
-                      action="store_true",
-                      default=False,
-                      help="Do a dry run. Print commands that would be called as well as generate"
-                           "test procedures")
+                        dest="dry_run",
+                        action="store_true",
+                        default=False,
+                        help="Do a dry run. Print commands that would be called as well as generate"
+                        "test procedures")
 
     parser.add_argument("--no-manual-test",
-                      dest="manual_test",
-                      action="store_false",
-                      default=True,
-                      help="Exclude manual tests decorated with @manual_test in this test run")
+                        dest="manual_test",
+                        action="store_false",
+                        default=True,
+                        help="Exclude manual tests decorated with @manual_test in this test run")
 
     parser.add_argument("--available-tests",
-                      dest="available-tests",
-                      action="store_true",
-                      default=False,
-                      help="Do a dry run. Print all tests available")
+                        dest="available-tests",
+                        action="store_true",
+                        default=False,
+                        help="Do a dry run. Print all tests available")
 
     parser.add_argument("--4k",
-                      action="store_const",
-                      const='4k',
-                      dest="mode",
-                      default=None,
-                      help="Run the tests decorated with @instrument_4k")
+                        action="store_const",
+                        const='4k',
+                        dest="mode",
+                        default=None,
+                        help="Run the tests decorated with @instrument_4k")
 
     parser.add_argument("--32k",
-                      action="store_const",
-                      const='32k',
-                      dest="mode",
-                      default=None,
-                      help="Run the tests decorated with @instrument_32k")
+                        action="store_const",
+                        const='32k',
+                        dest="mode",
+                        default=None,
+                        help="Run the tests decorated with @instrument_32k")
 
     parser.add_argument("--quick",
-                      dest="katreport_quick",
-                      action="store_true",
-                      default=False,
-                      help="Only generate a small subset of the reports")
+                        dest="katreport_quick",
+                        action="store_true",
+                        default=False,
+                        help="Only generate a small subset of the reports")
 
     parser.add_argument("--with_html",
-                      dest="gen_html",
-                      action="store_true",
-                      default=False,
-                      help="Generate HTML report output")
+                        dest="gen_html",
+                        action="store_true",
+                        default=False,
+                        help="Generate HTML report output")
 
     parser.add_argument("--QTP",
-                      dest="gen_qtp",
-                      action="store_true",
-                      default=False,
-                      help="Generate PDF report output with Qualification Test Procedure")
+                        dest="gen_qtp",
+                        action="store_true",
+                        default=False,
+                        help="Generate PDF report output with Qualification Test Procedure")
 
     parser.add_argument("--QTR",
-                      dest="gen_qtr",
-                      action="store_true",
-                      default=False,
-                      help="Generate PDF report output with Qualification Test Report")
+                        dest="gen_qtr",
+                        action="store_true",
+                        default=False,
+                        help="Generate PDF report output with Qualification Test Report")
 
     parser.add_argument("--no_slow",
-                      dest="slow_test",
-                      action="store_false",
-                      default=True,
-                      help="Exclude tests decorated with @slow in this test run")
+                        dest="slow_test",
+                        action="store_false",
+                        default=True,
+                        help="Exclude tests decorated with @slow in this test run")
 
     parser.add_argument("--report",
-                      dest="report",
-                      action="store",
-                      type=str,
-                      default='local_&_test',
-                      help="Only generate the reports. No tests will be run."
-                      "Valid options are: local, jenkins, skip and results. "
-                      "'results' will print the katreport[_accept].json test results")
+                        dest="report",
+                        action="store",
+                        type=str,
+                        default='local_&_test',
+                        help="Only generate the reports. No tests will be run."
+                        "Valid options are: local, jenkins, skip and results. "
+                        "'results' will print the katreport[_accept].json test results")
 
     parser.add_argument("--clean",
-                      dest="cleanup",
-                      action="store_true",
-                      default=False,
-                      help="Cleanup reports from previous test run. Reports"
+                        dest="cleanup",
+                        action="store_true",
+                        default=False,
+                        help="Cleanup reports from previous test run. Reports"
                         " are replaced by default without --clean. Clean is"
                         " useful with --quick to only generate the html of the"
                         " test run report")
 
     parser.add_argument("--dev_update",
-                      dest="dev_update",
-                      action="store_true",
-                      default=False,
-                      help="Do pip install update and install latest packages")
+                        dest="dev_update",
+                        action="store_true",
+                        default=False,
+                        help="Do pip install update and install latest packages")
 
     # parser.add_argument("--jenkins",
     #                   dest="jenkins",
@@ -266,7 +266,7 @@ class RunCmdTimeout(threading.Thread):
                     self.p = subprocess.Popen(self.cmd)
                 else:
                     self.p = subprocess.Popen(self.cmd, stdout=open('/dev/null', 'a'),
-                        stderr=subprocess.PIPE)
+                                              stderr=subprocess.PIPE)
                 self.p.wait()
             except OSError:
                 logger.exception('Failed to execute command')
@@ -353,7 +353,7 @@ def process_core_data(settings):
         logger.debug('Retrieving CORE.xml from backup dir: %s' % core_backup)
         if os.path.exists(core_backup):
             latest_core_xml = max(glob.iglob(os.path.join(core_backup, '*.[Xx][Mm][Ll]')),
-                key=os.path.getctime)
+                                  key=os.path.getctime)
             logger.debug('CORE.xml file name %s @ %.2f Mb' % (os.path.split(latest_core_xml)[-1], os.path.getsize(latest_core_xml) / 1e6))
             settings['xml_file'] = latest_core_xml
         else:
@@ -541,7 +541,7 @@ def generate_sphinx_docs(settings):
             },
         }
         _filename = os.path.join(settings.get('me_dir'),
-            settings.get("katreport_dir"), 'latex_data.json')
+                                 settings.get("katreport_dir"), 'latex_data.json')
         if settings.get('gen_qtp'):
             logger.info("Generating Qualification Test Procedure (PDF) document.")
             document_data['document_type'] = {'QTP': 'Procedure'}
@@ -577,7 +577,7 @@ def generate_sphinx_docs(settings):
             # ToDo: MM 16-Nov-2017 Improve this logic
             _document_title = document_data['project'] + document_data['document_type'].values()[0]
             _document_type = '%s: Qualification Test %s' % (document_data['document_type'].keys()[0],
-                document_data['document_type'].values()[0])
+                                                            document_data['document_type'].values()[0])
             _document_num = document_data.get('document_number', 'Unknown').get(
                 document_data.get('document_type', 'Unknown').keys()[0])
             _document_rel = _revision
@@ -588,16 +588,16 @@ def generate_sphinx_docs(settings):
                 instrument_running = settings.get('system_type', 'Unknown')
                 if int(instrument_running[2:instrument_running.find('n856')]) >= 16:
                     _system_type = ' (%s [Tested only Half-Band(2k)]) ' % settings.get('system_type',
-                        'Unknown')
+                                                                                       'Unknown')
                 else:
                     _system_type = ' (%s) ' % settings.get('system_type', 'Unknown')
                 _document_num = document_data['document_number'].get(
                     document_data.get('documented_instrument', 'Unknown'), 'Unknown')[0]
                 _document_title = _document_title.replace('Qualification',
-                    _system_type + 'Qualification')
+                                                          _system_type + 'Qualification')
                 # TODO (MM) Find a way not to hardcode this info
                 replaceAll(latex_file, '{Performed by}{}{}',
-                    '{Performed by}{M. Mphego}{Test \& Verification Engineer}')
+                           '{Performed by}{M. Mphego}{Test \& Verification Engineer}')
 
             new_names = [_document_type, _document_num, _document_rel, _document_title]
             for _new, _old in zip(new_names, orig_names):
@@ -671,15 +671,20 @@ def run_nose_test(settings):
     if settings.get('log_level'):
         cmd.append('-v')
         cmd.append('-s')
+        cmd.append("--logging-level={}".format(settings.get('log_level', 'DEBUG')))
+#        cmd.append("--logging-filter={}".format( __file__))
         cmd.append("--with-xunit")
+        cmd.append("--xunit-file={}/nosetests.xml".format(katreport_dir))
+        cmd.append("--with-coverage")
+        cmd.append("--cover-inclusive")
+        cmd.append("--cover-package=mkat_fpga_tests")
+        cmd.append("--cover-xml")
+        cmd.append("--cover-xml-file={}/coverage.xml".format(katreport_dir))
         cmd.append("--with-html")
-        cmd.append("--logging-level=DEBUG")
-        cmd.append("--xunit-file=%s/nosetests.xml" % katreport_dir)
-        cmd.append("--logging-filter=%s" % __file__)
     cmd.append("--with-katreport")
 
     if settings.get('use_core_json') and settings.get('json_file'):
-        cmd.append("--katreport-requirements=%s" % settings['json_file'])
+        cmd.append("--katreport-requirements={}".format(settings['json_file']))
 
 
     # Build the nosetests filter.
@@ -854,7 +859,7 @@ def generate_report(settings):
     for f in files:
         if not files[f] or not os.path.isfile(files.get(f, '')):
             logger.error("The {0} data file {1} could not be found.".
-                     format(f, files[f]))
+                         format(f, files[f]))
 
     report = Report(system_data=files['system'],
                     acceptance_report=settings.get('site_acceptance'))
@@ -904,12 +909,12 @@ def show_test_results(settings):
     """
 
     #from report_generator.report import Report
-    #report = Report(system_data=files['system'],
+    # report = Report(system_data=files['system'],
     #                acceptance_report=settings.get('site_acceptance'))
-    #report.load_core_requirements(files['core'])
-    #report.load_test_results(filename=files['test'])
-    #report.show_test_results()
-    #or report.show_core_requirements()
+    # report.load_core_requirements(files['core'])
+    # report.load_test_results(filename=files['test'])
+    # report.show_test_results()
+    # or report.show_core_requirements()
 
     filename = get_filename('test', settings)
 
@@ -1124,7 +1129,7 @@ def katcp_request(port=7147, katcprequest='help', timeout=10):
     try:
         # print 'Executing command'
         reply, informs = client.blocking_request(katcp.Message.request(katcprequest),
-            timeout=timeout)
+                                                 timeout=timeout)
 
         # print 'Done: %s, %s' % (str(reply),  str(informs))
         assert reply.reply_ok()
@@ -1144,7 +1149,7 @@ def get_running_instrument():
     try:
         _katcp_req = katcp_request(7147, 'array-list')
         katcp_client_port, katcp_sensor_port = [i.arguments[1].split(',') for i in _katcp_req
-                             if i.arguments[0].startswith('arr')][0]
+                                                if i.arguments[0].startswith('arr')][0]
     except Exception as e:
         print "failed to get get running array: %s" % e.message
         return False
@@ -1165,7 +1170,7 @@ def get_version_list():
     try:
         _katcp_req = katcp_request(7147, 'array-list')
         katcp_client_port, katcp_sensor_port = [i.arguments[1].split(',') for i in _katcp_req
-                             if i.arguments[0].startswith('arr')][0]
+                                                if i.arguments[0].startswith('arr')][0]
     except Exception as e:
         print 'Failed to get array list: %s' % e.message
         return False
@@ -1200,8 +1205,8 @@ if __name__ == "__main__":
             logging.basicConfig(level=getattr(logging, log_level))
             logger = logging.getLogger(__file__)
             coloredlogs.install(level=log_level, logger=logger,
-                fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : '
-                   '%(lineno)d - %(message)s')
+                                fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : '
+                                '%(lineno)d - %(message)s')
         except AttributeError:
             raise RuntimeError('No such log level: %s' % log_level)
 
@@ -1317,7 +1322,7 @@ if __name__ == "__main__":
         process_core_data(settings)
     now = time.localtime()
     start_time = ("%02d%02d%02d-%02dh%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour,
-                  now.tm_min))
+                                              now.tm_min))
     if settings.get('mode'):
         settings['build_dir'] = "%s-" % settings.get('mode') + start_time
     else:
