@@ -5387,7 +5387,7 @@ class test_CBF(unittest.TestCase):
                                 Aqf.progress(
                                     'Beam captured missed more than %s%% heaps. Retrying...' % (perc * 100))
                                 missed_err = True
-                                break
+                                #break
                         # Good capture, break out of loop
                         if not missed_err:
                             break
