@@ -11,11 +11,17 @@ gprint() {
 }
 
 if [ -f ".venv/bin/activate" ]; then
-    gprint "Initialising Instrument ${RUN_INSTRUMENT} using kcs\n"
     . .venv/bin/activate > /dev/null 2>&1
-    echo "backend: agg" > matplotlibrc
-    [ -f "config/test_conf_site.ini" ] && sed -i -e 's/array0/array_0/g' config/test_conf_site.ini
-    [ -f "scripts/instrument_activate" ] && bash scripts/instrument_activate ${RUN_INSTRUMENT} localhost array_0 y || exit 1;
+
+    if ! "${RUN_TESTS}"; then
+        gprint "Running Sanity Test based on Baseline Product Test\n"
+        make sanitytest;
+    else
+        make tests4k;
+    fi
 else
     rprint "virtualenv not installed" && exit 1
 fi
+
+
+pylint --rcfile .pylintrc mkat_fpga_tests > katreport/pylint-report.txt || true;
