@@ -30,11 +30,11 @@ help:
 	@echo "  tests      to run all tests in mkat_fpga_tests/test_cbf.py"
 
 clean:
-	rm -rf $(BUILDDIR)/*
-	$(MAKE) clean -C docs/Cover_Page
-	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock"
-	git checkout -- docs/*
-	rm -rf .venv /tmp/*.fpg
+	rm -rf $(BUILDDIR)/* || true;
+	$(MAKE) clean -C docs/Cover_Page || true;
+	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock" || true;
+	git checkout -- docs/* || true;
+	rm -rf .venv /tmp/*.fpg || true;
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

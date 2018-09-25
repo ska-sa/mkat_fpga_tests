@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # https://stackoverflow.com/a/44077346
-import atexit
+# import atexit
 import os
 import subprocess
 
@@ -36,7 +36,7 @@ except subprocess.CalledProcessError:
 
 # Install dependencies with failover/failsafe
 try:
-    install_reqs = parse_requirements("pip-requirements.txt",  session=PipSession())
+    install_reqs = parse_requirements("pip-requirements.txt", session=PipSession())
     __install_requires__ = [str(ir.req) for ir in install_reqs]
     try:
         __install_requires__ = filter('None'.__ne__, __install_requires__)
@@ -96,7 +96,7 @@ setup(name='mkat_fpga_tests',
       dependency_links=['https://github.com/ska-sa/nosekatreport'],
       provides=['mkat_fpga_tests'],
       packages=find_packages(),
-      scripts=glob('scripts/*'),
+      scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
       # cmdclass={"install": cmdatexit_install, },
       )
 
