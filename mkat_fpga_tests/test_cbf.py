@@ -52,7 +52,7 @@ from nosekatreport import *
 from descriptions import TestProcedure
 from power_logger import PowerLogger
 
-from termcolor import colored
+# from termcolor import colored
 
 from dotenv import load_dotenv, find_dotenv
 
@@ -311,7 +311,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 test_heading("CBF Channelisation Wideband Coarse SFDR L-band")
                 n_ch_to_test = int(
-                    self.conf_file['instrument_params'].get('sfdr_ch_to_test', 20))
+                    self.conf_file['instrument_params'].get('sfdr_ch_to_test', self.n_chans_selected))
                 self._test_sfdr_peaks(
                     required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
             else:
@@ -330,7 +330,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 test_heading("CBF Channelisation Wideband Fine SFDR L-band")
                 n_ch_to_test = int(
-                    self.conf_file['instrument_params'].get('sfdr_ch_to_test', 20))
+                    self.conf_file['instrument_params'].get('sfdr_ch_to_test', self.n_chans_selected))
                 self._test_sfdr_peaks(
                     required_chan_spacing=30e3, no_channels=n_ch_to_test)  # Hz
             else:
@@ -1429,8 +1429,8 @@ class test_CBF(unittest.TestCase):
                         Aqf.progress(msg)
 
         def _force_discard():
-            dump = self.receiver.data_queue.get()
-            dump = self.receiver.data_queue.get()
+            self.receiver.data_queue.get()
+            self.receiver.data_queue.get()
         # For debugging, for some weird reason we have to discard 2 dumps before capturing the
         # data with the change in phase
         _force_discard()
@@ -2694,10 +2694,10 @@ class test_CBF(unittest.TestCase):
                             Aqf.failed(msg)
 
                         # Sum of all baselines powers expected to be non zeros
-                        sum_of_bl_powers = (
-                            [normalised_magnitude(test_data[:, expected_bl, :])
-                             for expected_bl in [baselines_lookup[expected_nz_bl_ind]
-                                                 for expected_nz_bl_ind in sorted(expected_nz_bls)]])
+                        # sum_of_bl_powers = (
+                        #     [normalised_magnitude(test_data[:, expected_bl, :])
+                        #      for expected_bl in [baselines_lookup[expected_nz_bl_ind]
+                        #                          for expected_nz_bl_ind in sorted(expected_nz_bls)]])
                         test_data = None
                         # dataFrame.loc[inp][sorted(
                         #     [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
@@ -3147,13 +3147,13 @@ class test_CBF(unittest.TestCase):
         if setup_data:
             num_int = setup_data['num_int']
             int_time = self.cam_sensors.get_value('int_time')
-            katcp_port = self.cam_sensors.get_value('katcp_port')
+            # katcp_port = self.cam_sensors.get_value('katcp_port')
             no_chans = range(self.n_chans_selected)
             sampling_period = self.cam_sensors.sample_period
             test_delays = [0, sampling_period, 1.5 *
                            sampling_period, 1.9 * sampling_period]
             test_delays_ns = map(lambda delay: delay * 1e9, test_delays)
-            num_inputs = len(self.cam_sensors.input_labels)
+            # num_inputs = len(self.cam_sensors.input_labels)
             delays = [0] * setup_data['num_inputs']
             Aqf.step(
                 'Delays to be set (iteratively) %s for testing purposes\n' % (test_delays))
@@ -3572,14 +3572,15 @@ class test_CBF(unittest.TestCase):
     def _test_network_link_error(self):
         test_heading("Fault Detection: Network Link Errors")
 
-        def int2ip(n): return socket.inet_ntoa(struct.pack('!I', n))
+        def int2ip(n):
+            return socket.inet_ntoa(struct.pack('!I', n))
 
-        def ip2int(ipstr): return struct.unpack(
-            '!I', socket.inet_aton(ipstr))[0]
+        def ip2int(ipstr):
+            return struct.unpack('!I', socket.inet_aton(ipstr))[0]
 
         def get_spead_data():
             try:
-                dump = self.get_clean_dump()
+                self.get_clean_dump()
             except Queue.Empty:
                 errmsg = 'Could not retrieve clean SPEAD accumulation: Queue is Empty.'
                 Aqf.failed(errmsg)
@@ -3657,7 +3658,7 @@ class test_CBF(unittest.TestCase):
                 Aqf.failed('Failed to read %s sensor' % (host.host))
 
         fhost = self.fhosts[random.randrange(len(self.fhosts))]
-        xhost = self.xhosts[random.randrange(len(self.xhosts))]
+        # xhost = self.xhosts[random.randrange(len(self.xhosts))]
         ip_new = '239.101.2.250'
 
         Aqf.step('Randomly selected %s host that is being used to produce the test '
