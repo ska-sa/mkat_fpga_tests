@@ -64,4 +64,4 @@ tests4k:
 tests32k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --32k"
 sanitytest:
-	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=FATAL --with-xunit --xunit-file=katreport/nosetests.xml --with-coverage --cover-inclusive --cover-package=mkat_fpga_tests --cover-xml --cover-xml-file=katreport/coverage.xml --with-html --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.test_imaging_data_product_set;"
+	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=FATAL --with-xunit --xunit-file=katreport/nosetests.xml --with-html --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.test_imaging_data_product_set;"

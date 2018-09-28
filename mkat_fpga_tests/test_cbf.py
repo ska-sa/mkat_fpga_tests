@@ -2595,7 +2595,8 @@ class test_CBF(unittest.TestCase):
             test_data = self.receiver.get_clean_dump(discard=_discards)
 
             Aqf.is_false(nonzero_baselines(test_data['xeng_raw']),
-                         'Confirm that all baseline visibilities are \'Zero\'.\n')
+                         'Confirm that all baseline visibilities are \'Zero\' after '
+                         '{} discards.\n'.format(_discards))
             # -----------------------------------
             all_inputs = sorted(set(input_labels))
             zero_inputs = set(input_labels)
@@ -2732,7 +2733,7 @@ class test_CBF(unittest.TestCase):
 
         try:
             if self.cam_sensors.sensors.n_ants.value > 16:
-                _discards = 50
+                _discards = 20
             else:
                 _discards = 10
             this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
@@ -4063,7 +4064,7 @@ class test_CBF(unittest.TestCase):
                             plot_units=plot_units, caption=caption)
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases, plot_filename,
-                                           plot_title, plot_units, caption, dump_counts)
+                                       plot_title, plot_units, caption, dump_counts)
 
     def _test_fringe_rate(self):
         msg = ("CBF Delay and Phase Compensation Functional VR: -- Fringe rate")
@@ -4175,7 +4176,7 @@ class test_CBF(unittest.TestCase):
                                 plot_units=plot_units, caption=caption)
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                                           plot_filename, plot_title, plot_units, caption)
+                                       plot_filename, plot_title, plot_units, caption)
 
     def _test_fringe_offset(self):
         msg = ("CBF Delay and Phase Compensation Functional VR: Fringe offset")
@@ -4287,7 +4288,7 @@ class test_CBF(unittest.TestCase):
                             plot_units=plot_units, caption=caption)
 
                 aqf_plot_phase_results(no_chans, actual_phases, expected_phases,
-                                           plot_filename, plot_title, plot_units, caption)
+                                       plot_filename, plot_title, plot_units, caption)
 
     def _test_delay_inputs(self):
         """
@@ -4312,7 +4313,7 @@ class test_CBF(unittest.TestCase):
                 expected_phases -= np.max(expected_phases) / 2.
                 Aqf.step('Clear all coarse and fine delays for all inputs before testing input %s.'
                          % delayed_input)
-                delays_cleared = True;#clear_all_delays(self)
+                delays_cleared = True  # clear_all_delays(self)
                 if not delays_cleared:
                     Aqf.failed(
                         'Delays were not completely cleared, data might be corrupted.\n')
