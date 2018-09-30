@@ -186,6 +186,7 @@ class test_CBF(unittest.TestCase):
 
         try:
             n_ants = int(self.cam_sensors.get_value('n_ants'))
+            n_chans = int(self.cam_sensors.get_value('n_chans'))
             if acc_time:
                 pass
             elif n_ants == 4:
@@ -216,10 +217,10 @@ class test_CBF(unittest.TestCase):
             LOGGER.info('Connecting to katcp on %s' % katcp_ip)
             # ToDo maybe select stop channels depending on the no of ants
             start_channels = int(self.conf_file['instrument_params'].get('start_channels', 0))
-            if n_ants == 64:
+            if n_ants == 64 and n_chans == 4096:
                 stop_channels = 2047
             else:
-                stop_channels = int(self.conf_file['instrument_params'].get('stop_channels', 2047))
+                stop_channels = n_chans - 1 #int(self.conf_file['instrument_params'].get('stop_channels', 2047))
             LOGGER.info('Starting receiver on port %s, will only capture channels between %s-%s' % (
                 data_output_port, start_channels, stop_channels))
             Aqf.note('Configuring SPEAD receiver to capture %s channels from %s to %s.' % (
