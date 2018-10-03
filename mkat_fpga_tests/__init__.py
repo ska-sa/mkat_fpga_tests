@@ -748,4 +748,3 @@ class CorrelatorFixture(object):
             return False
 
 
-correlator_fixture = CorrelatorFixture()

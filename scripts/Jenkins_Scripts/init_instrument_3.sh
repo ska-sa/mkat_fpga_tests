@@ -12,7 +12,8 @@ gprint() {
 
 if [ -f ".venv/bin/activate" ]; then
     gprint "Initialising Instrument ${RUN_INSTRUMENT} using kcs\n"
-    . .venv/bin/activate > /dev/null 2>&1
+    . .venv/bin/activate
+    which corr2_rx.py
     echo "backend: agg" > matplotlibrc
     [ -f "config/test_conf_site.ini" ] && sed -i -e 's/array0/array_0/g' config/test_conf_site.ini
     [ -f "scripts/instrument_activate" ] && bash scripts/instrument_activate ${RUN_INSTRUMENT} localhost array_0 y || exit 1;
