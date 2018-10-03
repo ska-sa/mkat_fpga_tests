@@ -96,7 +96,7 @@ setup(name='mkat_fpga_tests',
       dependency_links=['https://github.com/ska-sa/nosekatreport'],
       provides=['mkat_fpga_tests'],
       packages=find_packages(),
-      scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
+      # scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
       # cmdclass={"install": cmdatexit_install, },
       )
 
