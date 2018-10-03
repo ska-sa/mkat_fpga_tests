@@ -44,7 +44,7 @@ from katcp.testutils import start_thread_with_cleanup
 # from memory_profiler import profile as DetectMemLeaks
 from datetime import datetime
 
-from mkat_fpga_tests import correlator_fixture, add_cleanup
+from mkat_fpga_tests import CorrelatorFixture, add_cleanup
 
 from mkat_fpga_tests.aqf_utils import *
 from mkat_fpga_tests.utils import *
@@ -85,7 +85,7 @@ class test_CBF(unittest.TestCase):
         super(test_CBF, self).setUp()
         self.receiver = None
         self._dsim_set = False
-        self.corr_fix = correlator_fixture
+        self.corr_fix = CorrelatorFixture()
         self.logs_path = None
         try:
             self.logs_path = create_logs_directory(self)
