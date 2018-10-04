@@ -2491,14 +2491,16 @@ class test_CBF(unittest.TestCase):
             msg = ('Source names changed to: {}'.format(', '.join(source_names)))
             Aqf.passed(msg)
 
-        Aqf.step('Capture an initial correlator SPEAD accumulation, and retrieve list '
-                 'of all the correlator input labels via Cam interface.')
         try:
             if self.cam_sensors.sensors.n_ants.value > 16:
                 _discards = 60
             else:
                 _discards = 30
 
+            Aqf.step(
+                'Capture an initial correlator SPEAD accumulation while discarding {} '
+                'accumulations, and retrieve list of all the correlator input labels via '
+                'Cam interface.'.format(_discards))
             test_dump = self.receiver.get_clean_dump(discard=_discards)
             # test_dump = self.get_clean_dump()
             self.assertIsInstance(test_dump, dict)
@@ -2557,7 +2559,6 @@ class test_CBF(unittest.TestCase):
                 Aqf.passed(msg)
             except AssertionError:
                 Aqf.failed(msg)
-
             Aqf.step('Save initial f-engine equalisations, and ensure they are '
                      'restored at the end of the test')
 
