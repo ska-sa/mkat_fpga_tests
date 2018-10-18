@@ -12,49 +12,46 @@
 
 from __future__ import division
 
-import casperfpga
-import corr2
 import gc
 import glob
-import katcp
 import logging
-import ntplib
 import os
 import Queue
 import random
-import scipy.interpolate
-import scipy.signal
 import socket
-import spead2
 import struct
 import subprocess
 import sys
 import time
 import unittest
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-from Corr_RX import CorrRx
-from katcp.testutils import start_thread_with_cleanup
-
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
 from datetime import datetime
 
-from mkat_fpga_tests import CorrelatorFixture, add_cleanup
+import katcp
+import matplotlib.pyplot as plt
+import ntplib
+import numpy as np
+import pandas as pd
+import scipy.interpolate
+import scipy.signal
+import spead2
+from dotenv import find_dotenv, load_dotenv
+from katcp.testutils import start_thread_with_cleanup
+from nosekatreport import *
 
+import casperfpga
+import corr2
+from Corr_RX import CorrRx
+from descriptions import TestProcedure
+from mkat_fpga_tests import CorrelatorFixture, add_cleanup
 from mkat_fpga_tests.aqf_utils import *
 from mkat_fpga_tests.utils import *
-from nosekatreport import *
-from descriptions import TestProcedure
 from power_logger import PowerLogger
 
-# from termcolor import colored
+from termcolor import colored
 
-from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
 
@@ -1920,6 +1917,7 @@ class test_CBF(unittest.TestCase):
                                     discards, queued_dump['dump_timestamp'], deng_timestamp,
                                     timestamp_diff))
                             LOGGER.info(msg)
+                        deng_timestamp = None
                     discards += 1
 
                 this_freq_data = queued_dump['xeng_raw']
