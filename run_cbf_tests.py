@@ -9,32 +9,32 @@
 # THIS SOFTWARE MAY NOT BE COPIED OR DISTRIBUTED IN ANY FORM WITHOUT THE      #
 # WRITTEN PERMISSION OF SKA SA.                                               #
 ###############################################################################
-import argcomplete
 import argparse
-import coloredlogs
 import glob
 import json
-import katcp
 import logging
 import os
 import platform
 import pwd
 import py_compile
 import re
-import report_generator
-import sh
 import subprocess
 import sys
 import threading
 import time
-
-from corr2.utils import parse_ini_file
-from process_core_xml import process_xml_to_json
-from PyPDF2 import PdfFileMerger
-from report_generator.report import Report
 from shutil import copyfile
 from signal import SIGKILL
 
+import argcomplete
+import coloredlogs
+import katcp
+import sh
+from PyPDF2 import PdfFileMerger
+
+import report_generator
+from corr2.utils import parse_ini_file
+from process_core_xml import process_xml_to_json
+from report_generator.report import Report
 
 # List all core test python module dependencies
 _core_dependencies = ['corr2', 'casperfpga', 'spead2', 'katcp']
@@ -103,6 +103,13 @@ def option_parser():
                         dest="mode",
                         default=None,
                         help="Run the tests decorated with @instrument_4k")
+
+    parser.add_argument("--1k",
+                        action="store_const",
+                        const='1k',
+                        dest="mode",
+                        default=None,
+                        help="Run the tests decorated with @instrument_1k")
 
     parser.add_argument("--32k",
                         action="store_const",
@@ -354,7 +361,8 @@ def process_core_data(settings):
         if os.path.exists(core_backup):
             latest_core_xml = max(glob.iglob(os.path.join(core_backup, '*.[Xx][Mm][Ll]')),
                                   key=os.path.getctime)
-            logger.debug('CORE.xml file name %s @ %.2f Mb' % (os.path.split(latest_core_xml)[-1], os.path.getsize(latest_core_xml) / 1e6))
+            logger.debug('CORE.xml file name %s @ %.2f Mb' %
+                (os.path.split(latest_core_xml)[-1], os.path.getsize(latest_core_xml) / 1e6))
             settings['xml_file'] = latest_core_xml
         else:
             errmsg = 'CORE.xml file does not exist in %s dir' % core_backup
@@ -368,10 +376,7 @@ def process_core_data(settings):
         settings['json_mtime'] = os.path.getmtime(settings['json_file'])
 
     # Update JSON
-    if (settings['xml_mtime'] > 0 and
-            settings['json_mtime'] < settings['xml_mtime']):
-        logger.debug("Process: XML -> JSON")
-        # if not settings.get('dry_run'):
+    if (settings['xml_mtime'] > 0 and settings['json_mtime'] < settings['xml_mtime']):
         process_xml_to_json(settings['xml_file'], settings['json_file'], verbose=True)
     else:
         logger.debug("JSON File is up-to-date")
@@ -716,7 +721,8 @@ def run_nose_test(settings):
             # For Acceptance
             # run tests decorated with aqf_instrument_MODE and site_acceptance
             # and aqf_site_tests
-            _conditions = '(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))' % _decorated_instrument
+            _conditions = '(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))' % (
+                _decorated_instrument)
             condition['AND'].append(_conditions)
         elif ((_instrument.startswith('bc16') or _instrument.startswith('bc32')
                 or _instrument.startswith('bc64')or _instrument.startswith('bc128')) and

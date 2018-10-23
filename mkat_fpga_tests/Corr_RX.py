@@ -8,21 +8,20 @@ import array
 import copy
 import fcntl
 import logging
-import numpy as np
 import Queue
 import re
 import socket
-import spead2
-import spead2.recv as s2rx
 import struct
 import threading
 import time
-
 from subprocess import check_output
+
+import numpy as np
+import spead2
+import spead2.recv as s2rx
+
 from casperfpga import network
-from casperfpga import tengbe
 from corr2 import data_stream
-from corr2 import utils
 
 LOGGER = logging.getLogger(__name__)
 interface_prefix = "10.100"
@@ -42,9 +41,9 @@ def process_xeng_data(self, heap_data, ig, channels):
     strt_substream = int(channels[0] / n_chans_per_substream)
     stop_substream = int(channels[1] / n_chans_per_substream)
     if stop_substream == self.NUM_XENG:
-        stop_substream = self.NUM_XENG-1
+        stop_substream = self.NUM_XENG - 1
     n_substreams = stop_substream - strt_substream + 1
-    chan_offset = n_chans_per_substream * strt_substream
+    # chan_offset = n_chans_per_substream * strt_substream
 
     if 'xeng_raw' not in ig.keys():
         return None
@@ -79,9 +78,8 @@ def process_xeng_data(self, heap_data, ig, channels):
     # housekeeping - are the older heaps in the data?
     if len(heap_data) > 5:
         self.logger.debug('Culling stale timestamps:')
-        heaptimes = heap_data.keys()
-        heaptimes.sort()
-        for ctr in range(0, len(heaptimes)-5):
+        heaptimes = sorted(heap_data.keys())
+        for ctr in range(0, len(heaptimes) - 5):
             heap_data.pop(heaptimes[ctr])
             self.logger.debug('\ttime heaptimes[ctr] culled')
 
@@ -92,8 +90,7 @@ def process_xeng_data(self, heap_data, ig, channels):
         :param hdata:
         :return:
         """
-        freqs = hdata.keys()
-        freqs.sort()
+        freqs = sorted(hdata.keys())
         check_range = range(n_chans_per_substream * strt_substream,
                             n_chans_per_substream * stop_substream + 1,
                             n_chans_per_substream)
@@ -287,10 +284,10 @@ class CorrRx(threading.Thread):
                                           if ethx.startswith(interface_prefix)])
         self.logger.info("Interface Address: %s" % self.interface_address)
         self.strm = strm = s2rx.Stream(spead2.ThreadPool(), bug_compat=0,
-                                       max_heaps=n_substreams * self.queue_size+1,
-                                       ring_heaps=n_substreams * self.queue_size+1)
+                                       max_heaps=n_substreams * self.queue_size + 1,
+                                       ring_heaps=n_substreams * self.queue_size + 1)
 
-        for ctr in range(strt_substream, stop_substream+1):
+        for ctr in range(strt_substream, stop_substream + 1):
             self._addr = network.IpAddress(self.data_ip.ip_int + ctr).ip_str
             strm.add_udp_reader(multicast_group=self._addr,
                                 port=self.data_port,
@@ -309,6 +306,7 @@ class CorrRx(threading.Thread):
             heap_contents = {}
             for heap in self.strm:
                 idx += 1
+                # Weird I do not know how this works and why its working, as heap isnt being updated
                 updated = ig.update(heap)
                 cnt_diff = heap.cnt - last_cnt
                 last_cnt = heap.cnt
@@ -347,7 +345,7 @@ class CorrRx(threading.Thread):
         """
         try:
             while True:
-                dump = self.data_queue.get_nowait()
+                self.data_queue.get_nowait()
         except Queue.Empty:
             pass
 

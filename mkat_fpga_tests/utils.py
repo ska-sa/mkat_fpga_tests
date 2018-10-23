@@ -1,13 +1,9 @@
 # import threading
 import base64
 import glob
-import h5py
-import katcp
 import logging
-import numpy as np
 import operator
 import os
-import pandas as pd
 import pwd
 import Queue
 import random
@@ -17,27 +13,32 @@ import struct
 import subprocess
 import time
 import warnings
-
 from collections import Mapping
+from contextlib import contextmanager
+from socket import inet_ntoa
+from struct import pack
+
+import h5py
+import katcp
+import numpy as np
+import pandas as pd
 from Crypto.Cipher import AES
+from nose.plugins.attrib import attr
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
-from socket import inet_ntoa
-from struct import pack
+
+from casperfpga.utils import threaded_create_fpgas_from_hosts
+from corr2.data_stream import StreamAddress
 
 try:
     from collections import ChainMap
 except ImportError:
     from chainmap import ChainMap
 
-from casperfpga.utils import threaded_create_fpgas_from_hosts
-from corr2.data_stream import StreamAddress
 
-from nose.plugins.attrib import attr
 
-from contextlib import contextmanager
 
 
 # LOGGER = logging.getLogger(__name__)

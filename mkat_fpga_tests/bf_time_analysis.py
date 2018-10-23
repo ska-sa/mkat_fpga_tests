@@ -7,21 +7,22 @@ Created on Wed Mar 14 13:56:04 2018
 @author: ssalie
 """
 
+import copy
+import os
+import pickle
+
+import h5py
+import matplotlib.cm as CM
+import matplotlib.pylab as py
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 # %% Import relevant packages
 #import sys
 import numpy as np
 import scipy as sp
+from pylab import (figure, hist, legend, plot, subplot, title, xlabel, xlim,
+                   ylabel, ylim)
 from scipy import signal
-import matplotlib.pyplot as plt
-import matplotlib.pylab as py
-from pylab import figure, plot, legend, xlabel, ylabel, ylim, xlim, subplot, title, hist
-import h5py
-import copy
-import matplotlib.ticker as MT
-import matplotlib.cm as CM
-import os
-import matplotlib.ticker as ticker
-import pickle
 
 # %% Define useful functions
 

@@ -5,20 +5,21 @@ import struct
 import subprocess
 import sys
 import time
+from concurrent.futures import TimeoutError
+from getpass import getuser as getusername
+from glob import iglob
+
+from katcp import ioloop_manager, resource_client
+from katcp.core import ProtocolFlags
+from katcp.resource_client import KATCPSensorError
+from nosekatreport import Aqf
 
 from casperfpga import tengbe
-from concurrent.futures import TimeoutError
+from casperfpga.transport_skarab import SkarabTransport
 from corr2 import fxcorrelator
 from corr2.data_stream import StreamAddress
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.utils import parse_ini_file
-from getpass import getuser as getusername
-from glob import iglob
-from katcp import ioloop_manager
-from katcp import resource_client
-from katcp.core import ProtocolFlags
-from katcp.resource_client import KATCPSensorError
-from nosekatreport import Aqf
 
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
@@ -73,7 +74,7 @@ def teardown_package():
         _fn, args, kwargs = _cleanups.pop()
         try:
             _fn(*args, **kwargs)
-        except:
+        except BaseException:
             LOGGER.exception('Exception calling cleanup fn')
 
 
@@ -156,7 +157,7 @@ class CorrelatorFixture(object):
             try:
                 dig_host = self.dsim_conf['host']
                 self._dhost = None
-                self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf)
+                self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf, transport=SkarabTransport)
             except Exception:
                 errmsg = 'Digitiser Simulator failed to retrieve information'
                 LOGGER.exception(errmsg)
@@ -175,7 +176,7 @@ class CorrelatorFixture(object):
         else:  # include a check, if correlator is running else start it.
             if not self._correlator_started:
                 LOGGER.info('Correlator not running, now starting.')
-                print 'Correlator not running: This shouldnt happen, fix it\n'*10
+                print 'Correlator not running: This shouldnt happen, fix it\n' * 10
                 # self.start_correlator()
 
             # We assume either start_correlator() above has been called, or the
@@ -372,7 +373,7 @@ class CorrelatorFixture(object):
                 self.product_name)
             assert reply.reply_ok()
             LOGGER.info(' %s' % str(reply))
-            Aqf.progress(str(reply)+'\n')
+            Aqf.progress(str(reply) + '\n')
             return True
         except Exception:
             LOGGER.exception('Failed to capture start: %s' % str(reply))
@@ -740,11 +741,9 @@ class CorrelatorFixture(object):
                 self.rct.stop()
                 self._katcp_rct = None
                 self._correlator = None
-            except:
+            except BaseException:
                 msg = (
                     'Could not successfully start correlator within %s retries' % (retries))
                 LOGGER.critical(msg)
                 return False
             return False
-
-
