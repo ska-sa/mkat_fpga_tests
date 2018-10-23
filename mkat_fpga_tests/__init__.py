@@ -34,7 +34,8 @@ except OSError:
 
 LOGGER = logging.getLogger(__name__)
 Formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(module)s - " "%(pathname)s : %(lineno)d - %(message)s"
+    "%(asctime)s - %(name)s - %(levelname)s - %(module)s - "
+    "%(pathname)s : %(lineno)d - %(message)s"
 )
 Handler = logging.FileHandler("/tmp/%s_by_%s.log" % (__name__, get_username))
 Handler.setFormatter(Formatter)
@@ -101,7 +102,9 @@ class CorrelatorFixture(object):
         self.test_config = self._test_config_file
         # ToDo get array name from file...instead of test config file
         self.subarray = self.test_config["instrument_params"]["subarray"]
-        self.config_filename = max(iglob("/etc/corr/{}-*".format(self.subarray)), key=os.path.getctime)
+        self.config_filename = max(
+            iglob("/etc/corr/{}-*".format(self.subarray)), key=os.path.getctime
+        )
         self.array_name, self.instrument = self._get_instrument
 
     @property
@@ -122,7 +125,9 @@ class CorrelatorFixture(object):
                 )
             )
             self.rc.set_ioloop(self.io_manager.get_ioloop())
-            self._rct = resource_client.ThreadSafeKATCPClientResourceWrapper(self.rc, self.io_wrapper)
+            self._rct = resource_client.ThreadSafeKATCPClientResourceWrapper(
+                self.rc, self.io_wrapper
+            )
             self._rct.start()
             add_cleanup(self._rct.stop)
             try:
@@ -137,12 +142,16 @@ class CorrelatorFixture(object):
             return self._dhost
         else:
             if os.path.exists(self.config_filename):
-                LOGGER.info("Retrieving dsim engine info from config file: %s" % self.config_filename)
+                LOGGER.info(
+                    "Retrieving dsim engine info from config file: %s" % self.config_filename
+                )
                 self.corr_config = parse_ini_file(self.config_filename)
                 self.dsim_conf = self.corr_config["dsimengine"]
             elif self.instrument is not None:
                 self.corr2ini_path = "/etc/corr/templates/{}".format(self.instrument)
-                LOGGER.info("Setting CORR2INI system environment to point to %s" % self.corr2ini_path)
+                LOGGER.info(
+                    "Setting CORR2INI system environment to point to %s" % self.corr2ini_path
+                )
                 os.environ["CORR2INI"] = self.corr2ini_path
                 self.corr_config = parse_ini_file(self.corr2ini_path)
                 self.dsim_conf = self.corr_config["dsimengine"]
@@ -156,7 +165,9 @@ class CorrelatorFixture(object):
             try:
                 dig_host = self.dsim_conf["host"]
                 self._dhost = None
-                self._dhost = FpgaDsimHost(dig_host, config=self.dsim_conf, transport=SkarabTransport)
+                self._dhost = FpgaDsimHost(
+                    dig_host, config=self.dsim_conf, transport=SkarabTransport
+                )
             except Exception:
                 errmsg = "Digitiser Simulator failed to retrieve information"
                 LOGGER.exception(errmsg)
@@ -236,29 +247,39 @@ class CorrelatorFixture(object):
                     try:
                         self.katcp_array_port = int(informs[0].arguments[1])
                         LOGGER.info(
-                            "Current running array name: %s, port: %s" % (self.array_name, self.katcp_array_port)
+                            "Current running array name: %s, port: %s"
+                            % (self.array_name, self.katcp_array_port)
                         )
                     except ValueError:
-                        self.katcp_array_port, self.katcp_sensor_port = informs[0].arguments[1].split(",")
+                        self.katcp_array_port, self.katcp_sensor_port = (
+                            informs[0].arguments[1].split(",")
+                        )
                         LOGGER.info(
                             "Current running array name: %s, port: %s, sensor port: %s"
                             % (self.array_name, self.katcp_array_port, self.katcp_sensor_port)
                         )
                 except Exception:
-                    errmsg = "Failed to retrieve running array, ensure one has been created and running"
+                    errmsg = (
+                        "Failed to retrieve running array, ensure one has been created and running"
+                    )
                     LOGGER.exception(errmsg)
                     sys.exit(errmsg)
                 else:
                     katcp_rc = resource_client.KATCPClientResource(
                         dict(
                             name="{}".format(self.katcp_client),
-                            address=("{}".format(self.katcp_client), "{}".format(self.katcp_array_port)),
+                            address=(
+                                "{}".format(self.katcp_client),
+                                "{}".format(self.katcp_array_port),
+                            ),
                             preset_protocol_flags=protocol_flags,
                             controlled=True,
                         )
                     )
                     katcp_rc.set_ioloop(self.io_manager.get_ioloop())
-                    self._katcp_rct = resource_client.ThreadSafeKATCPClientResourceWrapper(katcp_rc, self.io_wrapper)
+                    self._katcp_rct = resource_client.ThreadSafeKATCPClientResourceWrapper(
+                        katcp_rc, self.io_wrapper
+                    )
                     self._katcp_rct.start()
                     try:
                         self._katcp_rct.until_synced(timeout=_timeout)
@@ -303,23 +324,31 @@ class CorrelatorFixture(object):
                     try:
                         self.katcp_array_port = int(informs[0].arguments[1])
                         LOGGER.info(
-                            "Current running array name: %s, port: %s" % (self.array_name, self.katcp_array_port)
+                            "Current running array name: %s, port: %s"
+                            % (self.array_name, self.katcp_array_port)
                         )
                     except ValueError:
-                        self.katcp_array_port, self.katcp_sensor_port = informs[0].arguments[1].split(",")
+                        self.katcp_array_port, self.katcp_sensor_port = (
+                            informs[0].arguments[1].split(",")
+                        )
                         LOGGER.info(
                             "Current running array name: %s, port: %s, sensor port: %s"
                             % (self.array_name, self.katcp_array_port, self.katcp_sensor_port)
                         )
                 except Exception:
-                    errmsg = "Failed to retrieve running array, ensure one has been created and running"
+                    errmsg = (
+                        "Failed to retrieve running array, ensure one has been created and running"
+                    )
                     LOGGER.exception(errmsg)
                     sys.exit(errmsg)
                 else:
                     katcp_rc = resource_client.KATCPClientResource(
                         dict(
                             name="{}".format(self.katcp_client),
-                            address=("{}".format(self.katcp_client), "{}".format(self.katcp_sensor_port)),
+                            address=(
+                                "{}".format(self.katcp_client),
+                                "{}".format(self.katcp_sensor_port),
+                            ),
                             preset_protocol_flags=protocol_flags,
                             controlled=True,
                         )
@@ -360,13 +389,17 @@ class CorrelatorFixture(object):
             reply, informs = self.katcp_rct.req.capture_list(timeout=_timeout)
             assert reply.reply_ok()
             self.product_name = [
-                i.arguments[0] for i in informs if self.corr_config["xengine"]["output_products"] in i.arguments
+                i.arguments[0]
+                for i in informs
+                if self.corr_config["xengine"]["output_products"] in i.arguments
             ][0]
             assert self.product_name is not None
             LOGGER.info("Capturing %s product" % self.product_name)
         except Exception:
             self.product_name = self.corr_config["xengine"]["output_products"]
-            LOGGER.exception("Failed to retrieve capture list via CAM interface, " "got it from config file.")
+            LOGGER.exception(
+                "Failed to retrieve capture list via CAM interface, " "got it from config file."
+            )
 
         try:
             reply, informs = self.katcp_rct.req.capture_start(self.product_name)
@@ -392,7 +425,8 @@ class CorrelatorFixture(object):
             return True
         except Exception:
             LOGGER.exception(
-                "Failed to capture stop, might be because config file does not contain " "Xengine output products."
+                "Failed to capture stop, might be because config file does not contain "
+                "Xengine output products."
             )
             return False
 
@@ -413,7 +447,9 @@ class CorrelatorFixture(object):
             LOGGER.exception("KATCP Error polling sensor\n")
             return False
         except AssertionError:
-            LOGGER.exception("Sensor request failed: %s, Forcefully Halting the Array" % (str(reply)))
+            LOGGER.exception(
+                "Sensor request failed: %s, Forcefully Halting the Array" % (str(reply))
+            )
             return False
 
     def ensure_instrument(self, instrument, retries=5, force_reinit=False, **kwargs):
@@ -470,7 +506,9 @@ class CorrelatorFixture(object):
             self._errmsg = "Instrument cannot be None."
             assert instrument is not None, self._errmsg
             self._errmsg = "katcp client is not an instance of resource client"
-            assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper), self._errmsg
+            assert isinstance(
+                self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper
+            ), self._errmsg
             self._errmsg = "katcp client failed to establish a connection"
             assert self.katcp_rct.wait_connected(), self._errmsg
             self._errmsg = "katcp client failed to sync after establishing a connection"
@@ -485,7 +523,9 @@ class CorrelatorFixture(object):
             try:
                 reply, informs = self.katcp_rct.req.instrument_list()
                 assert reply.reply_ok()
-                instruments_available = [instrument_avail.arguments[0].split("_")[0] for instrument_avail in informs]
+                instruments_available = [
+                    instrument_avail.arguments[0].split("_")[0] for instrument_avail in informs
+                ]
                 # Test to see if requested instrument is available on the instrument list
                 assert instrument in instruments_available
             except Exception:
@@ -512,7 +552,9 @@ class CorrelatorFixture(object):
                 instrument_present = instrument == running_intrument
                 if instrument_present:
                     self.instrument = instrument
-                    LOGGER.info("Confirmed that the named instrument %s is running" % self.instrument)
+                    LOGGER.info(
+                        "Confirmed that the named instrument %s is running" % self.instrument
+                    )
                 return instrument_present
 
     @property
@@ -530,13 +572,15 @@ class CorrelatorFixture(object):
             except AssertionError:
                 pass
 
-            if (self.instrument.startswith("bc") or self.instrument.startswith("c")) and self.array_name.startswith(
-                "array"
-            ):
+            if (
+                self.instrument.startswith("bc") or self.instrument.startswith("c")
+            ) and self.array_name.startswith("array"):
                 LOGGER.info("Currently running instrument %s as per /etc/corr" % self.instrument)
                 return [self.array_name, self.instrument]
         except Exception:
-            LOGGER.exception("Could not retrieve information from config file, resorting to default")
+            LOGGER.exception(
+                "Could not retrieve information from config file, resorting to default"
+            )
             return ["array0", "bc8n856M4k"]
         except ValueError:
             LOGGER.exception("Directory missing array config file.")
@@ -593,14 +637,18 @@ class CorrelatorFixture(object):
                 if self.instrument[0] == "b":
                     try:
                         # multicast_ip = multicast_ip_inp * (int(self.instrument[2]) / 2)
-                        multicast_ip = multicast_ip_inp * (int(self.instrument.replace("bc", "").split("n")[0]) / 2)
+                        multicast_ip = multicast_ip_inp * (
+                            int(self.instrument.replace("bc", "").split("n")[0]) / 2
+                        )
                         return multicast_ip
                     except Exception:
                         LOGGER.error("Could not calculate multicast IPs from config file")
                         return False
                 else:
                     try:
-                        multicast_ip = multicast_ip_inp * (int(self.instrument.replace("c", "").split("n")[0]) / 2)
+                        multicast_ip = multicast_ip_inp * (
+                            int(self.instrument.replace("c", "").split("n")[0]) / 2
+                        )
                         return multicast_ip
                     except Exception:
                         LOGGER.error("Could not calculate multicast IPs from config file")
@@ -631,7 +679,10 @@ class CorrelatorFixture(object):
             LOGGER.exception("Resource client timed-out after %s s" % _timeout)
             return False
         except AssertionError:
-            LOGGER.exception("Failed to get subordinate-list, might not have been assigned, " "Will try to assign.")
+            LOGGER.exception(
+                "Failed to get subordinate-list, might not have been assigned, "
+                "Will try to assign."
+            )
         else:
             try:
                 informs = informs[0]
@@ -657,15 +708,24 @@ class CorrelatorFixture(object):
                         LOGGER.exception("Failed to assign new array: %s" % self.array_name)
                     else:
                         self.katcp_array_port = int(reply.arguments[-1])
-                        LOGGER.info("Successfully created %s-%s" % (self.array_name, self.katcp_array_port))
+                        LOGGER.info(
+                            "Successfully created %s-%s" % (self.array_name, self.katcp_array_port)
+                        )
 
                 instrument_param = [
-                    int(i) for i in self.test_config["instrument_params"]["instrument_param"] if i != ","
+                    int(i)
+                    for i in self.test_config["instrument_params"]["instrument_param"]
+                    if i != ","
                 ]
-                LOGGER.info("Starting %s with %s parameters. Try #%s" % (self.instrument, instrument_param, retries))
+                LOGGER.info(
+                    "Starting %s with %s parameters. Try #%s"
+                    % (self.instrument, instrument_param, retries)
+                )
 
                 # TODO add timeout
-                reply = self.katcp_rct.req.instrument_activate(self.instrument, *instrument_param, timeout=500)
+                reply = self.katcp_rct.req.instrument_activate(
+                    self.instrument, *instrument_param, timeout=500
+                )
                 success = reply.succeeded
                 retries -= 1
 
@@ -682,7 +742,9 @@ class CorrelatorFixture(object):
             except Exception:
                 try:
                     self.rct.req.subordinate_halt(self.array_name)
-                    assert isinstance(self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper)
+                    assert isinstance(
+                        self.katcp_rct, resource_client.ThreadSafeKATCPClientResourceWrapper
+                    )
                 except Exception:
                     LOGGER.exception("Unable to halt array: Empty Array number")
                 except AssertionError:

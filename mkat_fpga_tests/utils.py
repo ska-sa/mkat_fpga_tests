@@ -318,7 +318,11 @@ def clear_all_delays(self):
             _min = int(np.min(np.angle(dump["xeng_raw"][:, 0, :][5:-5])))
             errmsg = "Max/Min delays found: %s/%s ie not cleared" % (_max, _min)
             assert _min == _max == 0, errmsg
-            LOGGER.info("Delays cleared successfully. Dump timestamp is in-sync with epoch: {}".format(time_diff))
+            LOGGER.info(
+                "Delays cleared successfully. Dump timestamp is in-sync with epoch: {}".format(
+                    time_diff
+                )
+            )
             return True
         except AssertionError:
             LOGGER.warning(errmsg)
@@ -424,7 +428,14 @@ def set_default_eq(self):
 
 
 def set_input_levels(
-    self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None, gain=None, cw_src=0, corr_noise=True
+    self,
+    awgn_scale=None,
+    cw_scale=None,
+    freq=None,
+    fft_shift=None,
+    gain=None,
+    cw_src=0,
+    corr_noise=True,
 ):
     """
     Set the digitiser simulator (dsim) output levels, FFT shift
@@ -542,8 +553,12 @@ def get_delay_bounds(correlator):
     # As per fhost_fpga
     bitshift_schedule = 23
     bitshift = 2 ** bitshift_schedule
-    max_positive_delta_phase = (max_positive_delta_phase * float(np.pi) * correlator.sample_rate_hz) / bitshift
-    max_negative_delta_phase = (max_negative_delta_phase * float(np.pi) * correlator.sample_rate_hz) / bitshift
+    max_positive_delta_phase = (
+        max_positive_delta_phase * float(np.pi) * correlator.sample_rate_hz
+    ) / bitshift
+    max_negative_delta_phase = (
+        max_negative_delta_phase * float(np.pi) * correlator.sample_rate_hz
+    ) / bitshift
     return {
         "max_delay_value": max_delay,
         "min_delay_value": min_delay,
@@ -652,7 +667,9 @@ def restore_src_names(self):
         reply, informs = self.corr_fix.katcp_rct.req.input_labels(*orig_src_names)
         assert reply.reply_ok()
         self.corr_fix.issue_metadata
-        LOGGER.info("Successfully restored source names back to default %s" % (", ".join(orig_src_names)))
+        LOGGER.info(
+            "Successfully restored source names back to default %s" % (", ".join(orig_src_names))
+        )
     except Exception:
         LOGGER.exception("Failed to restore CBF source names back to default.")
         return False
@@ -674,7 +691,9 @@ def confirm_out_dest_ip(self):
         xhost = xhosts[random.randrange(xhosts)]
         int_ip = int(xhost.registers.gbe_iptx.read()["data"]["reg"])
         xhost_ip = inet_ntoa(pack(">L", int_ip))
-        dest_ip = list(parse_address(self.correlator.configd["xengine"]["output_destinations_base"]))[0]
+        dest_ip = list(
+            parse_address(self.correlator.configd["xengine"]["output_destinations_base"])
+        )[0]
         assert dest_ip == xhost_ip
         return True
     except Exception:
@@ -741,7 +760,9 @@ def executed_by():
     except Exception as e:
         _errmsg = "Failed to detemine who ran the test with %s" % str(e)
         LOGGER.error(_errmsg)
-        Aqf.hop("Test ran by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime()))
+        Aqf.hop(
+            "Test ran by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime())
+        )
 
 
 def encode_passwd(pw_encrypt, key=None):
@@ -951,7 +972,10 @@ def start_katsdpingest_docker(
         LOGGER.info("Executing docker command to run KAT SDP injest node")
         output = subprocess.check_output(cmd)
     except subprocess.CalledProcessError:
-        errmsg = "Could not start sdp-docker-registry container, " "ensure SDP Ingest image has been built successfully"
+        errmsg = (
+            "Could not start sdp-docker-registry container, "
+            "ensure SDP Ingest image has been built successfully"
+        )
         Aqf.failed(errmsg)
         LOGGER.exception(errmsg)
         return False
@@ -1006,7 +1030,13 @@ def stop_katsdpingest_docker(self):
 
 
 def capture_beam_data(
-    self, beam, beam_dict=None, ingest_kcp_client=None, capture_time=0.1, start_only=False, stop_only=False
+    self,
+    beam,
+    beam_dict=None,
+    ingest_kcp_client=None,
+    capture_time=0.1,
+    start_only=False,
+    stop_only=False,
 ):
     """ Capture beamformer data
 
@@ -1083,9 +1113,13 @@ def capture_beam_data(
             weight_list.append(in_wgts[key])
         Aqf.step("Weights to set: {}".format(weight_list))
 
-        Aqf.step("Setting input weights, this may take a long time, check log output for progress...")
+        Aqf.step(
+            "Setting input weights, this may take a long time, check log output for progress..."
+        )
         try:
-            reply, informs = self.corr_fix.katcp_rct.req.beam_weights(beam, *weight_list, timeout=60)
+            reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+                beam, *weight_list, timeout=60
+            )
             assert reply.reply_ok()
         except AssertionError:
             Aqf.failed("Beam weights not successfully set: {}".format(reply))
@@ -1135,7 +1169,9 @@ def capture_beam_data(
             Aqf.failed(errmsg)
         try:
             LOGGER.info("Issue ingest node capture-init.")
-            reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request("capture-init"), timeout=_timeout)
+            reply, informs = ingest_kcp_client.blocking_request(
+                katcp.Message.request("capture-init"), timeout=_timeout
+            )
             errmsg = "Failed to issues ingest node capture-init: {}".format(str(reply))
             assert reply.reply_ok(), errmsg
         except Exception as e:
@@ -1149,7 +1185,9 @@ def capture_beam_data(
         time.sleep(capture_time)
     try:
         LOGGER.info("Issue ingest node capture-done.")
-        reply, informs = ingest_kcp_client.blocking_request(katcp.Message.request("capture-done"), timeout=_timeout)
+        reply, informs = ingest_kcp_client.blocking_request(
+            katcp.Message.request("capture-done"), timeout=_timeout
+        )
         errmsg = "Failed to issues ingest node capture-done: {}".format(str(reply))
         assert reply.reply_ok(), errmsg
     except Exception:
@@ -1173,7 +1211,10 @@ def capture_beam_data(
         Aqf.failed("Failed to get the latest beamformer data: %s" % str(e))
         return
     else:
-        LOGGER.info("Reading h5py data file(%s)[%s] and extracting the beam data.\n" % (newest_f, newest_f_timestamp))
+        LOGGER.info(
+            "Reading h5py data file(%s)[%s] and extracting the beam data.\n"
+            % (newest_f, newest_f_timestamp)
+        )
         with h5py.File(newest_f, "r") as fin:
             data = fin["Data"].values()
             for element in data:
@@ -1220,8 +1261,9 @@ def set_beam_quant_gain(self, beam, gain):
         reply, informs = self.corr_fix.katcp_rct.req.beam_quant_gains(beam, gain, timeout=60)
         assert reply.reply_ok()
         actual_beam_gain = float(reply.arguments[1])
-        msg = "Requested beamformer level adjust gain of {:.2f}, " "actual gain set to {:.2f}.".format(
-            gain, actual_beam_gain
+        msg = (
+            "Requested beamformer level adjust gain of {:.2f}, "
+            "actual gain set to {:.2f}.".format(gain, actual_beam_gain)
         )
         Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
         return actual_beam_gain

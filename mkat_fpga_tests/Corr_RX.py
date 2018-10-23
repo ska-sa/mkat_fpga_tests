@@ -62,11 +62,14 @@ def process_xeng_data(self, heap_data, ig, channels):
             old_data = heap_data[this_time][this_freq]
             if np.shape(old_data) != np.shape(xeng_raw):
                 self.logger.error(
-                    "Got repeat freq %i for time %i, with a " "DIFFERENT SHAPE?!\n" % (this_freq, this_time)
+                    "Got repeat freq %i for time %i, with a "
+                    "DIFFERENT SHAPE?!\n" % (this_freq, this_time)
                 )
             else:
                 if (xeng_raw == old_data).all():
-                    self.logger.error("Got repeat freq %i with SAME data for time %i" % (this_freq, this_time))
+                    self.logger.error(
+                        "Got repeat freq %i with SAME data for time %i" % (this_freq, this_time)
+                    )
                 else:
                     self.logger.error(
                         "Got repeat freq %i with DIFFERENT data "
@@ -94,10 +97,15 @@ def process_xeng_data(self, heap_data, ig, channels):
         """
         freqs = sorted(hdata.keys())
         check_range = range(
-            n_chans_per_substream * strt_substream, n_chans_per_substream * stop_substream + 1, n_chans_per_substream
+            n_chans_per_substream * strt_substream,
+            n_chans_per_substream * stop_substream + 1,
+            n_chans_per_substream,
         )
         if freqs != check_range:
-            self.logger.error("Did not get all frequencies from the x-engines for time %i: %s" % (htime, str(freqs)))
+            self.logger.error(
+                "Did not get all frequencies from the x-engines for time %i: %s"
+                % (htime, str(freqs))
+            )
             heap_data.pop(htime)
             return None
         vals = []
@@ -124,7 +132,9 @@ def process_xeng_data(self, heap_data, ig, channels):
             rv = process_heaptime(heaptime, heap_data[heaptime])
             if rv:
                 _dump_timestamp = self.sync_time + float(rv[0]) / self.scale_factor_timestamp
-                _dump_timestamp_readable = time.strftime("%H:%M:%S", time.localtime(_dump_timestamp))
+                _dump_timestamp_readable = time.strftime(
+                    "%H:%M:%S", time.localtime(_dump_timestamp)
+                )
                 rvs["timestamp"] = rv[0]
                 rvs["dump_timestamp"] = _dump_timestamp
                 rvs["dump_timestamp_readable"] = _dump_timestamp_readable
@@ -147,10 +157,13 @@ def network_interfaces():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     names = array.array("B", "\0" * bytes)
     outbytes = struct.unpack(
-        "iL", fcntl.ioctl(s.fileno(), 0x8912, struct.pack("iL", bytes, names.buffer_info()[0]))  # SIOCGIFCONF
+        "iL",
+        fcntl.ioctl(
+            s.fileno(), 0x8912, struct.pack("iL", bytes, names.buffer_info()[0])
+        ),  # SIOCGIFCONF
     )[0]
     namestr = names.tostring()
-    lst = [format_ip(namestr[i + 20: i + 24]) for i in range(0, outbytes, 40)]
+    lst = [format_ip(namestr[i + 20 : i + 24]) for i in range(0, outbytes, 40)]
     return lst
 
 
@@ -208,7 +221,9 @@ class CorrRx(threading.Thread):
                 client.stop()
                 raise RuntimeError("Could not connect to katcp, timed out.")
 
-            reply, informs = client.blocking_request(katcp.Message.request("sensor-value"), timeout=5)
+            reply, informs = client.blocking_request(
+                katcp.Message.request("sensor-value"), timeout=5
+            )
             assert reply.reply_ok()
             client.stop()
             client = None
@@ -272,7 +287,8 @@ class CorrRx(threading.Thread):
     def run(self):
 
         self.logger.info(
-            "RXing data with base IP addres: %s+%i, port %i." % (self.data_ip, self.NUM_XENG, self.data_port)
+            "RXing data with base IP addres: %s+%i, port %i."
+            % (self.data_ip, self.NUM_XENG, self.data_port)
         )
 
         n_chans_per_substream = self.n_chans / self.NUM_XENG
@@ -285,9 +301,15 @@ class CorrRx(threading.Thread):
         n_substreams = stop_substream - strt_substream + 1
         strt_ip = network.IpAddress(self.data_ip.ip_int + strt_substream).ip_str
         stop_ip = network.IpAddress(self.data_ip.ip_int + stop_substream).ip_str
-        self.logger.info("Subscribing to {} substream/s in the range {} to {}".format(n_substreams, strt_ip, stop_ip))
+        self.logger.info(
+            "Subscribing to {} substream/s in the range {} to {}".format(
+                n_substreams, strt_ip, stop_ip
+            )
+        )
 
-        self.interface_address = "".join([ethx for ethx in network_interfaces() if ethx.startswith(interface_prefix)])
+        self.interface_address = "".join(
+            [ethx for ethx in network_interfaces() if ethx.startswith(interface_prefix)]
+        )
         self.logger.info("Interface Address: %s" % self.interface_address)
         self.strm = strm = s2rx.Stream(
             spead2.ThreadPool(),
@@ -321,7 +343,8 @@ class CorrRx(threading.Thread):
                 cnt_diff = heap.cnt - last_cnt
                 last_cnt = heap.cnt
                 self.logger.debug(
-                    "PROCESSING HEAP idx(%i) cnt(%i) cnt_diff(%i) @ %.4f" % (idx, heap.cnt, cnt_diff, time.time())
+                    "PROCESSING HEAP idx(%i) cnt(%i) cnt_diff(%i) @ %.4f"
+                    % (idx, heap.cnt, cnt_diff, time.time())
                 )
                 self.logger.debug("Contents dict is now %i long" % len(heap_contents))
                 # output item values specified
@@ -363,7 +386,10 @@ class CorrRx(threading.Thread):
                 _dump = self.data_queue.get(timeout=dump_timeout)
                 assert _dump is not None
             except AssertionError:
-                _errmsg = "Dump data type cannot be nonetype, " "confirm you are subscribed to multicast group."
+                _errmsg = (
+                    "Dump data type cannot be nonetype, "
+                    "confirm you are subscribed to multicast group."
+                )
                 self.logger.exception(_errmsg)
             except Queue.Empty:
                 _stat = self.confirm_multicast_subs(self._addr)
@@ -380,7 +406,9 @@ class CorrRx(threading.Thread):
                 " channels (%s) expected" % self.n_channels_selected
             )
             assert _dump["xeng_raw"].shape[0] == self.n_channels_selected, _errmsg
-            _errmsg = "Dump data type cannot be nonetype, confirm you are subscribed to multicast group."
+            _errmsg = (
+                "Dump data type cannot be nonetype, confirm you are subscribed to multicast group."
+            )
             assert _dump is not None, _errmsg
         except AssertionError:
             self.logger.error(_errmsg)

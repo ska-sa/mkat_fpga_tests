@@ -23,7 +23,13 @@ class PowerLogger(threading.Thread):
     REQ_PWR = ["phReading id:all power", "kW"]
     REQ_CRNT = ["phReading id:all current", "A"]
 
-    def __init__(self, config_info, conn_retry=10, console_log_level=logging.ERROR, file_log_level=logging.INFO):
+    def __init__(
+        self,
+        config_info,
+        conn_retry=10,
+        console_log_level=logging.ERROR,
+        file_log_level=logging.INFO,
+    ):
         """
             PowerLogger reads PDU IP addresses from a config file and starts logging
             current and power from each PDU. Values are written to a CSV file. This
@@ -72,9 +78,13 @@ class PowerLogger(threading.Thread):
             try:
                 test_conf = parse_ini_file(config_info)
             except (IOError, ValueError, TypeError):
-                errmsg = "Failed to read test config file, Test will exit" "\n\t File:%s Line:%s" % (
-                    getframeinfo(currentframe()).filename.split("/")[-1],
-                    getframeinfo(currentframe()).lineno,
+                errmsg = (
+                    "Failed to read test config file, Test will exit"
+                    "\n\t File:%s Line:%s"
+                    % (
+                        getframeinfo(currentframe()).filename.split("/")[-1],
+                        getframeinfo(currentframe()).lineno,
+                    )
                 )
                 self.logger.error(errmsg)
                 raise
@@ -140,9 +150,14 @@ class PowerLogger(threading.Thread):
             raise
 
     def _get_stdout(self, data, unit):
-        return str([float(i.split()[1]) for i in data.splitlines() if i.endswith(unit) if len(i.split()) == 3]).strip(
-            "[]"
-        )
+        return str(
+            [
+                float(i.split()[1])
+                for i in data.splitlines()
+                if i.endswith(unit)
+                if len(i.split()) == 3
+            ]
+        ).strip("[]")
 
     def read_from_pdu(self, telnet_handle, cmd, timeout=20):
         try:
@@ -172,7 +187,9 @@ class PowerLogger(threading.Thread):
                     telnet_handles.append(self.open_telnet_conn(host, self._pdu_port))
                     rem_hosts.remove(host)
                 except Exception as e:
-                    self.logger.error("Exception ({}) occured while connecting to PDU {}.".format(host, str(e)))
+                    self.logger.error(
+                        "Exception ({}) occured while connecting to PDU {}.".format(host, str(e))
+                    )
             hosts = rem_hosts[:]
             if not hosts:
                 retry = 0
@@ -206,7 +223,9 @@ class PowerLogger(threading.Thread):
                                 break
                             except Exception as e:
                                 con_err_dict[th.host] += 1
-                                self.logger.error("Exception occured while connecting to PDU {}.".format(th.host))
+                                self.logger.error(
+                                    "Exception occured while connecting to PDU {}.".format(th.host)
+                                )
                                 self.logger.error("Exception: {}".format(e))
                                 break
                         power = self.read_from_pdu(th, self.REQ_PWR)
@@ -218,7 +237,9 @@ class PowerLogger(threading.Thread):
                         csvfile.flush()
                         for key in con_err_dict:
                             if con_err_dict[key] > self._conn_retry:
-                                self.logger.error("Connection lost to PDU {}... exiting.".format(key))
+                                self.logger.error(
+                                    "Connection lost to PDU {}... exiting.".format(key)
+                                )
                                 self.logger.info("Closing telnet connections to PDUs.")
                                 for th in telnet_handles:
                                     self.close_telnet_conn(th)

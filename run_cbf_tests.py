@@ -44,7 +44,9 @@ _array_release = "3"
 
 
 def option_parser():
-    parser = argparse.ArgumentParser(description="This script auto executes CBF Tests with selected arguments.")
+    parser = argparse.ArgumentParser(
+        description="This script auto executes CBF Tests with selected arguments."
+    )
     parser.add_argument(
         "--loglevel",
         action="store",
@@ -69,7 +71,8 @@ def option_parser():
         dest="site_acceptance",
         action="store",
         default=False,
-        help="Will only run test marked '@site_acceptance' or " " if in the Karoo(site) then also @site_only tests",
+        help="Will only run test marked '@site_acceptance' or "
+        " if in the Karoo(site) then also @site_only tests",
     )
 
     parser.add_argument(
@@ -85,7 +88,8 @@ def option_parser():
         dest="dry_run",
         action="store_true",
         default=False,
-        help="Do a dry run. Print commands that would be called as well as generate" "test procedures",
+        help="Do a dry run. Print commands that would be called as well as generate"
+        "test procedures",
     )
 
     parser.add_argument(
@@ -140,7 +144,11 @@ def option_parser():
     )
 
     parser.add_argument(
-        "--with_html", dest="gen_html", action="store_true", default=False, help="Generate HTML report output"
+        "--with_html",
+        dest="gen_html",
+        action="store_true",
+        default=False,
+        help="Generate HTML report output",
     )
 
     parser.add_argument(
@@ -272,7 +280,9 @@ def run_command_output(settings, cmd):
         return
     else:
         try:
-            return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=open("/dev/null", "a")).communicate()[0]
+            return subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=open("/dev/null", "a")
+            ).communicate()[0]
         except OSError:
             logger.error("Failed to execute command: %s" % cmd)
             return
@@ -296,7 +306,9 @@ class RunCmdTimeout(threading.Thread):
                 if settings.get("log_level") == "DEBUG":
                     self.p = subprocess.Popen(self.cmd)
                 else:
-                    self.p = subprocess.Popen(self.cmd, stdout=open("/dev/null", "a"), stderr=subprocess.PIPE)
+                    self.p = subprocess.Popen(
+                        self.cmd, stdout=open("/dev/null", "a"), stderr=subprocess.PIPE
+                    )
                 self.p.wait()
             except OSError:
                 logger.exception("Failed to execute command")
@@ -382,7 +394,9 @@ def process_core_data(settings):
         core_backup = settings.get("core_backup")
         logger.debug("Retrieving CORE.xml from backup dir: %s" % core_backup)
         if os.path.exists(core_backup):
-            latest_core_xml = max(glob.iglob(os.path.join(core_backup, "*.[Xx][Mm][Ll]")), key=os.path.getctime)
+            latest_core_xml = max(
+                glob.iglob(os.path.join(core_backup, "*.[Xx][Mm][Ll]")), key=os.path.getctime
+            )
             logger.debug(
                 "CORE.xml file name %s @ %.2f Mb"
                 % (os.path.split(latest_core_xml)[-1], os.path.getsize(latest_core_xml) / 1e6)
@@ -429,7 +443,9 @@ def create_log_func(settings):
             level = "DEBUG"
         # Todo(Martin): Filter verbosity on message level.
         if level in allowed_levels:  # Closure
-            print "%s" % (time.strftime("%H:%M:%S", time.localtime())), level, "++", " ".join([str(s) for s in args])
+            print "%s" % (time.strftime("%H:%M:%S", time.localtime())), level, "++", " ".join(
+                [str(s) for s in args]
+            )
 
     log_levels = ["ERROR", "WARNING", "INFO", "DEBUG"]
     allowed_levels = ["ERROR", "WARNING", "INFO"]
@@ -518,7 +534,9 @@ def generate_sphinx_docs(settings):
             status = run_command(settings, cmd, log_file)
 
     try:
-        logger.debug("Cleaning up previous builds, Note: Backup can be found on ../CBF_Tests_Reports dir")
+        logger.debug(
+            "Cleaning up previous builds, Note: Backup can be found on ../CBF_Tests_Reports dir"
+        )
         verbose_cmd_exec("DEBUG", ["make", "clean"])
         assert settings.get("gen_html", False)
     except AssertionError:
@@ -535,7 +553,8 @@ def generate_sphinx_docs(settings):
     else:
         logger.info("Generating LATEX/PDF document from reST")
         document_data = {
-            "project": "MeerKAT Correlator-Beamformer Array Release %s Qualification Test " % _array_release,
+            "project": "MeerKAT Correlator-Beamformer Array Release %s Qualification Test "
+            % _array_release,
             "documented_instrument": settings.get("system_type", "Unknown"),
             "array_release": _array_release,
             "document_number": {
@@ -545,30 +564,47 @@ def generate_sphinx_docs(settings):
                     "M1200-0000-055-1",
                     "4 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
                 ],
-                "bc8n856M32k": ["M1200-0000-055-2", "4 Antenna System running in Wideband Fine (32K) mode"],
+                "bc8n856M32k": [
+                    "M1200-0000-055-2",
+                    "4 Antenna System running in Wideband Fine (32K) mode",
+                ],
                 "bc16n856M4k": [
                     "M1200-0000-055-3",
                     "8 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
                 ],
-                "bc16n856M32k": ["M1200-0000-055-4", "8 Antenna System running in Wideband Fine (32K) mode"],
+                "bc16n856M32k": [
+                    "M1200-0000-055-4",
+                    "8 Antenna System running in Wideband Fine (32K) mode",
+                ],
                 "bc32n856M4k": [
                     "M1200-0000-55-5",
                     "16 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
                 ],
-                "bc32n856M32k": ["M1200-0000-55-6", "16 Antenna System running in Wideband Fine (32K) mode"],
+                "bc32n856M32k": [
+                    "M1200-0000-55-6",
+                    "16 Antenna System running in Wideband Fine (32K) mode",
+                ],
                 "bc64n856M4k": [
                     "M1200-0000-55-7",
                     "32 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
                 ],
-                "bc64n856M32k": ["M1200-0000-55-8", "32 Antenna System running in Wideband Fine (32K) mode"],
+                "bc64n856M32k": [
+                    "M1200-0000-55-8",
+                    "32 Antenna System running in Wideband Fine (32K) mode",
+                ],
                 "bc128n856M4k": [
                     "M1200-0000-55-9",
                     "64 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
                 ],
-                "bc128n856M32k": ["M1200-0000-55-10", "64 Antenna System running in Wideband Fine (32K) mode"],
+                "bc128n856M32k": [
+                    "M1200-0000-55-10",
+                    "64 Antenna System running in Wideband Fine (32K) mode",
+                ],
             },
         }
-        _filename = os.path.join(settings.get("me_dir"), settings.get("katreport_dir"), "latex_data.json")
+        _filename = os.path.join(
+            settings.get("me_dir"), settings.get("katreport_dir"), "latex_data.json"
+        )
         if settings.get("gen_qtp"):
             logger.info("Generating Qualification Test Procedure (PDF) document.")
             document_data["document_type"] = {"QTP": "Procedure"}
@@ -599,7 +635,11 @@ def generate_sphinx_docs(settings):
         docs_dir = os.path.abspath(os.path.join(base_dir, "docs"))
         cover_page_dir = str(os.path.abspath(os.path.join(docs_dir, "Cover_Page/")))
         latex_pdf = max(glob.iglob(latex_dir + "/*.pdf"), key=os.path.getctime)
-        if os.path.exists(latex_dir) and os.path.exists(cover_page_dir) and os.path.exists(latex_pdf):
+        if (
+            os.path.exists(latex_dir)
+            and os.path.exists(cover_page_dir)
+            and os.path.exists(latex_pdf)
+        ):
             logger.debug("Generating MeerKAT cover page")
             # ToDo: MM 16-Nov-2017 Improve this logic
             _document_title = document_data["project"] + document_data["document_type"].values()[0]
@@ -617,15 +657,23 @@ def generate_sphinx_docs(settings):
                 logger.debug("Making fixes for QTR on Cover page")
                 instrument_running = settings.get("system_type", "Unknown")
                 if int(instrument_running[2 : instrument_running.find("n856")]) >= 16:
-                    _system_type = " (%s [Tested only Half-Band(2k)]) " % settings.get("system_type", "Unknown")
+                    _system_type = " (%s [Tested only Half-Band(2k)]) " % settings.get(
+                        "system_type", "Unknown"
+                    )
                 else:
                     _system_type = " (%s) " % settings.get("system_type", "Unknown")
                 _document_num = document_data["document_number"].get(
                     document_data.get("documented_instrument", "Unknown"), "Unknown"
                 )[0]
-                _document_title = _document_title.replace("Qualification", _system_type + "Qualification")
+                _document_title = _document_title.replace(
+                    "Qualification", _system_type + "Qualification"
+                )
                 # TODO (MM) Find a way not to hardcode this info
-                replaceAll(latex_file, "{Performed by}{}{}", "{Performed by}{M. Mphego}{Test \& Verification Engineer}")
+                replaceAll(
+                    latex_file,
+                    "{Performed by}{}{}",
+                    "{Performed by}{M. Mphego}{Test \& Verification Engineer}",
+                )
 
             new_names = [_document_type, _document_num, _document_rel, _document_title]
             for _new, _old in zip(new_names, orig_names):
@@ -742,7 +790,9 @@ def run_nose_test(settings):
             # For Acceptance
             # run tests decorated with aqf_instrument_MODE and site_acceptance
             # and aqf_site_tests
-            _conditions = "(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))" % (_decorated_instrument)
+            _conditions = "(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))" % (
+                _decorated_instrument
+            )
             condition["AND"].append(_conditions)
         elif (
             _instrument.startswith("bc16")
@@ -850,7 +900,9 @@ def get_filename(what, settings):
     katreport_dir = settings["katreport_dir"]
     files = {
         "test": os.path.join(settings["me_dir"], "{}/katreport.json".format(katreport_dir)),
-        "system": os.path.join(settings["me_dir"], "{}/katreport_system.json".format(katreport_dir)),
+        "system": os.path.join(
+            settings["me_dir"], "{}/katreport_system.json".format(katreport_dir)
+        ),
         "core": settings.get("json_file", ""),
     }
     return files.get(what, None)
@@ -900,7 +952,10 @@ def generate_report(settings):
 
     report.clear()
     report.write_rst_cbf_files(
-        os.path.join(settings["me_dir"], katreport_dir), settings["build_dir"], settings["katreport_dir"], "cbf"
+        os.path.join(settings["me_dir"], katreport_dir),
+        settings["build_dir"],
+        settings["katreport_dir"],
+        "cbf",
     )
 
 
@@ -1044,8 +1099,14 @@ def gather_system_settings(settings):
         #                     'description': 'The name of the user who executed the '
         #                     'tests:'
         #                 },
-        "system_location": {"label": "Test Configuration - Hardware", "description": "Hardware information: "},
-        "system_config": {"label": "Test Configuration - Software", "description": "Software Information: "},
+        "system_location": {
+            "label": "Test Configuration - Hardware",
+            "description": "Hardware information: ",
+        },
+        "system_config": {
+            "label": "Test Configuration - Software",
+            "description": "Software Information: ",
+        },
         "system_type": {
             "label": "CBF Instrument Under Test",
             "description": "The name of the instrument that was ran:",
@@ -1145,7 +1206,9 @@ def katcp_request(port=7147, katcprequest="help", timeout=10):
         return
     try:
         # print 'Executing command'
-        reply, informs = client.blocking_request(katcp.Message.request(katcprequest), timeout=timeout)
+        reply, informs = client.blocking_request(
+            katcp.Message.request(katcprequest), timeout=timeout
+        )
 
         # print 'Done: %s, %s' % (str(reply),  str(informs))
         assert reply.reply_ok()
@@ -1228,7 +1291,8 @@ if __name__ == "__main__":
             coloredlogs.install(
                 level=log_level,
                 logger=logger,
-                fmt="%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : " "%(lineno)d - %(message)s",
+                fmt="%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(pathname)s : "
+                "%(lineno)d - %(message)s",
             )
         except AttributeError:
             raise RuntimeError("No such log level: %s" % log_level)
@@ -1236,7 +1300,9 @@ if __name__ == "__main__":
     plot_backend("matplotlibrc", "TKagg", "agg")
     kill_pid("nosetests")
     settings = dict(
-        (k, getattr(options, k)) for k in dir(options) if not callable(getattr(options, k)) and not k.startswith("_")
+        (k, getattr(options, k))
+        for k in dir(options)
+        if not callable(getattr(options, k)) and not k.startswith("_")
     )
     settings.update(get_system_info())
 
@@ -1265,7 +1331,8 @@ if __name__ == "__main__":
 
     try:
         test_file = max(
-            glob.iglob(os.path.join(settings["me_dir"], settings["test_dir"], "[Tt][est_cbf.py]")), key=os.path.getctime
+            glob.iglob(os.path.join(settings["me_dir"], settings["test_dir"], "[Tt][est_cbf.py]")),
+            key=os.path.getctime,
         )
         settings["tests"] = test_file
     except Exception:
@@ -1344,7 +1411,13 @@ if __name__ == "__main__":
     if settings["process_core"]:
         process_core_data(settings)
     now = time.localtime()
-    start_time = "%02d%02d%02d-%02dh%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min)
+    start_time = "%02d%02d%02d-%02dh%02d" % (
+        now.tm_year,
+        now.tm_mon,
+        now.tm_mday,
+        now.tm_hour,
+        now.tm_min,
+    )
     if settings.get("mode"):
         settings["build_dir"] = "%s-" % settings.get("mode") + start_time
     else:
@@ -1358,16 +1431,20 @@ if __name__ == "__main__":
             print key, ":", settings[key]
         print "=========================="
 
-    condition = (settings["report"] in ["local_&_test", "skip"] or settings.get("dry_run")) and not settings.get(
-        "cleanup"
-    )
+    condition = (
+        settings["report"] in ["local_&_test", "skip"] or settings.get("dry_run")
+    ) and not settings.get("cleanup")
     if condition:
         run_nose_test(settings)
     if settings["report"] in ["results"]:
         show_test_results(settings)
     elif settings["report"] not in ["skip"]:
         # try:
-        if settings.get("gen_html", False) or settings.get("gen_qtp", False) or settings.get("gen_qtr", False):
+        if (
+            settings.get("gen_html", False)
+            or settings.get("gen_qtp", False)
+            or settings.get("gen_qtr", False)
+        ):
             generate_report(settings)
             generate_sphinx_docs(settings)
         # except Exception as e:

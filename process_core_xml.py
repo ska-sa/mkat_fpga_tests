@@ -244,7 +244,9 @@ def extract_data(base_data, node, depth=1, path=""):
                 client_tag = _clean_xml_tag(child.tag)
                 if client_tag not in data:
                     data[client_tag] = []
-                data[client_tag].append(extract_data(base_data, child, depth=depth, path=path + "." + client_tag))
+                data[client_tag].append(
+                    extract_data(base_data, child, depth=depth, path=path + "." + client_tag)
+                )
             except AttributeError as er:
                 print "!", er
 
@@ -388,8 +390,16 @@ if __name__ == "__main__":
     from optparse import OptionParser
 
     parser = OptionParser()
-    parser.add_option("-i", "--input_file", dest="in_filename", help="name of CORE XML file to read.", metavar="FILE")
-    parser.add_option("-o", "--output_file", dest="out_filename", help="name of file to write to.", metavar="FILE")
+    parser.add_option(
+        "-i",
+        "--input_file",
+        dest="in_filename",
+        help="name of CORE XML file to read.",
+        metavar="FILE",
+    )
+    parser.add_option(
+        "-o", "--output_file", dest="out_filename", help="name of file to write to.", metavar="FILE"
+    )
     parser.add_option(
         "-u",
         "--unfiltered",
@@ -398,7 +408,12 @@ if __name__ == "__main__":
         help="Remove filtering and processing for katreport" "only convert the XML to JSON",
     )
     parser.add_option(
-        "-v", "--verbose", dest="verbose", action="store_true", help="name of file to write to.", metavar="FILE"
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="name of file to write to.",
+        metavar="FILE",
     )
 
     (options, args) = parser.parse_args()
@@ -409,4 +424,9 @@ if __name__ == "__main__":
         print "No output file given."
         sys.exit(2)
 
-    process_xml_to_json(options.in_filename, options.out_filename, no_filter=options.no_filter, verbose=options.verbose)
+    process_xml_to_json(
+        options.in_filename,
+        options.out_filename,
+        no_filter=options.no_filter,
+        verbose=options.verbose,
+    )

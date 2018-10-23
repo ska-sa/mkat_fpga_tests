@@ -79,7 +79,9 @@ def aqf_plot_phase_results(
         if not isinstance(expected_data[0], tuple):
             expected_data = ((expected_data, None),)
         for label_, phases in expected_data:
-            fig = plt.plot(range(len(phases)), phases, "--", label="{0:.3f} {1}".format(label_, plot_units))[0]
+            fig = plt.plot(
+                range(len(phases)), phases, "--", label="{0:.3f} {1}".format(label_, plot_units)
+            )[0]
     else:
         fig = plt.plot(
             range(len(expected_data[-1])),
@@ -180,7 +182,9 @@ def aqf_plot_channels(
             ha="center",
             va="bottom",
             bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
-            arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+            arrowprops=dict(
+                arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"
+            ),
         )
 
     try:
@@ -217,7 +221,11 @@ def aqf_plot_channels(
             kwargs["label"] = legend
         if log_dynamic_range is not None:
             plot_data = loggerise(
-                plot_data, log_dynamic_range, normalise_to=log_normalise_to, normalise=normalise, no_clip=True
+                plot_data,
+                log_dynamic_range,
+                normalise_to=log_normalise_to,
+                normalise=normalise,
+                no_clip=True,
             )
             ylbl = "Channel response [dB]"
         else:
@@ -233,7 +241,9 @@ def aqf_plot_channels(
             else:
                 plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
         except tkinter.TclError:
-            LOGGER.exception("No display on $DISPLAY environment variable, check matplotlib backend")
+            LOGGER.exception(
+                "No display on $DISPLAY environment variable, check matplotlib backend"
+            )
             return False
 
         if isinstance(vlines, list):
@@ -290,8 +300,12 @@ def aqf_plot_channels(
 
     if vlines_plotd:
         ymid = np.min(plot_data) / 2.0
-        plt.annotate("", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->"))
-        plt.annotate("", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->"))
+        plt.annotate(
+            "", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->")
+        )
+        plt.annotate(
+            "", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->")
+        )
         plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
@@ -322,13 +336,15 @@ def aqf_plot_channels(
             ha="center",
             va="bottom",
             bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
-            arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+            arrowprops=dict(
+                arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"
+            ),
         )
 
     if has_legend:
-        plt.legend(fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0).set_alpha(
-            0.5
-        )
+        plt.legend(
+            fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
+        ).set_alpha(0.5)
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
@@ -373,7 +389,9 @@ def aqf_plot_histogram(
         plt.clf()
 
 
-def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title, caption="", cutoff=None, show=False):
+def aqf_plot_and_save(
+    freqs, data, df, expected_fc, plot_filename, plt_title, caption="", cutoff=None, show=False
+):
     try:
         fig = plt.plot(freqs, data)[0]
     except tkinter.TclError:
@@ -406,7 +424,9 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title, ca
             plt.axhline(cutoff, color="red", ls="dotted", linewidth=1.5, label=msg)
 
         # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-        plt.legend(fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0)
+        plt.legend(
+            fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
+        )
 
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
@@ -501,7 +521,9 @@ def aqf_plot_xy(
             has_legend = True
             kwargs["label"] = legend
         if log_dynamic_range is not None:
-            plot_y_data = loggerise(plot_data[1], log_dynamic_range, normalise_to=log_normalise_to, normalise=normalise)
+            plot_y_data = loggerise(
+                plot_data[1], log_dynamic_range, normalise_to=log_normalise_to, normalise=normalise
+            )
             plot_data[1] = plot_y_data
             ylbl = "Response [dB]"
         else:
@@ -511,7 +533,9 @@ def aqf_plot_xy(
         try:
             if dotted_line:
                 linestyle = "dotted"
-            plt_line_obj = plt.plot(plot_data[0], plot_data[1], color=plt_color, linestyle=linestyle, **kwargs)
+            plt_line_obj = plt.plot(
+                plot_data[0], plot_data[1], color=plt_color, linestyle=linestyle, **kwargs
+            )
         except tkinter.TclError:
             LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
             return False
@@ -549,7 +573,9 @@ def aqf_plot_xy(
                 ha="center",
                 va="bottom",
                 bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
-                arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+                arrowprops=dict(
+                    arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"
+                ),
             )
 
     if plot_title:
@@ -563,8 +589,12 @@ def aqf_plot_xy(
 
     if vlines_plotd:
         ymid = np.min(plot_data) / 2.0
-        plt.annotate("", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->"))
-        plt.annotate("", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->"))
+        plt.annotate(
+            "", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->")
+        )
+        plt.annotate(
+            "", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->")
+        )
         plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
@@ -595,13 +625,15 @@ def aqf_plot_xy(
             ha="center",
             va="bottom",
             bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
-            arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+            arrowprops=dict(
+                arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"
+            ),
         )
 
     if has_legend:
-        plt.legend(fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0).set_alpha(
-            0.5
-        )
+        plt.legend(
+            fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
+        ).set_alpha(0.5)
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:

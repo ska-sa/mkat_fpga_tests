@@ -168,7 +168,9 @@ htmlhelp_basename = "CBFtestresults"
 # https://docs.typo3.org/typo3cms/extensions/sphinx/AdministratorManual/RenderingPdf/InstallingLaTeXLinux.html
 
 try:
-    _json_file = [i for i in glob.iglob("/".join([current_dir, "katreport", "*.json"])) if "latex" in i]
+    _json_file = [
+        i for i in glob.iglob("/".join([current_dir, "katreport", "*.json"])) if "latex" in i
+    ]
     _json_file = "".join(_json_file)
     assert os.path.isfile(_json_file)
 except Exception:
@@ -183,10 +185,15 @@ try:
             _document_data.get("documented_instrument", "Unknown").split("_")[0], "Unknown"
         )
     else:
-        _document_number = _document_data.get("document_number").get(_document_type).replace(" ", "")
+        _document_number = (
+            _document_data.get("document_number").get(_document_type).replace(" ", "")
+        )
 
     _document_type = " ".join(
-        ["Qualification Test", _document_data.get("document_type")[_document_data.get("document_type").keys()[0]]]
+        [
+            "Qualification Test",
+            _document_data.get("document_type")[_document_data.get("document_type").keys()[0]],
+        ]
     )
     _array_release = _document_data.get("array_release", 3)
     _filename = "%s_MeerKat_Correlator_Beamformer_Array_Release_%s_%s.tex" % (
@@ -244,7 +251,13 @@ try:
     ]
 except NameError:
     latex_documents = [
-        (master_doc, "%s" % _filename, u"%s %s" % (project, _document_type), u"Document Number: ", "manual")
+        (
+            master_doc,
+            "%s" % _filename,
+            u"%s %s" % (project, _document_type),
+            u"Document Number: ",
+            "manual",
+        )
     ]
 # pdf_documents = [('index', u'rst2pdf', u'Sample rst2pdf doc', u'Your Name'),]
 # The name of an image file (relative to this directory) to place at the top of
@@ -377,7 +390,11 @@ def exit_handler():
             else:
                 _intro_doc = str("/".join([curpath, "docs/introduction_%s.tex" % (docutype)]))
                 old_name = ["DocNumber", "DocInfo", "instrument"]
-                new_name = [_document_number, _document_info, _document_data.get("documented_instrument", "Unknown")]
+                new_name = [
+                    _document_number,
+                    _document_info,
+                    _document_data.get("documented_instrument", "Unknown"),
+                ]
 
                 for _old_name, _new_name in zip(old_name, new_name):
                     replaceAll(_intro_doc, str(_old_name), str(_new_name))
@@ -387,7 +404,11 @@ def exit_handler():
                 data_out = _f.read()
             if "sphinxtableofcontents" in data_out:
 
-                replaceAll(tex_file, "sphinxtableofcontents", "sphinxtableofcontents\input{%s}" % _intro_doc)
+                replaceAll(
+                    tex_file,
+                    "sphinxtableofcontents",
+                    "sphinxtableofcontents\input{%s}" % _intro_doc,
+                )
             elif "tableofcontents" in data_out:
                 replaceAll(tex_file, "tableofcontents", "tableofcontents\input{%s}" % _intro_doc)
             else:

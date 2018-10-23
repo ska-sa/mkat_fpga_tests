@@ -198,7 +198,10 @@ def analyse_beam_data(
     figure(figsize=(20, 12))
     plt.imshow(pow2dB(np.abs(dn_lim_cmplx0)), cmap=CM.jet, aspect=a_r, alpha=1)
     plt.colorbar()
-    title("Waterfall plot of dataset (arb dB of magnitude data). Dsim @%f MHz\nInput: %s" % (Sg, ref_input_label))
+    title(
+        "Waterfall plot of dataset (arb dB of magnitude data). Dsim @%f MHz\nInput: %s"
+        % (Sg, ref_input_label)
+    )
     xlabel("Spectra Time sample")
     ylabel("Frequency channel number for this F-eng subband")
     if do_save:
@@ -212,7 +215,10 @@ def analyse_beam_data(
     plt.plot(freq_chans_plt, pow2dB(np.min(np.abs(dn_lim_cmplx0), axis=1)), "-o", label="min")
     plt.legend()
     plt.grid()
-    plt.title("mean, median and max across frequency channels. Dsim @%f MHz\nInput: %s" % (Sg, ref_input_label))
+    plt.title(
+        "mean, median and max across frequency channels. Dsim @%f MHz\nInput: %s"
+        % (Sg, ref_input_label)
+    )
     plt.xlabel("Channel number")
     plt.ylabel("Raw voltage output [dBW]")
 
@@ -250,13 +256,17 @@ def analyse_beam_data(
                 block_size = samps_2_shift
             if not (skarab_or_roach):
                 samps_2_shift = 2
-            dn_lim_cmplx0 = np.reshape(dn_lim_cmplx0, [num_chan, num_spectra / samps_2_shift, samps_2_shift])
+            dn_lim_cmplx0 = np.reshape(
+                dn_lim_cmplx0, [num_chan, num_spectra / samps_2_shift, samps_2_shift]
+            )
             dn_lim_cmplx0 = np.fliplr(dn_lim_cmplx0)
             dn_lim_cmplx0 = np.reshape(dn_lim_cmplx0, [num_chan, num_spectra])
             dn_lim_cmplx0 = np.fliplr(dn_lim_cmplx0)
             dn_lim_cmplx0 = np.squeeze(dn_lim_cmplx0)
             if skarab_or_roach is None:
-                truncate_spectra = (num_spectra / blocks_2_shift / block_size) * blocks_2_shift * block_size
+                truncate_spectra = (
+                    (num_spectra / blocks_2_shift / block_size) * blocks_2_shift * block_size
+                )
                 dn_lim_cmplx0 = dn_lim_cmplx0[:, :truncate_spectra]
                 dn_lim_cmplx0 = dn_lim_cmplx0.reshape(
                     num_chan, num_spectra / block_size / blocks_2_shift, blocks_2_shift, block_size
@@ -358,7 +368,9 @@ def analyse_beam_data(
         az2.grid()
 
         if cond:
-            plt.suptitle("Time series data output (channel with tone plus adjacent) N.B Data time samples re-ordered")
+            plt.suptitle(
+                "Time series data output (channel with tone plus adjacent) N.B Data time samples re-ordered"
+            )
         if not (cond):
             plt.suptitle("Time series data output (channel with tone plus adjacent)")
 
@@ -417,7 +429,9 @@ def analyse_beam_data(
         ahz1.grid()
 
         if not (cond):
-            plt.suptitle("Time series data output, Magnitude and Phase of centre and adjacent channels")
+            plt.suptitle(
+                "Time series data output, Magnitude and Phase of centre and adjacent channels"
+            )
         if cond:
             plt.suptitle(
                 "Time series data output, Magnitude and Phase of centre and adjacent channels, N.B Data time samples re-ordered"
@@ -450,8 +464,22 @@ def analyse_beam_data(
         f = figure(figsize=(20.5, 12.5))
 
         ax0 = plt.subplot2grid((2, 3), (0, 0))
-        ax0.psd(np.real(dn_lim_cmplx0[cnt_l, :]), Fs=fs, Fc=fc, sides="twosided", NFFT=len(t0), label="real_lft")
-        ax0.psd(dn_lim_cmplx0[cnt_l, :], Fs=fs, NFFT=len(t0), label="complex_lft", linestyle="--", marker="x")
+        ax0.psd(
+            np.real(dn_lim_cmplx0[cnt_l, :]),
+            Fs=fs,
+            Fc=fc,
+            sides="twosided",
+            NFFT=len(t0),
+            label="real_lft",
+        )
+        ax0.psd(
+            dn_lim_cmplx0[cnt_l, :],
+            Fs=fs,
+            NFFT=len(t0),
+            label="complex_lft",
+            linestyle="--",
+            marker="x",
+        )
         ax0.legend(loc="lower right")
         ax0.set_title("(adj left channel),real and complex")
         ax0.set_ylim(y_lim)
@@ -460,8 +488,22 @@ def analyse_beam_data(
 
         # centre channel
         ax1 = plt.subplot2grid((2, 3), (0, 1))
-        ax1.psd(np.real(dn_lim_cmplx0[cnt_c, :]), Fs=fs, Fc=fc, sides="twosided", NFFT=len(t0), label="real_cnt")
-        ax1.psd(dn_lim_cmplx0[cnt_c, :], Fs=fs, NFFT=len(t0), label="complex_cnt", linestyle="--", marker="x")
+        ax1.psd(
+            np.real(dn_lim_cmplx0[cnt_c, :]),
+            Fs=fs,
+            Fc=fc,
+            sides="twosided",
+            NFFT=len(t0),
+            label="real_cnt",
+        )
+        ax1.psd(
+            dn_lim_cmplx0[cnt_c, :],
+            Fs=fs,
+            NFFT=len(t0),
+            label="complex_cnt",
+            linestyle="--",
+            marker="x",
+        )
         ax1.legend(loc="lower right")
         ax1.set_title("(centre channel),real and complex")
         ax1.yaxis.set_ticks(y_ticks)
@@ -469,8 +511,22 @@ def analyse_beam_data(
 
         # adjacent right channel
         ax2 = plt.subplot2grid((2, 3), (0, 2))
-        ax2.psd(np.real(dn_lim_cmplx0[cnt_r, :]), Fs=fs, Fc=fc, sides="twosided", NFFT=len(t0), label="real_rht")
-        ax2.psd(dn_lim_cmplx0[cnt_r, :], Fs=fs, NFFT=len(t0), label="complex_rht", linestyle="--", marker="x")
+        ax2.psd(
+            np.real(dn_lim_cmplx0[cnt_r, :]),
+            Fs=fs,
+            Fc=fc,
+            sides="twosided",
+            NFFT=len(t0),
+            label="real_rht",
+        )
+        ax2.psd(
+            dn_lim_cmplx0[cnt_r, :],
+            Fs=fs,
+            NFFT=len(t0),
+            label="complex_rht",
+            linestyle="--",
+            marker="x",
+        )
         ax2.legend(loc="lower right")
         ax2.set_title("(adj right channel),real and complex")
         ax2.set_ylim(y_lim)
@@ -480,7 +536,14 @@ def analyse_beam_data(
         # reconstituted
         # adjacent left channel
         ax3 = plt.subplot2grid((2, 3), (1, 0))
-        tmp = ax3.psd(reconstituted[cnt_l, :], Fs=fs, Fc=fc, sides="twosided", NFFT=len(t0), label="reconstituted_lft")
+        tmp = ax3.psd(
+            reconstituted[cnt_l, :],
+            Fs=fs,
+            Fc=fc,
+            sides="twosided",
+            NFFT=len(t0),
+            label="reconstituted_lft",
+        )
         ax3.legend(loc="lower right")
         ax3.set_title("(adj left channel),reconstituted data")
         ax3.set_ylim(y_lim)
@@ -489,7 +552,14 @@ def analyse_beam_data(
 
         # centre channel
         ax4 = plt.subplot2grid((2, 3), (1, 1))
-        tmp = ax4.psd(reconstituted[cnt_c, :], Fs=fs, Fc=fc, sides="twosided", NFFT=len(t0), label="reconstituted_cnt")
+        tmp = ax4.psd(
+            reconstituted[cnt_c, :],
+            Fs=fs,
+            Fc=fc,
+            sides="twosided",
+            NFFT=len(t0),
+            label="reconstituted_cnt",
+        )
         ax4.legend(loc="lower right")
         ax4.set_title("(centre channel),reconstituted data")
         ax4.set_ylim(y_lim)
@@ -498,7 +568,14 @@ def analyse_beam_data(
 
         # adjacent right channel
         ax5 = plt.subplot2grid((2, 3), (1, 2))
-        tmp = ax5.psd(reconstituted[cnt_r, :], Fs=fs, Fc=fc, sides="twosided", NFFT=len(t0), label="reconstituted_rht")
+        tmp = ax5.psd(
+            reconstituted[cnt_r, :],
+            Fs=fs,
+            Fc=fc,
+            sides="twosided",
+            NFFT=len(t0),
+            label="reconstituted_rht",
+        )
         ax5.legend(loc="lower right")
         ax5.set_title("(adj right channel),reconstituted data")
         ax5.set_ylim(y_lim)
