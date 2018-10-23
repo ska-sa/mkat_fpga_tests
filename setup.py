@@ -25,35 +25,35 @@ from warnings import filterwarnings
 
 
 # I do not condone it, but we suppressing all warnings
-filterwarnings('ignore')
+filterwarnings("ignore")
 
 # Latest tagged stable version
 try:
-    __version__ = subprocess.check_output(
-        ["git", "describe", "--tags"]).rstrip().split('-')[-1]
+    __version__ = subprocess.check_output(["git", "describe", "--tags"]).rstrip().split("-")[-1]
 except subprocess.CalledProcessError:
-    __version__ = '0.5'
+    __version__ = "0.5"
 
 # Install dependencies with failover/failsafe
 try:
     install_reqs = parse_requirements("pip-requirements.txt", session=PipSession())
     __install_requires__ = [str(ir.req) for ir in install_reqs]
     try:
-        __install_requires__ = filter('None'.__ne__, __install_requires__)
+        __install_requires__ = filter("None".__ne__, __install_requires__)
     except ValueError:
         pass
 except Exception:
     __install_requires__ = [
-        'cryptography',
-        'matplotlib',
-        'memory_profiler',
-        'ntplib',
-        'numpy',
-        'sphinx',
-        'h5py',
-        'Nose',
-        'ansicolor',
-        'traceback2']
+        "cryptography",
+        "matplotlib",
+        "memory_profiler",
+        "ntplib",
+        "numpy",
+        "sphinx",
+        "h5py",
+        "Nose",
+        "ansicolor",
+        "traceback2",
+    ]
 
 
 @contextmanager
@@ -70,34 +70,35 @@ class cmdatexit_install(install):
     """"""
 
     def run(self):
-        path = ''
+        path = ""
         install.run(self)
         if os.path.exists(path):
             with cwd(path):
-                print 'Installing %s from %s' % (path, os.getcwd())
+                print "Installing %s from %s" % (path, os.getcwd())
 
 
-setup(name='mkat_fpga_tests',
-      version=__version__,
-      description='Tests for MeerKAT signal processing FPGAs ',
-      long_description=open('README.md').read(),
-      license='GPL',
-      author='SKA SA DBE Team',
-      author_email='mmphego@ska.ac.za',
-      url='https://github.com/ska-sa/mkat_fpga_tests',
-      classifiers=[
-          'Development Status :: 3 - Alpha',
-          'Intended Audience :: Radio Telescope correlator builders',
-          'Operating System :: OS Independent',
-          'License :: OSI Approved :: GNU General Public License (GPL)',
-          'Topic :: Scientific/Engineering :: Astronomy',
-      ],
-      install_requires=__install_requires__,
-      dependency_links=['https://github.com/ska-sa/nosekatreport'],
-      provides=['mkat_fpga_tests'],
-      packages=find_packages(),
-      # scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
-      # cmdclass={"install": cmdatexit_install, },
-      )
+setup(
+    name="mkat_fpga_tests",
+    version=__version__,
+    description="Tests for MeerKAT signal processing FPGAs ",
+    long_description=open("README.md").read(),
+    license="GPL",
+    author="SKA SA DBE Team",
+    author_email="mmphego@ska.ac.za",
+    url="https://github.com/ska-sa/mkat_fpga_tests",
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Radio Telescope correlator builders",
+        "Operating System :: OS Independent",
+        "License :: OSI Approved :: GNU General Public License (GPL)",
+        "Topic :: Scientific/Engineering :: Astronomy",
+    ],
+    install_requires=__install_requires__,
+    dependency_links=["https://github.com/ska-sa/nosekatreport"],
+    provides=["mkat_fpga_tests"],
+    packages=find_packages(),
+    # scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
+    # cmdclass={"install": cmdatexit_install, },
+)
 
 # end

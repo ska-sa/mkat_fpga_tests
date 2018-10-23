@@ -17,10 +17,11 @@ LOGGER = logging.getLogger(__name__)
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
+
     @functools.wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
-        #Aqf.end(traceback=True)
+        # Aqf.end(traceback=True)
         Aqf.end(traceback=False)
 
     return decorated
@@ -32,18 +33,27 @@ def cls_end_aqf(cls):
     Assumes test methods start with test_ or is named runTest
     """
     for attr_name in dir(cls):
-        if attr_name.startswith('test_') or attr_name == 'runTest':
+        if attr_name.startswith("test_") or attr_name == "runTest":
             meth = getattr(cls, attr_name)
             if callable(meth):
                 setattr(cls, attr_name, meth_end_aqf(meth))
     return cls
 
+
 # Todo, Fix this function
 
 
-def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
-                           plot_title='', plot_units=None, caption='', dump_counts=5,
-                           show=False, ):
+def aqf_plot_phase_results(
+    freqs,
+    actual_data,
+    expected_data,
+    plot_filename,
+    plot_title="",
+    plot_units=None,
+    caption="",
+    dump_counts=5,
+    show=False,
+):
     """
         Gets actual and expected phase plots.
         return: None
@@ -51,27 +61,32 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     try:
         plt.gca().set_prop_cycle(None)
     except tkinter.TclError:
-        LOGGER.exception(
-            'No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
 
     if len(actual_data) == dump_counts or len(expected_data) == dump_counts - 1:
         for phases in actual_data:
             plt.plot(range(len(phases)), phases)
     else:
-        plt.plot(range(len(actual_data[-1])), actual_data[-1], label='{0:.3f} {1}'.format(np.max(np.abs(actual_data[0])),
-                                                                                          plot_units))
+        plt.plot(
+            range(len(actual_data[-1])),
+            actual_data[-1],
+            label="{0:.3f} {1}".format(np.max(np.abs(actual_data[0])), plot_units),
+        )
 
     plt.gca().set_prop_cycle(None)
     if len(expected_data) == dump_counts or len(expected_data) == dump_counts - 1:
         if not isinstance(expected_data[0], tuple):
             expected_data = ((expected_data, None),)
         for label_, phases in expected_data:
-            fig = plt.plot(
-                range(len(phases)), phases, '--', label='{0:.3f} {1}'.format(label_, plot_units))[0]
+            fig = plt.plot(range(len(phases)), phases, "--", label="{0:.3f} {1}".format(label_, plot_units))[0]
     else:
-        fig = plt.plot(range(len(expected_data[-1])), expected_data[-1],
-                       '--', label='{0:.3f} {1}'.format(expected_data[0], plot_units))[0]
+        fig = plt.plot(
+            range(len(expected_data[-1])),
+            expected_data[-1],
+            "--",
+            label="{0:.3f} {1}".format(expected_data[0], plot_units),
+        )[0]
 
     axes = fig.get_axes()
     ybound = axes.get_ybound()
@@ -79,11 +94,11 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
     # plt.vlines(len(freqs) / 2, *new_ybound, colors='b',
     # linestyles='dotted', label='Center Chan.')
-    plt.title('{}'.format(plot_title))
+    plt.title("{}".format(plot_title))
     axes.set_ybound(*new_ybound)
     plt.grid(True)
-    plt.ylabel('Phase [radians]')
-    plt.xlabel('Channel number')
+    plt.ylabel("Phase [radians]")
+    plt.xlabel("Channel number")
     # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
     plt.legend()
     fig1 = plt.gcf()  # Get Current Figure
@@ -92,15 +107,30 @@ def aqf_plot_phase_results(freqs, actual_data, expected_data, plot_filename,
     if show:
         plt.show()
         plt.draw()
-        fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
+        fig1.savefig(plot_filename, bbox_inches="tight", dpi=100)
     plt.cla()
     plt.clf()
 
 
-def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="",
-                      log_dynamic_range=90, log_normalise_to=1, normalise=False, hlines=None,
-                      vlines=None, ylimits=None, xlabel=None, ylabel=None, plot_type='channel',
-                      hline_strt_idx=0, cutoff=None, show=False, xvals=None):
+def aqf_plot_channels(
+    channelisation,
+    plot_filename="",
+    plot_title="",
+    caption="",
+    log_dynamic_range=90,
+    log_normalise_to=1,
+    normalise=False,
+    hlines=None,
+    vlines=None,
+    ylimits=None,
+    xlabel=None,
+    ylabel=None,
+    plot_type="channel",
+    hline_strt_idx=0,
+    cutoff=None,
+    show=False,
+    xvals=None,
+):
     """
         Simple magnitude plot of a channelised result
         return: None
@@ -141,26 +171,29 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
 
     def add_hxline(cutoff, msg):
         # msg = ('Acceptable Ripple: {:.3f}dB'.format(cutoff))
-        plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1)
-        plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
-                     textcoords='offset points', ha='center', va='bottom',
-                     bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                     arrowprops=dict(arrowstyle='->', fc='yellow',
-                                     connectionstyle='arc3, rad=0.5', color='red'))
+        plt.axhline(cutoff, color="red", linestyle="dotted", linewidth=1)
+        plt.annotate(
+            msg,
+            xy=(len(plot_data) / 2, cutoff),
+            xytext=(-20, -30),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
+            arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+        )
 
     try:
         if not isinstance(channelisation[0], tuple):
             channelisation = ((channelisation, None),)
     except IndexError:
-        Aqf.failed(
-            'List of channel responses out of range: {}'.format(channelisation))
+        Aqf.failed("List of channel responses out of range: {}".format(channelisation))
     has_legend = False
     plt_line = []
     try:
         ax = plt.gca()
     except tkinter.TclError:
-        LOGGER.exception(
-            'No display on $DISPLAY environment variable, check matplotlib backend')
+        LOGGER.exception("No display on $DISPLAY environment variable, check matplotlib backend")
         return False
 
     try:
@@ -181,38 +214,36 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         kwargs = {}
         if legend:
             has_legend = True
-            kwargs['label'] = legend
+            kwargs["label"] = legend
         if log_dynamic_range is not None:
-            plot_data = loggerise(plot_data, log_dynamic_range, normalise_to=log_normalise_to,
-                                  normalise=normalise, no_clip=True)
-            ylbl = 'Channel response [dB]'
+            plot_data = loggerise(
+                plot_data, log_dynamic_range, normalise_to=log_normalise_to, normalise=normalise, no_clip=True
+            )
+            ylbl = "Channel response [dB]"
         else:
-            if plot_type == 'eff':
-                ylbl = 'Efficiency [%]'
+            if plot_type == "eff":
+                ylbl = "Efficiency [%]"
             else:
-                ylbl = 'Channel response (linear)'
+                ylbl = "Channel response (linear)"
 
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
             if xvals:
-                plt_line_obj = plt.plot(
-                    xvals, plot_data, color=plt_color, **kwargs)
+                plt_line_obj = plt.plot(xvals, plot_data, color=plt_color, **kwargs)
             else:
                 plt_line_obj = plt.plot(plot_data, color=plt_color, **kwargs)
         except tkinter.TclError:
-            LOGGER.exception(
-                'No display on $DISPLAY environment variable, check matplotlib backend')
+            LOGGER.exception("No display on $DISPLAY environment variable, check matplotlib backend")
             return False
 
         if isinstance(vlines, list):
             try:
-                plt.axvline(x=next(_vlines),
-                            linestyle='dashdot', color=plt_color)
+                plt.axvline(x=next(_vlines), linestyle="dashdot", color=plt_color)
                 vlines_plotd = True
             except StopIteration:
                 pass
             except TypeError:
-                plt.axvline(x=_vlines, linestyle='dashdot', color=plt_color)
+                plt.axvline(x=_vlines, linestyle="dashdot", color=plt_color)
                 vlines_plotd = True
 
         plt_line.append(plt_line_obj)
@@ -229,23 +260,23 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
         plt.xlabel(xlabel)
         try:
             if cutoff == -1.5:
-                msg = ('Acceptable Passband Ripple: {:.3f}dB'.format(cutoff))
+                msg = "Acceptable Passband Ripple: {:.3f}dB".format(cutoff)
                 add_hxline(cutoff, msg)
 
                 cutoff = cutoff * 2
-                msg = ('Cutoff Frequency: {:.3f}dB'.format(cutoff))
+                msg = "Cutoff Frequency: {:.3f}dB".format(cutoff)
                 add_hxline(cutoff, msg)
             elif int(cutoff) == -6:
-                msg = ('Average band-edge: {:.3f}dB'.format(cutoff))
+                msg = "Average band-edge: {:.3f}dB".format(cutoff)
                 add_hxline(cutoff, msg)
-                msg = ('CBF channel isolation: -53dB')
+                msg = "CBF channel isolation: -53dB"
                 add_hxline(-53, msg)
         except BaseException:
             pass
     else:
-        plt.xlabel('Channel number')
+        plt.xlabel("Channel number")
         if cutoff:
-            msg = ('CBF channel isolation: -53dB')
+            msg = "CBF channel isolation: -53dB"
             add_hxline(-53, msg)
 
     if plot_title:
@@ -258,65 +289,75 @@ def aqf_plot_channels(channelisation, plot_filename='', plot_title='', caption="
     #     plt.figtext(.1, -.25, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
 
     if vlines_plotd:
-        ymid = np.min(plot_data) / 2.
-        plt.annotate('', xy=[vlines[0], ymid], xytext=(vlines[1], ymid),
-                     arrowprops=dict(arrowstyle='<->'))
-        plt.annotate('', xy=[vlines[1], ymid], xytext=(vlines[2], ymid),
-                     arrowprops=dict(arrowstyle='<->'))
+        ymid = np.min(plot_data) / 2.0
+        plt.annotate("", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->"))
+        plt.annotate("", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->"))
         plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
         if not isinstance(hlines, list):
             lines = hlines
-            msg = ('{:.3f}dB'.format(lines))
-            plt.axhline(lines, linestyle='dotted', linewidth=1.5)
+            msg = "{:.3f}dB".format(lines)
+            plt.axhline(lines, linestyle="dotted", linewidth=1.5)
         else:
             for idx, lines in enumerate(hlines):
                 try:
                     color = plt_line[idx + hline_strt_idx][0].get_color()
                 except BaseException:
-                    color = 'red'
-                plt.axhline(lines, linestyle='dotted',
-                            color=color, linewidth=1.5)
+                    color = "red"
+                plt.axhline(lines, linestyle="dotted", color=color, linewidth=1.5)
 
-                if plot_type == 'eff':
-                    msg = ('Requirement: {}%'.format(lines))
-                elif plot_type == 'bf':
-                    msg = ('Expected: {:.2f}dB'.format(lines))
+                if plot_type == "eff":
+                    msg = "Requirement: {}%".format(lines)
+                elif plot_type == "bf":
+                    msg = "Expected: {:.2f}dB".format(lines)
                 else:
-                    msg = ('{:.2f} dB'.format(lines))
+                    msg = "{:.2f} dB".format(lines)
 
-        plt.annotate(msg, xy=(len(plot_data) / 2, lines), xytext=(-20, -30),
-                     textcoords='offset points', ha='center', va='bottom',
-                     bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                     arrowprops=dict(arrowstyle='->', fc='yellow',
-                                     connectionstyle='arc3, rad=0.5', color='red'))
+        plt.annotate(
+            msg,
+            xy=(len(plot_data) / 2, lines),
+            xytext=(-20, -30),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
+            arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+        )
 
     if has_legend:
-        plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
-                   borderaxespad=0.).set_alpha(0.5)
+        plt.legend(fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0).set_alpha(
+            0.5
+        )
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
         fig1 = plt.gcf()  # Get Current Figure
         plt.show(block=False)
         plt.draw()
-        fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
+        fig1.savefig(plot_filename, bbox_inches="tight", dpi=100)
     plt.cla()
     plt.clf()
 
 
-def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
-                       caption="", bins=256, ranges=(-1, 1), ylabel='Samples per Bin',
-                       xlabel='ADC Sample Bins', show=False):
+def aqf_plot_histogram(
+    data_set,
+    plot_filename="test_plt.png",
+    plot_title=None,
+    caption="",
+    bins=256,
+    ranges=(-1, 1),
+    ylabel="Samples per Bin",
+    xlabel="ADC Sample Bins",
+    show=False,
+):
     """Simple histogram plot of a data set
         return: None
     """
     try:
         plt.grid(True)
     except tkinter.TclError:
-        LOGGER.exception(
-            'No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
     else:
         plt.hist(data_set, bins=bins, range=ranges)
@@ -332,13 +373,11 @@ def aqf_plot_histogram(data_set, plot_filename='test_plt.png', plot_title=None,
         plt.clf()
 
 
-def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
-                      caption="", cutoff=None, show=False):
+def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title, caption="", cutoff=None, show=False):
     try:
         fig = plt.plot(freqs, data)[0]
     except tkinter.TclError:
-        LOGGER.exception(
-            'No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
     axes = fig.get_axes()
     ybound = axes.get_ybound()
@@ -346,33 +385,28 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
     # new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
     new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
     new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
-    plt.vlines(expected_fc, *new_ybound, colors='r', label='Channel Fc')
-    plt.vlines(expected_fc - df / 2, *new_ybound, label='Channel min/max')
-    plt.vlines(expected_fc - 0.8 * df / 2, *new_ybound, label='Channel at +-40%',
-               linestyles='--')
-    plt.vlines(expected_fc + df / 2, *new_ybound, label='_Channel max')
-    plt.vlines(expected_fc + 0.8 * df / 2, *new_ybound, label='_Channel at +40%',
-               linestyles='--')
+    plt.vlines(expected_fc, *new_ybound, colors="r", label="Channel Fc")
+    plt.vlines(expected_fc - df / 2, *new_ybound, label="Channel min/max")
+    plt.vlines(expected_fc - 0.8 * df / 2, *new_ybound, label="Channel at +-40%", linestyles="--")
+    plt.vlines(expected_fc + df / 2, *new_ybound, label="_Channel max")
+    plt.vlines(expected_fc + 0.8 * df / 2, *new_ybound, label="_Channel at +40%", linestyles="--")
     plt.title(plt_title)
     axes.set_ybound(*new_ybound)
     try:
         plt.grid(True)
     except tkinter.TclError:
-        LOGGER.exception(
-            'No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
     else:
-        plt.ylabel('dB relative to VACC max')
+        plt.ylabel("dB relative to VACC max")
         # TODO Normalise plot to frequency bins
-        plt.xlabel('Frequency (Hz)')
+        plt.xlabel("Frequency (Hz)")
         if cutoff:
-            msg = ('Channel isolation: {:.3f}dB'.format(cutoff))
-            plt.axhline(cutoff, color='red', ls='dotted',
-                        linewidth=1.5, label=msg)
+            msg = "Channel isolation: {:.3f}dB".format(cutoff)
+            plt.axhline(cutoff, color="red", ls="dotted", linewidth=1.5, label=msg)
 
         # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-        plt.legend(fontsize=9, fancybox=True, loc='center left', bbox_to_anchor=(1, .8),
-                   borderaxespad=0.)
+        plt.legend(fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0)
 
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
@@ -382,15 +416,28 @@ def aqf_plot_and_save(freqs, data, df, expected_fc, plot_filename, plt_title,
 
 
 def test_heading(heading):
-    Aqf.hop('-' * 50)
+    Aqf.hop("-" * 50)
     Aqf.stepBold(heading)
-    Aqf.hop('-' * 50)
+    Aqf.hop("-" * 50)
 
 
-def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
-                log_dynamic_range=None, log_normalise_to=1, normalise=False, hlines=None,
-                vlines=None, ylimits=None, xlabel=None, ylabel=None,
-                hline_strt_idx=0, cutoff=None, show=False):
+def aqf_plot_xy(
+    data,
+    plot_filename="",
+    plot_title="",
+    caption="",
+    log_dynamic_range=None,
+    log_normalise_to=1,
+    normalise=False,
+    hlines=None,
+    vlines=None,
+    ylimits=None,
+    xlabel=None,
+    ylabel=None,
+    hline_strt_idx=0,
+    cutoff=None,
+    show=False,
+):
     """
         Simple magnitude plot
         return: None
@@ -419,17 +466,17 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
         data_fixed = []
         for i, data_pair in enumerate(data):
             if not isinstance(data_pair[-1], str):
-                data_fixed.append((data[i], None),)
+                data_fixed.append((data[i], None))
         if data_fixed:
             data = data_fixed
     except IndexError:
-        Aqf.failed('List of channel responses out of range: {}'.format(data))
+        Aqf.failed("List of channel responses out of range: {}".format(data))
     has_legend = False
     plt_line = []
     try:
         ax = plt.gca()
     except tkinter.TclError:
-        LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
 
     try:
@@ -447,39 +494,37 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
 
     plt.grid(True)
     dotted_line = False
-    linestyle = 'solid'
+    linestyle = "solid"
     for plot_data, legend in data:
         kwargs = {}
         if legend:
             has_legend = True
-            kwargs['label'] = legend
+            kwargs["label"] = legend
         if log_dynamic_range is not None:
-            plot_y_data = loggerise(plot_data[1], log_dynamic_range, normalise_to=log_normalise_to,
-                                    normalise=normalise)
+            plot_y_data = loggerise(plot_data[1], log_dynamic_range, normalise_to=log_normalise_to, normalise=normalise)
             plot_data[1] = plot_y_data
-            ylbl = 'Response [dB]'
+            ylbl = "Response [dB]"
         else:
-            ylbl = 'Response (linear)'
-
+            ylbl = "Response (linear)"
 
         plt_color = ax._get_lines.prop_cycler.next().values()[0]
         try:
             if dotted_line:
-                linestyle = 'dotted'
+                linestyle = "dotted"
             plt_line_obj = plt.plot(plot_data[0], plot_data[1], color=plt_color, linestyle=linestyle, **kwargs)
         except tkinter.TclError:
-            LOGGER.exception('No display on $DISPLAY enviroment variable, check matplotlib backend')
+            LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
             return False
         dotted_line = True
 
         if isinstance(vlines, list):
             try:
-                plt.axvline(x=next(_vlines), linestyle='dashdot', color=plt_color)
+                plt.axvline(x=next(_vlines), linestyle="dashdot", color=plt_color)
                 vlines_plotd = True
             except StopIteration:
                 pass
             except TypeError:
-                plt.axvline(x=_vlines, linestyle='dashdot', color=plt_color)
+                plt.axvline(x=_vlines, linestyle="dashdot", color=plt_color)
                 vlines_plotd = True
 
         plt_line.append(plt_line_obj)
@@ -492,15 +537,20 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
     if xlabel:
         plt.xlabel(xlabel)
     else:
-        plt.xlabel('Channel number')
+        plt.xlabel("Channel number")
         if cutoff:
-            msg = ('CBF Freq. resolution: {:.3f}dB'.format(cutoff))
-            plt.axhline(cutoff, color='red', linestyle='dotted', linewidth=1.5)
-            plt.annotate(msg, xy=(len(plot_data) / 2, cutoff), xytext=(-20, -30),
-                        textcoords='offset points', ha='center', va='bottom',
-                         bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                         arrowprops=dict(arrowstyle='->', fc='yellow',
-                                         connectionstyle='arc3, rad=0.5', color='red'))
+            msg = "CBF Freq. resolution: {:.3f}dB".format(cutoff)
+            plt.axhline(cutoff, color="red", linestyle="dotted", linewidth=1.5)
+            plt.annotate(
+                msg,
+                xy=(len(plot_data) / 2, cutoff),
+                xytext=(-20, -30),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
+                arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+            )
 
     if plot_title:
         plt.title(plot_title)
@@ -508,53 +558,56 @@ def aqf_plot_xy(data, plot_filename='', plot_title='', caption="",
     if ylimits:
         plt.ylim(ylimits)
 
-    #if caption:
-        #plt.figtext(.1, -.25, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+    # if caption:
+    # plt.figtext(.1, -.25, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
 
     if vlines_plotd:
-        ymid = np.min(plot_data) / 2.
-        plt.annotate('', xy=[vlines[0], ymid], xytext=(vlines[1], ymid),
-                     arrowprops=dict(arrowstyle='<->'))
-        plt.annotate('', xy=[vlines[1], ymid], xytext=(vlines[2], ymid),
-                     arrowprops=dict(arrowstyle='<->'))
+        ymid = np.min(plot_data) / 2.0
+        plt.annotate("", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->"))
+        plt.annotate("", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->"))
         plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
         if not isinstance(hlines, list):
             lines = hlines
-            msg = ('{:.3f}dB'.format(lines))
-            plt.axhline(lines, linestyle='dotted', linewidth=1.5)
+            msg = "{:.3f}dB".format(lines)
+            plt.axhline(lines, linestyle="dotted", linewidth=1.5)
         else:
             for idx, lines in enumerate(hlines):
                 try:
                     color = plt_line[idx + hline_strt_idx][0].get_color()
                 except BaseException:
-                    color = 'red'
-                plt.axhline(lines, linestyle='dotted', color=color, linewidth=1.5)
+                    color = "red"
+                plt.axhline(lines, linestyle="dotted", color=color, linewidth=1.5)
 
-                if plot_type == 'eff':
-                    msg = ('Requirement: {}%'.format(lines))
-                elif plot_type == 'bf':
-                    msg = ('Expected: {:.2f}dB'.format(lines))
+                if plot_type == "eff":
+                    msg = "Requirement: {}%".format(lines)
+                elif plot_type == "bf":
+                    msg = "Expected: {:.2f}dB".format(lines)
                 else:
-                    msg = ('{:.2f} dB'.format(lines))
+                    msg = "{:.2f} dB".format(lines)
 
-        plt.annotate(msg, xy=(len(plot_data) / 2, lines), xytext=(-20, -30),
-                     textcoords='offset points', ha='center', va='bottom',
-                     bbox=dict(boxstyle='round, pad=0.2', alpha=0.3),
-                     arrowprops=dict(arrowstyle='->', fc='yellow',
-                                     connectionstyle='arc3, rad=0.5', color='red'))
+        plt.annotate(
+            msg,
+            xy=(len(plot_data) / 2, lines),
+            xytext=(-20, -30),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            bbox=dict(boxstyle="round, pad=0.2", alpha=0.3),
+            arrowprops=dict(arrowstyle="->", fc="yellow", connectionstyle="arc3, rad=0.5", color="red"),
+        )
 
     if has_legend:
-        plt.legend(fontsize=9, fancybox=True,
-                   loc='center left', bbox_to_anchor=(1, .8),
-                   borderaxespad=0.).set_alpha(0.5)
+        plt.legend(fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0).set_alpha(
+            0.5
+        )
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
         fig1 = plt.gcf()  # Get Current Figure
         plt.show(block=False)
         plt.draw()
-        fig1.savefig(plot_filename, bbox_inches='tight', dpi=100)
+        fig1.savefig(plot_filename, bbox_inches="tight", dpi=100)
     plt.cla()
     plt.clf()
