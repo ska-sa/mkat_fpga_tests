@@ -1,7 +1,5 @@
-node {
+node ("cmc") {
     ansiColor('xterm') {
-        // Just some echoes to show the ANSI color.
-        stage "\u001B[31mI'm Red\u001B[0m Now not"
     stage "Install Dependencies"
     sh  "#!/bin/bash \n" +
         "bash scripts/Jenkins_Scripts/install_dep_1.sh"
