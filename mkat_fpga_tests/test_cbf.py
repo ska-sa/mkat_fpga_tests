@@ -215,10 +215,10 @@ class test_CBF(unittest.TestCase):
             start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
             if n_ants == 64 and n_chans == 4096:
                 stop_channels = 2047
+            elif n_chans == 1024:
+                stop_channels = 1023
             else:
-                stop_channels = (
-                    n_chans - 1
-                )  # int(self.conf_file['instrument_params'].get('stop_channels', 2047))
+                stop_channels = int(self.conf_file['instrument_params'].get('stop_channels', 2047))
             LOGGER.info(
                 "Starting receiver on port %s, will only capture channels between %s-%s"
                 % (data_output_port, start_channels, stop_channels)
@@ -5342,13 +5342,12 @@ class test_CBF(unittest.TestCase):
             awgn_scale = 0.0645
             gain = "113+0j"
             fft_shift = 511
-            exp_channels = 4096
         else:
             # 32K
             awgn_scale = 0.063
             gain = "344+0j"
             fft_shift = 4095
-            exp_channels = 4096
+
 
         Aqf.step("Configure a digitiser simulator to generate correlated noise.")
         Aqf.progress(
@@ -5381,9 +5380,7 @@ class test_CBF(unittest.TestCase):
                 LOGGER.exception(errmsg)
                 return
             else:
-                # TODO MM, get number of channels from dump[n_chans_selected] instead of sensors
-                # no_channels = self.n_chans_selected
-
+                exp_channels = test_dump['xeng_raw'].shape[0]
                 no_channels = self.cam_sensors.get_value("n_chans")
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0

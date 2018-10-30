@@ -339,7 +339,7 @@ class CorrRx(threading.Thread):
             for heap in self.strm:
                 idx += 1
                 # Weird I do not know how this works and why its working, as heap isnt being updated
-                # updated = ig.update(heap)
+                updated = ig.update(heap)
                 cnt_diff = heap.cnt - last_cnt
                 last_cnt = heap.cnt
                 self.logger.debug(
