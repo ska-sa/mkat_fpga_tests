@@ -1,0 +1,10 @@
+#!/bin/bash
+
+installer() {
+cd /srv/"${1}"
+sudo rm -rf build "${1}.egg-info" /usr/local/lib/python2.7/dist-packages/"${1}"*; 
+sudo python /srv/${1}/setup.py install
+}
+sudo pip install tornado==4.3
+installer casperfpga
+installer corr2
