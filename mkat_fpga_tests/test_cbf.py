@@ -4913,7 +4913,7 @@ class test_CBF(unittest.TestCase):
                 running_instrument = self.instrument
                 assert running_instrument is not False
                 msg = "Running instrument currently does not have beamforming capabilities."
-                assert running_instrument.endswith("4k"), msg
+                assert not running_instrument.endswith("32k"), msg
                 Aqf.step("Discontinue any capturing of %s and %s, if active." % (beams[0], beams[1]))
                 reply, informs = self.katcp_req.capture_stop(beams[0])
                 assert reply.reply_ok(), str(reply)
@@ -5054,7 +5054,7 @@ class test_CBF(unittest.TestCase):
                     ),
                     log_dynamic_range=90,
                     log_normalise_to=1,
-                    caption=("Tied Array Beamformer data captured during Baseline Correlation " "Product test."),
+                    caption=("Tied Array Beamformer data captured during Baseline Correlation Product test."),
                     plot_type="bf",
                 )
             except Exception as e:
@@ -6008,7 +6008,7 @@ class test_CBF(unittest.TestCase):
             running_instrument = self.instrument
             assert running_instrument is not False
             msg = "Running instrument currently does not have beamforming capabilities."
-            assert running_instrument.endswith("4k"), msg
+            assert not running_instrument.endswith("32k"), msg
             Aqf.step("Discontinue any capturing of %s and %s, if active." % (beams[0], beams[1]))
             reply, informs = self.katcp_req.capture_stop(beams[0], timeout=60)
             assert reply.reply_ok(), str(reply)
