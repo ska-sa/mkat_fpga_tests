@@ -6098,25 +6098,35 @@ class test_CBF(unittest.TestCase):
         else:
             Aqf.failed("KAT SDP Ingest Node failed to start")
 
-        # Setting DSIM to generate off center bin CW time sequence
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.085
-            cw_scale = 0.9
-            gain = 7
-            fft_shift = 8191
-        else:
-            # 32K
-            awgn_scale = 0.063
-            cw_scale = 0.01
-            gain = "344+0j"
-            fft_shift = 4095
-
         # Determine CW frequency
         center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
         center_bin_offset_freq = ch_bw * center_bin_offset
         cw_ch = strt_ch_idx + int(ch_per_substream / 4)
-        # cw_ch = 262
+
+        # Setting DSIM to generate off center bin CW time sequence
+        if "4k" in self.instrument:
+            # 4K
+            _capture_time = 0.1
+            awgn_scale = 0.085
+            cw_scale = 0.9
+            gain = 7
+            fft_shift = 8191
+        elif "1k" in self.instrument:
+            #
+            _capture_time = 2 
+            awgn_scale = 0.085
+            cw_scale = 0.9
+            gain = "30+0j"
+            fft_shift = 1023
+            cw_ch = 65
+        else:
+            # 32K
+            _capture_time = 0.1
+            awgn_scale = 0.063
+            cw_scale = 0.01
+            gain = "344+0j"
+            fft_shift = 4095
+            
         freq = ch_list[cw_ch] + center_bin_offset_freq
 
         Aqf.step(
@@ -6163,7 +6173,7 @@ class test_CBF(unittest.TestCase):
         beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
         try:
             # Currently setting weights is broken
-            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, capture_time=0.1)
+            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, capture_time=_capture_time)
             # bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, capture_time=0.1)
             # Close any KAT SDP ingest nodes
             stop_katsdpingest_docker(self)
