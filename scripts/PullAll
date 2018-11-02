@@ -3,6 +3,8 @@
 installer() {
 cd /srv/"${1}"
 sudo rm -rf build "${1}.egg-info" /usr/local/lib/python2.7/dist-packages/"${1}"*; 
+git checkout -f devel
+git pull
 sudo python /srv/${1}/setup.py install
 }
 sudo pip install tornado==4.3
