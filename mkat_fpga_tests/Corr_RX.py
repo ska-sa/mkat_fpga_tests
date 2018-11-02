@@ -68,13 +68,12 @@ def process_xeng_data(self, heap_data, ig, channels):
             else:
                 if (xeng_raw == old_data).all():
                     self.logger.error(
-                        "Got repeat freq %i with SAME data for time %i" % (this_freq, this_time)
+                        "Got repeat freq %s with SAME data for time %s" % (this_freq, this_time)
                     )
                 else:
                     self.logger.error(
-                        "Got repeat freq %i with DIFFERENT data "
-                        "for time %i\n\tFile:%s Line:%s" % (this_freq, this_time)
-                    )
+                        "Got repeat freq %s with DIFFERENT data for time %s" % (this_freq, this_time),
+                        exc_info=True)
         else:
             heap_data[this_time][this_freq] = xeng_raw
     else:
@@ -346,7 +345,7 @@ class CorrRx(threading.Thread):
                     "PROCESSING HEAP idx(%i) cnt(%i) cnt_diff(%i) @ %.4f"
                     % (idx, heap.cnt, cnt_diff, time.time())
                 )
-                self.logger.debug("Contents dict is now %i long" % len(heap_contents))
+                self.logger.debug("Contents dict is now %s long" % len(heap_contents))
                 # output item values specified
                 data = process_xeng_data(self, heap_contents, ig, self.channels)
                 ig_copy = copy.deepcopy(data)
