@@ -23,7 +23,7 @@ import spead2.recv as s2rx
 from casperfpga import network
 from corr2 import data_stream
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("mkat_fpga_tests.%s" % __name__)
 interface_prefix = "10.100"
 
 
