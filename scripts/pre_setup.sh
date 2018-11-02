@@ -127,8 +127,8 @@ if [ -f "${VENV}" ]; then
             [ "$?" = 0 ] && gprint "Installation Successful" || rprint "${pkg} installation FAILED!!!"
         fi
     done
-    cd "${CURDIR}"
-    bash --rcfile "${VENV}" -i
+    # cd "${CURDIR}"
+    # bash --rcfile "${VENV}" -i
 else
     gprint "VIRTUAL ENVIROMENT MISSING!!!!!!!!!!!!!\n"
 fi

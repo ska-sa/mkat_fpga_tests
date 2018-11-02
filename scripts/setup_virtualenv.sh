@@ -4,29 +4,30 @@
 # Note: Include this file in the jenkins job script to setup the virtualenv.
 # Author: Mpho Mphego <mmphego@ska.ac.za>
 
-function usage() {
-    echo -e "Usage: bash $0 VERBOSE SYS_PACKAGES\n
-    Automated virtualenv and system packages installer which installs on cwd
-    VERBOSE: Boolean:- if true, everything will be printed to stdout
-    SYS_PACKAGES: Boolean:- if true, virtualenv will also use system packages\n";
-    exit 1;
-}
+# function usage() {
+#     echo -e "Usage: bash $0 VERBOSE SYS_PACKAGES\n
+#     Automated virtualenv and system packages installer which installs on cwd
+#     VERBOSE: Boolean:- if true, everything will be printed to stdout
+#     SYS_PACKAGES: Boolean:- if true, virtualenv will also use system packages\n";
+#     exit 1;
+# }
 
-if [ -z "$*" ]; then
-    usage
-fi
+# if [ -z "$*" ]; then
+#     usage
+# fi
 
 
-# MAIN
-VERBOSE=${1:-false}
-SYS_PACKAGES=${2:-false}
+# # MAIN
+# VERBOSE=${1:-false}
+# SYS_PACKAGES=${2:-false}
 
-if [ "${VERBOSE}" = true ]; then
-    echo "Abort on any errors and verbose"
-    set -ex
-else
-    set -e
-fi
+# if [ "${VERBOSE}" = true ]; then
+#     echo "Abort on any errors and verbose"
+#     set -ex
+# else
+#     set -e
+# fi
+set -e
 
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
@@ -44,30 +45,31 @@ function rprint (){
 VIRTUAL_ENV=".venv"
 
 gprint "Installing ${VIRTUAL_ENV} in current working directory"
+$(command -v virtualenv) "${VIRTUAL_ENV}" -q
 
-if [ "${SYS_PACKAGES}" = true ] ; then
-    # Create virtual environment and include Python system packages
-    gprint "Creating virtualenv venv directory and including system packages"
-    if [ "${VERBOSE}" = true ]; then
-        $(command -v virtualenv) "${VIRTUAL_ENV}" --system-site-packages
-    else
-        $(command -v virtualenv) "${VIRTUAL_ENV}" -q --system-site-packages
-    fi
-else
-    gprint "Creating virtualenv venv directory without system packages"
-    if [ "${VERBOSE}" = true ]; then
-        $(command -v virtualenv) "${VIRTUAL_ENV}"
-    else
-        $(command -v virtualenv) "${VIRTUAL_ENV}" -q
-    fi
-fi
+# if [ "${SYS_PACKAGES}" = true ] ; then
+#     # Create virtual environment and include Python system packages
+#     gprint "Creating virtualenv venv directory and including system packages"
+#     if [ "${VERBOSE}" = true ]; then
+#         $(command -v virtualenv) "${VIRTUAL_ENV}" --system-site-packages
+#     else
+#         $(command -v virtualenv) "${VIRTUAL_ENV}" -q --system-site-packages
+#     fi
+# else
+#     gprint "Creating virtualenv venv directory without system packages"
+#     if [ "${VERBOSE}" = true ]; then
+#         $(command -v virtualenv) "${VIRTUAL_ENV}"
+#     else
+#         $(command -v virtualenv) "${VIRTUAL_ENV}" -q
+#     fi
+# fi
 
 "$VIRTUAL_ENV"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 source "${VIRTUAL_ENV}/bin/activate"
 export PATH="${VIRTUAL_ENV}/bin:$PATH"
 
-gprint "Confirm that you are in a virtualenv: $(which python) \n\n"
+gprint "Confirm that you are in a virtualenv: $(which python)"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
     rprint "Could not create virtualenv: $VIRTUAL_ENV"
@@ -79,11 +81,12 @@ function install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
     gprint "Installing development pip dependencies from ${FILENAME} file."
     if [ -f "$FILENAME" ]; then
-        if [ "${VERBOSE}" = true ]; then
-            $(command -v python) -W ignore::Warning -m pip install -r $FILENAME
-        else
-            $(command -v python) -W ignore::Warning -m pip install -q -r $FILENAME
-        fi
+        # if [ "${VERBOSE}" = true ]; then
+        #     $(command -v python) -W ignore::Warning -m pip install -r $FILENAME
+        # else
+        #     $(command -v python) -W ignore::Warning -m pip install -q -r $FILENAME
+        # fi
+        $(command -v python) -W ignore::Warning -m pip install -q -r $FILENAME
     fi                           # do nothing if file is not found.
 }
 
@@ -92,11 +95,12 @@ function install_pip_requirements() {
 # InsecurePlatformWarning: A true SSLContext object is not available.
 # This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail.
 # You can upgrade to a newer version of Python to solve this.
-if [ "${VERBOSE}" = true ]; then
-    $(command -v python) -W ignore::Warning -m pip install --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
-else
-    $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
-fi
+# if [ "${VERBOSE}" = true ]; then
+#     $(command -v python) -W ignore::Warning -m pip install --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+# else
+#     $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+# fi
+$(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
 
 function pre_setup(){
@@ -109,7 +113,7 @@ fi
 
 function post_setup(){
 install_pip_requirements "pip-dev-requirements.txt"
-if [ -f "./setup.py" ]; then
+if [ -f "setup.py" ]; then
     gprint "Installing setup.py";
     # Install with dependencies.
     if [ "${VERBOSE}" = true ]; then
@@ -117,8 +121,10 @@ if [ -f "./setup.py" ]; then
     else
         python setup.py install -f > /dev/null 2>&1
     fi
+
 fi
 gprint "DONE!!!!\n\n"
+bash --rcfile "${VENV}/bin/activate" -i
 }
 
 pre_setup
