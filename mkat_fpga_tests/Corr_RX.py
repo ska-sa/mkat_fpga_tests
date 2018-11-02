@@ -72,8 +72,7 @@ def process_xeng_data(self, heap_data, ig, channels):
                     )
                 else:
                     self.logger.error(
-                        "Got repeat freq %s with DIFFERENT data for time %s" % (this_freq, this_time),
-                        exc_info=True)
+                        "Got repeat freq %s with DIFFERENT data for time %s" % (this_freq, this_time))
         else:
             heap_data[this_time][this_freq] = xeng_raw
     else:
