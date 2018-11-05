@@ -23,7 +23,7 @@ import spead2.recv as s2rx
 from casperfpga import network
 from corr2 import data_stream
 
-LOGGER = logging.getLogger("mkat_fpga_tests.%s" % __name__)
+LOGGER = logging.getLogger(__name__)
 interface_prefix = "10.100"
 
 
@@ -138,7 +138,8 @@ def process_xeng_data(self, heap_data, ig, channels):
                 rvs["dump_timestamp_readable"] = _dump_timestamp_readable
                 rvs["xeng_raw"] = rv[1]
                 rvs["n_chans_selected"] = abs(self.stop_channel - self.strt_channel)
-
+                self.logger.info("Current dump timestamp: %s and n_chans: %s" % (
+                    _dump_timestamp_readable, rvs["n_chans_selected"]))
     return rvs
 
 
@@ -180,8 +181,9 @@ class CorrRx(threading.Thread):
         port=7148,
         queue_size=3,
         channels=(0, 4096),
+        **kwargs
     ):
-        self.logger = LOGGER
+        self.logger = kwargs.get('logger', LOGGER)
         self.quit_event = threading.Event()
         self.data_queue = Queue.Queue(maxsize=queue_size)
         self.queue_size = queue_size
@@ -228,6 +230,7 @@ class CorrRx(threading.Thread):
 
             sensors_required = [
                 "n-ants",
+                "n-xengs",
                 "scale-factor-timestamp",
                 "sync-time",
                 "{}-bls-ordering".format(product_name),
@@ -247,9 +250,11 @@ class CorrRx(threading.Thread):
                 self.n_accs = int(sensors["{}-n-accs".format(product_name)])
             except Exception:
                 self.n_accs = int(float(sensors["{}-n-accs".format(product_name)]))
+            self.n_xengs = int(sensors.get("n-xengs"))
             self.n_ants = int(sensors.get("n-ants", 0))
             self.sync_time = float(sensors.get("sync-time", 0))
             self.scale_factor_timestamp = float(sensors.get("scale-factor-timestamp", 0))
+            self.bls_ordering = sensors.get("{}-bls-ordering".format(product_name))
         except Exception:
             msg = "Failed to connect to katcp and retrieve sensors values"
             self.logger.exception(msg)
@@ -282,6 +287,46 @@ class CorrRx(threading.Thread):
             self.running_event.wait(timeout)
         self.logger.info("SPEAD receiver started")
 
+
+
+    def _spead_stream(self, active_frames=3):
+        """
+        Spead stream initialisation with performance tuning added.
+
+        """
+        n_chans_per_substream = self.n_chans / self.NUM_XENG
+        heap_data_size = (
+            np.dtype(np.complex64).itemsize * n_chans_per_substream * len(self.bls_ordering))
+
+        # It's possible for a heap from each X engine and a descriptor heap
+        # per endpoint to all arrive at once. We assume that each xengine will
+        # not overlap packets between heaps, and that there is enough of a gap
+        # between heaps that reordering in the network is a non-issue.
+        stream_xengs = ring_heaps = (
+            self.n_chans // n_chans_per_substream)
+        max_heaps = stream_xengs + 2 * self.n_xengs
+        # We need space in the memory pool for:
+        # - live heaps (max_heaps, plus a newly incoming heap)
+        # - ringbuffer heaps
+        # - per X-engine:
+        #   - heap that has just been popped from the ringbuffer (1)
+        #   - active frames
+        #   - complete frames queue (1)
+        #   - frame being processed by ingest_session (which could be several, depending on
+        #     latency of the pipeline, but assume 3 to be on the safe side)
+        memory_pool_heaps = ring_heaps + max_heaps + stream_xengs * (active_frames + 5)
+        memory_pool = spead2.MemoryPool(2**14, heap_data_size + 2**9,
+                                        memory_pool_heaps, memory_pool_heaps)
+
+        local_threadpool = spead2.ThreadPool()
+        self.logger.debug('Created Spead2 stream instance with max_heaps=%s and ring_heaps=%s' % (
+            max_heaps, ring_heaps))
+        strm = s2rx.Stream(local_threadpool, max_heaps=max_heaps, ring_heaps=ring_heaps)
+        del local_threadpool
+        strm.set_memory_allocator(memory_pool)
+        strm.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
+        return strm
+
     def run(self):
 
         self.logger.info(
@@ -309,12 +354,14 @@ class CorrRx(threading.Thread):
             [ethx for ethx in network_interfaces() if ethx.startswith(interface_prefix)]
         )
         self.logger.info("Interface Address: %s" % self.interface_address)
-        self.strm = strm = s2rx.Stream(
-            spead2.ThreadPool(),
-            bug_compat=0,
-            max_heaps=n_substreams * self.queue_size + 1,
-            ring_heaps=n_substreams * self.queue_size + 1,
-        )
+        self.strm = strm = self._spead_stream()
+
+        # self.strm = strm = s2rx.Stream(
+        #     spead2.ThreadPool(),
+        #     bug_compat=0,
+        #     max_heaps=n_substreams * self.queue_size + 1,
+        #     ring_heaps=n_substreams * self.queue_size + 1,
+        # )
 
         for ctr in range(strt_substream, stop_substream + 1):
             self._addr = network.IpAddress(self.data_ip.ip_int + ctr).ip_str
