@@ -12,7 +12,7 @@ from mkat_fpga_tests.utils import loggerise
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
 
-LOGGER = logging.getLogger('mkat_fpga_tests.%s'% __name__)
+LOGGER = logging.getLogger('mkat_fpga_tests.%s' % __name__)
 
 
 def meth_end_aqf(meth):
