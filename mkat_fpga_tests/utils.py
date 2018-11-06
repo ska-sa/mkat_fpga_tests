@@ -39,7 +39,7 @@ except ImportError:
     from chainmap import ChainMap
 
 
-LOGGER = logging.getLogger("mkat_fpga_tests.%s" % __name__)
+LOGGER = logging.getLogger(__name__)
 
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)
@@ -267,7 +267,7 @@ def clear_all_delays(self):
     while _retries:
         _retries -= 1
         try:
-            dump = self.receiver.get_clean_dump(discard=1)
+            dump = self.receiver.get_clean_dump(discard=0)
             deng_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
             discard = 0
             while True:
