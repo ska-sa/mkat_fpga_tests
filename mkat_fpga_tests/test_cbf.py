@@ -56,8 +56,7 @@ from termcolor import colored
 
 load_dotenv(find_dotenv())
 
-logger_name = "mkat_fpga_tests"
-LOGGER = logging.getLogger(logger_name)
+LOGGER = logging.getLogger(__name__)
 # How long to wait for a correlator dump to arrive in tests
 DUMP_TIMEOUT = 10
 # ToDo MM (2017-07-21) Improve the logging for debugging
@@ -4064,6 +4063,7 @@ class test_CBF(unittest.TestCase):
             # delay_rate = ((setup_data['sample_period'] / self.cam_sensors.get_value('int_time']) *
             # np.random.rand() * (dump_counts - 3))
             # delay_rate = 3.98195128768e-09
+            # _rate = get_delay_bounds(self.corr_fix.correlator).get('min_delay_rate')
             delay_rate = 0.7 * (self.cam_sensors.sample_period / self.cam_sensors.get_value("int_time"))
             delay_value = 0
             fringe_offset = 0
