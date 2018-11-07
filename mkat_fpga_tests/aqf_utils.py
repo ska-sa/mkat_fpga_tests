@@ -42,7 +42,6 @@ def cls_end_aqf(cls):
 
 # Todo, Fix this function
 
-
 def aqf_plot_phase_results(
     freqs,
     actual_data,
@@ -435,7 +434,7 @@ def aqf_plot_and_save(
         plt.clf()
 
 
-def test_heading(heading):
+def heading(heading):
     Aqf.hop("-" * 50)
     Aqf.stepBold(heading)
     Aqf.hop("-" * 50)

@@ -271,7 +271,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-                test_heading("CBF Channelisation Wideband Coarse L-band")
+                heading("CBF Channelisation Wideband Coarse L-band")
                 num_discards = 1
                 if n_chans > 2048:
                     self._test_channelisation(
@@ -296,7 +296,7 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-                test_heading("CBF Channelisation Wideband Fine L-band")
+                heading("CBF Channelisation Wideband Fine L-band")
                 self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
             else:
                 Aqf.failed(self.errmsg)
@@ -313,7 +313,7 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                test_heading("CBF Channelisation Wideband Coarse SFDR L-band")
+                heading("CBF Channelisation Wideband Coarse SFDR L-band")
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test", self.n_chans_selected))
                 self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
             else:
@@ -330,7 +330,7 @@ class test_CBF(unittest.TestCase):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                test_heading("CBF Channelisation Wideband Fine SFDR L-band")
+                heading("CBF Channelisation Wideband Fine SFDR L-band")
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test", self.n_chans_selected))
                 self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=n_ch_to_test)  # Hz
             else:
@@ -645,11 +645,11 @@ class test_CBF(unittest.TestCase):
             if instrument_success:
                 # self._test_network_link_error()
                 # self._test_memory_error()
-                test_heading("Processing Pipeline Failures")
+                heading("Processing Pipeline Failures")
                 Aqf.note("Test is being qualified by CBF.V.3.29")
-                test_heading("HMC Memory errors")
+                heading("HMC Memory errors")
                 Aqf.note("See waiver")
-                test_heading("Network Link errors")
+                heading("Network Link errors")
                 Aqf.note("See waiver")
             else:
                 Aqf.failed(self.errmsg)
@@ -2453,7 +2453,7 @@ class test_CBF(unittest.TestCase):
             power_log_file = power_logger.log_file_name
             power_logger.join()
             try:
-                test_heading("CBF Power Consumption")
+                heading("CBF Power Consumption")
                 self._process_power_log(start_timestamp, power_log_file)
             except Exception:
                 msg = "Failed to read/decode the PDU log."
@@ -2464,7 +2464,7 @@ class test_CBF(unittest.TestCase):
         """This test verifies if a cw tone is only applied to a single input 0,
             figure out if VACC is rooted by 1
         """
-        test_heading("SPEAD Accumulation Verification")
+        heading("SPEAD Accumulation Verification")
         cw_scale = 0.035
         freq = 300e6
         Aqf.step(
@@ -2510,7 +2510,7 @@ class test_CBF(unittest.TestCase):
             init_dsim_sources(self.dhost)
 
     def _test_product_baselines(self):
-        test_heading("CBF Baseline Correlation Products")
+        heading("CBF Baseline Correlation Products")
         if "4k" in self.instrument:
             # 4K
             awgn_scale = 0.0645
@@ -2797,7 +2797,7 @@ class test_CBF(unittest.TestCase):
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
         """
-        test_heading("Spead Accumulation Back-to-Back Consistency")
+        heading("Spead Accumulation Back-to-Back Consistency")
         Aqf.step("Randomly select a channel to test.")
         n_chans = self.cam_sensors.get_value("n_chans")
         test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
@@ -2908,7 +2908,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_freq_scan_consistency(self, threshold=1e-1):
         """This test confirms if the identical frequency scans produce equal results."""
-        test_heading("Spead Accumulation Frequency Consistency")
+        heading("Spead Accumulation Frequency Consistency")
         Aqf.step("Randomly select a channel to test.")
         n_chans = self.cam_sensors.get_value("n_chans")
         test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
@@ -3238,7 +3238,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_delay_tracking(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay tracking"
-        test_heading(msg)
+        heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             num_int = setup_data["num_int"]
@@ -3501,7 +3501,7 @@ class test_CBF(unittest.TestCase):
         """
         Report sensor values
         """
-        test_heading("Monitor Sensors: Report Sensor Values")
+        heading("Monitor Sensors: Report Sensor Values")
 
         def report_sensor_list(self):
             Aqf.step(
@@ -3568,7 +3568,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_fft_overflow(self):
         """Sensor PFB error"""
-        test_heading("Systematic Errors Reporting: FFT Overflow")
+        heading("Systematic Errors Reporting: FFT Overflow")
         # TODO MM, Simplify the test
         ch_list = self.cam_sensors.ch_center_freqs
         cw_freq = ch_list[int(self.n_chans_selected / 2)]
@@ -3669,7 +3669,7 @@ class test_CBF(unittest.TestCase):
         pass
 
     def _test_network_link_error(self):
-        test_heading("Fault Detection: Network Link Errors")
+        heading("Fault Detection: Network Link Errors")
 
         def int2ip(n):
             return socket.inet_ntoa(struct.pack("!I", n))
@@ -3791,7 +3791,7 @@ class test_CBF(unittest.TestCase):
         #
 
     def _test_host_sensors_status(self):
-        test_heading("Monitor Sensors: Processing Node's Sensor Status")
+        heading("Monitor Sensors: Processing Node's Sensor Status")
 
         Aqf.step(
             "This test confirms that each processing node's sensor (Temp, Voltage, Current, "
@@ -4056,7 +4056,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_delay_rate(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay Rate"
-        test_heading(msg)
+        heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             dump_counts = 5
@@ -4185,7 +4185,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_fringe_rate(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Fringe rate"
-        test_heading(msg)
+        heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             dump_counts = 5
@@ -4305,7 +4305,7 @@ class test_CBF(unittest.TestCase):
 
     def _test_fringe_offset(self):
         msg = "CBF Delay and Phase Compensation Functional VR: Fringe offset"
-        test_heading(msg)
+        heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             dump_counts = 5
@@ -4424,7 +4424,7 @@ class test_CBF(unittest.TestCase):
         Delay applied to the correct input
         """
         msg = "CBF Delay and Phase Compensation Functional VR: Delays applied to the correct input"
-        test_heading(msg)
+        heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             Aqf.step(
@@ -4800,14 +4800,14 @@ class test_CBF(unittest.TestCase):
                 Aqf.progress("CMC CBF SCRIPTS : M1200-0048")
                 Aqf.progress("CORRELATOR MASTER CONTROLLER (CMC) : M1200-0012")
 
-        test_heading("CBF CMC Operating System.")
+        heading("CBF CMC Operating System.")
         Aqf.progress("CBF OS: %s | CMC OS P/N: M1200-0045" % " ".join(os.uname()))
 
-        test_heading("CBF Software Packages Version Information.")
+        heading("CBF Software Packages Version Information.")
         Aqf.progress("CORRELATOR BEAMFORMER GATEWARE (CBF) : M1200-0041")
         get_gateware_info()
 
-        test_heading("CBF Git Version Information.")
+        heading("CBF Git Version Information.")
         Aqf.progress("CORRELATOR BEAMFORMER SOFTWARE : M1200-0036")
         packages_info = get_package_versions()
         for name, repo_dir in packages_info.iteritems():
@@ -4822,7 +4822,7 @@ class test_CBF(unittest.TestCase):
             except Exception:
                 pass
 
-        test_heading("CBF Processing Node Version Information")
+        heading("CBF Processing Node Version Information")
 
         get_skarab_config()
 
@@ -8029,7 +8029,7 @@ class test_CBF(unittest.TestCase):
         #     subprocess.check_call(["rm", csv_filename])
 
     def _test_product_baseline_leakage(self):
-        test_heading("CBF Baseline Correlation Product Leakage")
+        heading("CBF Baseline Correlation Product Leakage")
         if "4k" in self.instrument:
             # 4K
             awgn_scale = 0.0645
