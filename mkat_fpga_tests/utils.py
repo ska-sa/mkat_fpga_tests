@@ -39,8 +39,7 @@ except ImportError:
     from chainmap import ChainMap
 
 
-# LOGGER = logging.getLogger(__name__)
-LOGGER = logging.getLogger("mkat_fpga_tests")
+LOGGER = logging.getLogger(__name__)
 
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)
@@ -268,7 +267,7 @@ def clear_all_delays(self):
     while _retries:
         _retries -= 1
         try:
-            dump = self.receiver.get_clean_dump(discard=1)
+            dump = self.receiver.get_clean_dump(discard=0)
             deng_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
             discard = 0
             while True:
@@ -524,7 +523,7 @@ def get_delay_bounds(correlator):
     phase offset and phase offset rate
 
     """
-    fhost = get_hosts("fhosts")[0]
+    fhost = correlator.fhosts[0]
     # Get maximum delay value
     reg_info = fhost.registers.delay0.block_info
     reg_bw = int(reg_info["bitwidths"])
@@ -1285,11 +1284,13 @@ class DictEval(object):
 
 def FPGA_Connect(hosts, _timeout=30):
     """Utility to connect to hosts via Casperfpga"""
+    _logger = LOGGER
+    _logger.setLevel(logging.ERROR)
     fpgas = False
     retry = 10
     while not fpgas:
         try:
-            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout)
+            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout, logger=_logger)
         except Exception as e:
             retry -= 1
             if retry == 0:

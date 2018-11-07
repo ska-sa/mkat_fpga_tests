@@ -3,6 +3,7 @@ import os
 import socket
 import struct
 import subprocess
+import nose
 import sys
 import time
 from concurrent.futures import TimeoutError
@@ -41,6 +42,7 @@ Handler = logging.FileHandler("/tmp/%s_by_%s.log" % (__name__, get_username))
 Handler.setFormatter(Formatter)
 LOGGER.addHandler(Handler)
 
+_logLevel = nose.util.log.level
 # For Debugging
 # logging.getLogger('katcp').setLevel('DEBUG')
 
@@ -163,18 +165,18 @@ class CorrelatorFixture(object):
                 LOGGER.error(errmsg)
                 sys.exit(errmsg)
             try:
-                dig_host = self.dsim_conf["host"]
-                self._dhost = None
                 self._dhost = FpgaDsimHost(
-                    dig_host, config=self.dsim_conf, transport=SkarabTransport
-                )
+                    self.dsim_conf["host"], config=self.dsim_conf, transport=SkarabTransport,
+                    logger=LOGGER
+                    )
+                self._dhost.get_system_information(filename=self.dsim_conf['bitstream'])
             except Exception:
                 errmsg = "Digitiser Simulator failed to retrieve information"
                 LOGGER.exception(errmsg)
                 sys.exit(errmsg)
             else:
                 # Check if D-eng is running else start it.
-                if self._dhost.is_running():
+                if self._dhost.is_running() and self._dhost.test_connection():
                     LOGGER.info("D-Eng is already running.")
                     return self._dhost
 
@@ -198,14 +200,18 @@ class CorrelatorFixture(object):
                 while True:
                     _retries -= 1
                     try:
+                        _logger = LOGGER
+                        _logger.setLevel(_logLevel)
                         self._correlator = fxcorrelator.FxCorrelator(
-                            "test correlator", config_source=self.config_filename
+                            "test correlator", config_source=self.config_filename,
+                            logLevel=_logLevel,
+                            logger=_logger,
                         )
-                        time.sleep(1)
+                        time.sleep(.5)
                         try:
-                            self.correlator.initialise(program=False, configure=False)
+                            self.correlator.initialise(program=False, configure=False, logLevel=_logLevel)
                         except TypeError:
-                            self.correlator.initialise(program=False)
+                            self.correlator.initialise(program=False, logLevel=_logLevel)
                         return self._correlator
                     except Exception as e:
                         LOGGER.exception(

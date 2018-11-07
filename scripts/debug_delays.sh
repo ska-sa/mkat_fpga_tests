@@ -7,18 +7,23 @@ set -e
 bold=$(tput bold)
 normal=$(tput sgr0)
 
-if [ -z "$*" ];
-	then printf "${bold}Usage: $0 {time to apply in seconds} {baseline}, else delays are cleared by Default${normal}\n\n";
+export tapply=$1
+export bls=$2
+export CONFIG=$3
+
+function clearall {
     printf "${bold}Clearing all delays in 30 seconds.${normal}\n\n";
 	kcpcmd -t 500 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') delays \
 	`python -c 'import time, os; print time.time() + 30'` '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0' | grep -a 'delays'
 	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') \
 	capture-stop baseline-correlation-products | grep -a 'capture';
+}
+
+if [ -z "$*" ];
+	then printf "${bold}Usage: $0 {time to apply in seconds} {baseline} {config}, else delays are cleared by Default${normal}\n\n";
+	clearall
     exit 1;
 fi
-
-export tapply=$1
-export bls=$2
 
 function configure_dsim {
 	printf "${bold}Setting FFT-Shift to 511.${normal}\n";
@@ -26,7 +31,7 @@ function configure_dsim {
 	printf "${bold}Setting gain on all inputs to 113.${normal}\n";
 	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') gain-all 113 | grep -a 'gain-all'
 	printf "${bold}Setting Dsim to generate correlated Noise.${normal}\n";
-	$(which corr2_dsim_control.py)  --output-type 0 signal --output-scale 0 1 \
+	corr2_dsim_control.py --config "${CONFIG}" --output-type 0 signal --output-scale 0 1 \
 	--output-scale 1 1 --output-type 1 signal --noise-source corr 0.0645;
 }
 
@@ -39,15 +44,14 @@ function start_capture {
 function stop_capture {
 	printf "\n\n\n"
 	printf "${bold}Data capture stopped and dsim cleared.${normal}\n\n";
-	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') \
-	capture-stop baseline-correlation-products > /dev/null 2>&1;
-	$(which corr2_dsim_control.py) --zeros-sine --zeros-noise > /dev/null 2>&1;
+	corr2_dsim_control.py --zeros-sine --zeros-noise > /dev/null 2>&1;
+	clearall
 }
 
 
 function start_rx {
 	printf "${bold}Receiving Baseline: ${bls} data\n\n ${normal}";
-	$(which corr2_rx.py) --baselines ${bls} --loglevel INFO --plot --ion &
+	corr2_rx.py --config "${CONFIG}" --plot --ion --baseline "${bls}" &
 }
 
 # trap ctrl-c and call exitting_code()
