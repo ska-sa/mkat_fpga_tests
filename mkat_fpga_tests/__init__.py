@@ -204,7 +204,8 @@ class CorrelatorFixture(object):
                         _logger.setLevel(logging.ERROR)
                         self._correlator = fxcorrelator.FxCorrelator(
                             "test correlator", config_source=self.config_filename,
-                            logger=_logger
+                            logLevel=logging.ERROR,
+                            logger=_logger,
                         )
                         time.sleep(1)
                         try:

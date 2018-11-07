@@ -523,7 +523,7 @@ def get_delay_bounds(correlator):
     phase offset and phase offset rate
 
     """
-    fhost = get_hosts("fhosts")[0]
+    fhost = correlator.fhosts[0]
     # Get maximum delay value
     reg_info = fhost.registers.delay0.block_info
     reg_bw = int(reg_info["bitwidths"])
