@@ -39,15 +39,14 @@ except ImportError:
     from chainmap import ChainMap
 
 
-LOGGER = logging.getLogger(__name__)
-
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)
 
 cam_timeout = 60
 
-# Define lambda functions to convert ip to int and back
+LOGGER = logging.getLogger(__name__)
 
+# Define lambda functions to convert ip to int and back
 
 def ip2int(ipstr):
     return struct.unpack("!I", socket.inet_aton(ipstr))[0]
@@ -1284,13 +1283,11 @@ class DictEval(object):
 
 def FPGA_Connect(hosts, _timeout=30):
     """Utility to connect to hosts via Casperfpga"""
-    _logger = LOGGER
-    _logger.setLevel(logging.ERROR)
     fpgas = False
     retry = 10
     while not fpgas:
         try:
-            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout, logger=_logger)
+            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout, logger=LOGGER)
         except Exception as e:
             retry -= 1
             if retry == 0:
