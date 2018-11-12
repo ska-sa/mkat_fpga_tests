@@ -15,6 +15,7 @@ import time
 import warnings
 from collections import Mapping
 from contextlib import contextmanager
+from inspect import getframeinfo, stack
 from socket import inet_ntoa
 from struct import pack
 
@@ -22,32 +23,34 @@ import h5py
 import katcp
 import numpy as np
 import pandas as pd
+from casperfpga.utils import threaded_create_fpgas_from_hosts
+from corr2.data_stream import StreamAddress
 from Crypto.Cipher import AES
 from nose.plugins.attrib import attr
-
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
 
-from casperfpga.utils import threaded_create_fpgas_from_hosts
-from corr2.data_stream import StreamAddress
+from Logger import LoggingClass
 
 try:
     from collections import ChainMap
 except ImportError:
     from chainmap import ChainMap
 
-
-LOGGER = logging.getLogger(__name__)
+# I'm sure there's a better way///
+_logger = LoggingClass()
+LOGGER = _logger.logger
 
 # Max range of the integers coming out of VACC
 VACC_FULL_RANGE = float(2 ** 31)
 
+# Katcp default timeout
 cam_timeout = 60
 
-# Define lambda functions to convert ip to int and back
 
+# Define lambda functions to convert ip to int and back
 
 def ip2int(ipstr):
     return struct.unpack("!I", socket.inet_aton(ipstr))[0]
@@ -256,10 +259,10 @@ def clear_all_delays(self):
     try:
         no_fengines = self.cam_sensors.get_value("n_fengs")
         int_time = self.cam_sensors.get_value("int_time")
-        LOGGER.info("Retrieving test parameters via CAM Interface")
+        self.logger.info("Retrieving test parameters via CAM Interface")
     except Exception:
         no_fengines = len(self.correlator.fops.fengines)
-        LOGGER.exception("Retrieving number of fengines via corr object: %s" % no_fengines)
+        self.Error("Retrieving number of fengines via corr object: %s" % no_fengines, exc_info=True)
 
     delay_coefficients = ["0,0:0,0"] * no_fengines
     _retries = 3
@@ -311,25 +314,25 @@ def clear_all_delays(self):
             #        LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
             #        break
             # time_end = abs(end_time - start_time)
-            LOGGER.info("Time it took to set and confirm the delays {}s".format(time_end))
+            self.logger.info("Time it took to set and confirm the delays {}s".format(time_end))
             dump = self.receiver.get_clean_dump(discard=(num_int + 2))
             _max = int(np.max(np.angle(dump["xeng_raw"][:, 33, :][5:-5])))
             _min = int(np.min(np.angle(dump["xeng_raw"][:, 0, :][5:-5])))
             errmsg = "Max/Min delays found: %s/%s ie not cleared" % (_max, _min)
             assert _min == _max == 0, errmsg
-            LOGGER.info(
+            self.logger.info(
                 "Delays cleared successfully. Dump timestamp is in-sync with epoch: {}".format(
                     time_diff
                 )
             )
             return True
         except AssertionError:
-            LOGGER.warning(errmsg)
+            self.logger.warning(errmsg)
         except TypeError:
-            LOGGER.exception("Object has no attributes")
+            self.logger.exception("Object has no attributes")
             return False
         except Exception:
-            LOGGER.exception(errmsg)
+            self.logger.exception(errmsg)
     return False
 
 
@@ -1284,13 +1287,11 @@ class DictEval(object):
 
 def FPGA_Connect(hosts, _timeout=30):
     """Utility to connect to hosts via Casperfpga"""
-    _logger = LOGGER
-    _logger.setLevel(logging.ERROR)
     fpgas = False
     retry = 10
     while not fpgas:
         try:
-            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout, logger=_logger)
+            fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout, logger=LOGGER)
         except Exception as e:
             retry -= 1
             if retry == 0:
@@ -1410,3 +1411,33 @@ def get_hosts(self, hosts=None, sensor="hostname-functional-mapping"):
         informs = eval(informs[0].arguments[-1])
         informs = dict((val, key) for key, val in informs.iteritems())
         return [v for i, v in informs.iteritems() if i.startswith(hosts)]
+
+
+
+class AqfReporter(object):
+
+    def Failed(self, msg, *args, **kwargs):
+        caller = getframeinfo(stack()[1][0])
+        Aqf.failed(msg)
+        self.logger.warn("-> Line:%d: - %s" % (caller.lineno, msg))
+
+    def Error(self, msg, *args, **kwargs):
+        caller = getframeinfo(stack()[1][0])
+        Aqf.failed(msg)
+        exception_info = kwargs.get('exc_info', False)
+        self.logger.error("-> Line:%d: - %s" % (caller.lineno, msg), exc_info=exception_info)
+
+    def Step(self, msg, *args, **kwargs):
+        caller = getframeinfo(stack()[1][0])
+        Aqf.step(msg)
+        self.logger.debug("-> Line:%d: - %s" % (caller.lineno, msg))
+
+    def Progress(self, msg, *args, **kwargs):
+        caller = getframeinfo(stack()[1][0])
+        Aqf.progress(msg)
+        self.logger.info("-> Line:%d: - %s" % (caller.lineno, msg))
+
+    def Note(self, msg, *args, **kwargs):
+        caller = getframeinfo(stack()[1][0])
+        Aqf.note(msg)
+        self.logger.info("-> Line:%d: - %s" % (caller.lineno, msg))
