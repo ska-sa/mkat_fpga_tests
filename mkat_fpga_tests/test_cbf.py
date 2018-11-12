@@ -27,9 +27,7 @@ import unittest
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
 from datetime import datetime
-from inspect import getframeinfo, stack
 
-import casperfpga
 import corr2
 import katcp
 import matplotlib.pyplot as plt
@@ -38,13 +36,14 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate
 import scipy.signal
-import spead2
 from dotenv import find_dotenv, load_dotenv
 from katcp.testutils import start_thread_with_cleanup
 from mkat_fpga_tests import CorrelatorFixture, add_cleanup
 from mkat_fpga_tests.aqf_utils import *
 from mkat_fpga_tests.utils import *
-from nosekatreport import *
+from nosekatreport import (Aqf, aqf_requirements, aqf_vr, decorators,
+                           generic_test, instrument_1k, instrument_4k,
+                           instrument_32k, manual_test, slow, system, untested)
 from termcolor import colored
 
 from Corr_RX import CorrRx
@@ -59,42 +58,6 @@ DUMP_TIMEOUT = 10
 # ToDo MM (2017-07-21) Improve the logging for debugging
 set_dsim_epoch = False
 dsim_timeout = 60
-
-# Set same logging level as per nosetests
-LOGGING_LEVEL = ''.join(
-    [i.split('=')[-1] for i in sys.argv if i.startswith('--logging-level')])
-if not LOGGING_LEVEL:
-    LOGGING_LEVEL = "INFO"
-
-
-class AqfReporter(object):
-
-    def Failed(self, msg, *args, **kwargs):
-        caller = getframeinfo(stack()[1][0])
-        Aqf.failed(msg)
-        self.logger.warn("-> Line:%d: - %s" % (caller.lineno, msg))
-
-    def Error(self, msg, *args, **kwargs):
-        caller = getframeinfo(stack()[1][0])
-        Aqf.failed(msg)
-        exception_info = kwargs.get('exc_info', False)
-        self.logger.error("-> Line:%d: - %s" % (caller.lineno, msg), exc_info=exception_info)
-
-    def Step(self, msg, *args, **kwargs):
-        caller = getframeinfo(stack()[1][0])
-        Aqf.step(msg)
-        self.logger.debug("-> Line:%d: - %s" % (caller.lineno, msg))
-
-    def Progress(self, msg, *args, **kwargs):
-        caller = getframeinfo(stack()[1][0])
-        Aqf.progress(msg)
-        self.logger.info("-> Line:%d: - %s" % (caller.lineno, msg))
-
-    def Note(self, msg, *args, **kwargs):
-        caller = getframeinfo(stack()[1][0])
-        Aqf.note(msg)
-        self.logger.info("-> Line:%d: - %s" % (caller.lineno, msg))
-
 
 
 @cls_end_aqf
@@ -116,7 +79,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.receiver = None
         self._dsim_set = False
         self.corr_fix = CorrelatorFixture()
-        self.logger.setLevel(LOGGING_LEVEL)
+        # self.logger.setLevel(LOGGING_LEVEL)
         self.logs_path = None
         try:
             self.logs_path = create_logs_directory(self)
@@ -127,12 +90,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Note("Connecting to katcp client on %s" % self.corr_fix.katcp_client)
         except Exception:
             self.Error("Failed to read test config file.", exc_info=True)
+        errmsg = "Failed to instantiate the dsim, investigate"
         try:
             self.dhost = self.corr_fix.dhost
-            errmsg = "Failed to instantiate the dsim, investigate"
             assert isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost), errmsg
         except Exception:
-            self.logger.exception(errmsg)
+            self.Error(errmsg, exc_info=True)
         else:
             # See: https://docs.python.org/2/library/functions.html#super
             if set_dsim_epoch is False:
@@ -197,7 +160,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             )
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
-            self.logger.exception(errmsg)
+            self.Error(errmsg, exc_info=True)
             Aqf.end(message=errmsg)
             sys.exit(errmsg)
 
@@ -271,7 +234,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.n_chans_selected = int(_test_dump.get("n_chans_selected", self.cam_sensors.get_value("n_chans")))
             self.logger.info("Confirmed number of channels %s, from initial dump" % self.n_chans_selected)
         except Exception:
-            self.Error(str(e), exc_info=True)
+            self.Error(self.errmsg, exc_info=True)
             return False
         else:
             # Run system tests before each test is ran
@@ -3829,14 +3792,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         try:
             internal_accumulations = int(self.cam_sensors.get_value("xeng_acc_len"))
         except Exception:
-            errmsg = "Failed to retrieve X-engine accumulation length: %s." % str(e)
-            self.Error(errmsg, exc_info=True)
+            self.Error("Failed to retrieve X-engine accumulation length", exc_info=True)
         try:
             initial_dump = self.receiver.get_clean_dump()
             assert isinstance(initial_dump, dict)
         except Exception:
-            errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-            self.Error(errmsg, exc_info=True)
+            self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
+                exc_info=True)
             return
 
         delta_acc_t = self.cam_sensors.fft_period * internal_accumulations
@@ -4614,6 +4576,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
     def _test_report_config(self):
         """CBF Report configuration"""
+        import spead2
+        import casperfpga
         test_config = self.corr_fix._test_config_file
 
         def git_revision_short_hash(mod_name=None, dir_name=None):
@@ -6124,8 +6088,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             stop_katsdpingest_docker(self)
         except TypeError:
             errmsg = (
-                "Failed to capture beam data: %s\n\n Confirm that Docker container is "
-                "running and also confirm the igmp version = 2 " % str(e)
+                "Failed to capture beam data\n\n Confirm that Docker container is "
+                "running and also confirm the igmp version = 2 "
             )
             self.Error(errmsg, exc_info=True)
             return False
@@ -6367,8 +6331,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 )
             except Exception:
                 errmsg = (
-                    "Failed to capture beam data: %s\n\n Confirm that Docker container is "
-                    "running and also confirm the igmp version = 2 " % str(e)
+                    "Failed to capture beam data: Confirm that Docker container is "
+                    "running and also confirm the igmp version = 2 "
                 )
                 self.Error(errmsg, exc_info=True)
                 return False
@@ -7161,7 +7125,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 assert len(adc_data) == 8192
                 return adc_data
             except AssertionError as e:
-                errmsg = "Failed to get adc snapshot for input {}, reply = {}. {}".format(source, reply, str(e))
+                errmsg = "Failed to get adc snapshot for input {}, reply = {}.".format(source, reply)
                 self.Error(errmsg, exc_info=True)
                 return False
             except Exception:
@@ -7177,7 +7141,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 assert len(quant_data) == 4096
                 return quant_data
             except AssertionError as e:
-                errmsg = "Failed to get quantiser snapshot for input {}, reply = {}. {}".format(source, reply, str(e))
+                errmsg = "Failed to get quantiser snapshot for input {}, reply = {}.".format(source,
+                    reply)
                 self.Error(errmsg, exc_info=True)
                 return False
             except Exception:
@@ -7191,7 +7156,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 assert reply.reply_ok()
                 assert reply.arguments[1:][0] == gain_str
             except AssertionError as e:
-                errmsg = "Failed to set gain for input {}, reply = {}. {}".format(source, reply, str(e))
+                errmsg = "Failed to set gain for input {}, reply = {}".format(source, reply)
                 self.Error(errmsg, exc_info=True)
                 return False
             except Exception:
@@ -7207,8 +7172,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             assert isinstance(input_labels, list)
             inp_labels = [x[0] for x in input_labels]
         except AssertionError as e:
-            errmsg = "Failed to get input labels. {}".format(str(e))
-            self.Error(errmsg, exc_info=True)
+            self.Error("Failed to get input labels.", exc_info=True)
             return False
         except Exception:
             errmsg = "Exception"
@@ -7337,8 +7301,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             assert reply.reply_ok()
             for key in ret_dict.keys():
                 ret_dict[key]["fft_shift"] = reply.arguments[1:][0]
-        except AssertionError as e:
-            errmsg = "Failed to set FFT shift, reply = {}. {}".format(reply, str(e))
+        except AssertionError:
+            errmsg = "Failed to set FFT shift, reply = {}".format(reply)
             self.Error(errmsg, exc_info=True)
         except Exception:
             errmsg = "Exception"
@@ -7354,7 +7318,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 dump = self.receiver.get_clean_dump()
             except Queue.Empty:
                 errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                self.Failed(errmsg)
                 self.Error(errmsg, exc_info=True)
             else:
                 baseline_lookup = get_baselines_lookup(self, dump)
@@ -7382,8 +7345,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         dump = self.receiver.get_clean_dump()
                     except Queue.Empty:
                         errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                        self.Failed(errmsg)
-                        self.Error(errmsg, exc_info=True)
                     except AssertionError:
                         errmsg = (
                             "No of channels (%s) in the spead data is inconsistent with the no of"
@@ -7795,9 +7756,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     # self.receiver.get_clean_dump()
                     self.assertIsInstance(this_freq_dump, dict)
                 except AssertionError:
-                    errmsg = "Could not retrieve clean SPEAD accumulation"
-                    self.Failed(errmsg)
-                    self.Error(errmsg, exc_info=True)
+                    self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
                     return False
                 else:
                     # No of spead heap discards relevant to vacc
@@ -7809,8 +7768,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
                             self.assertIsInstance(queued_dump, dict)
                         except Exception:
-                            errmsg = "Could not retrieve clean accumulation."
-                            self.Error(errmsg, exc_info=True)
+                            self.Error("Could not retrieve clean accumulation.", exc_info=True)
                         else:
                             timestamp_diff = np.abs(queued_dump["dump_timestamp"] - deng_timestamp)
                             if timestamp_diff < 0.5:
@@ -8048,10 +8006,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     if len(array) < print_len:
                         print_len = len(array)
                         out_arr = array[:print_len]
-                        out_arr = ", ".join([str(e) for e in out_arr])
+                        # out_arr = ", ".join([str(e) for e in out_arr])
                     else:
                         out_arr = array[:print_len]
-                        out_arr = ", ".join([str(e) for e in out_arr]) + ", ..."
+                        # out_arr = ", ".join([str(e) for e in out_arr]) + ", ..."
                 except BaseException:
                     out_arr = str(array)
 
@@ -8080,7 +8038,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         self.Step(
                             "Using {}, baseline {}, as an auto-correlation "
                             "reference with:\n{}\n{}".format(
-                                inputs, index, idnt + "Magnitude: " + prt_arr(mag), idnt + "Phase:  " + prt_arr(phase)
+                                inputs, index,
+                                idnt + "Magnitude: " + prt_arr(mag),
+                                idnt + "Phase:  " + prt_arr(phase)
                             )
                         )
                     else:
@@ -8092,8 +8052,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             ref_arr = np.take(ref_auto_mag, err_idx)[0]
                             err_idx = err_idx[0]
                             self.Failed(
-                                "{}, baseline {}, auto-correlation magnitudes do not match:\n{}\n{}\n{}"
-                                "".format(
+                                "{}, baseline {}, auto-correlation magnitudes do "
+                                "not match:\n{}\n{}\n{}".format(
                                     inputs,
                                     index,
                                     idnt + "Error indices:    " + prt_arr(err_idx),

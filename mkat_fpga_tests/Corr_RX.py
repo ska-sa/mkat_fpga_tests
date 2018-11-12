@@ -7,7 +7,6 @@
 import array
 import copy
 import fcntl
-import logging
 import Queue
 import re
 import socket
@@ -23,150 +22,13 @@ import spead2.recv as s2rx
 from casperfpga import network
 from corr2 import data_stream
 
-LOGGER = logging.getLogger(__name__)
+from Logger import LoggingClass
+
 interface_prefix = "10.100"
 
 
-def process_xeng_data(self, heap_data, ig, channels):
-    """
-    Assemble data for the the plotting/printing thread to deal with.
-    :param self: corr_rx object
-    :param heap_data: heaps of data from the x-engines
-    :param ig: the SPEAD2 item group
-    :param channels: the channels in which we are interested
-    :return:
-    """
-    # Calculate the substreams that have been captured
-    n_chans_per_substream = self.n_chans / self.NUM_XENG
-    strt_substream = int(channels[0] / n_chans_per_substream)
-    stop_substream = int(channels[1] / n_chans_per_substream)
-    if stop_substream == self.NUM_XENG:
-        stop_substream = self.NUM_XENG - 1
-    n_substreams = stop_substream - strt_substream + 1
-    # chan_offset = n_chans_per_substream * strt_substream
 
-    if "xeng_raw" not in ig.keys():
-        return None
-    if ig["xeng_raw"] is None:
-        return None
-    xeng_raw = ig["xeng_raw"].value
-    if xeng_raw is None:
-        return None
-
-    this_time = ig["timestamp"].value
-    this_freq = ig["frequency"].value
-
-    if this_time in heap_data:
-        if this_freq in heap_data[this_time]:
-            # already have this frequency - this seems to be a bug
-            old_data = heap_data[this_time][this_freq]
-            if np.shape(old_data) != np.shape(xeng_raw):
-                self.logger.error(
-                    "Got repeat freq %i for time %i, with a "
-                    "DIFFERENT SHAPE?!\n" % (this_freq, this_time)
-                )
-            else:
-                if (xeng_raw == old_data).all():
-                    self.logger.error(
-                        "Got repeat freq %s with SAME data for time %s" % (this_freq, this_time)
-                    )
-                else:
-                    self.logger.error(
-                        "Got repeat freq %s with DIFFERENT data for time %s" % (this_freq, this_time))
-        else:
-            heap_data[this_time][this_freq] = xeng_raw
-    else:
-        heap_data[this_time] = {this_freq: xeng_raw}
-
-    # housekeeping - are the older heaps in the data?
-    if len(heap_data) > 5:
-        self.logger.debug("Culling stale timestamps:")
-        heaptimes = sorted(heap_data.keys())
-        for ctr in range(0, len(heaptimes) - 5):
-            heap_data.pop(heaptimes[ctr])
-            self.logger.debug("\ttime heaptimes[ctr] culled")
-
-    def process_heaptime(htime, hdata):
-        """
-
-        :param htime:
-        :param hdata:
-        :return:
-        """
-        freqs = sorted(hdata.keys())
-        check_range = range(
-            n_chans_per_substream * strt_substream,
-            n_chans_per_substream * stop_substream + 1,
-            n_chans_per_substream,
-        )
-        if freqs != check_range:
-            self.logger.error(
-                "Did not get all frequencies from the x-engines for time %i: %s"
-                % (htime, str(freqs))
-            )
-            heap_data.pop(htime)
-            return None
-        vals = []
-        for freq, xdata in hdata.items():
-            vals.append((htime, freq, xdata))
-        vals = sorted(vals, key=lambda val: val[1])
-        xeng_raw = np.concatenate([val[2] for val in vals], axis=0)
-        time_s = ig["timestamp"].value / (self.n_chans * 2 * self.n_accs)
-        self.logger.info(
-            "Processing xeng_raw heap with time %i (%i) and shape: %s"
-            % (ig["timestamp"].value, time_s, str(np.shape(xeng_raw)))
-        )
-        heap_data.pop(htime)
-        return (htime, xeng_raw)
-        # return {'timestamp': htime,
-        #         'xeng_raw': xeng_raw}
-
-    # loop through the times we know about and process the complete ones
-    rvs = {}
-    heaptimes = heap_data.keys()
-
-    for heaptime in heaptimes:
-        if len(heap_data[heaptime]) == n_substreams:
-            rv = process_heaptime(heaptime, heap_data[heaptime])
-            if rv:
-                _dump_timestamp = self.sync_time + float(rv[0]) / self.scale_factor_timestamp
-                _dump_timestamp_readable = time.strftime(
-                    "%H:%M:%S", time.localtime(_dump_timestamp)
-                )
-                rvs["timestamp"] = rv[0]
-                rvs["dump_timestamp"] = _dump_timestamp
-                rvs["dump_timestamp_readable"] = _dump_timestamp_readable
-                rvs["xeng_raw"] = rv[1]
-                rvs["n_chans_selected"] = abs(self.stop_channel - self.strt_channel)
-                self.logger.info("Current dump timestamp: %s and n_chans: %s" % (
-                    _dump_timestamp_readable, rvs["n_chans_selected"]))
-    return rvs
-
-
-def network_interfaces():
-    """
-    Get system interfaces and IP list
-    """
-
-    def format_ip(addr):
-        return "%s.%s.%s.%s" % (ord(addr[0]), ord(addr[1]), ord(addr[2]), ord(addr[3]))
-
-    max_possible = 128  # arbitrary. raise if needed.
-    bytes = max_possible * 32
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    names = array.array("B", "\0" * bytes)
-    outbytes = struct.unpack(
-        "iL",
-        fcntl.ioctl(
-            s.fileno(), 0x8912, struct.pack("iL", bytes, names.buffer_info()[0])
-        ),  # SIOCGIFCONF
-    )[0]
-    namestr = names.tostring()
-    lst = [format_ip(namestr[i + 20 : i + 24]) for i in range(0, outbytes, 40)]
-    return lst
-
-
-class CorrRx(threading.Thread):
+class CorrRx(threading.Thread, LoggingClass):
     """Run a spead receiver in a thread; provide a Queue.Queue interface
     Places each received valid data dump (i.e. contains xeng_raw values) as a pyspead
     ItemGroup into the `data_queue` attribute. If the Queue is full, the newer dumps will
@@ -183,7 +45,6 @@ class CorrRx(threading.Thread):
         channels=(0, 4096),
         **kwargs
     ):
-        self.logger = kwargs.get('logger', LOGGER)
         self.quit_event = threading.Event()
         self.data_queue = Queue.Queue(maxsize=queue_size)
         self.queue_size = queue_size
@@ -269,6 +130,144 @@ class CorrRx(threading.Thread):
             self.NUM_XENG = output["address"].ip_range
             self.data_ip = output["address"].ip_address
 
+    def process_xeng_data(self, heap_data, ig, channels):
+        """
+        Assemble data for the the plotting/printing thread to deal with.
+        :param self: corr_rx object
+        :param heap_data: heaps of data from the x-engines
+        :param ig: the SPEAD2 item group
+        :param channels: the channels in which we are interested
+        :return:
+        """
+        # Calculate the substreams that have been captured
+        n_chans_per_substream = self.n_chans / self.NUM_XENG
+        strt_substream = int(channels[0] / n_chans_per_substream)
+        stop_substream = int(channels[1] / n_chans_per_substream)
+        if stop_substream == self.NUM_XENG:
+            stop_substream = self.NUM_XENG - 1
+        n_substreams = stop_substream - strt_substream + 1
+        # chan_offset = n_chans_per_substream * strt_substream
+
+        if "xeng_raw" not in ig.keys():
+            return None
+        if ig["xeng_raw"] is None:
+            return None
+        xeng_raw = ig["xeng_raw"].value
+        if xeng_raw is None:
+            return None
+
+        this_time = ig["timestamp"].value
+        this_freq = ig["frequency"].value
+
+        if this_time in heap_data:
+            if this_freq in heap_data[this_time]:
+                # already have this frequency - this seems to be a bug
+                old_data = heap_data[this_time][this_freq]
+                if np.shape(old_data) != np.shape(xeng_raw):
+                    self.logger.error(
+                        "Got repeat freq %i for time %i, with a "
+                        "DIFFERENT SHAPE?!\n" % (this_freq, this_time)
+                    )
+                else:
+                    if (xeng_raw == old_data).all():
+                        self.logger.error(
+                            "Got repeat freq %s with SAME data for time %s" % (this_freq, this_time)
+                        )
+                    else:
+                        self.logger.error(
+                            "Got repeat freq %s with DIFFERENT data for time %s" % (this_freq, this_time))
+            else:
+                heap_data[this_time][this_freq] = xeng_raw
+        else:
+            heap_data[this_time] = {this_freq: xeng_raw}
+
+        # housekeeping - are the older heaps in the data?
+        if len(heap_data) > 5:
+            self.logger.debug("Culling stale timestamps:")
+            heaptimes = sorted(heap_data.keys())
+            for ctr in range(0, len(heaptimes) - 5):
+                heap_data.pop(heaptimes[ctr])
+                self.logger.debug("\ttime heaptimes[ctr] culled")
+
+        def process_heaptime(htime, hdata):
+            """
+
+            :param htime:
+            :param hdata:
+            :return:
+            """
+            freqs = sorted(hdata.keys())
+            check_range = range(
+                n_chans_per_substream * strt_substream,
+                n_chans_per_substream * stop_substream + 1,
+                n_chans_per_substream,
+            )
+            if freqs != check_range:
+                self.logger.error(
+                    "Did not get all frequencies from the x-engines for time %i: %s"
+                    % (htime, str(freqs))
+                )
+                heap_data.pop(htime)
+                return None
+            vals = []
+            for freq, xdata in hdata.items():
+                vals.append((htime, freq, xdata))
+            vals = sorted(vals, key=lambda val: val[1])
+            xeng_raw = np.concatenate([val[2] for val in vals], axis=0)
+            time_s = ig["timestamp"].value / (self.n_chans * 2 * self.n_accs)
+            self.logger.info(
+                "Processing xeng_raw heap with time %i (%i) and shape: %s"
+                % (ig["timestamp"].value, time_s, str(np.shape(xeng_raw)))
+            )
+            heap_data.pop(htime)
+            return (htime, xeng_raw)
+            # return {'timestamp': htime,
+            #         'xeng_raw': xeng_raw}
+
+        # loop through the times we know about and process the complete ones
+        rvs = {}
+        heaptimes = heap_data.keys()
+
+        for heaptime in heaptimes:
+            if len(heap_data[heaptime]) == n_substreams:
+                rv = process_heaptime(heaptime, heap_data[heaptime])
+                if rv:
+                    _dump_timestamp = self.sync_time + float(rv[0]) / self.scale_factor_timestamp
+                    _dump_timestamp_readable = time.strftime(
+                        "%H:%M:%S", time.localtime(_dump_timestamp)
+                    )
+                    rvs["timestamp"] = rv[0]
+                    rvs["dump_timestamp"] = _dump_timestamp
+                    rvs["dump_timestamp_readable"] = _dump_timestamp_readable
+                    rvs["xeng_raw"] = rv[1]
+                    rvs["n_chans_selected"] = abs(self.stop_channel - self.strt_channel)
+                    self.logger.info("Current dump timestamp: %s and n_chans: %s" % (
+                        _dump_timestamp_readable, rvs["n_chans_selected"]))
+        return rvs
+
+    @staticmethod
+    def network_interfaces():
+        """
+        Get system interfaces and IP list
+        """
+
+        def format_ip(addr):
+            return "%s.%s.%s.%s" % (ord(addr[0]), ord(addr[1]), ord(addr[2]), ord(addr[3]))
+
+        max_possible = 128  # arbitrary. raise if needed.
+        bytes = max_possible * 32
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        names = array.array("B", "\0" * bytes)
+        outbytes = struct.unpack(
+            "iL",
+            fcntl.ioctl(
+                s.fileno(), 0x8912, struct.pack("iL", bytes, names.buffer_info()[0])
+            ),  # SIOCGIFCONF
+        )[0]
+        namestr = names.tostring()
+        lst = [format_ip(namestr[i + 20 : i + 24]) for i in range(0, outbytes, 40)]
+        return lst
+
     def stop(self):
         self.quit_event.set()
         if hasattr(self, "strm"):
@@ -351,7 +350,7 @@ class CorrRx(threading.Thread):
         )
 
         self.interface_address = "".join(
-            [ethx for ethx in network_interfaces() if ethx.startswith(interface_prefix)]
+            [ethx for ethx in self.network_interfaces() if ethx.startswith(interface_prefix)]
         )
         self.logger.info("Interface Address: %s" % self.interface_address)
         self.strm = strm = self._spead_stream()
@@ -393,7 +392,7 @@ class CorrRx(threading.Thread):
                 )
                 self.logger.debug("Contents dict is now %s long" % len(heap_contents))
                 # output item values specified
-                data = process_xeng_data(self, heap_contents, ig, self.channels)
+                data = self.process_xeng_data(heap_contents, ig, self.channels)
                 ig_copy = copy.deepcopy(data)
                 if ig_copy:
                     try:

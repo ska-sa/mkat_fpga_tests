@@ -9,6 +9,12 @@ try:
 except OSError:
     get_username = pwd.getpwuid(os.getuid()).pw_name
 
+# Set same logging level as per nosetests
+LOGGING_LEVEL = ''.join(
+    [i.split('=')[-1] for i in sys.argv if i.startswith('--logging-level')])
+if not LOGGING_LEVEL:
+    LOGGING_LEVEL = "INFO"
+
 
 class LoggingClass:
 
@@ -23,7 +29,8 @@ class LoggingClass:
         if not len(logger.handlers):
             Formatter = logging.Formatter(log_format)
             Handler = logging.FileHandler("/tmp/test_ran_by_%s.log" % (get_username))
-            Handler.setLevel(logging.DEBUG)
+            Handler.setLevel(LOGGING_LEVEL)
+            logger.setLevel(LOGGING_LEVEL)
             Handler.setFormatter(Formatter)
             logger.addHandler(Handler)
         return logger

@@ -1,5 +1,4 @@
-import functools
-import logging
+from functools import wraps
 from Tkinter import tkinter
 
 import matplotlib.pyplot as plt
@@ -11,13 +10,16 @@ from nosekatreport import Aqf
 # To use, add @DetectMemLeaks decorator to function
 # from memory_profiler import profile as DetectMemLeaks
 
-LOGGER = logging.getLogger(__name__)
+from Logger import LoggingClass
 
+# I'm sure there's a better way///
+_logger = LoggingClass()
+LOGGER = _logger.logger
 
 def meth_end_aqf(meth):
     """Decorates a test method to ensure that Aqf.end() is called after the test"""
 
-    @functools.wraps(meth)
+    @wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
         # Aqf.end(traceback=True)
@@ -411,7 +413,7 @@ def aqf_plot_and_save(
     try:
         plt.grid(True)
     except tkinter.TclError:
-        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
+        LOGGER.exception("No display on $DISPLAY environment variable, check matplotlib backend")
         return False
     else:
         plt.ylabel("dB relative to VACC max")

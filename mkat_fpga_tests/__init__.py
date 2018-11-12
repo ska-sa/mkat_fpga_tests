@@ -23,7 +23,7 @@ from corr2.data_stream import StreamAddress
 from corr2.dsimhost_fpga import FpgaDsimHost
 from corr2.utils import parse_ini_file
 
-_logLevel = nose.util.log.level
+_logLevel = logging.ERROR
 # Global katcp timeout
 _timeout = 60
 _cleanups = []
