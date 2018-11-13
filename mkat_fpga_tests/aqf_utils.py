@@ -5,11 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mkat_fpga_tests.utils import loggerise
 from nosekatreport import Aqf
-
-# MEMORY LEAKS DEBUGGING
-# To use, add @DetectMemLeaks decorator to function
-# from memory_profiler import profile as DetectMemLeaks
-
 from Logger import LoggingClass
 
 # I'm sure there's a better way///
@@ -22,7 +17,6 @@ def meth_end_aqf(meth):
     @wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
-        # Aqf.end(traceback=True)
         Aqf.end(traceback=False)
 
     return decorated

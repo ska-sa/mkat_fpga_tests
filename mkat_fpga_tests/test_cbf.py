@@ -23,9 +23,6 @@ import subprocess
 import sys
 import time
 import unittest
-# MEMORY LEAKS DEBUGGING
-# To use, add @DetectMemLeaks decorator to function
-# from memory_profiler import profile as DetectMemLeaks
 from datetime import datetime
 
 import corr2
@@ -78,18 +75,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         AqfReporter.__init__(self)
         self.receiver = None
         self._dsim_set = False
-        self.corr_fix = CorrelatorFixture()
-        # self.logger.setLevel(LOGGING_LEVEL)
         self.logs_path = None
+        self.corr_fix = CorrelatorFixture(logLevel=self.logger.root.level)
         try:
             self.logs_path = create_logs_directory(self)
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client = self.conf_file["instrument_params"]["katcp_client"]
             self.katcp_req = self.corr_fix.katcp_rct.req
+            self.assertIsInstance(self.katcp_req, katcp.resource_client.AttrMappingProxy)
             self.katcp_req_sensors = self.corr_fix.katcp_rct_sensor.req
+            self.assertIsInstance(self.katcp_req_sensors, katcp.resource_client.AttrMappingProxy)
             self.Note("Connecting to katcp client on %s" % self.corr_fix.katcp_client)
+            self.cam_sensors = GetSensors(self.corr_fix)
+        except AttributeError:
+            errmsg = "Is the instrument up??"
+            Aqf.failed(errmsg)
+            sys.exit(errmsg)
         except Exception:
-            self.Error("Failed to read test config file.", exc_info=True)
+            errmsg = "Failed to connect to katcp/read test config file - Is the instrument up??"
+            Aqf.Failed(errmsg)
+            sys.exit(errmsg)
+
         errmsg = "Failed to instantiate the dsim, investigate"
         try:
             self.dhost = self.corr_fix.dhost
@@ -149,7 +155,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.errmsg = None
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
-        self.cam_sensors = GetSensors(self.corr_fix)
         self.addCleanup(init_dsim_sources, self.dhost)
 
         try:
@@ -239,10 +244,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         else:
             # Run system tests before each test is ran
             # self._systems_tests()
+            # self.addCleanup(self._systems_tests)
             self.addCleanup(self.corr_fix.stop_x_data)
             self.addCleanup(self.receiver.stop)
             self.addCleanup(executed_by)
-            # self.addCleanup(self._systems_tests)
             self.addCleanup(gc.collect)
             return True
 
@@ -570,7 +575,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         try:
             assert eval(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            acc_time = int(self.conf_file["instrument_params"]["delay_test_acc_time"])
+            n_ants = self.cam_sensors.get_value("n_ants")
+            if n_ants == 4:
+                acc_time = 0.5
+            else:
+                acc_time = int(self.conf_file["instrument_params"]["delay_test_acc_time"])
+
             instrument_success = self.set_instrument(acc_time=acc_time)
             if instrument_success:
                 self._test_delay_tracking()
@@ -1262,7 +1272,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
         self.Step("Retrieve initial SPEAD accumulation, in-order to calculate all " "relevant parameters.")
         try:
-            initial_dump = self.get_clean_dump()
+            initial_dump = self.receiver.get_clean_dump()
         except Queue.Empty:
             errmsg = "Could not retrieve clean SPEAD accumulation: Queue might be Empty."
             self.Failed(errmsg, exc_info=True)
@@ -8006,10 +8016,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     if len(array) < print_len:
                         print_len = len(array)
                         out_arr = array[:print_len]
-                        # out_arr = ", ".join([str(e) for e in out_arr])
+                        out_arr = ", ".join([str(e) for e in out_arr])
                     else:
                         out_arr = array[:print_len]
-                        # out_arr = ", ".join([str(e) for e in out_arr]) + ", ..."
+                        out_arr = ", ".join([str(e) for e in out_arr]) + ", ..."
                 except BaseException:
                     out_arr = str(array)
 
@@ -8355,49 +8365,49 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         )
         Aqf.end(passed=True, message="Linearity plot generated.")
 
-    def get_clean_dump(self):
-        retries = 20
-        while retries:
-            retries -= 1
-            try:
-                dump = self.receiver.get_clean_dump(discard=0)
-                assert hasattr(self.dhost.registers, "sys_clkcounter"), "Dhost is broken, missing sys_clkcounter"
-                dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
-                errmsg = "Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!" % retries
-                assert isinstance(dump, dict), errmsg
-                discard = 0
-                while True:
-                    dump = self.receiver.data_queue.get(timeout=10)
-                    assert isinstance(dump, dict), errmsg
-                    dump_timestamp = dump["dump_timestamp"]
-                    time_diff = np.abs(dump_timestamp - dhost_timestamp)
-                    if time_diff < 1:
-                        msg = (
-                            "Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)"
-                            " [diff: %s] within %s retries and discarded %s dumps"
-                            % (dump_timestamp, dhost_timestamp, time_diff, retries, discard)
-                        )
-                        self.logger.info(msg)
-                        break
-                    else:
-                        msg = "Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]" % (
-                            dump_timestamp,
-                            dhost_timestamp,
-                            time_diff,
-                        )
-                        self.logger.info(msg)
-                    if discard > 10:
-                        errmsg = "Could not retrieve clean queued SPEAD accumulation."
-                        raise AssertionError(errmsg)
-                    discard += 1
-            except AssertionError:
-                errmsg = "Could not retrieve clean queued SPEAD accumulation."
-                self.logger.warning(errmsg)
-            except Queue.Empty:
-                errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                self.Error(errmsg, exc_info=True)
-                if retries < 15:
-                    self.logger.exception("Exiting brutally with no Accumulation")
-                    return False
-            else:
-                return dump
+    # def get_clean_dump(self):
+    #     retries = 20
+    #     while retries:
+    #         retries -= 1
+    #         try:
+    #             dump = self.receiver.get_clean_dump(discard=0)
+    #             assert hasattr(self.dhost.registers, "sys_clkcounter"), "Dhost is broken, missing sys_clkcounter"
+    #             dhost_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
+    #             errmsg = "Queue is empty will retry (%s) ie EMPTY DUMPS!!!!!!!!!!!!!!!!!!!!!" % retries
+    #             assert isinstance(dump, dict), errmsg
+    #             discard = 0
+    #             while True:
+    #                 dump = self.receiver.data_queue.get(timeout=10)
+    #                 assert isinstance(dump, dict), errmsg
+    #                 dump_timestamp = dump["dump_timestamp"]
+    #                 time_diff = np.abs(dump_timestamp - dhost_timestamp)
+    #                 if time_diff < 1:
+    #                     msg = (
+    #                         "Yeyyyyyyyyy: Dump timestamp (%s) in-sync with digitiser sync epoch (%s)"
+    #                         " [diff: %s] within %s retries and discarded %s dumps"
+    #                         % (dump_timestamp, dhost_timestamp, time_diff, retries, discard)
+    #                     )
+    #                     self.logger.info(msg)
+    #                     break
+    #                 else:
+    #                     msg = "Dump timestamp (%s) is not in-sync with digitiser sync epoch (%s) [diff: %s]" % (
+    #                         dump_timestamp,
+    #                         dhost_timestamp,
+    #                         time_diff,
+    #                     )
+    #                     self.logger.info(msg)
+    #                 if discard > 10:
+    #                     errmsg = "Could not retrieve clean queued SPEAD accumulation."
+    #                     raise AssertionError(errmsg)
+    #                 discard += 1
+    #         except AssertionError:
+    #             errmsg = "Could not retrieve clean queued SPEAD accumulation."
+    #             self.logger.warning(errmsg)
+    #         except Queue.Empty:
+    #             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+    #             self.Error(errmsg, exc_info=True)
+    #             if retries < 15:
+    #                 self.logger.exception("Exiting brutally with no Accumulation")
+    #                 return False
+    #         else:
+    #             return dump

@@ -60,6 +60,7 @@ def teardown_package():
 class CorrelatorFixture(Logger.LoggingClass):
 
     def __init__(self, katcp_client=None, product_name=None, **kwargs):
+        self.logger.setLevel(kwargs.get('logLevel', logging.DEBUG))
         self.katcp_client = katcp_client
         self.prim_port = "7147"
         self.corr_config = None
@@ -78,14 +79,8 @@ class CorrelatorFixture(Logger.LoggingClass):
         self._correlator_started = not int(nose_test_config.get("start_correlator", False))
         self.test_config = self._test_config_file
         # ToDo get array name from file...instead of test config file
-        self.subarray = self.test_config["instrument_params"]["subarray"]
-        self.config_filename = max(
-            iglob("/etc/corr/{}-*".format(self.subarray)), key=os.path.getctime
-        )
-        self.array_name, self.instrument = self._get_instrument
-
-        logLevel = kwargs.get('logLevel', logging.DEBUG)
-        self.logger.setLevel(logLevel)
+        self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
+        self.array_name, self.instrument = self._get_instrument()
 
     @property
     def rct(self):
@@ -215,7 +210,6 @@ class CorrelatorFixture(Logger.LoggingClass):
                 _major, _minor, _flags = katcp_prot.split(",")
                 protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
                 self.logger.info("katcp protocol flags %s" % protocol_flags)
-
                 self.logger.info("Getting running array.")
                 reply, informs = self.rct.req.subordinate_list(self.array_name)
                 assert reply.reply_ok()
@@ -417,14 +411,12 @@ class CorrelatorFixture(Logger.LoggingClass):
         Returns currently running instrument listed on the sensor(s)
         """
         try:
-            reply = None
             reply = self.katcp_rct.sensor.instrument_state.get_reading()
             assert reply.istatus
             return reply.value
-        except Exception as e:
-            self.logger.exception("KATCP Request failed due to error: %s/%s" % (str(e), str(reply)))
+        except Exception:
+            self.logger.exception("KATCP Request failed due to error: %s" % (str(reply)))
             return False
-
         except KATCPSensorError:
             self.logger.exception("KATCP Error polling sensor\n")
             return False
@@ -539,7 +531,6 @@ class CorrelatorFixture(Logger.LoggingClass):
                     )
                 return instrument_present
 
-    @property
     def _get_instrument(self):
         """
         Retrieve currently running instrument from /etc/corr
@@ -560,12 +551,11 @@ class CorrelatorFixture(Logger.LoggingClass):
                 self.logger.info("Currently running instrument %s as per /etc/corr" % self.instrument)
                 return [self.array_name, self.instrument]
         except Exception:
-            self.logger.exception(
-                "Could not retrieve information from config file, resorting to default"
-            )
-            return ["array0", "bc8n856M4k"]
+            self.logger.exception("Could not retrieve information from config file")
+            sys.exit(1)
         except ValueError:
             self.logger.exception("Directory missing array config file.")
+            sys.exit(1)
 
     @property
     def _test_config_file(self):
@@ -573,8 +563,6 @@ class CorrelatorFixture(Logger.LoggingClass):
         Configuration file containing information such as dsim, pdu and dataswitch ip's
         return: Dict
         """
-        path, _none = os.path.split(__file__)
-        path, _none = os.path.split(path)
         try:
             assert os.uname()[1].startswith("dbelab")
         except AssertionError:
@@ -582,6 +570,8 @@ class CorrelatorFixture(Logger.LoggingClass):
         else:
             conf_path = "config/test_conf_lab.ini"
 
+        path, _ = os.path.split(__file__)
+        path, _ = os.path.split(path)
         config_file = os.path.join(path, conf_path)
         if os.path.isfile(config_file) or os.path.exists(config_file):
             try:
