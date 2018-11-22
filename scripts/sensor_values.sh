@@ -9,4 +9,4 @@
 
 HOST=${1:-localhost}
 echo $HOST
-kcpcmd -t 180 -s ${HOST}:$(kcpcmd -s ${HOST}:7147 array-list array0 | grep -a array-list | cut -f3 -d ' ' | cut -d',' -f 2) sensor-value
+kcpcmd -t 180 -s ${HOST}:$(kcpcmd -s ${HOST}:7147 subordinate-list array0 | grep -a subordinate-list | cut -f3 -d ' ' | cut -d',' -f 2) sensor-value

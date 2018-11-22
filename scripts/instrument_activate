@@ -147,10 +147,10 @@ if [ "${SYNC_EPOCH}" != 0 ]; then
     [[ "${INSTRUMENT}" == *"bc128n856M4k"* ]]  && sleep 300 || sleep 5;
     ARRAY=$(kcpcmd -t 30 -s ${KATCP_HOST_IP}:7147 subordinate-create ${ARRAY_NAME} ${ARRAY_INPUTS} | grep -a '!subordinate-create' | cut -d ' ' -f 3 | cut -f1 -d, )
     gprint "Port :${ARRAY} created on ${ARRAY_NAME}"
-    kcpcmd -t 500 -s "${KATCP_HOST_IP}":"${ARRAY}" digitiser-synch-epoch "${SYNC_EPOCH}"
+    kcpcmd -t 500 -s "${KATCP_HOST_IP}":"${ARRAY}" sync-epoch "${SYNC_EPOCH}"
     sleep 10;
     kcpcmd -t 10000 -s "${KATCP_HOST_IP}":"${ARRAY}" instrument-activate "${INSTRUMENT}" "${PROG}" "${CONFIGURE}" "${REPOCH}" "${MVACC}";
-    PORT=$(kcpcmd array-list | grep -a '^#array-list' | cut -f3 -d ' ' | cut -f2 -d',');
+    PORT=$(kcpcmd subordinate-list | grep -a '^#subordinate-list' | cut -f3 -d ' ' | cut -f2 -d',');
     kcpcmd -t 60 -s "${KATCP_HOST_IP}":"${PORT}" sensor-value > sensors.txt;
     if (cat sensors.txt | grep -a 'ct.err' | grep 'error'); then
         rprint "Corner Turn Errors!!!!";

@@ -24,7 +24,7 @@ from mkat_fpga_tests.utils import normalised_magnitude
 
 
 
-def katcp_request(katcp_ip='127.0.0.1', katcp_port=7147, katcprequest='array-list',
+def katcp_request(katcp_ip='127.0.0.1', katcp_port=7147, katcprequest='subordinate-list',
                 katcprequestArg=None, timeout=10):
     """
     Katcp requests
@@ -36,9 +36,9 @@ def katcp_request(katcp_ip='127.0.0.1', katcp_port=7147, katcprequest='array-lis
     katcp_port: int
         Port to connect to! [Defaults: 7147]
     katcprequest: str
-        Katcp requests messages [Defaults: 'array-list']
+        Katcp requests messages [Defaults: 'subordinate-list']
     katcprequestArg: str
-        katcp requests messages arguments eg. array-list array0 [Defaults: None]
+        katcp requests messages arguments eg. subordinate-list array0 [Defaults: None]
     timeout: int
         katcp timeout [Defaults :10]
 

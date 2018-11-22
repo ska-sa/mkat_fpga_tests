@@ -1226,7 +1226,7 @@ def get_running_instrument():
     Using katcp: Retrieve running instrument if available
     """
     try:
-        _katcp_req = katcp_request(7147, "array-list")
+        _katcp_req = katcp_request(7147, "subordinate-list")
         katcp_client_port, katcp_sensor_port = [
             i.arguments[1].split(",") for i in _katcp_req if i.arguments[0].startswith("arr")
         ][0]
@@ -1248,7 +1248,7 @@ def get_running_instrument():
 def get_version_list():
     """Using katcp: Retrieve CBF information"""
     try:
-        _katcp_req = katcp_request(7147, "array-list")
+        _katcp_req = katcp_request(7147, "subordinate-list")
         katcp_client_port, katcp_sensor_port = [
             i.arguments[1].split(",") for i in _katcp_req if i.arguments[0].startswith("arr")
         ][0]

@@ -13,9 +13,9 @@ export CONFIG=$3
 
 function clearall {
     printf "${bold}Clearing all delays in 30 seconds.${normal}\n\n";
-	kcpcmd -t 500 -s localhost:$(kcpcmd array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') delays \
+	kcpcmd -t 500 -s localhost:$(kcpcmd subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') delays \
 	`python -c 'import time, os; print time.time() + 30'` '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0' | grep -a 'delays'
-	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') \
+	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') \
 	capture-stop baseline-correlation-products | grep -a 'capture';
 }
 
@@ -27,9 +27,9 @@ fi
 
 function configure_dsim {
 	printf "${bold}Setting FFT-Shift to 511.${normal}\n";
-	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') fft-shift 511 | grep -a 'fft-shift'
+	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') fft-shift 511 | grep -a 'fft-shift'
 	printf "${bold}Setting gain on all inputs to 113.${normal}\n";
-	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') gain-all 113 | grep -a 'gain-all'
+	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') gain-all 113 | grep -a 'gain-all'
 	printf "${bold}Setting Dsim to generate correlated Noise.${normal}\n";
 	corr2_dsim_control.py --config "${CONFIG}" --output-type 0 signal --output-scale 0 1 \
 	--output-scale 1 1 --output-type 1 signal --noise-source corr 0.0645;
@@ -37,7 +37,7 @@ function configure_dsim {
 
 function start_capture {
 	printf "${bold}Start capturing data on port 8888.${normal}\n\n";
-	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') \
+	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') \
 	capture-start baseline-correlation-products
 }
 
@@ -65,8 +65,8 @@ function exitting_code {
 
 function list_baselines {
 	printf "${bold}Baseline list and input labels\n${normal}\n" $tapply;
-	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') input-labels | grep -a 'input-labels'
-	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',') sensor-value \
+	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') input-labels | grep -a 'input-labels'
+	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') sensor-value \
 	baseline-correlation-products-bls-ordering  | grep -a 'baseline-correlation-products-bls-ordering'
 	printf "\n\n"
 }
@@ -78,13 +78,13 @@ function delays_execution {
 	printf "${bold}Now time: %s${normal}\n" `python -c 'import time, os; print time.time()'`;
 	printf "${bold}Trying to load at: %s ${normal}\n\n" `python -c 'import time, os; print time.time() + float(os.environ["tapply"])'`;
 
-	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' | cut -f1 -d ',' ) delays \
+	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',' ) delays \
 	`python -c 'import time, os; print time.time() + float(os.environ["tapply"])'` \
 	'0,0:0,0', '0,0:0,0', '5.83331194452e-10,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'  | grep -a 'delays';
 	#'0,0:0,0', '0,0:0,0', '5.83331194452e-10,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0';
-	#$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' ) delays \
+	#$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' ) delays \
 	#$epoch '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'0
-	#$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) array-list | grep -a array-list | cut -f3 -d ' ' ) delays \
+	#$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' ) delays \
 	#`python -c 'import time; print time.time() + 25'` '0,0:0,0', '0.5,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'
 	sleep 1;
 	start_rx;
