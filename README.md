@@ -1,5 +1,7 @@
 # Correlator-Beamforming Tests
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b8b5951e79a4414a85b450967f4faf2e)](https://app.codacy.com/app/mmphego/mkat_fpga_tests?utm_source=github.com&utm_medium=referral&utm_content=ska-sa/mkat_fpga_tests&utm_campaign=Badge_Grade_Dashboard)
+
 A [Correlator-beamforming](https://www.ska.ac.za/science-engineering/meerkat/about-meerkat/) Unit and Acceptance Testing based framework for [MeerKAT](https://www.ska.ac.za/science-engineering/meerkat/) digital signal processing.
 
 ## Installation
