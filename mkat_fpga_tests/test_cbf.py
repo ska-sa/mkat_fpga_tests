@@ -129,7 +129,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     sync_time = float(informs[0].arguments[-1])
                     errmsg = "Issues with reading Sync epoch"
                     assert isinstance(sync_time, float), errmsg
-                    reply, informs = self.katcp_req.digitiser_synch_epoch(sync_time)
+                    reply, informs = self.katcp_req.sync_epoch(sync_time)
                     errmsg = "Failed to set digitiser sync epoch"
                     assert reply.reply_ok(), errmsg
                     self.logger.info("Digitiser sync epoch set successfully")
@@ -1279,7 +1279,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         else:
             self.Progress("Successfully retrieved initial spead accumulation")
             int_time = self.cam_sensors.get_value("int_time")
-            synch_epoch = self.cam_sensors.get_value("synch_epoch")
+            sync_epoch = self.cam_sensors.get_value("sync_epoch")
             # n_accs = self.cam_sensors.get_value('n_accs')]
             # no_chans = range(self.n_chans_selected)
             time_stamp = initial_dump["timestamp"]
@@ -1318,7 +1318,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     "test_source": test_source,
                     "test_source_ind": test_source_idx,
                     "time_stamp": time_stamp,
-                    "synch_epoch": synch_epoch,
+                    "sync_epoch": sync_epoch,
                     "num_int": num_int,
                     "cam_max_load_time": cam_max_load_time,
                 }
@@ -6553,7 +6553,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         stop_katsdpingest_docker(self)
 
         # Check ADC snapshot for pulse
-        # self.correlator.est_synch_epoch()
+        # self.correlator.est_sync_epoch()
         # sync_time = self.cam_sensors.get_value('sync_time')
         # bf_raw, bf_ts = get_beam_data()
         # curr_mcount = bf_ts[-1]
@@ -6783,7 +6783,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.dhost.outputs.out_1.scale_output(0)
         dump = self.receiver.get_clean_dump()
         baseline_lookup = get_baselines_lookup(self, dump)
-        sync_time = self.cam_sensors.get_values("synch_epoch")
+        sync_time = self.cam_sensors.get_values("sync_epoch")
         scale_factor_timestamp = self.cam_sensors.get_values("scale_factor_timestamp")
         inp = self.cam_sensors.get_values("input_labels")[0][0]
         inp_autocorr_idx = baseline_lookup[(inp, inp)]
@@ -6979,7 +6979,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.dhost.outputs.out_1.scale_output(0)
         dump = self.receiver.get_clean_dump()
         baseline_lookup = get_baselines_lookup(self, dump)
-        sync_time = self.cam_sensors.get_value("synch_epoch")
+        sync_time = self.cam_sensors.get_value("sync_epoch")
         scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
         inp = self.cam_sensors.input_labels[0][0]
         inp_autocorr_idx = baseline_lookup[(inp, inp)]
@@ -7002,7 +7002,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 set_offset = set_offset + input_spec_ticks
                 dump = self.receiver.get_clean_dump()
                 dump_ts = dump["timestamp"]
-                sync_time = self.cam_sensors.get_value("synch_epoch")
+                sync_time = self.cam_sensors.get_value("sync_epoch")
                 scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
                 dump_abs_t = datetime.datetime.fromtimestamp(sync_time + dump_ts / scale_factor_timestamp)
                 print "Start dump time = {}:{}.{}".format(dump_abs_t.minute, dump_abs_t.second, dump_abs_t.microsecond)

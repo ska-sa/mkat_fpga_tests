@@ -8,7 +8,6 @@ dialog
 flex
 gfortran
 git
-iptables-persistent
 libatlas-base-dev
 libboost-all-dev
 libffi-dev
@@ -19,11 +18,10 @@ libhdf5-dev
 libopenblas-dev
 libpcap-dev
 libpcap0.8-dev
-libpng12-dev
+libpng-dev
 libssl-dev
 pkg-config
 python-dev
-python-scipy
 smcroute
 swig
 latexmk

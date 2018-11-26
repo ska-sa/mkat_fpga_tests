@@ -29,8 +29,11 @@ class LoggingClass:
         if not len(logger.handlers):
             Formatter = logging.Formatter(log_format)
             Handler = logging.FileHandler("/tmp/test_ran_by_%s.log" % (get_username))
-            Handler.setLevel(LOGGING_LEVEL)
-            logger.setLevel(LOGGING_LEVEL)
+            try:
+                Handler.setLevel(LOGGING_LEVEL)
+                logger.setLevel(LOGGING_LEVEL)
+            except ValueError:
+                pass
             Handler.setFormatter(Formatter)
             logger.addHandler(Handler)
         return logger
