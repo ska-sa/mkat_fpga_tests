@@ -31,10 +31,9 @@ class LoggingClass:
             Handler = logging.FileHandler("/tmp/test_ran_by_%s.log" % (get_username))
             try:
                 Handler.setLevel(LOGGING_LEVEL)
+                logger.setLevel(LOGGING_LEVEL)
             except ValueError:
-                LOGGING_LEVEL = "INFO"
-                Handler.setLevel(LOGGING_LEVEL)
-            logger.setLevel(LOGGING_LEVEL)
+                pass
             Handler.setFormatter(Formatter)
             logger.addHandler(Handler)
         return logger
