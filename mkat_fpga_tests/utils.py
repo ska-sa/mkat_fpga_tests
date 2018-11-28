@@ -23,8 +23,6 @@ import h5py
 import katcp
 import numpy as np
 import pandas as pd
-from casperfpga.utils import threaded_create_fpgas_from_hosts
-from corr2.data_stream import StreamAddress
 from Crypto.Cipher import AES
 from nose.plugins.attrib import attr
 # MEMORY LEAKS DEBUGGING
@@ -32,6 +30,8 @@ from nose.plugins.attrib import attr
 # from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
 
+from casperfpga.utils import threaded_create_fpgas_from_hosts
+from corr2.data_stream import StreamAddress
 from Logger import LoggingClass
 
 try:

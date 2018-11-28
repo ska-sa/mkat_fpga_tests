@@ -25,7 +25,6 @@ import time
 import unittest
 from datetime import datetime
 
-import corr2
 import katcp
 import matplotlib.pyplot as plt
 import ntplib
@@ -35,18 +34,19 @@ import scipy.interpolate
 import scipy.signal
 from dotenv import find_dotenv, load_dotenv
 from katcp.testutils import start_thread_with_cleanup
-from mkat_fpga_tests import CorrelatorFixture, add_cleanup
-from mkat_fpga_tests.aqf_utils import *
-from mkat_fpga_tests.utils import *
 from nosekatreport import (Aqf, aqf_requirements, aqf_vr, decorators,
                            generic_test, instrument_1k, instrument_4k,
                            instrument_32k, manual_test, slow, system, untested)
-from termcolor import colored
 
+import corr2
 from Corr_RX import CorrRx
 from descriptions import TestProcedure
 from Logger import LoggingClass
+from mkat_fpga_tests import CorrelatorFixture, add_cleanup
+from mkat_fpga_tests.aqf_utils import *
+from mkat_fpga_tests.utils import *
 from power_logger import PowerLogger
+from termcolor import colored
 
 load_dotenv(find_dotenv())
 
