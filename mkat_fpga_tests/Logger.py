@@ -5,9 +5,9 @@ import sys
 from getpass import getuser as getusername
 
 try:
-    get_username = getusername()
+    GET_USERNAME = getusername()
 except OSError:
-    get_username = pwd.getpwuid(os.getuid()).pw_name
+    GET_USERNAME = pwd.getpwuid(os.getuid()).pw_name
 
 # Set same logging level as per nosetests
 LOGGING_LEVEL = ''.join(
@@ -20,6 +20,9 @@ class LoggingClass:
 
     @property
     def logger(self):
+        """
+        Logger
+        """
         log_format = (
             '%(asctime)s | %(name)s | %(levelname)s | %(module)s | %(pathname)s : '
             '%(lineno)d - %(message)s')
@@ -27,13 +30,13 @@ class LoggingClass:
         name = '.'.join([_file_name, self.__class__.__name__])
         logger = logging.getLogger(name)
         if not len(logger.handlers):
-            Formatter = logging.Formatter(log_format)
-            Handler = logging.FileHandler("/tmp/test_ran_by_%s.log" % (get_username))
+            formatter = logging.Formatter(log_format)
+            handler = logging.FileHandler("/tmp/test_ran_by_%s.log" % (GET_USERNAME))
             try:
-                Handler.setLevel(LOGGING_LEVEL)
+                handler.setLevel(LOGGING_LEVEL)
                 logger.setLevel(LOGGING_LEVEL)
             except ValueError:
                 pass
-            Handler.setFormatter(Formatter)
-            logger.addHandler(Handler)
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
         return logger

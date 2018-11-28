@@ -24,7 +24,7 @@ import sys
 import time
 import unittest
 from datetime import datetime
-
+from ast import literal_eval as evaluate
 import katcp
 import matplotlib.pyplot as plt
 import ntplib
@@ -258,7 +258,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_channelisation_wideband_course(self):
         Aqf.procedure(TestProcedure.Channelisation)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -283,7 +283,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_channelisation_wideband_fine(self):
         # Aqf.procedure(TestProcedure.Channelisation)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -302,7 +302,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_channelisation_wideband_course_sfdr_peaks(self):
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -319,7 +319,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_channelisation_wideband_fine_sfdr_peaks(self):
         # Aqf.procedure(TestProcedure.ChannelisationSFDR)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -335,7 +335,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_power_consumption(self):
         Aqf.procedure(TestProcedure.PowerConsumption)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             self.Step("Test is being qualified by CBF.V.3.30")
 
@@ -345,7 +345,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     # def test_beamformer_efficiency(self):
     #     Aqf.procedure(TestProcedure.BeamformerEfficiency)
     #     try:
-    #         assert eval(os.getenv('DRY_RUN', 'False'))
+    #         assert evaluate(os.getenv('DRY_RUN', 'False'))
     #     except AssertionError:
     #         instrument_success = self.set_instrument()
     #         if instrument_success:
@@ -360,7 +360,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_lband_efficiency(self):
         Aqf.procedure(TestProcedure.LBandEfficiency)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -374,7 +374,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_linearity(self):
         # Aqf.procedure(TestProcedure.LBandEfficiency)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -392,7 +392,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_beamforming(self):
         Aqf.procedure(TestProcedure.Beamformer)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -406,7 +406,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_beamforming_timeseries(self):
         # Aqf.procedure(TestProcedure.Beamformer)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -420,7 +420,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_group_delay(self):
         # Aqf.procedure(TestProcedure.Beamformer)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -434,7 +434,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_baseline_correlation_product(self):
         Aqf.procedure(TestProcedure.BaselineCorrelation)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -452,7 +452,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_imaging_data_product_set(self):
         Aqf.procedure(TestProcedure.ImagingDataProductSet)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -466,7 +466,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_tied_array_aux_baseline_correlation_products(self):
         Aqf.procedure(TestProcedure.TiedArrayAuxBaselineCorrelationProducts)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -480,7 +480,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_tied_array_voltage_data_product_set(self):
         Aqf.procedure(TestProcedure.TiedArrayVoltageDataProductSet)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -496,7 +496,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # in the range $$500 +0 -20ms$$.
         Aqf.procedure(TestProcedure.VectorAcc)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -525,7 +525,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # with a range of at least $$\pm 6 \; dB$$ and a resolution of $$\le 1 \; db$$.
         Aqf.procedure(TestProcedure.GainCorr)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -541,7 +541,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         #  combinations, using the same combination of Receptors, in less than 60 seconds.
         Aqf.procedure(TestProcedure.ProductSwitching)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             self.Failed("This requirement is currently not being tested in this release.")
             # _running_inst = which_instrument(self, instrument)
@@ -558,7 +558,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_delay_phase_compensation_control(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation_Control)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -573,7 +573,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_delay_phase_compensation_functional(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             n_ants = self.cam_sensors.get_value("n_ants")
             if n_ants == 4:
@@ -601,7 +601,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # numbers and versions.
         Aqf.procedure(TestProcedure.ReportConfiguration)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -618,7 +618,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         #     b. Signal processing and/or data manipulation performed in the CBF (e.g. FFT overflow).
         Aqf.procedure(TestProcedure.PFBFaultDetection)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -638,7 +638,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # Detected failures shall be reported over the CBF-CAM interface.
         Aqf.procedure(TestProcedure.LinkFaultDetection)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -663,7 +663,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # The CBF shall, on request via the CAM interface, report time synchronisation status.
         Aqf.procedure(TestProcedure.MonitorSensors)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -678,7 +678,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_time_synchronisation(self):
         Aqf.procedure(TestProcedure.TimeSync)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             self._test_time_sync()
 
@@ -688,7 +688,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test_antenna_voltage_buffer(self):
         Aqf.procedure(TestProcedure.VoltageBuffer)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
@@ -703,7 +703,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         """
         # Aqf.procedure(TestProcedure.Linearity)
         try:
-            assert eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
 
@@ -1751,7 +1751,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Error(errmsg, exc_info=True)
             return
         else:
-            bls_to_test = eval(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
+            bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
             self.Progress(
                 "Randomly selected frequency channel to test: {} and "
                 "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
@@ -2573,7 +2573,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 "in the correlator output from SPEAD accumulation"
             )
 
-            bls_ordering = eval(self.cam_sensors.get_value("bls_ordering"))
+            bls_ordering = evaluate(self.cam_sensors.get_value("bls_ordering"))
             input_labels = sorted(self.cam_sensors.input_labels)
             inputs_to_plot = random.shuffle(input_labels)
             inputs_to_plot = input_labels[:8]
@@ -3859,7 +3859,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Error(errmsg, exc_info=True)
             return
         else:
-            quantiser_spectrum = np.array(eval(informs.arguments[-1]))
+            quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
             if chan_index:
                 quantiser_spectrum = quantiser_spectrum[:chan_index]
             # Check that the spectrum is not zero in the test channel
@@ -4827,7 +4827,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 no_channels = self.cam_sensors.get_value("n_chans")
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0
-                test_bls = eval(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
+                test_bls = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
                 Aqf.equals(
                     exp_channels,
                     no_channels,
@@ -5086,7 +5086,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             return
         else:
             # Get auto correlation index of the selected input
-            bls_order = eval(self.cam_sensors.get_value("bls_ordering"))
+            bls_order = evaluate(self.cam_sensors.get_value("bls_ordering"))
             for idx, val in enumerate(bls_order):
                 if val[0] == test_input and val[1] == test_input:
                     auto_corr_idx = idx
@@ -6628,7 +6628,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             reply, informs = self.katcp_req.quantiser_snapshot(inp, timeout=60)
         except Exception:
             self.Failed("Failed to grab quantiser snapshot.")
-        quant_snap = [eval(v) for v in (reply.arguments[1:][1:])]
+        quant_snap = [evaluate(v) for v in (reply.arguments[1:][1:])]
         try:
             reply, informs = self.katcp_req.adc_snapshot(inp, timeout=60)
         except Exception:
@@ -7049,7 +7049,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     #     """
     #     Aqf.procedure(TestProcedure.Channelisation)
     #     try:
-    #         assert eval(os.getenv('DRY_RUN', 'False'))
+    #         assert evaluate(os.getenv('DRY_RUN', 'False'))
     #     except AssertionError:
     #         instrument_success = self.set_instrument()
     #         _running_inst = self.corr_fix.get_running_instrument()
@@ -7131,7 +7131,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             try:
                 reply, informs = self.katcp_req.adc_snapshot(source)
                 assert reply.reply_ok()
-                adc_data = eval(informs[0].arguments[1])
+                adc_data = evaluate(informs[0].arguments[1])
                 assert len(adc_data) == 8192
                 return adc_data
             except AssertionError as e:
@@ -7147,7 +7147,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             try:
                 reply, informs = self.katcp_req.quantiser_snapshot(source)
                 assert reply.reply_ok()
-                quant_data = eval(informs[0].arguments[1])
+                quant_data = evaluate(informs[0].arguments[1])
                 assert len(quant_data) == 4096
                 return quant_data
             except AssertionError as e:
@@ -7178,7 +7178,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.Step("Requesting input labels.")
         try:
             katcp_rct = self.corr_fix.katcp_rct.sensors
-            input_labels = eval(katcp_rct.input_labelling.get_value())
+            input_labels = evaluate(katcp_rct.input_labelling.get_value())
             assert isinstance(input_labels, list)
             inp_labels = [x[0] for x in input_labels]
         except AssertionError as e:
@@ -7234,7 +7234,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
             # reply, informs = self.corr_fix.katcp_rct. \
             #    req.quantiser_snapshot(inp)
-            # data = [eval(v) for v in (reply.arguments[2:])]
+            # data = [evaluate(v) for v in (reply.arguments[2:])]
             # nr_ch = len(data)
             # ch_bw = bw / nr_ch
             # ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
@@ -7572,7 +7572,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Failed("Failed to capture ADC snapshot. \nReply: %s" % str(reply).replace("_", " "))
             return
         else:
-            adc_data = eval(informs.arguments[-1])
+            adc_data = evaluate(informs.arguments[-1])
             fft_len = len(adc_data)
             self.Progress("ADC capture length: {}".format(fft_len))
             fft_real = np.abs(np.fft.fft(adc_data))
@@ -7618,7 +7618,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         ve_desc = _results.get("Verification Event Description", "TBD")
         Aqf.procedure(r"%s" % ve_desc)
         try:
-            assert eval(os.getenv("MANUAL_TEST", "False")) or eval(os.getenv("DRY_RUN", "False"))
+            assert evaluate(os.getenv("MANUAL_TEST", "False")) or evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             results = r"%s" % _results.get("Verification Event Results", "TBD")
             if results != "TBD":
@@ -7689,7 +7689,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 self.Failed(errmsg)
             else:
 
-                bls_to_test = eval(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
+                bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
                 self.Progress(
                     "Randomly selected frequency channel to test: {} and "
                     "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
@@ -7957,7 +7957,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 "in the correlator output from SPEAD accumulation"
             )
 
-            bls_ordering = eval(self.cam_sensors.get_value("bls_ordering"))
+            bls_ordering = evaluate(self.cam_sensors.get_value("bls_ordering"))
             input_labels = sorted(self.cam_sensors.input_labels)
             inputs_to_plot = random.shuffle(input_labels)
             inputs_to_plot = input_labels[:8]
