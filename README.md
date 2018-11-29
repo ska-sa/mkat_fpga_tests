@@ -6,6 +6,8 @@ A [Correlator-beamforming](https://www.ska.ac.za/science-engineering/meerkat/abo
 
 ## Installation
 
+Also see: [opt/dsim_dependencies/README.md](opt/dsim_dependencies/README.md)
+
 ### Python Core packages
 
 List of dependencies:
@@ -20,6 +22,7 @@ List of dependencies:
 ### Python testing dependencies packages
 
 It is highly recommended to install [_Python virtual environment_](https://virtualenv.pypa.io/) before continuing, else below is step-by-step instructions.
+
 #### Setup and Use Virtualenv
 ```
 # Install Python essentials and pip
