@@ -6,7 +6,7 @@ A [Correlator-beamforming](https://www.ska.ac.za/science-engineering/meerkat/abo
 
 ## Installation
 
-Also see: `opt/dsim_dependencies/README.md`
+Also see: [opt/dsim_dependencies/README.md](opt/dsim_dependencies/README.md)
 
 ### Python Core packages
 
