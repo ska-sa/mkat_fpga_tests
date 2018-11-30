@@ -530,7 +530,6 @@ class CorrelatorFixture(Logger.LoggingClass):
                         "Confirmed that the named instrument %s is running" % self.instrument
                     )
                 return instrument_present
-
     def _get_instrument(self):
         """
         Retrieve currently running instrument from /etc/corr

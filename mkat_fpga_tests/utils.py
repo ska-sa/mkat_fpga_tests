@@ -984,7 +984,7 @@ def start_katsdpingest_docker(
 
     time.sleep(5)
     try:
-        output = subprocess.check_output(["docker", "ps"])
+        output = subprocess.check_output(["/usr/bin/docker", "ps"])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1003,7 +1003,7 @@ def stop_katsdpingest_docker(self):
         True if katsdpingest docker container found and stopped
     """
     try:
-        output = subprocess.check_output(["docker", "ps"])
+        output = subprocess.check_output(["/usr/bin/docker", "ps"])
     except subprocess.CalledProcessError:
         return False
     output = output.split()

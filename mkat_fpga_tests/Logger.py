@@ -1,6 +1,7 @@
 import logging
 import os
 import pwd
+import tempfile
 import sys
 from getpass import getuser as getusername
 
@@ -34,7 +35,7 @@ class LoggingClass:
             handler = logging.FileHandler(
                 os.path.join(
                     tempfile.gettempdir(),
-                    "test_ran_by_%s.log", GET_USERNAME
+                    "test_ran_by_%s.log" % GET_USERNAME
                     )
                 )
             try:

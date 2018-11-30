@@ -103,6 +103,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 raise AssertionError(errmsg)
         except Exception:
             self.Error(errmsg, exc_info=True)
+            sys.exit(errmsg)
         else:
             # See: https://docs.python.org/2/library/functions.html#super
             if SET_DSIM_EPOCH is False:
@@ -114,8 +115,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         Aqf.end(message=errmsg)
                         sys.exit(errmsg)
                     self.dhost.get_system_information(filename=self.dhost.config.get("bitstream"))
-                    errmsg = "Issues with the defined instrument, figure it out"
-                    self.assertIsInstance(self.corr_fix.instrument, str, msg=errmsg)
+                    if not isinstance(self.corr_fix.instrument, str):
+                        self.Error("Issues with the defined instrument, figure it out")
                     # cbf_title_report(self.corr_fix.instrument)
                     # Disable warning messages(logs) once
                     disable_warnings_messages()
@@ -127,11 +128,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     self.assertTrue(reply.reply_ok(),
                         "Failed to set Digitiser sync epoch via CAM interface.")
                     sync_time = float(informs[0].arguments[-1])
-                    self.assertIsIsinstance(sync_time, float,
-                        msg="Issues with reading Sync epoch")
+                    self.assertIsInstance(sync_time, float, msg="Issues with reading Sync epoch")
                     reply, informs = self.katcp_req.sync_epoch(sync_time)
-                    self.assertTrue(reply.reply_ok(),
-                        msg="Failed to set digitiser sync epoch")
+                    self.assertTrue(reply.reply_ok(), msg="Failed to set digitiser sync epoch")
                     self.logger.info("Digitiser sync epoch set successfully")
                     SET_DSIM_EPOCH = self._dsim_set = True
                 except Exception:
@@ -161,7 +160,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Step("Confirm running instrument, else start a new instrument")
             self.instrument = self.cam_sensors.get_value("instrument_state").split("_")[0]
             self.Progress(
-                "Currently running instrument %s-%s as per /etc/corr" % (self.corr_fix.array_name, self.instrument)
+                "Currently running instrument %s-%s as per /etc/corr" % (
+                    self.corr_fix.array_name,
+                    self.instrument)
             )
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
@@ -502,8 +503,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 chan_index = self.n_chans_selected
                 n_chans = self.cam_sensors.get_value("n_chans")
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-                acc_time = (0.998 if self.cam_sensors.get_value("n_ants") == 4 else 2 * n_ants / 32.0)
-                self._test_vacc(test_chan, chan_index, acc_time)
+                self._test_vacc(
+                    test_chan,
+                    chan_index,
+                    acc_time=(0.998
+                        if self.cam_sensors.get_value("n_ants") == 4
+                        else 2 * n_ants / 32.0))
             else:
                 self.Failed(self.errmsg)
 
@@ -561,8 +566,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            acc_time = (self.cam_sensors.get_value("n_ants") if n_ants == 4 else 0.5)
-            instrument_success = self.set_instrument(acc_time=acc_time)
+            instrument_success = self.set_instrument(acc_time=(0.5
+                if self.cam_sensors.sensors.n_ants.get_value() == 4
+                else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
             if instrument_success:
                 self._test_delay_tracking()
                 self._test_delay_rate()
@@ -1300,7 +1306,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         ))
             self.assertTrue(reply.reply_ok(), errmsg)
             actual_delay_coef = reply.arguments[1:]
-            if not "updated" in actual_delay_coef[0]:
+            if "updated" not in actual_delay_coef[0]:
                 raise AssertionError()
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
@@ -2720,20 +2726,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i]) for i in actual_z_bls_indices])
-                        try:
-                            msg = "Confirm that the expected baseline visibilities are non-zero with " "non-zero inputs"
-                            self.Step(msg)
-                            msg = msg + " (%s) and," % (sorted(nonzero_inputs))
-                            assert actual_nz_bls == expected_nz_bls
+
+                        msg = "Confirm that the expected baseline visibilities are non-zero with " "non-zero inputs"
+                        self.Step(msg)
+                        msg = msg + " (%s) and," % (sorted(nonzero_inputs))
+                        if not actual_nz_bls == expected_nz_bls:
                             self.Passed(msg)
-                        except AssertionError:
+                        else:
                             self.Failed(msg)
-                        try:
-                            msg = "Confirm that the expected baselines visibilities are 'Zeros'.\n"
-                            self.Step(msg)
-                            assert actual_z_bls == expected_z_bls
+
+                        msg = "Confirm that the expected baselines visibilities are 'Zeros'.\n"
+                        self.Step(msg)
+                        if not actual_z_bls == expected_z_bls:
                             self.Passed(msg)
-                        except AssertionError:
+                        else:
                             self.Failed(msg)
 
                         # Sum of all baselines powers expected to be non zeros
@@ -2771,10 +2777,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         )
 
         try:
-            if self.cam_sensors.sensors.n_ants.value > 16:
-                _discards = 20
-            else:
-                _discards = 10
+            _discards = (20 if self.cam_sensors.sensors.n_ants.value > 16 else 10)
             this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
             assert isinstance(this_freq_dump, dict)
         except AssertionError:
@@ -4536,8 +4539,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
         except Exception:
             errmsg = (
-                "%s: Failed to set delays via CAM interface with load-time: %s, "
-                "Delay coefficients: %s" % (str(reply), setup_data["t_apply"], delay_coefficients,))
+                "Failed to set delays via CAM interface with load-time: %s, "
+                "Delay coefficients: %s" % (setup_data["t_apply"], delay_coefficients,))
             self.Error(errmsg, exc_info=True)
             return
         else:
@@ -6169,7 +6172,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             # Set custom source names
             # local_src_names = self.cam_sensors.custom_input_labels
             # reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-            self.assertTrue(reply.reply_ok())
+            # self.assertTrue(reply.reply_ok())
             # labels = reply.arguments[1:]
             labels = self.cam_sensors.input_labels
             beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
@@ -6191,11 +6194,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]
             scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
-            dsim_factor = float(self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
+            dsim_factor = float(
+                self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
             substreams = self.cam_sensors.get_value("n_xengs")
         except AssertionError:
-            errmsg = "%s" % str(reply).replace("\_", " ")
-            self.Error(errmsg, exc_info=True)
+            self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
             return False
         except Exception:
             errmsg = "Exception"

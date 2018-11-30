@@ -62,7 +62,7 @@ class CorrRx(threading.Thread, LoggingClass):
         :param str: multicast ip
         :retur str: successful or failed
         """
-        list_inets = check_output(["ip", "maddr", "show"])
+        list_inets = check_output(["/sbin/ip", "maddr", "show"])
         return "Successful" if str(mul_ip) in list_inets else "Failed"
 
     def get_sensors(self):
