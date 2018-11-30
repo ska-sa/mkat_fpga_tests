@@ -14,7 +14,7 @@ export CONFIG=$3
 function clearall {
     printf "${bold}Clearing all delays in 30 seconds.${normal}\n\n";
 	kcpcmd -t 500 -s localhost:$(kcpcmd subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') delays \
-	`python -c 'import time, os; print time.time() + 30'` '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0' | grep -a 'delays'
+	$(python -c 'import time, os; print time.time() + 30') '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0' | grep -a 'delays'
 	$(which kcpcmd) -t 30 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',') \
 	capture-stop baseline-correlation-products | grep -a 'capture';
 }
@@ -71,15 +71,15 @@ function list_baselines {
 	printf "\n\n"
 }
 function delays_execution {
-	epoch=`python -c 'import time, os; print time.time() + float(os.environ["tapply"])'`
+	epoch=$(python -c 'import time, os; print time.time() + float(os.environ["tapply"])')
 	epoch=$(($(date '+%s') + $tapply))
-	printf "${bold}Delays to be applied at epoch + %s seconds${normal}\n" $tapply;
+	printf "${bold}Delays to be applied at epoch + %s seconds${normal}\n" ${tapply};
 	printf "${bold}We expect a change phase${normal}\n";
-	printf "${bold}Now time: %s${normal}\n" `python -c 'import time, os; print time.time()'`;
-	printf "${bold}Trying to load at: %s ${normal}\n\n" `python -c 'import time, os; print time.time() + float(os.environ["tapply"])'`;
+	printf "${bold}Now time: %s${normal}\n" $(python -c 'import time, os; print time.time()');
+	printf "${bold}Trying to load at: %s ${normal}\n\n" $(python -c 'import time, os; print time.time() + float(os.environ["tapply"])');
 
 	$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' | cut -f1 -d ',' ) delays \
-	`python -c 'import time, os; print time.time() + float(os.environ["tapply"])'` \
+	$(python -c 'import time, os; print time.time() + float(os.environ["tapply"])') \
 	'0,0:0,0', '0,0:0,0', '5.83331194452e-10,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0'  | grep -a 'delays';
 	#'0,0:0,0', '0,0:0,0', '5.83331194452e-10,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0', '0,0:0,0';
 	#$(which kcpcmd) -t 500 -s localhost:$($(which kcpcmd) subordinate-list | grep -a subordinate-list | cut -f3 -d ' ' ) delays \
