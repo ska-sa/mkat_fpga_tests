@@ -31,7 +31,12 @@ class LoggingClass:
         logger = logging.getLogger(name)
         if not len(logger.handlers):
             formatter = logging.Formatter(log_format)
-            handler = logging.FileHandler("/tmp/test_ran_by_%s.log" % (GET_USERNAME))
+            handler = logging.FileHandler(
+                os.path.join(
+                    tempfile.gettempdir(),
+                    "test_ran_by_%s.log", GET_USERNAME
+                    )
+                )
             try:
                 handler.setLevel(LOGGING_LEVEL)
                 logger.setLevel(LOGGING_LEVEL)
