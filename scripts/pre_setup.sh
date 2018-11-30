@@ -11,7 +11,7 @@
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 NORMAL=$(tput sgr0)
-CURDIR="${PWD}"
+# CURDIR="${PWD}"
 VENV=".venv/bin/activate"
 
 VERBOSE=${1:-false}
@@ -124,7 +124,12 @@ if [ -f "${VENV}" ]; then
                 $(command -v  python) -W ignore::Warning -m pip install -q --no-deps --pre -I --no-warn-conflicts --isolated \
                 --force-reinstall git+https://github.com/ska-sa/"${pkg}"@devel#egg="${pkg}"
             fi
-            [ "$?" = 0 ] && gprint "Installation Successful" || rprint "${pkg} installation FAILED!!!"
+
+            if [ "$?" = 0 ]; then
+                gprint "Installation Successful"
+            else
+                rprint "${pkg} installation FAILED!!!"
+            fi
         fi
     done
     # cd "${CURDIR}"
