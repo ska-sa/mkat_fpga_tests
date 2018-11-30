@@ -1421,6 +1421,11 @@ class AqfReporter(object):
         Aqf.failed(msg)
         self.logger.warn("-> Line:%d: - %s" % (caller.lineno, msg))
 
+    def Passed(self, msg, *args, **kwargs):
+        # caller = getframeinfo(stack()[1][0])
+        Aqf.passed(msg)
+        # self.logger.warn("-> Line:%d: - %s" % (caller.lineno, msg))
+
     def Error(self, msg, *args, **kwargs):
         caller = getframeinfo(stack()[1][0])
         Aqf.failed(msg)

@@ -1230,7 +1230,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         if not delays_cleared:
             self.Failed("Delays were not completely cleared, data might be corrupted.")
         else:
-            Aqf.passed("Cleared all previously applied delays prior to test.")
+            self.Passed("Cleared all previously applied delays prior to test.")
 
         self.Step("Retrieve initial SPEAD accumulation, in-order to calculate all " "relevant parameters.")
         try:
@@ -1300,7 +1300,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         ))
             self.assertTrue(reply.reply_ok(), errmsg)
             actual_delay_coef = reply.arguments[1:]
-            assert "updated" in actual_delay_coef[0]
+            if not "updated" in actual_delay_coef[0]:
+                raise AssertionError()
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
             # _give_up = int(setup_data['num_int'] * setup_data['int_time'] * 3)
@@ -1312,7 +1313,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             #            reply_, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
             #        except:
             #            reply_, informs = self.katcp_req.sensor_value()
-            #        assert reply_.reply_ok()
+            #        self.assertTrue(reply_.reply_ok())
             #    except Exception:
             #        self.logger.exception('Weirdly I could not get the sensor values')
             #    else:
@@ -1321,7 +1322,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             #        if delays_updated:
             #            self.logger.info('Delays have been successfully set')
             #            msg = ('Delays set successfully via CAM interface: reply %s' % str(reply))
-            #            Aqf.passed(msg)
+            #            self.Passed(msg)
             #            break
             #    if _give_up == 0:
             #        msg = ("Could not confirm the delays in the time stipulated, exiting")
@@ -1364,7 +1365,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         "application with dump timestamp: %s, relevant to time apply: %s "
                         "(Difference %s)" % (dump["dump_timestamp"], setup_data["t_apply"], time_diff)
                     )
-                    Aqf.passed(msg)
+                    self.Passed(msg)
                     self.logger.info(msg)
                     break
 
@@ -1834,7 +1835,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
                         self.assertIsInstance(queued_dump, dict)
                         deng_timestamp = float(self.dhost.registers.sys_clkcounter.read().get("timestamp"))
-                        assert isinstance(deng_timestamp, float)
+                        self.assertIsInstance(deng_timestamp, float)
                     except Exception:
                         errmsg = "Could not retrieve clean queued accumulation for freq(%s @ %s: " "%s MHz)." % (
                             i + 1,
@@ -2394,13 +2395,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         )
 
         if max_channels == channel_range:
-            Aqf.passed(msg)
+            self.Passed(msg)
         else:
             Aqf.array_almost_equal(max_channels[1:], channel_range[1:], msg)
 
         msg = "Confirm that no other channels response more than -%s dB.\n" % cutoff
         if extra_peaks == [[]] * len(max_channels):
-            Aqf.passed(msg)
+            self.Passed(msg)
         else:
             self.logger.debug("Expected: %s\n\nGot: %s" % (extra_peaks, [[]] * len(max_channels)))
             self.Failed(msg)
@@ -2495,7 +2496,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         try:
             self.Step("Change CBF input labels and confirm via CAM interface.")
             reply_, _ = self.katcp_req.input_labels()
-            assert reply_.reply_ok()
+            self.assertTrue(reply_.reply_ok())
             ori_source_name = reply_.arguments[1:]
             self.Progress("Original source names: {}".format(", ".join(ori_source_name)))
         except Exception:
@@ -2509,7 +2510,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         else:
             source_names = reply.arguments[1:]
             msg = "Source names changed to: {}".format(", ".join(source_names))
-            Aqf.passed(msg)
+            self.Passed(msg)
 
         try:
             if self.cam_sensors.sensors.n_ants.value > 16:
@@ -2582,15 +2583,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             msg = "Confirm that no baselines have all-zero visibilities."
             Aqf.is_false(zero_baselines(test_data), msg)
             msg = "Confirm that all baseline visibilities are non-zero across all channels"
-            try:
-                assert nonzero_baselines(test_data) == all_nonzero_baselines(test_data)
-                Aqf.passed(msg)
-            except AssertionError:
+            if not nonzero_baselines(test_data) == all_nonzero_baselines(test_data):
                 self.Failed(msg)
+            else:
+                self.Passed(msg)
             self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
 
             initial_equalisations = get_and_restore_initial_eqs(self)
-            # Aqf.passed('Stored initial F-engine equalisations: %s' %
+            # self.Passed('Stored initial F-engine equalisations: %s' %
             #            initial_equalisations)
             self.Progress("Stored original F-engine equalisations.")
 
@@ -2601,7 +2601,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 except Exception:
                     self.Error("Failed to set equalisations on all F-engines", exc_info=True)
                 else:
-                    Aqf.passed("All the inputs equalisations have been set to Zero.")
+                    self.Passed("All the inputs equalisations have been set to Zero.")
 
             def read_zero_gains():
                 try:
@@ -2667,7 +2667,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     self.Error(errmsg, exc_info=True)
                 else:
                     msg = "Gain/Equalisation correction on input %s set to %s." % (inp, old_eq)
-                    Aqf.passed(msg)
+                    self.Passed(msg)
                     zero_inputs.remove(inp)
                     nonzero_inputs.add(inp)
                     expected_z_bls, expected_nz_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
@@ -2725,14 +2725,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             self.Step(msg)
                             msg = msg + " (%s) and," % (sorted(nonzero_inputs))
                             assert actual_nz_bls == expected_nz_bls
-                            Aqf.passed(msg)
+                            self.Passed(msg)
                         except AssertionError:
                             self.Failed(msg)
                         try:
                             msg = "Confirm that the expected baselines visibilities are 'Zeros'.\n"
                             self.Step(msg)
                             assert actual_z_bls == expected_z_bls
-                            Aqf.passed(msg)
+                            self.Passed(msg)
                         except AssertionError:
                             self.Failed(msg)
 
@@ -3270,7 +3270,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         #            self.logger.info('%s delay(s) have been successfully set' % delay)
                         #            msg = ('Delays set successfully via CAM interface: Reply: %s' %
                         #                    formated_reply)
-                        #            Aqf.passed(msg)
+                        #            self.Passed(msg)
                         #            break
                         #    if _give_up == 0:
                         #        msg = ("Could not confirm the delays in the time stipulated, exiting")
@@ -3474,7 +3474,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 msg = msg + "CAM Reply: {}\n".format(str(informs[0]))
                 if not reply.reply_ok():
                     self.Failed(msg)
-                Aqf.passed(msg)
+                self.Passed(msg)
 
         def report_small_buffer(self):
             self.Step("Confirm that the Transient Buffer ready is implemented.")
@@ -3484,7 +3484,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 errmsg = "CBF Transient buffer ready for triggering" "'Not' implemented in this release.\n"
                 self.Error(errmsg, exc_info=True)
             else:
-                Aqf.passed("CBF Transient buffer ready for triggering" " implemented in this release.\n")
+                self.Passed("CBF Transient buffer ready for triggering" " implemented in this release.\n")
 
         def report_primary_sensors(self):
             self.Step("Confirm that all primary sensors are nominal.")
@@ -3593,7 +3593,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Step("Restore original FFT Shift values")
             reply, informs = self.katcp_req.fft_shift(fft_shift)
             self.assertTrue(reply.reply_ok())
-            Aqf.passed("FFT Shift: %s restored." % fft_shift)
+            self.Passed("FFT Shift: %s restored." % fft_shift)
         except Exception:
             self.Error("Could not set the F-Engine FFT Shift value", exc_info=True)
             return
@@ -3620,7 +3620,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 msg = (
                     "Confirm that the SPEAD accumulation is being produced by "
                     "instrument but not verified.\n")
-                Aqf.passed(msg)
+                self.Passed(msg)
 
         # Record the current multicast destination of one of the F-engine data
         # ethernet ports,
@@ -3672,7 +3672,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             except BaseException:
                 self.Failed("Failed to write new multicast destination on %s" % host.host)
             else:
-                Aqf.passed(
+                self.Passed(
                     "Confirm that the multicast destination address for %s has been changed "
                     "from %s to %s." % (host.host, ip_old, changed_ip)
                 )
@@ -3680,12 +3680,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         def report_lru_status(self, host, get_lru_status):
             Aqf.wait(30, "Wait until the sensors have been updated with new changes")
             if get_lru_status(self, host) == 1:
-                Aqf.passed(
+                self.Passed(
                     "Confirm that the X-engine %s LRU sensor is OKAY and "
                     "that the X-eng is receiving feasible data." % (host.host)
                 )
             elif get_lru_status(self, host) == 0:
-                Aqf.passed(
+                self.Passed(
                     "Confirm that the X-engine %s LRU sensor is reporting a "
                     "failure and that the X-eng is not receiving feasible "
                     "data." % (host.host)
@@ -3705,7 +3705,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         if not current_ip:
             self.Failed("Failed to retrieve multicast destination address of %s" % fhost.host)
         elif current_ip != ip_new:
-            Aqf.passed("Current multicast destination address for %s: %s." % (fhost.host,
+            self.Passed("Current multicast destination address for %s: %s." % (fhost.host,
                 current_ip))
         else:
             self.Failed("Multicast destination address of %s" % (fhost.host))
@@ -4367,7 +4367,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 if not delays_cleared:
                     self.Failed("Delays were not completely cleared, data might be corrupted.\n")
                 else:
-                    Aqf.passed("Cleared all previously applied delays prior to test.\n")
+                    self.Passed("Cleared all previously applied delays prior to test.\n")
                     delays = [0] * setup_data["num_inputs"]
                     # Get index for input to delay
                     test_source_idx = input_labels.index(delayed_input)
@@ -4397,7 +4397,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         return
                     else:
                         Aqf.is_true(reply.reply_ok(), str(reply).replace("\_", " "))
-                        Aqf.passed("Delays where successfully applied on input: {}".format(delayed_input))
+                        self.Passed("Delays where successfully applied on input: {}".format(delayed_input))
                     try:
                         self.Step(
                             "Getting SPEAD accumulation (while discarding subsequent dumps) containing "
@@ -4491,7 +4491,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         if not delays_cleared:
             self.Failed("Delays were not completely cleared, data might be corrupted.\n")
         else:
-            Aqf.passed("Confirm that the user can disable Delays and/or Phase changes via CAM interface.")
+            self.Passed("Confirm that the user can disable Delays and/or Phase changes via CAM interface.")
         dump = self.receiver.get_clean_dump()
         t_apply = dump["dump_timestamp"] + num_int * int_time
         no_inputs = [0] * setup_data["num_inputs"]
@@ -4507,7 +4507,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             reply_, _informs = self.katcp_req.delays(t_apply, *delay_coefficients, timeout=30)
             load_done_time = time.time()
             msg = "Delay/Fringe(s) set via CAM interface reply : %s" % str(reply_)
-            assert reply_.reply_ok()
+            self.assertTrue(reply_.reply_ok())
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             Aqf.is_true(reply_.reply_ok(), msg)
             self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
@@ -4797,7 +4797,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     "frequency channels ({}) corresponding to the {} "
                     "instrument currently running,".format(no_channels, self.instrument),
                 )
-                Aqf.passed(
+                self.Passed(
                     "and confirm that imaging data product set has been "
                     "implemented for instrument: {}.".format(self.instrument)
                 )
@@ -5097,7 +5097,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         rand_ch,
                         reply.arguments[rand_ch + 1],
                     )
-                    Aqf.passed(msg)
+                    self.Passed(msg)
                     try:
                         dump = self.receiver.get_clean_dump(discard=_discards)
                         self.assertIsInstance(dump, dict)
@@ -5117,7 +5117,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                 "(actual = {:.2f} dB) with a gain "
                                 "increment of {}.".format(resp_diff, complex(gain_inc))
                             )
-                            Aqf.passed(msg)
+                            self.Passed(msg)
                             fnd_less_one = True
                             chan_resp.append(response)
                             legends.append("Gain set to %s" % (complex(gain)))
@@ -5127,7 +5127,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                 "(actual = {:.2f} dB) with a gain "
                                 "increment of {}.".format(resp_diff, complex(gain_inc))
                             )
-                            Aqf.passed(msg)
+                            self.Passed(msg)
                             found = True
                             chan_resp.append(response)
                             legends.append("Gain set to %s" % (complex(gain)))
@@ -5192,7 +5192,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]
-            dsim_factor = float(self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
+            dsim_factor = float(
+                self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
                 "scale_factor_timestamp"
             )
             substreams = self.cam_sensors.get_value("n_xengs")
@@ -5298,7 +5299,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 )
                 reply, informs = ingest_kcp_client.blocking_request(
                     katcp.Message.request(
-                        "substreams-to-capture", "{}+{}:{}".format(lbeam_ip, lsubstrms_to_cap - 1, lbeam_port)
+                        "substreams-to-capture", "{}+{}:{}".format(
+                            lbeam_ip, lsubstrms_to_cap - 1, lbeam_port)
                     ),
                     timeout=_timeout,
                 )
@@ -5369,7 +5371,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         return False
                     retries += 1
                     try:
-                        bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, ingest_kcp_client)
+                        bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self,
+                            beam, beam_dict, ingest_kcp_client)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
@@ -5397,7 +5400,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             if missed_perc > perc:
                                 self.Progress("Missed heap percentage = {}%%".format(missed_perc * 100))
                                 self.Progress("Missed heaps = {}".format(missed_heaps))
-                                self.Progress("Beam captured missed more than %s%% heaps. Retrying..." % (perc * 100))
+                                self.Progress(
+                                    "Beam captured missed more than %s%% heaps. Retrying..." % (
+                                        perc * 100))
                                 missed_err = True
                                 # break
                         # Good capture, break out of loop
@@ -5409,7 +5414,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 for part in flags:
                     missed_heaps = np.where(part > 0)[0]
                     if missed_heaps.size > 0:
-                        self.logger.info("Missed heaps for substream {} at heap indexes {}".format(idx, missed_heaps))
+                        self.logger.info("Missed heaps for substream {} at heap indexes {}".format(
+                            idx, missed_heaps))
                     idx += 1
                 # Combine all missed heap flags. These heaps will be discarded
                 flags = np.sum(flags, axis=0)
@@ -5511,7 +5517,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             )
                             self.logger.info(msg)
                             if local_substream % align_print_modulo == 0:
-                                Aqf.passed(msg)
+                                self.Passed(msg)
                         else:
                             failed = True
                             self.Failed(
@@ -5528,7 +5534,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             msg = "No spikes found in sub spectrum."
                             self.logger.info(msg)
                             if local_substream % align_print_modulo == 0:
-                                Aqf.passed(msg)
+                                self.Passed(msg)
                         else:
                             failed = True
                             self.Failed("Spikes found at: {}".format(spikes))
@@ -5601,7 +5607,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             try:
                 # Calculate reference level by not specifying ref level
                 # Use weights from previous test
-                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_dict=beam_dict, conf_data_type=True)
+                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam,
+                    beam_dict=beam_dict, conf_data_type=True)
             except Exception:
                 errmsg = "Failed to retrieve beamformer data"
                 self.Failed(errmsg)
@@ -5611,7 +5618,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
             # Characterise beam weight application:
             self.Step("Characterising beam weight application.")
-            self.Step("Step weight for one input and plot the mean value for all channels against expected value.")
+            self.Step(
+                "Step weight for one input and plot the mean value for all channels "
+                "against expected value.")
             self.Step("Expected value calculated by multiplying reference value with weight.")
             weight = 0.1
             mean_vals = []
@@ -5627,7 +5636,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 # Set weight for reference input, the rest are all zero
                 # TODO: check that this actually checks that the correct weight has been set
                 self.logger.info(
-                    "Confirm that antenna input ({}) weight has been set to the desired weight.".format(ref_input_label)
+                    "Confirm that antenna input ({}) weight has been set to the desired weight.".format(
+                        ref_input_label)
                 )
                 try:
                     reply, informs = self.katcp_req.beam_weights(beam, *weight_list, timeout=60)
@@ -5650,7 +5660,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         return False
                     continue
                 else:
-                    Aqf.passed("Antenna input {} weight set to {}".format(key, actual_weight))
+                    self.Passed("Antenna input {} weight set to {}".format(key, actual_weight))
 
                 # Get mean beam data
                 try:
@@ -5719,7 +5729,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             # power data
             aqf_plot_channels(
                 zip(np.square(beam_data), beam_lbls),
-                plot_filename="{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, beam),
+                plot_filename="{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName,
+                    beam),
                 plot_title=(
                     "Beam = {}\nSpectrum Start Frequency = {} MHz\n"
                     "Number of Channels Captured = {}"
@@ -5742,7 +5753,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             try:
                 # Recalculate reference level by not specifying ref level
                 # Use weights from previous test
-                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_quant_gain=bq_gain, act_wgts=act_wgts)
+                d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_quant_gain=bq_gain,
+                    act_wgts=act_wgts)
             except Exception:
                 errmsg = "Failed to retrieve beamformer data:"
                 self.Failed(errmsg)
@@ -5828,7 +5840,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 msg = "Capturing 1 substream at {}".format(beam_ip)
                 self.logger.info(msg)
                 if substream % align_print_modulo == 0:
-                    Aqf.passed(msg)
+                    self.Passed(msg)
 
                 # Step dsim CW
                 dsim_set_success = False
@@ -5860,7 +5872,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             if aligned_failed:
                 self.Failed("Beamformer substream alignment test failed.")
             else:
-                Aqf.passed("All beamformer substreams correctly aligned.")
+                self.Passed("All beamformer substreams correctly aligned.")
 
         # Close any KAT SDP ingest nodes
         try:
@@ -7517,7 +7529,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Step("Confirm that the `Transient Buffer ready` is implemented.")
             reply, informs = self.katcp_req.transient_buffer_trigger(timeout=120)
             self.assertTrue(reply.reply_ok())
-            Aqf.passed("Transient buffer trigger present.")
+            self.Passed("Transient buffer trigger present.")
         except Exception:
             self.Failed("Transient buffer trigger failed. \nReply: %s" % str(reply).replace("_", " "))
 
@@ -7583,7 +7595,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             results = r"%s" % _results.get("Verification Event Results", "TBD")
             if results != "TBD":
                 self.Step(r"%s" % _results.get("Verification Requirement Description", "TBD"))
-                Aqf.passed(r"%s" % results)
+                self.Passed(r"%s" % results)
                 perf = _results.get("Verification Event Performed By", "TBD")
                 _date = _results.get("Date of Verification Event", "TBD")
                 if perf != "TBD":
@@ -7969,7 +7981,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
 
             initial_equalisations = get_and_restore_initial_eqs(self)
-            Aqf.passed("Stored initial F-engine equalisations")
+            self.Passed("Stored initial F-engine equalisations")
 
             def prt_arr(array, print_len=4):
                 try:
@@ -8047,7 +8059,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                 )
                             )
                         else:
-                            Aqf.passed(
+                            self.Passed(
                                 "{}, baseline {}, is an auto-correlation, magnitude and phase matches:\n{}\n{}"
                                 "".format(
                                     inputs,
@@ -8113,7 +8125,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                     )
                                 )
                             else:
-                                Aqf.passed(
+                                self.Passed(
                                     "{}, baseline {}, is a x-poll cross-correlation, magnitude and phase matches:\n{}\n{}"
                                     "".format(
                                         inputs,
@@ -8171,7 +8183,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                     )
                                 )
                             else:
-                                Aqf.passed(
+                                self.Passed(
                                     "{}, baseline {}, is a y-poll cross-correlation, magnitude and phase matches:\n{}\n{}"
                                     "".format(
                                         inputs,
