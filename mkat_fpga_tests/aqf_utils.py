@@ -3,9 +3,10 @@ from Tkinter import tkinter
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mkat_fpga_tests.utils import loggerise
 from nosekatreport import Aqf
+
 from Logger import LoggingClass
+from mkat_fpga_tests.utils import loggerise
 
 # I'm sure there's a better way///
 _logger = LoggingClass()

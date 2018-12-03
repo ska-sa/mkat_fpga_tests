@@ -20,7 +20,6 @@ iniparse
 ipdb
 ipynose
 ipython
-jenkinsapi
 katcp
 lxml
 matplotlib==2.0.2

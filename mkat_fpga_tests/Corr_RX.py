@@ -16,12 +16,11 @@ import time
 from subprocess import check_output
 
 import numpy as np
+
 import spead2
 import spead2.recv as s2rx
-
 from casperfpga import network
 from corr2 import data_stream
-
 from Logger import LoggingClass
 
 interface_prefix = "10.100"
@@ -63,7 +62,7 @@ class CorrRx(threading.Thread, LoggingClass):
         :param str: multicast ip
         :retur str: successful or failed
         """
-        list_inets = check_output(["ip", "maddr", "show"])
+        list_inets = check_output(["/sbin/ip", "maddr", "show"])
         return "Successful" if str(mul_ip) in list_inets else "Failed"
 
     def get_sensors(self):

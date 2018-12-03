@@ -23,8 +23,6 @@ import h5py
 import katcp
 import numpy as np
 import pandas as pd
-from casperfpga.utils import threaded_create_fpgas_from_hosts
-from corr2.data_stream import StreamAddress
 from Crypto.Cipher import AES
 from nose.plugins.attrib import attr
 # MEMORY LEAKS DEBUGGING
@@ -32,6 +30,8 @@ from nose.plugins.attrib import attr
 # from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
 
+from casperfpga.utils import threaded_create_fpgas_from_hosts
+from corr2.data_stream import StreamAddress
 from Logger import LoggingClass
 
 try:
@@ -984,7 +984,7 @@ def start_katsdpingest_docker(
 
     time.sleep(5)
     try:
-        output = subprocess.check_output(["docker", "ps"])
+        output = subprocess.check_output(["/usr/bin/docker", "ps"])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1003,7 +1003,7 @@ def stop_katsdpingest_docker(self):
         True if katsdpingest docker container found and stopped
     """
     try:
-        output = subprocess.check_output(["docker", "ps"])
+        output = subprocess.check_output(["/usr/bin/docker", "ps"])
     except subprocess.CalledProcessError:
         return False
     output = output.split()
@@ -1420,6 +1420,11 @@ class AqfReporter(object):
         caller = getframeinfo(stack()[1][0])
         Aqf.failed(msg)
         self.logger.warn("-> Line:%d: - %s" % (caller.lineno, msg))
+
+    def Passed(self, msg, *args, **kwargs):
+        # caller = getframeinfo(stack()[1][0])
+        Aqf.passed(msg)
+        # self.logger.warn("-> Line:%d: - %s" % (caller.lineno, msg))
 
     def Error(self, msg, *args, **kwargs):
         caller = getframeinfo(stack()[1][0])

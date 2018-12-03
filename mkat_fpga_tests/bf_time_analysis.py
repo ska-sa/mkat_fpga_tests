@@ -16,12 +16,12 @@ import matplotlib.cm as CM
 import matplotlib.pylab as py
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-
 # %% Import relevant packages
 # import sys
 import numpy as np
 import scipy as sp
-from pylab import figure, hist, legend, plot, subplot, title, xlabel, xlim, ylabel, ylim
+from pylab import (figure, hist, legend, plot, subplot, title, xlabel, xlim,
+                   ylabel, ylim)
 from scipy import signal
 
 # %% Define useful functions

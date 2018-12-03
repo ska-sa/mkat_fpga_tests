@@ -29,7 +29,7 @@ filterwarnings("ignore")
 
 # Latest tagged stable version
 try:
-    __version__ = subprocess.check_output(["git", "describe", "--tags"]).rstrip().split("-")[-1]
+    __version__ = subprocess.check_output(["/usr/bin/git", "describe", "--tags"]).rstrip().split("-")[-1]
 except subprocess.CalledProcessError:
     __version__ = "0.5"
 
