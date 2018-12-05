@@ -184,11 +184,11 @@ class CorrelatorFixture(Logger.LoggingClass):
                         except TypeError:
                             self.correlator.initialise(program=False, logLevel=_logLevel)
                         return self._correlator
-                    except Exception as e:
+                    except Exception:
                         self.logger.exception(
-                            "Failed to create new correlator instance with error: %s, "
+                            "Failed to create new correlator instance, "
                             "Will now try to start correlator with config: %s-%s"
-                            % (str(e), self.array_name, self.instrument)
+                            % (self.array_name, self.instrument)
                         )
                         continue
                     if _retries == 0:
@@ -259,9 +259,9 @@ class CorrelatorFixture(Logger.LoggingClass):
                     self._katcp_rct.start()
                     try:
                         self._katcp_rct.until_synced(timeout=_timeout)
-                    except Exception as e:
+                    except Exception:
                         self._katcp_rct.stop()
-                        self.logger.exception("Failed to connect to katcp due to %s" % str(e))
+                        self.logger.exception("Failed to connect to katcp")
                     else:
                         return self._katcp_rct
         else:
@@ -336,9 +336,9 @@ class CorrelatorFixture(Logger.LoggingClass):
                     self._katcp_rct_sensor.start()
                     try:
                         self._katcp_rct_sensor.until_synced(timeout=_timeout)
-                    except Exception as e:
+                    except Exception:
                         self._katcp_rct_sensor.stop()
-                        self.logger.exception("Failed to connect to katcp due to %s" % str(e))
+                        self.logger.exception("Failed to connect to katcp")
                     else:
                         return self._katcp_rct_sensor
         else:

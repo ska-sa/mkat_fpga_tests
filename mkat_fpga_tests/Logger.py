@@ -39,8 +39,8 @@ class LoggingClass:
                     )
                 )
             try:
-                handler.setLevel(LOGGING_LEVEL)
-                logger.setLevel(LOGGING_LEVEL)
+                handler.setLevel(getattr(logging, LOGGING_LEVEL.upper()))
+                logger.setLevel(getattr(logging, LOGGING_LEVEL.upper()))
             except ValueError:
                 pass
             handler.setFormatter(formatter)

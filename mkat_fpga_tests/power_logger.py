@@ -165,7 +165,7 @@ class PowerLogger(threading.Thread):
             telnet_handle.write(cmd[0] + "\r\n")
             try:
                 stdout = telnet_handle.read_until("apc>", timeout=timeout)
-            except Exception as e:
+            except Exception:
                 raise
             smpl_time = str(int(time.time()))
             value = self._get_stdout(stdout, cmd[1])
@@ -186,10 +186,9 @@ class PowerLogger(threading.Thread):
                 try:
                     telnet_handles.append(self.open_telnet_conn(host, self._pdu_port))
                     rem_hosts.remove(host)
-                except Exception as e:
-                    self.logger.error(
-                        "Exception ({}) occured while connecting to PDU {}.".format(host, str(e))
-                    )
+                except Exception:
+                    self.logger.exception(
+                        "Exception ({}) occurred while connecting to PDU.".format(host))
             hosts = rem_hosts[:]
             if not hosts:
                 retry = 0
@@ -221,12 +220,11 @@ class PowerLogger(threading.Thread):
                                 con_err_dict[th.host] = 0
                             except KeyError:
                                 break
-                            except Exception as e:
+                            except Exception:
                                 con_err_dict[th.host] += 1
-                                self.logger.error(
-                                    "Exception occured while connecting to PDU {}.".format(th.host)
+                                self.logger.exception(
+                                    "Exception occurred while connecting to PDU {}.".format(th.host)
                                 )
-                                self.logger.error("Exception: {}".format(e))
                                 break
                         power = self.read_from_pdu(th, self.REQ_PWR)
                         current = self.read_from_pdu(th, self.REQ_CRNT)
