@@ -290,7 +290,8 @@ def clear_all_delays(self):
             num_int = int(self.conf_file["instrument_params"]["num_int_delay_load"])
             t_apply = dump_timestamp + (num_int * int_time)
             start_time = time.time()
-            reply, informs = self.corr_fix.katcp_rct.req.delays(t_apply, *delay_coefficients)
+            reply, informs = self.corr_fix.katcp_rct.req.delays("antenna-channelised-voltage",
+                t_apply, *delay_coefficients)
             time_end = time.time() - start_time
             errmsg = "Delays command could not be executed in the given time: {}".format(reply)
             assert reply.reply_ok(), errmsg
@@ -482,9 +483,8 @@ def set_input_levels(
             assert reply.reply_ok()
             LOGGER.info("F-Engines FFT shift set to {} via CAM interface".format(fft_shift))
             return True
-        except Exception as e:
-            errmsg = "Failed to set FFT shift via CAM interface due to {}".format(str(e))
-            LOGGER.exception(errmsg)
+        except Exception:
+            LOGGER.exception("Failed to set FFT shift via CAM interface")
             return False
 
     LOGGER.info("Setting desired FFT-Shift via CAM interface.")
@@ -508,9 +508,8 @@ def set_input_levels(
             assert reply.reply_ok()
         LOGGER.info("Gains set successfully: Reply:- %s" % str(reply))
         return True
-    except Exception as e:
-        errmsg = "Failed to set gain for input due to %s" % str(e)
-        LOGGER.exception(errmsg)
+    except Exception:
+        LOGGER.exception("Failed to set gain for input.")
         return False
 
 
@@ -759,9 +758,8 @@ def executed_by():
                 user, os.uname()[1].upper(), time.strftime("%Y-%m-%d %H:%M:%S")
             )
         )
-    except Exception as e:
-        _errmsg = "Failed to detemine who ran the test with %s" % str(e)
-        LOGGER.error(_errmsg)
+    except Exception:
+        LOGGER.error("Failed to determine who ran the test")
         Aqf.hop(
             "Test ran by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime())
         )
@@ -1092,9 +1090,10 @@ def capture_beam_data(
                 errmsg = "Could not connect to %s:%s, timed out." % (ingst_nd, ingst_nd_p)
                 ingest_kcp_client.stop()
                 raise RuntimeError(errmsg)
-        except Exception as e:
-            LOGGER.exception(str(e))
-            Aqf.failed(str(e))
+        except Exception:
+            errmsg = "Failed to execute katcp request."
+            LOGGER.exception(errmsg)
+            Aqf.failed(errmsg)
 
     # Build new dictionary with only the requested beam keys:value pairs
     # Put into an ordered list
@@ -1125,8 +1124,8 @@ def capture_beam_data(
             assert reply.reply_ok()
         except AssertionError:
             Aqf.failed("Beam weights not successfully set: {}".format(reply))
-        except Exception as e:
-            errmsg = "Test failed due to %s" % str(e)
+        except Exception:
+            errmsg = "Failed to execute katcp requests"
             Aqf.failed(errmsg)
             LOGGER.exception(errmsg)
         else:
@@ -1145,10 +1144,6 @@ def capture_beam_data(
         #    except AssertionError:
         #        Aqf.failed(
         #            'Beam weights not successfully set: {}'.format(reply))
-        #    except Exception as e:
-        #        errmsg = 'Test failed due to %s' % str(e)
-        #        Aqf.failed(errmsg)
-        #        LOGGER.exception(errmsg)
         #    else:
         #        LOGGER.info('Antenna input {} weight set to {}'.format(
         #            key, reply.arguments[1]))
@@ -1176,9 +1171,8 @@ def capture_beam_data(
             )
             errmsg = "Failed to issues ingest node capture-init: {}".format(str(reply))
             assert reply.reply_ok(), errmsg
-        except Exception as e:
-            print e
-            LOGGER.exception(e)
+        except Exception:
+            errmsg = "Failed to execute katcp request"
             LOGGER.exception(errmsg)
             Aqf.failed(errmsg)
         if start_only:
@@ -1209,8 +1203,8 @@ def capture_beam_data(
         newest_f = max(glob.iglob("%s/*.h5" % beamdata_dir), key=os.path.getctime)
         _timestamp = int(newest_f.split("/")[-1].split(".")[0])
         newest_f_timestamp = time.strftime("%H:%M:%S", time.localtime(_timestamp))
-    except ValueError as e:
-        Aqf.failed("Failed to get the latest beamformer data: %s" % str(e))
+    except ValueError:
+        Aqf.failed("Failed to get the latest beamformer data")
         return
     else:
         LOGGER.info(
@@ -1269,9 +1263,8 @@ def set_beam_quant_gain(self, beam, gain):
         )
         Aqf.almost_equals(actual_beam_gain, gain, 0.1, msg)
         return actual_beam_gain
-    except Exception as e:
-        Aqf.failed("Failed to set beamformer quantiser gain via CAM interface, {}".format(str(e)))
-        return 0
+    except Exception:
+        Aqf.failed("Failed to set beamformer quantiser gain via CAM interface")
 
 
 class DictEval(object):
@@ -1292,11 +1285,10 @@ def FPGA_Connect(hosts, _timeout=30):
     while not fpgas:
         try:
             fpgas = threaded_create_fpgas_from_hosts(hosts, timeout=_timeout, logger=LOGGER)
-        except Exception as e:
+        except Exception:
             retry -= 1
             if retry == 0:
-                errmsg = "ERROR: Could not connect to SKARABs - {}".format(e)
-                LOGGER.error(errmsg)
+                LOGGER.error("ERROR: Could not connect to the SKARABs")
                 return False
     return fpgas
 
@@ -1336,8 +1328,8 @@ class CSV_Reader(object):
             df = pd.read_csv(self.csv_filename)
             df = df.replace(np.nan, "TBD", regex=True)
             df = df.fillna(method="ffill")
-        except Exception as e:
-            LOGGER.error("could not load the csv file: {}".format(e))
+        except Exception:
+            LOGGER.error("could not load the csv file")
             return False
         else:
             return df.set_index(self.set_index) if self.set_index else df

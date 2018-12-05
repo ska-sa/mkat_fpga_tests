@@ -1295,7 +1295,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         try:
             self.Step("Request Fringe/Delay(s) Corrections via CAM interface.")
             load_strt_time = time.time()
-            reply, _informs = self.katcp_req.delays(
+            reply, _informs = self.katcp_req.delays("antenna-channelised-voltage",
                 setup_data["t_apply"], *delay_coefficients, timeout=30)
             load_done_time = time.time()
             errmsg = ("%s: Failed to set delays via CAM interface with load-time: %s, "
@@ -3243,7 +3243,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         )
                         self.logger.info("Setting a delay of %s via cam interface" % delay)
                         load_strt_time = time.time()
-                        reply, _informs = self.katcp_req.delays(t_apply, *delay_coefficients)
+                        reply, _informs = self.katcp_req.delays("antenna-channelised-voltage", t_apply, *delay_coefficients)
                         load_done_time = time.time()
                         formated_reply = str(reply).replace("\_", " ")
                         errmsg = (
@@ -4255,8 +4255,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
                 actual_phases = [phases for phases, response in actual_data]
             except TypeError:
-                errmsg = "Could not retrieve actual delay rate data. Aborting test"
-                self.Error(errmsg, exc_info=True)
+                self.Error("Could not retrieve actual delay rate data. Aborting test", exc_info=True)
                 return
             else:
                 expected_phases = self._get_expected_data(setup_data, dump_counts, delay_coefficients, actual_phases)
@@ -4392,11 +4391,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         )
                         self.Progress("Time delays will be applied: %s (%s)" % (t_apply, t_apply_readable))
                         self.Progress("Delay coefficients: %s" % delay_coefficients)
-                        reply, _informs = self.katcp_req.delays(t_apply, *delay_coefficients)
+                        reply, _informs = self.katcp_req.delays("antenna-channelised-voltage", t_apply, *delay_coefficients)
                         self.assertTrue(reply.reply_ok())
                     except Exception:
-                        errmsg = "%s" % str(reply).replace("\_", " ")
-                        self.Failed(errmsg)
+                        self.Failed("Failed to execute katcp requests!")
                         return
                     else:
                         Aqf.is_true(reply.reply_ok(), str(reply).replace("\_", " "))
@@ -4408,8 +4406,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         )
                         dump = self.receiver.get_clean_dump(discard=35)
                     except Exception:
-                        errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                        self.Error(errmsg, exc_info=True)
+                        self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
+                            exc_info=True)
                     else:
                         sorted_bls = get_baselines_lookup(self, this_freq_dump, sorted_lookup=True)
                         degree = 1.0
@@ -4478,7 +4476,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         self.Error("Failed to set the delays/fringes", exc_info=True)
                     else:
                         self.Step("Confirm that the %s where successfully set" % _new_name)
-                        reply, informs = self.katcp_req.delays()
+                        reply, informs = self.katcp_req.delays("antenna-channelised-voltage", )
                         msg = (
                             "%s where successfully set via CAM interface."
                             "\n\t\t\t    Reply: %s\n\n" % (_new_name, reply,))

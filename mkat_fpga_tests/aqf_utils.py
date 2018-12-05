@@ -18,7 +18,7 @@ def meth_end_aqf(meth):
     @wraps(meth)
     def decorated(*args, **kwargs):
         meth(*args, **kwargs)
-        Aqf.end(traceback=False)
+        Aqf.end()
 
     return decorated
 
