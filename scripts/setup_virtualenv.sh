@@ -103,13 +103,13 @@ function install_pip_requirements() {
 $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
 
-function pre_setup(){
+# function pre_setup(){
 
-if [ -f "scripts/pre_setup.sh" ]; then
-    gprint "Install core dependencies, if pre_setup.sh script is available..."
-    bash scripts/pre_setup.sh "${VERBOSE}"
-fi
-}
+# if [ -f "scripts/pre_setup.sh" ]; then
+#     gprint "Install core dependencies, if pre_setup.sh script is available..."
+#     bash scripts/pre_setup.sh "${VERBOSE}"
+# fi
+# }
 
 function post_setup(){
 install_pip_requirements "pip-dev-requirements.txt"

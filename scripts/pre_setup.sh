@@ -76,9 +76,9 @@ if [ -f "${VENV}" ]; then
         # NO SUDOing when automating
         # env PATH=$PATH sudo pip install -v .
         if [ "${VERBOSE}" = true ]; then
-            env CC=/opt/gcc4.9.3/bin/gcc CXX=/opt/gcc4.9.3/bin/g++ $(command -v  python) -W ignore::Warning -m pip install .
+            env CC=$(which gcc) CXX=$(which g++) $(command -v  python) -W ignore::Warning -m pip install .
         else
-            env CC=/opt/gcc4.9.3/bin/gcc CXX=/opt/gcc4.9.3/bin/g++ $(command -v  python) -W ignore::Warning -m pip install -q .
+            env CC=$(which gcc) CXX=$(which g++) $(command -v  python) -W ignore::Warning -m pip install -q .
         fi
         gprint "Successfully installed ${pkg} in ${INSTALL_DIR}"
     }
