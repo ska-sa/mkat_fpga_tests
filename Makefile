@@ -34,7 +34,7 @@ clean:
 	$(MAKE) clean -C docs/Cover_Page || true;
 	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock" || true;
 	git checkout -- docs/* || true;
-	rm -rf .venv /tmp/*.fpg || true;
+	rm -rf -- .venv /tmp/*.fpg *.csv *.png *.html || true;
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
