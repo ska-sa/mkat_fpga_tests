@@ -72,7 +72,7 @@ function install_pip_requirements() {
 "${PYVENV}" -W ignore::Warning -m pip install --quiet --upgrade \
     pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
-
+"${PYVENV}" -W ignore::Warning -m pip install -U numpy
 env CC=$(which gcc) CXX=$(which g++) "${PYVENV}" -W ignore::Warning -m pip wheel --no-cache-dir \
      https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
 
