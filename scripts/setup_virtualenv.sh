@@ -4,29 +4,6 @@
 # Note: Include this file in the jenkins job script to setup the virtualenv.
 # Author: Mpho Mphego <mmphego@ska.ac.za>
 
-# function usage() {
-#     echo -e "Usage: bash $0 VERBOSE SYS_PACKAGES\n
-#     Automated virtualenv and system packages installer which installs on cwd
-#     VERBOSE: Boolean:- if true, everything will be printed to stdout
-#     SYS_PACKAGES: Boolean:- if true, virtualenv will also use system packages\n";
-#     exit 1;
-# }
-
-# if [ -z "$*" ]; then
-#     usage
-# fi
-
-
-# # MAIN
-# VERBOSE=${1:-false}
-# SYS_PACKAGES=${2:-false}
-
-# if [ "${VERBOSE}" = true ]; then
-#     echo "Abort on any errors and verbose"
-#     set -ex
-# else
-#     set -e
-# fi
 set -e
 
 RED=$(tput setaf 1)
@@ -50,7 +27,6 @@ $(command -v virtualenv) "${VIRTUAL_ENV}" -q
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 PYVENV="${VIRTUAL_ENV}/bin/python"
 "${PYVENV}" -W ignore::Warning -m pip install -q -U pip setuptools wheel
-source "${VIRTUAL_ENV}/bin/activate"
 export PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 gprint "Confirm that you are in a virtualenv: $(which python)"
@@ -70,9 +46,8 @@ function install_pip_requirements() {
 }
 
 "${PYVENV}" -W ignore::Warning -m pip install --quiet --upgrade \
-    pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+    pip numpy certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
-"${PYVENV}" -W ignore::Warning -m pip install -U numpy
 env CC=$(which gcc) CXX=$(which g++) "${PYVENV}" -W ignore::Warning -m pip wheel --no-cache-dir \
      https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
 
@@ -84,8 +59,21 @@ function post_setup(){
     fi
 }
 
-# pre_setup
+function check_packages(){
+    declare -a PYTHON_PACKAGES=(spead2 casperfpga corr2 nosekatreport)
+    for pkg in "${PYTHON_PACKAGES[@]}";do
+        gprint "Checking ${pkg} if it is installed!";
+        "${PYVENV}" -c "import ${pkg}";
+        if [ "$?" = 0 ]; then
+            rprint "${pkg} is not installed"
+            exit 1
+        else
+            exit 0
+        fi
+
+    done
+}
 post_setup
 install_pip_requirements "pip-dev-requirements.txt"
-#gprint "DONE!!!!\n\n"
-#bash --rcfile "${VENV}/bin/activate" -i
+check_packages
+rm -rf -- *.whl
