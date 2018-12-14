@@ -47,32 +47,16 @@ VIRTUAL_ENV=".venv"
 gprint "Installing ${VIRTUAL_ENV} in current working directory"
 $(command -v virtualenv) "${VIRTUAL_ENV}" -q
 
-# if [ "${SYS_PACKAGES}" = true ] ; then
-#     # Create virtual environment and include Python system packages
-#     gprint "Creating virtualenv venv directory and including system packages"
-#     if [ "${VERBOSE}" = true ]; then
-#         $(command -v virtualenv) "${VIRTUAL_ENV}" --system-site-packages
-#     else
-#         $(command -v virtualenv) "${VIRTUAL_ENV}" -q --system-site-packages
-#     fi
-# else
-#     gprint "Creating virtualenv venv directory without system packages"
-#     if [ "${VERBOSE}" = true ]; then
-#         $(command -v virtualenv) "${VIRTUAL_ENV}"
-#     else
-#         $(command -v virtualenv) "${VIRTUAL_ENV}" -q
-#     fi
-# fi
-
-"$VIRTUAL_ENV"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
+PYVENV="${VIRTUAL_ENV}/bin/python"
+"${PYVENV}" -W ignore::Warning -m pip install -q -U pip setuptools wheel
 source "${VIRTUAL_ENV}/bin/activate"
 export PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 gprint "Confirm that you are in a virtualenv: $(which python)"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
-    rprint "Could not create virtualenv: $VIRTUAL_ENV"
+    rprint "Could not create virtualenv: ${VIRTUAL_ENV}"
     exit 2
 fi
 
@@ -80,52 +64,28 @@ fi
 function install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
     gprint "Installing development pip dependencies from ${FILENAME} file."
-    if [ -f "$FILENAME" ]; then
-        # if [ "${VERBOSE}" = true ]; then
-        #     $(command -v python) -W ignore::Warning -m pip install -r $FILENAME
-        # else
-        #     $(command -v python) -W ignore::Warning -m pip install -q -r $FILENAME
-        # fi
-        $(command -v python) -W ignore::Warning -m pip install -q -r $FILENAME
-    fi                           # do nothing if file is not found.
+    if [ -f "${FILENAME}" ]; then
+        "${PYVENV}" -W ignore::Warning -m pip install -q -r "${FILENAME}"
+    fi
 }
 
-
-# You can ignore the https by using index-url and passing the http url as a parameter then set it as the trusted source.
-# InsecurePlatformWarning: A true SSLContext object is not available.
-# This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail.
-# You can upgrade to a newer version of Python to solve this.
-# if [ "${VERBOSE}" = true ]; then
-#     $(command -v python) -W ignore::Warning -m pip install --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
-# else
-#     $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
-# fi
-$(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+"${PYVENV}" -W ignore::Warning -m pip install --quiet --upgrade \
+    pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
 
-# function pre_setup(){
-
-# if [ -f "scripts/pre_setup.sh" ]; then
-#     gprint "Install core dependencies, if pre_setup.sh script is available..."
-#     bash scripts/pre_setup.sh "${VERBOSE}"
-# fi
-# }
+# env CC=$(which gcc) CXX=$(which g++) "${PYVENV}" -W ignore::Warning -m pip wheel --no-cache-dir \
+#     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
 
 function post_setup(){
-install_pip_requirements "pip-dev-requirements.txt"
-if [ -f "setup.py" ]; then
-    gprint "Installing setup.py";
-    # Install with dependencies.
-    if [ "${VERBOSE}" = true ]; then
-        python setup.py install -f;
-    else
-        python setup.py install -f > /dev/null 2>&1
+    if [ -f "setup.py" ]; then
+        gprint "Installing setup.py";
+        # Install with dependencies.
+        "${PYVENV}" setup.py install -f;
     fi
-
-fi
-gprint "DONE!!!!\n\n"
-bash --rcfile "${VENV}/bin/activate" -i
 }
 
-pre_setup
+# pre_setup
 post_setup
+install_pip_requirements "pip-dev-requirements.txt"
+gprint "DONE!!!!\n\n"
+bash --rcfile "${VENV}/bin/activate" -i

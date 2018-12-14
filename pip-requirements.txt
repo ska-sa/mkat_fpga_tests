@@ -11,7 +11,6 @@ coverage
 crypto
 cryptography
 dpkt
-fire
 flake8
 flake8-html
 h5py
@@ -23,8 +22,6 @@ ipython
 katcp
 lxml
 matplotlib==2.0.2
-memory_profiler
-mock
 mpld3
 ndg-httpsclient
 nose
@@ -35,7 +32,6 @@ numpy>=1.13.3
 pandas
 parameterized
 paramiko>=2.4
-pep8
 pexpect
 pillow
 pyasn1
