@@ -64,12 +64,12 @@ function check_packages(){
     for pkg in "${PYTHON_PACKAGES[@]}";do
         gprint "Checking ${pkg} if it is installed!";
         "${PYVENV}" -c "import ${pkg}";
-        if [ "$?" = 0 ]; then
-            rprint "${pkg} is not installed"
-            exit 1
-        else
-            exit 0
-        fi
+        # if [ "$?" = 0 ]; then
+        #     rprint "${pkg} is not installed"
+        #     exit 1
+        # else
+        #     exit 0
+        # fi
 
     done
 }
