@@ -2,7 +2,7 @@
 git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
 git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
 git+https://github.com/ska-sa/corr2@devel#egg=corr2
-https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
+
 alabaster
 ansicolors
 argcomplete

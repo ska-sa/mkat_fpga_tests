@@ -65,7 +65,7 @@ function install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
     gprint "Installing development pip dependencies from ${FILENAME} file."
     if [ -f "${FILENAME}" ]; then
-        "${PYVENV}" -W ignore::Warning -m pip install -q -e -r "${FILENAME}"
+        "${PYVENV}" -W ignore::Warning -m pip install -q -r "${FILENAME}"
     fi
 }
 
@@ -73,8 +73,8 @@ function install_pip_requirements() {
     pip certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
 
-# env CC=$(which gcc) CXX=$(which g++) "${PYVENV}" -W ignore::Warning -m pip wheel --no-cache-dir \
-#     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
+env CC=$(which gcc) CXX=$(which g++) "${PYVENV}" -W ignore::Warning -m pip wheel --no-cache-dir \
+     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
 
 function post_setup(){
     if [ -f "setup.py" ]; then
@@ -87,5 +87,5 @@ function post_setup(){
 # pre_setup
 post_setup
 install_pip_requirements "pip-dev-requirements.txt"
-gprint "DONE!!!!\n\n"
-bash --rcfile "${VENV}/bin/activate" -i
+#gprint "DONE!!!!\n\n"
+#bash --rcfile "${VENV}/bin/activate" -i
