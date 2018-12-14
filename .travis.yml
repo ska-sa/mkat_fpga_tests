@@ -10,4 +10,3 @@ before_install:
 
 script:
   - bash scripts/setup_virtualenv.sh
-
