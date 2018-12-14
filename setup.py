@@ -19,8 +19,7 @@ try:
 except ImportError:
     from pip._internal.req import parse_requirements
 
-from setuptools import setup
-from setuptools import find_packages
+from setuptools import setup, find_packages
 from warnings import filterwarnings
 
 
@@ -44,10 +43,7 @@ try:
 except Exception:
     __install_requires__ = [
         "cryptography",
-        "matplotlib",
-        "memory_profiler",
         "ntplib",
-        "numpy",
         "sphinx",
         "h5py",
         "Nose",
@@ -93,8 +89,8 @@ setup(
         "License :: OSI Approved :: GNU General Public License (GPL)",
         "Topic :: Scientific/Engineering :: Astronomy",
     ],
-    install_requires=__install_requires__,
-    dependency_links=["https://github.com/ska-sa/nosekatreport"],
+    # install_requires=__install_requires__,
+    dependency_links=["https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport"],
     provides=["mkat_fpga_tests"],
     packages=find_packages(),
     # scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
