@@ -65,7 +65,7 @@ function install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
     gprint "Installing development pip dependencies from ${FILENAME} file."
     if [ -f "${FILENAME}" ]; then
-        "${PYVENV}" -W ignore::Warning -m pip install -q -r "${FILENAME}"
+        "${PYVENV}" -W ignore::Warning -m pip install -q -e -r "${FILENAME}"
     fi
 }
 
