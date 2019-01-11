@@ -8,6 +8,7 @@ dialog
 flex
 gfortran
 git
+g++
 libatlas-base-dev
 libboost-all-dev
 libffi-dev
