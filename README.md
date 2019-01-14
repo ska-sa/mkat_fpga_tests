@@ -25,28 +25,28 @@ List of dependencies:
 It is highly recommended to install [_Python virtual environment_](https://virtualenv.pypa.io/) before continuing, else below is step-by-step instructions.
 
 #### Setup and Use Virtualenv
-```
+```bash
 # Install Python essentials and pip
-$ curl -s https://bootstrap.pypa.io/get-pip.py | python
-$ pip install --user -U virtualenv # or $ sudo pip install -U virtualenv
+curl -s https://bootstrap.pypa.io/get-pip.py | python
+pip install --user -U virtualenv # or $ sudo pip install -U virtualenv
 
 # Automagic installation of all dependencies in a virtualenv
-$ make bootstrap
+make bootstrap
 ```
 
 ## Unit Testing
 
 Running unit-testing.
-```
+```bash
 # This will run all unit-tests defined in mkat_fpga_tests/test_cbf.py
-$ make tests
+make tests
 ```
 
 ## Acceptance Testing
 
 The `python run_cbf_tests.py -h` script has several options. Please see `run_cbf_tests.py --help` for up-to-date detail.
 
-```
+```bash
 (Test)mmphego@dbelab04:~/src/mkat_fpga_tests$ ./run_cbf_tests.py
 usage: run_cbf_tests.py [-h] [--loglevel LOG_LEVEL] [-q] [--nose NOSE_ARGS]
                         [--acceptance SITE_ACCEPTANCE] [--instrument-activate]
