@@ -697,6 +697,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def test__subarray(self):
         self._test_global_manual("CBF.V.3.56")
 
+
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.37")
@@ -706,7 +707,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.37*"))
         caption_list = ["Screenshot of the command executed and reply: CAM interface"]
         Report_Images(image_files, caption_list)
-
+      
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.1.11")
@@ -913,6 +914,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     @aqf_requirements("CBF-REQ-0161", "CBF-REQ-0186")
     def test__safe_physical_design_ve(self):
         self._test_global_manual("CBF.V.3.47")
+
 
     @manual_test
     @generic_test
@@ -1714,11 +1716,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             )
             # initial_dump = self.receiver.get_clean_dump(discard=num_discards * 10)
             initial_dump = self.receiver.get_clean_dump(discard=5)
+
             self.assertIsInstance(initial_dump, dict)
         except Exception:
             errmsg = "Could not retrieve initial clean SPEAD accumulation: Queue is Empty."
             self.Error(errmsg, exc_info=True)
             return
+
         else:
             bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
             self.Progress(
@@ -1806,6 +1810,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             # self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
+
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -2185,6 +2190,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             )
 
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, cutoff=53, plots_debug=False, log_power=True):
+
         """Test channel spacing and out-of-channel response
 
         Check that the correct channels have the peak response to each
@@ -2292,6 +2298,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "complete L-band.")
         channel_response_lst = []
         print_counts = 4
+
         start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
         failure_count = 0
         # if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
@@ -5080,7 +5087,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     gain_inc = 5
                 else:
                     target = 6
-                    gain_inc = 200
+                    gain_inc = 400
                 gain = gain + gain_inc
                 gain_vector[rand_ch] = gain
                 try:

@@ -13,6 +13,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 from corr2 import utils
 from corr2 import fxcorrelator
 from corr2.dsimhost_fpga import FpgaDsimHost
@@ -212,3 +213,4 @@ if __name__ == '__main__':
     logger.info('Lets Play!!!')
     logger.info(dir())
     import IPython; globals().update(locals()); IPython.embed(header=msg)
+

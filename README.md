@@ -57,6 +57,7 @@ usage: run_cbf_tests.py [-h] [--loglevel LOG_LEVEL] [-q] [--nose NOSE_ARGS]
 This script auto executes CBF Tests with selected arguments.
 
 optional arguments:
+
   -h, --help            show this help message and exit
   --loglevel LOG_LEVEL  log level to use, default INFO, options INFO, DEBUG,
                         WARNING, ERROR
@@ -102,6 +103,7 @@ optional arguments:
 4. Add edge-case tests to less critical code whenever someone has time to kill
 Credit: https://softwareengineering.stackexchange.com/a/754
 5. “Code is like humour. When you have to explain it, it’s bad.” – Cory House
+
 
 ## Contributors
 
