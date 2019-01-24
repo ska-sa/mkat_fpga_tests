@@ -95,31 +95,22 @@ function pip_dependencies() {
         # pkg_checker corr2
 }
 
-# function pre_setup(){
+function post_setup(){
+if [ -f "setup.py" ]; then
+    gprint "Installing setup.py";
+    # Install with dependencies.
+    $(command -v python) setup.py install -f;
+fi
+}
 
-# if [ -f "scripts/pre_setup.sh" ]; then
-#     gprint "Install core dependencies, if pre_setup.sh script is available..."
-#     bash scripts/pre_setup.sh "${VERBOSE}"
-# fi
-# }
-
-# function post_setup(){
-# if [ -f "setup.py" ]; then
-#     gprint "Installing setup.py";
-#     # Install with dependencies.
-#     if [ "${VERBOSE}" = true ]; then
-#         python setup.py install -f;
-#     else
-#         python setup.py install -f > /dev/null 2>&1
-#     fi
-
-# fi
-# gprint "DONE!!!!\n\n"
-# bash --rcfile "${VENV}/bin/activate" -i
-# }
+function verify_pkgs_installed(){
+    declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport" "spead2")
+    for pkg in "${pkgs[@]}"; do
+        pkg_checker "${pkg}";
+    done
+}
 
 pip_dependencies
 install_pip_requirements "pip-dev-requirements.txt"
-
-# pre_setup
-# post_setup
+post_setup
+verify_pkgs_installed
