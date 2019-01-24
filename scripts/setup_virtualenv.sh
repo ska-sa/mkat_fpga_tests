@@ -72,6 +72,7 @@ function pip_dependencies() {
         env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip install \
             spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl
     fi
+    pkg_checker spead2
 
     # Installing katcp-python
     $(command -v python) -W ignore::Warning -m pip install --force-reinstall \

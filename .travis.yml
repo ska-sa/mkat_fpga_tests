@@ -9,4 +9,4 @@ before_install:
   - sudo apt-get install $(grep -vE "^\s*#" apt-build-requirements.txt | tr "\n" " ")
 
 script:
-  - bash -x scripts/setup_virtualenv.sh
+  - bash scripts/setup_virtualenv.sh
