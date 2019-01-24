@@ -38,9 +38,4 @@ install:
 
 script:
   - declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport" "spead2")
-  - for pkg in "${pkgs[@]}"; do \
-      if ! python -c "import ${pkg}; print ${pkg}.__file__" >/dev/null; then \
-        echo "Failed to install ${pkg}"; \
-        exit 1; \
-      fi; \
-    done;
+  - for pkg in "${pkgs[@]}"; do if ! python -c "import ${pkg}; print ${pkg}.__file__" >/dev/null; then echo "Failed to install ${pkg}" && exit 1; fi; done;
