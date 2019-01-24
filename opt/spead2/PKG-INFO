@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: spead2
+Version: 1.5.1
+Summary: High-performance SPEAD implementation
+Home-page: https://github.com/ska-sa/spead2
+Author: Bruce Merry
+Author-email: bmerry@ska.ac.za
+License: LGPLv3+
+Description-Content-Type: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Networking

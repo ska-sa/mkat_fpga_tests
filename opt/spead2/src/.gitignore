@@ -1,0 +1,9 @@
+*.o
+spead2_bench
+spead2_recv
+spead2_send
+spead2_unittest
+libspead2.a
+test-suite.log
+spead2_unittest.log
+spead2_unittest.trs

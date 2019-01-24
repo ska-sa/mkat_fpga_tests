@@ -4,7 +4,7 @@
 # Note: Include this file in the jenkins job script to setup the virtualenv.
 # Author: Mpho Mphego <mmphego@ska.ac.za>
 
-set -e pipefail
+set -e
 
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
