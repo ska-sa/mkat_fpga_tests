@@ -60,11 +60,10 @@ function install_pip_requirements() {
 }
 
 function pip_dependencies() {
-    $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL \
-        ndg-httpsclient pyasn1 'requests[security]'
+    $(command -v python) -W ignore::Warning -m pip install --upgrade \
+        certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
 
-    $(command -v python) -W ignore::Warning -m pip install --quiet --ignore-installed --no-cache-dir \
-        numpy>=1.15.0
+    $(command -v python) -W ignore::Warning -m pip install --force-reinstall numpy>=1.15.0
     # Last tested working spead2.
     # env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
     #     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
@@ -73,9 +72,9 @@ function pip_dependencies() {
     #         spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl
     # fi
     # pkg_checker spead2
-    cd opt/spead2
-    env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip install .
-    cd -
+    # cd opt/spead2
+    # env CC=$(which gcc) CXX=$(which g++) PATH=$PATH $(command -v pip) install .
+    # cd -
 
     # Installing katcp-python
     $(command -v python) -W ignore::Warning -m pip install --force-reinstall \
@@ -109,7 +108,7 @@ fi
 }
 
 function verify_pkgs_installed(){
-    declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport" "spead2")
+    declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport")
     for pkg in "${pkgs[@]}"; do
         pkg_checker "${pkg}";
     done
