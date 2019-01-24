@@ -62,27 +62,27 @@ function pip_dependencies() {
         ndg-httpsclient pyasn1 'requests[security]'
 
     $(command -v python) -W ignore::Warning -m pip install --quiet --ignore-installed --no-cache-dir \
-        numpy>=1.15.0 && \
-        pkg_checker numpy
+        numpy>=1.15.0
     # Last tested working spead2.
     env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
         https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
+    if [ -f "spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl" ]; then
+        env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip install \
+            spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl
+    fi
 
     # Installing katcp-python
     $(command -v python) -W ignore::Warning -m pip install --force-reinstall \
-        tornado>=4.3 katcp &&
-        pkg_checker katcp
+        tornado>=4.3 katcp
 
     # Installing nosekatreport
     $(command -v python) -W ignore::Warning -m pip install \
-        git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport &&
-        # pkg_checker nosekatreport
+        git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
 
     # Installing casperfpga
     $(command -v python) -W ignore::Warning -m pip install -I --no-deps \
         odict \
         git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
-    # pkg_checker casperfpga
 
     # Installing corr2 and manually installing dependencies
     $(command -v python) -W ignore::Warning -m pip install -I --no-deps \
@@ -92,7 +92,6 @@ function pip_dependencies() {
         coloredlogs \
         lazy-import>=0.2 \
         git+https://github.com/ska-sa/corr2@devel#egg=corr2
-        # pkg_checker corr2
 }
 
 function post_setup(){
