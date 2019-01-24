@@ -30,8 +30,10 @@ gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 source "${VIRTUAL_ENV}/bin/activate"
 if [ -d "/opt/gcc4.9.3/bin" ]; then
     export PATH=/opt/gcc4.9.3/bin:"${VIRTUAL_ENV}/bin:$PATH"
+    export LD_LIBRARY_PATH=/opt/gcc4.9.3/lib64/:/opt/gcc4.9.3/lib32/:/usr/lib/x86_64-linux-gnu/:"${LD_LIBRARY_PATH}"
 else
     export PATH="${VIRTUAL_ENV}/bin:$PATH"
+    export LD_LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/:/usr/lib/x86_64-linux-gnu/:"${LD_LIBRARY_PATH}"
 fi
 gprint "Confirm that you are in a virtualenv: $(which python)"
 
@@ -64,7 +66,6 @@ function pip_dependencies() {
     $(command -v python) -W ignore::Warning -m pip install --quiet --ignore-installed --no-cache-dir \
         numpy>=1.15.0
     # Last tested working spead2.
-    export LD_LIBRARY_PATH=/usr/local/lib64/:/usr/lib/x86_64-linux-gnu/:"${LD_LIBRARY_PATH}"
     env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
         https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
     if [ -f "spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl" ]; then
