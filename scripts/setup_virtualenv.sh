@@ -22,8 +22,7 @@ function rprint (){
 VIRTUAL_ENV=".venv"
 
 gprint "Installing ${VIRTUAL_ENV} in current working directory"
-$(command -v virtualenv) "${VIRTUAL_ENV}" -q
-
+$(command -v virtualenv) "${VIRTUAL_ENV}"
 
 "${VIRTUAL_ENV}"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools wheel
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
@@ -61,9 +60,8 @@ function install_pip_requirements() {
 
 function pip_dependencies() {
     $(command -v python) -W ignore::Warning -m pip install --upgrade \
-        certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+        certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]' numpy>1.15.0
 
-    $(command -v python) -W ignore::Warning -m pip install --force-reinstall numpy>=1.15.0
     # Last tested working spead2.
     # env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
     #     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
@@ -76,12 +74,8 @@ function pip_dependencies() {
     # env CC=$(which gcc) CXX=$(which g++) PATH=$PATH $(command -v pip) install .
     # cd -
 
-    # Installing katcp-python
-    $(command -v python) -W ignore::Warning -m pip install --force-reinstall \
-        tornado>=4.3 katcp
-
     # Installing nosekatreport
-    $(command -v python) -W ignore::Warning -m pip install \
+    $(command -v python) -W ignore::Warning -m pip install -I \
         git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
 
     # Installing casperfpga
@@ -89,21 +83,12 @@ function pip_dependencies() {
         git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
 
     # Installing corr2 and manually installing dependencies
-    $(command -v python) -W ignore::Warning -m pip install -I --no-deps \
-        h5py \
-        iniparse \
-        matplotlib==2.0.2 \
-        coloredlogs \
-        lazy-import>=0.2 \
+    $(command -v python) -W ignore::Warning -m pip install -I \
         git+https://github.com/ska-sa/corr2@devel#egg=corr2
 }
 
 function post_setup(){
-if [ -f "setup.py" ]; then
-    gprint "Installing setup.py";
-    # Install with dependencies.
-    $(command -v python) setup.py install -f;
-fi
+    [ -f "setup.py" ] && $(command -v python) setup.py install -f
 }
 
 function verify_pkgs_installed(){
