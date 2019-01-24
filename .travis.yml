@@ -1,12 +1,46 @@
 language: bash
+python:
+  - "2.7"
 
 sudo: required
 
 notifications:
-  email: false
+  email: change
 
-# before_install:
-#   - sudo apt-get install $(grep -vE "^\s*#" apt-build-requirements.txt | tr "\n" " ")
+addons:
+  apt:
+    packages:
+      - gcc
+      - g++
+      - ccache
+      - clang-3.5
+      - libboost-system1.55-dev
+      - libboost-test1.55-dev
+      - libboost-program-options1.55-dev
+      - libpcap-dev
+      - python-dev
+      - python-pip
+      - librdmacm-dev
+      - libibverbs-dev
+
+before_install:
+  - sudo apt-get install $(grep -vE "^\s*#" apt-build-requirements.txt | tr "\n" " ")
+
+install:
+  - pip install --user -U pip wheel setuptools virtualenv
+  - env CC="ccache gcc" CXX="g++" pip install --user spead2==1.5.2
+  - pip install --user -U tornado==4.3 futures future ply
+  - pip install --user --ignore-installed --no-deps katcp
+  - pip install --user git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
+  - pip install --user git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
+  - pip install --user git+https://github.com/ska-sa/corr2@devel#egg=corr2
+  -
 
 script:
-  - bash scripts/setup_virtualenv.sh
+  - declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport" "spead2")
+  - for pkg in "${pkgs[@]}"; do \
+      if ! python -c "import ${pkg}; print ${pkg}.__file__" >/dev/null; then \
+        echo "Failed to install ${pkg}"; \
+        exit 1; \
+      fi; \
+    done;
