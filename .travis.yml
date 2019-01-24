@@ -27,13 +27,13 @@ before_install:
   - sudo apt-get install $(grep -vE "^\s*#" apt-build-requirements.txt | tr "\n" " ")
 
 install:
-  - pip install --user -U pip wheel setuptools virtualenv
-  - env CC="ccache gcc" CXX="g++" pip install --user spead2==1.5.2
-  - pip install --user -U tornado==4.3 futures future ply
-  - pip install --user --ignore-installed --no-deps katcp
-  - pip install --user git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
-  - pip install --user git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
-  - pip install --user git+https://github.com/ska-sa/corr2@devel#egg=corr2
+  - pip install -U pip wheel setuptools
+  - env CC="ccache gcc" CXX="g++" pip install spead2==1.5.2
+  - pip install -U tornado==4.3 futures future ply
+  - pip install --ignore-installed --no-deps katcp
+  - pip install git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
+  - pip install git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
+  - pip install git+https://github.com/ska-sa/corr2@devel#egg=corr2
   -
 
 script:
