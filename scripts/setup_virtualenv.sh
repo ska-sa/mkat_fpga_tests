@@ -85,8 +85,7 @@ function pip_dependencies() {
         git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
 
     # Installing casperfpga
-    $(command -v python) -W ignore::Warning -m pip install -I --no-deps \
-        odict \
+    $(command -v python) -W ignore::Warning -m pip install -I \
         git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
 
     # Installing corr2 and manually installing dependencies
