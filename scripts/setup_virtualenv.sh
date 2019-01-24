@@ -28,10 +28,11 @@ $(command -v virtualenv) "${VIRTUAL_ENV}" -q
 "${VIRTUAL_ENV}"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools wheel
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 source "${VIRTUAL_ENV}/bin/activate"
-# bash --rcfile "${VIRTUAL_ENV}/bin/activate"
-# bash --rcfile .venv/bin/activate -i
-export PATH=/opt/gcc4.9.3/bin:"${VIRTUAL_ENV}/bin:$PATH"
-
+if [ -d "/opt/gcc4.9.3/bin" ]; then
+    export PATH=/opt/gcc4.9.3/bin:"${VIRTUAL_ENV}/bin:$PATH"
+else
+    export PATH="${VIRTUAL_ENV}/bin:$PATH"
+fi
 gprint "Confirm that you are in a virtualenv: $(which python)"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
