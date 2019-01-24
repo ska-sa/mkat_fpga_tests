@@ -4,7 +4,7 @@
 # Note: Include this file in the jenkins job script to setup the virtualenv.
 # Author: Mpho Mphego <mmphego@ska.ac.za>
 
-set -e
+set -e pipefail
 
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
@@ -24,10 +24,13 @@ VIRTUAL_ENV=".venv"
 gprint "Installing ${VIRTUAL_ENV} in current working directory"
 $(command -v virtualenv) "${VIRTUAL_ENV}" -q
 
+
+"${VIRTUAL_ENV}"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools wheel
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
-PYVENV="${VIRTUAL_ENV}/bin/python"
-"${PYVENV}" -W ignore::Warning -m pip install -q -U pip setuptools wheel
-export PATH="${VIRTUAL_ENV}/bin:$PATH"
+source "${VIRTUAL_ENV}/bin/activate"
+# bash --rcfile "${VIRTUAL_ENV}/bin/activate"
+# bash --rcfile .venv/bin/activate -i
+export PATH=/opt/gcc4.9.3/bin:"${VIRTUAL_ENV}/bin:$PATH"
 
 gprint "Confirm that you are in a virtualenv: $(which python)"
 
@@ -37,43 +40,85 @@ if [ -z "${VIRTUAL_ENV}" ]; then
 fi
 
 #
+function pkg_checker() {
+    pkg=$1
+    if ! $(command -v python) -c "import ${pkg}; print ${pkg}.__file__" >/dev/null; then
+        echo "Failed to install ${pkg}";
+        exit 1;
+    fi
+}
+
 function install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
     gprint "Installing development pip dependencies from ${FILENAME} file."
-    if [ -f "${FILENAME}" ]; then
-        "${PYVENV}" -W ignore::Warning -m pip install -q -r "${FILENAME}"
+    if [ -f "$FILENAME" ]; then
+        $(command -v python) -W ignore::Warning -m pip install --no-cache-dir --ignore-installed -r "${FILENAME}" || true
     fi
 }
 
-"${PYVENV}" -W ignore::Warning -m pip install --quiet --upgrade \
-    pip numpy certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]'
+function pip_dependencies() {
+    $(command -v python) -W ignore::Warning -m pip install --quiet --upgrade pip certifi pyOpenSSL \
+        ndg-httpsclient pyasn1 'requests[security]'
 
-env CC=$(which gcc) CXX=$(which g++) "${PYVENV}" -W ignore::Warning -m pip wheel --no-cache-dir \
-     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
+    $(command -v python) -W ignore::Warning -m pip install --quiet --ignore-installed --no-cache-dir \
+        numpy>=1.15.0 && \
+        pkg_checker numpy
+    # Last tested working spead2.
+    env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
+        https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
 
-function post_setup(){
-    if [ -f "setup.py" ]; then
-        gprint "Installing setup.py";
-        # Install with dependencies.
-        "${PYVENV}" setup.py install -f;
-    fi
+    # Installing katcp-python
+    $(command -v python) -W ignore::Warning -m pip install --force-reinstall \
+        tornado>=4.3 katcp &&
+        pkg_checker katcp
+
+    # Installing nosekatreport
+    $(command -v python) -W ignore::Warning -m pip install \
+        git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport &&
+        # pkg_checker nosekatreport
+
+    # Installing casperfpga
+    $(command -v python) -W ignore::Warning -m pip install -I --no-deps \
+        odict \
+        git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
+    # pkg_checker casperfpga
+
+    # Installing corr2 and manually installing dependencies
+    $(command -v python) -W ignore::Warning -m pip install -I --no-deps \
+        h5py \
+        iniparse \
+        matplotlib==2.0.2 \
+        coloredlogs \
+        lazy-import>=0.2 \
+        git+https://github.com/ska-sa/corr2@devel#egg=corr2
+        # pkg_checker corr2
 }
 
-function check_packages(){
-    declare -a PYTHON_PACKAGES=(spead2 casperfpga corr2 nosekatreport)
-    for pkg in "${PYTHON_PACKAGES[@]}";do
-        gprint "Checking ${pkg} if it is installed!";
-        "${PYVENV}" -c "import ${pkg}";
-        # if [ "$?" = 0 ]; then
-        #     rprint "${pkg} is not installed"
-        #     exit 1
-        # else
-        #     exit 0
-        # fi
+# function pre_setup(){
 
-    done
-}
-post_setup
+# if [ -f "scripts/pre_setup.sh" ]; then
+#     gprint "Install core dependencies, if pre_setup.sh script is available..."
+#     bash scripts/pre_setup.sh "${VERBOSE}"
+# fi
+# }
+
+# function post_setup(){
+# if [ -f "setup.py" ]; then
+#     gprint "Installing setup.py";
+#     # Install with dependencies.
+#     if [ "${VERBOSE}" = true ]; then
+#         python setup.py install -f;
+#     else
+#         python setup.py install -f > /dev/null 2>&1
+#     fi
+
+# fi
+# gprint "DONE!!!!\n\n"
+# bash --rcfile "${VENV}/bin/activate" -i
+# }
+
+pip_dependencies
 install_pip_requirements "pip-dev-requirements.txt"
-check_packages
-rm -rf -- *.whl
+
+# pre_setup
+# post_setup

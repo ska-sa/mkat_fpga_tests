@@ -1,8 +1,3 @@
-# Uncomment below if running a development environment
-git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
-git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
-git+https://github.com/ska-sa/corr2@devel#egg=corr2
-
 alabaster
 ansicolors
 argcomplete

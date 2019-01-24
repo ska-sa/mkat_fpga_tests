@@ -32,6 +32,13 @@ try:
 except subprocess.CalledProcessError:
     __version__ = "0.5"
 
+
+_pkg_dep = [
+    "git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport",
+    "git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga",
+    "git+https://github.com/ska-sa/corr2@devel#egg=corr2"
+    ]
+
 # Install dependencies with failover/failsafe
 try:
     install_reqs = parse_requirements("pip-requirements.txt", session=PipSession())
@@ -90,7 +97,7 @@ setup(
         "Topic :: Scientific/Engineering :: Astronomy",
     ],
     # install_requires=__install_requires__,
-    dependency_links=["https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport"],
+    dependency_links=_pkg_dep,
     provides=["mkat_fpga_tests"],
     packages=find_packages(),
     # scripts=[path for path in glob('scripts/*') if os.path.isfile(path)],
