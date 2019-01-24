@@ -64,6 +64,7 @@ function pip_dependencies() {
     $(command -v python) -W ignore::Warning -m pip install --quiet --ignore-installed --no-cache-dir \
         numpy>=1.15.0
     # Last tested working spead2.
+    export LD_LIBRARY_PATH=/usr/local/lib64/:/usr/lib/x86_64-linux-gnu/:"${LD_LIBRARY_PATH}"
     env CC=$(which gcc) CXX=$(which g++) $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
         https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
     if [ -f "spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl" ]; then
