@@ -22,6 +22,7 @@ ipython
 jenkinsapi
 jinja2>=2.9.0
 katcp
+lazy-import>=0.2.2
 lxml
 matplotlib==2.0.2
 memory_profiler
@@ -29,6 +30,7 @@ mock
 mpld3
 ndg-httpsclient
 nose
+nose-htmloutput
 nose-testconfig
 nosexcover
 ntplib
@@ -56,6 +58,3 @@ termcolor
 tornado==4.3
 traceback2
 trollius
-nose-htmloutput
-
-
