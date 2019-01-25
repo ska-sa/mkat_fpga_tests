@@ -1,12 +1,40 @@
-language: bash
+language: python
+
+dist: trusty
 
 sudo: required
 
 notifications:
-  email: false
+  email: change
+
+addons:
+  apt:
+    packages:
+      - ccache
+      - clang-3.5
+      - g++
+      - gcc
+      - libboost-program-options1.55-dev
+      - libboost-system1.55-dev
+      - libboost-test1.55-dev
+      - libibverbs-dev
+      - libpcap-dev
+      - librdmacm-dev
+      - python-dev
+      - python-pip
 
 before_install:
   - sudo apt-get install $(grep -vE "^\s*#" apt-build-requirements.txt | tr "\n" " ")
 
+install:
+  - pip install -U pip wheel setuptools
+  - env CC="ccache gcc" CXX="g++" pip install spead2==1.5.2
+  - pip install -U tornado==4.3 futures future ply
+  - pip install --ignore-installed --no-deps katcp
+  - pip install git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
+  - pip install git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
+  - pip install git+https://github.com/ska-sa/corr2@devel#egg=corr2
+
 script:
-  - bash scripts/setup_virtualenv.sh
+  - declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport" "spead2"); \
+  for pkg in "${pkgs[@]}"; do if ! python -c "import ${pkg}; print ${pkg}.__file__"; then echo "Failed to install ${pkg}" && exit 1; fi; done;

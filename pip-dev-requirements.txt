@@ -1,8 +1,3 @@
-# Uncomment below if running a development environment
-git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
-git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
-git+https://github.com/ska-sa/corr2@devel#egg=corr2
-
 alabaster
 ansicolors
 argcomplete
@@ -37,7 +32,7 @@ nose
 nose-testconfig
 nosexcover
 ntplib
-numpy>=1.13.3
+numpy>1.15.0
 pandas
 parameterized
 paramiko>=2.4
