@@ -20,7 +20,7 @@ rm -rf /tmp/*.fpg && gprint "Deleting old fpgs stored in tmp" || true;
 
 gprint "Installing virtualenv and all dependencies"
 if [ -f "scripts/setup_virtualenv.sh" ]; then
-    bash scripts/setup_virtualenv.sh true
+    bash scripts/setup_virtualenv.sh
     export PATH=$PATH:$WORKSPACE/scripts:$WORKSPACE/.venv/bin;
 
     . .venv/bin/activate > /dev/null 2>&1;

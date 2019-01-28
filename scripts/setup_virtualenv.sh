@@ -22,9 +22,11 @@ function rprint (){
 VIRTUAL_ENV=".venv"
 
 gprint "Installing ${VIRTUAL_ENV} in current working directory"
-$(command -v virtualenv) "${VIRTUAL_ENV}"
+if ! $(command -v virtualenv) >/dev/null; then
+    pip install --user virtualenv virtualenvwrapper
+fi
+$(command -v virtualenv) "${VIRTUAL_ENV}" --download --system-site-packages
 
-"${VIRTUAL_ENV}"/bin/python -W ignore::Warning -m pip install -q -U pip setuptools wheel
 gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 source "${VIRTUAL_ENV}/bin/activate"
 if [ -d "/opt/gcc4.9.3/bin" ]; then
@@ -34,6 +36,7 @@ else
     export PATH="${VIRTUAL_ENV}/bin:$PATH"
     export LD_LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/:/usr/lib/x86_64-linux-gnu/:"${LD_LIBRARY_PATH}"
 fi
+$(command -v pip) install -U pip setuptools wheel
 gprint "Confirm that you are in a virtualenv: $(which python)"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
@@ -58,9 +61,9 @@ function install_pip_requirements() {
     fi
 }
 
-function pip_dependencies() {
-    $(command -v python) -W ignore::Warning -m pip install --upgrade \
-        certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]' numpy>1.15.0
+function install_pip_dependencies() {
+    pip install --upgrade \
+        certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]' numpy>1.15.0 tornado==4.*
 
     # Last tested working spead2.
     # env CC="ccache gcc" CXX="g++" $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
@@ -75,15 +78,15 @@ function pip_dependencies() {
     # cd -
 
     # Installing nosekatreport
-    $(command -v python) -W ignore::Warning -m pip install -I \
+    pip install -I \
         git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
 
     # Installing casperfpga
-    $(command -v python) -W ignore::Warning -m pip install -I \
+    pip install -v --no-dependencies -I \
         git+https://github.com/ska-sa/casperfpga@devel#egg=casperfpga
 
     # Installing corr2 and manually installing dependencies
-    $(command -v python) -W ignore::Warning -m pip install -I \
+    pip install -v --no-dependencies -I \
         git+https://github.com/ska-sa/corr2@devel#egg=corr2
 }
 
@@ -98,7 +101,7 @@ function verify_pkgs_installed(){
     done
 }
 
-pip_dependencies
 install_pip_requirements "pip-dev-requirements.txt"
+install_pip_dependencies
 post_setup
 verify_pkgs_installed
