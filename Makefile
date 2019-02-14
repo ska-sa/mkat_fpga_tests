@@ -19,7 +19,7 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
-.PHONY: help clean html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help clean cleanvenv html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -34,7 +34,10 @@ clean:
 	$(MAKE) clean -C docs/Cover_Page || true;
 	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock" || true;
 	git checkout -- docs/* || true;
-	rm -rf -- .venv /tmp/*.fpg *.csv *.png *.html || true;
+	rm -rf -- /tmp/*.fpg *.csv *.png *.html || true;
+
+superclean:
+	rm -rf -- .venv || true;
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
