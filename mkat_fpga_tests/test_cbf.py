@@ -162,8 +162,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Progress(
                 "Currently running instrument %s-%s as per /etc/corr" % (
                     self.corr_fix.array_name,
-                    self.instrument)
-            )
+                    self.instrument))
+            self._systems_tests()
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
             self.Error(errmsg, exc_info=True)
@@ -177,6 +177,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         try:
             n_ants = int(self.cam_sensors.get_value("n_ants"))
             n_chans = int(self.cam_sensors.get_value("n_chans"))
+            # This logic can be improved
             if acc_time:
                 pass
             elif n_ants == 4:
@@ -204,6 +205,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             katcp_port = int(self.corr_fix.katcp_rct.port)
             self.Step("Connected to katcp on %s" % katcp_ip)
             # ToDo maybe select stop channels depending on the no of ants
+            # This logic can be improved
             start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
             if n_ants == 64 and n_chans == 4096:
                 stop_channels = 2047
@@ -251,8 +253,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             return False
         else:
             # Run system tests before each test is ran
-            # self._systems_tests()
-            # self.addCleanup(self._systems_tests)
+            self.addCleanup(self._systems_tests)
             self.addCleanup(self.corr_fix.stop_x_data)
             self.addCleanup(self.receiver.stop)
             self.addCleanup(executed_by)
@@ -707,7 +708,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.37*"))
         caption_list = ["Screenshot of the command executed and reply: CAM interface"]
         Report_Images(image_files, caption_list)
-      
+
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.1.11")
@@ -1162,21 +1163,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
     def _systems_tests(self):
         """Checking system stability before and after use"""
         try:
-            FNULL = open(os.devnull, "w")
-            subprocess.check_call(["pgrep", "-fol", "corr2_sensor_servlet.py"], stdout=FNULL, stderr=FNULL)
-        except Exception:
-            self.Error("Sensor_Servlet PID could not be discovered, might not be running.",
-                exc_info=True)
-
-        if not confirm_out_dest_ip(self):
-            self.Failed(
-                "Output destination IP is not the same as the one stored in the register, "
-                "i.e. data is being spewed elsewhere."
-            )
-            set_default_eq(self)
-        # ---------------------------------------------------------------
-        try:
-            self.Step("Checking system sensors stability")
+            self.Step("Checking system sensors integrity.")
             for i in xrange(1):
                 try:
                     reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
@@ -1194,10 +1181,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Note("Could not retrieve sensors via CAM interface.")
         else:
             if _errored_sensors_:
-                self.Note("Following sensors have ERRORS: %s" % _errored_sensors_)
+                self.Note("The following number of sensors (%s) have `ERRORS`: %s" % (
+                    len(_errored_sensors_), _errored_sensors_))
                 # print('Following sensors have ERRORS: %s' % _errored_sensors_)
             if _warning_sensors_:
-                self.Note("Following sensors have WARNINGS: %s" % _warning_sensors_)
+                self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
+                    len(_warning_sensors_), _warning_sensors_))
                 # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
     def _delays_setup(self, test_source_idx=2):
