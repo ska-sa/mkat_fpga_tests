@@ -1182,11 +1182,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         else:
             if _errored_sensors_:
                 self.Note("The following number of sensors (%s) have `ERRORS`: %s" % (
-                    len(_errored_sensors_), _errored_sensors_))
+                    len(_errored_sensors_.split(',')), _errored_sensors_))
                 # print('Following sensors have ERRORS: %s' % _errored_sensors_)
             if _warning_sensors_:
                 self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
-                    len(_warning_sensors_), _warning_sensors_))
+                    len(_warning_sensors_.split(',')), _warning_sensors_))
                 # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
     def _delays_setup(self, test_source_idx=2):
@@ -2590,16 +2590,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             else:
                 self.Passed(msg)
             self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
-
-            initial_equalisations = get_and_restore_initial_eqs(self)
-            # self.Passed('Stored initial F-engine equalisations: %s' %
-            #            initial_equalisations)
+            initial_equalisations = get_gain_all(self)
             self.Progress("Stored original F-engine equalisations.")
 
             def set_zero_gains():
                 try:
-                    reply, _ = self.katcp_req.gain_all(0)
-                    self.assertTrue(reply.reply_ok())
+                    for _input in input_labels:
+                        reply, _ = self.katcp_req.gain(_input, 0)
+                        self.assertTrue(reply.reply_ok())
                 except Exception:
                     self.Error("Failed to set equalisations on all F-engines", exc_info=True)
                 else:
@@ -2607,17 +2605,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
             def read_zero_gains():
                 try:
-                    reply, _ = self.katcp_req.gain_all()
-                    self.assertTrue(reply.reply_ok())
-                    eq_values = reply.arguments[-1]
+                    for _input in input_labels:
+                        reply, _ = self.katcp_req.gain(_input)
+                        self.assertTrue(reply.reply_ok())
+                        eq_values = reply.arguments[-1]
+                        self.assertEqual(eq_values, "0j")
                 except Exception:
                     self.Failed("Failed to retrieve gains/equalisations.")
                 else:
                     msg = "Confirm that all the inputs equalisations have been set to 'Zero'."
                     Aqf.equals(eq_values, "0j", msg)
 
-            self.Step("Set all inputs gains to 'Zero', and confirm that output product " "is all-zero")
-
+            self.Step("Set all inputs gains to 'Zero', and confirm that output product is all-zero")
             set_zero_gains()
             read_zero_gains()
 
@@ -2657,7 +2656,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             for count, inp in enumerate(input_labels, start=1):
                 if count > 10:
                     break
-                old_eq = complex(initial_equalisations[inp])
+                old_eq = complex(initial_equalisations)
                 self.Step(
                     "Iteratively set gain/equalisation correction on relevant " "input %s set to %s." % (inp, old_eq)
                 )
@@ -2722,18 +2721,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i]) for i in actual_z_bls_indices])
-
-                        msg = "Confirm that the expected baseline visibilities are non-zero with " "non-zero inputs"
+                        msg = "Confirm that the expected baseline visibilities are non-zero with non-zero inputs"
                         self.Step(msg)
                         msg = msg + " (%s) and," % (sorted(nonzero_inputs))
-                        if not actual_nz_bls == expected_nz_bls:
+                        if actual_nz_bls == expected_nz_bls:
                             self.Passed(msg)
                         else:
                             self.Failed(msg)
 
                         msg = "Confirm that the expected baselines visibilities are 'Zeros'.\n"
                         self.Step(msg)
-                        if not actual_z_bls == expected_z_bls:
+                        if actual_z_bls == expected_z_bls:
                             self.Passed(msg)
                         else:
                             self.Failed(msg)
@@ -6504,7 +6502,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     out_func.append([ts_delta, spectra_mean_val])
                 # captured_list.append(trgt_cap_list)
                 # print ('{}:{}'.format(ts_delta,spectra_mean_val))
-            # import IPython;IPython.embed()
         else:
             # Remove any values which don't make sense, these happend when a capture missed the target mcount
             rem_index = np.where((np.sum(out_func, axis=1)) > 30000)
@@ -7974,11 +7971,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
             msg = "Confirm that all baseline visibilities are non-zero across all channels"
             Aqf.equals(nonzero_baselines(test_data), all_nonzero_baselines(test_data), msg)
-
-            self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
-
-            initial_equalisations = get_and_restore_initial_eqs(self)
-            self.Passed("Stored initial F-engine equalisations")
 
             def prt_arr(array, print_len=4):
                 try:

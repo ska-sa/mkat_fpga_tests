@@ -7,13 +7,15 @@ import os
 import pwd
 import Queue
 import random
+import re
 import signal
 import socket
 import struct
 import subprocess
 import time
 import warnings
-from collections import Mapping
+
+from collections import Mapping, OrderedDict
 from contextlib import contextmanager
 from inspect import getframeinfo, stack
 from socket import inet_ntoa
@@ -23,6 +25,9 @@ import h5py
 import katcp
 import numpy as np
 import pandas as pd
+
+from casperfpga.utils import threaded_create_fpgas_from_hosts
+from corr2.data_stream import StreamAddress
 from Crypto.Cipher import AES
 from nose.plugins.attrib import attr
 # MEMORY LEAKS DEBUGGING
@@ -30,8 +35,6 @@ from nose.plugins.attrib import attr
 # from memory_profiler import profile as DetectMemLeaks
 from nosekatreport import Aqf
 
-from casperfpga.utils import threaded_create_fpgas_from_hosts
-from corr2.data_stream import StreamAddress
 from Logger import LoggingClass
 
 try:
@@ -48,7 +51,6 @@ VACC_FULL_RANGE = float(2 ** 31)
 
 # Katcp default timeout
 cam_timeout = 60
-
 
 # Define lambda functions to convert ip to int and back
 
@@ -221,7 +223,6 @@ def iterate_recursive_dict(dictionary, keys=()):
     else:
         yield (keys, dictionary)
 
-
 def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lookup=False):
     """Get list of all the baselines present in the correlator output.
     Param:
@@ -351,38 +352,17 @@ def get_vacc_offset(xeng_raw):
     else:
         return False
 
-
-def get_and_restore_initial_eqs(self):
-    """ Retrieve input gains/eq and added clean-up to restore eq's in case their altered
-    :param: self
-    :rtype: dict
-    """
+def restore_initial_equalisations(self):
+    init_eq = get_gain_all(self)
     try:
-        reply, informs = self.corr_fix.katcp_rct.req.gain_all()
+        reply, informs = self.corr_fix.katcp_rct.req.gain_all(init_eq, timeout=cam_timeout)
         assert reply.reply_ok()
+        return True
     except Exception:
-        LOGGER.exception("Failed to retrieve gains via CAM int.")
-        return
-    else:
-        input_labels = self.cam_sensors.input_labels
-        gain = reply.arguments[-1]
-        initial_equalisations = {}
-        for label in input_labels:
-            initial_equalisations[label] = gain
-
-    def restore_initial_equalisations():
-        try:
-            init_eq = "".join(list(set(initial_equalisations.values())))
-            reply, informs = self.corr_fix.katcp_rct.req.gain_all(init_eq, timeout=cam_timeout)
-            assert reply.reply_ok()
-            return True
-        except Exception:
-            msg = "Failed to set gain for all inputs with gain of %s" % init_eq
-            LOGGER.exception(msg)
-            return False
-
+        msg = "Failed to set gain for all inputs with gain of %s" % init_eq
+        LOGGER.exception(msg)
+        return False
     self.addCleanup(restore_initial_equalisations)
-    return initial_equalisations
 
 
 def get_bit_flag(packed, flag_bit):
@@ -506,7 +486,7 @@ def set_input_levels(
             LOGGER.info("Setting gain levels to all inputs to %s" % (eq_level))
             reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
             assert reply.reply_ok()
-        LOGGER.info("Gains set successfully: Reply:- %s" % str(reply))
+        LOGGER.info("Gains set successfully")
         return True
     except Exception:
         LOGGER.exception("Failed to set gain for input.")
@@ -1404,7 +1384,34 @@ def get_hosts(self, hosts=None, sensor="hostname-functional-mapping"):
         informs = dict((val, key) for key, val in informs.iteritems())
         return [v for i, v in informs.iteritems() if i.startswith(hosts)]
 
+def flatten(lst):
+    """
+    The flatten function here turns the list into a string, takes out all of the square brackets,
+    attaches square brackets back onto the ends, and turns it back into a list.
+    """
+    return eval('[' + str(lst).replace('[', '').replace(']', '') + ']')
 
+def get_gain_all(self):
+    """
+    Retrieve gain of all inputs via sensors
+    """
+    try:
+        reply, informs = self.katcp_req.sensor_value()
+        assert reply.reply_ok()
+    except Exception:
+        return
+    else:
+        sensors_required = ["antenna-channelised-voltage-input{}-eq".format(_input)
+                            for _input, _ in enumerate(self.cam_sensors.input_labels)]
+        search = re.compile('|'.join(sensors_required))
+        sensors = OrderedDict()
+        for inf in informs:
+            if search.match(inf.arguments[2]):
+                try:
+                    sensors[inf.arguments[2].replace('-', '_')] = eval(inf.arguments[4])
+                except Exception:
+                    sensors[inf.arguments[2].replace('-', '_')] = inf.arguments[4]
+        return list(set(flatten(sensors.values())))[0]
 
 class AqfReporter(object):
 
