@@ -193,13 +193,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.Error("Failed to set accumulation time.", exc_info=True)
 
         try:
-            output_product = self.conf_file["instrument_params"]["output_product"]
+            self._output_product = self.conf_file["instrument_params"]["output_product"]
             data_output_ip, data_output_port = self.cam_sensors.get_value(
-                output_product.replace("-", "_") + "_destination"
+                self._output_product.replace("-", "_") + "_destination"
             ).split(":")
             self.Step(
                 "Starting SPEAD receiver listening on %s:%s, CBF output product: %s"
-                % (data_output_ip, data_output_port, output_product)
+                % (data_output_ip, data_output_port, self._output_product)
             )
             katcp_ip = self.corr_fix.katcp_client
             katcp_port = int(self.corr_fix.katcp_rct.port)
@@ -222,7 +222,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 % (stop_channels - start_channels + 1, start_channels, stop_channels)
             )
             self.receiver = CorrRx(
-                product_name=output_product,
+                product_name=self._output_product,
                 katcp_ip=katcp_ip,
                 katcp_port=katcp_port,
                 port=data_output_port,
@@ -1707,6 +1707,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             initial_dump = self.receiver.get_clean_dump(discard=5)
 
             self.assertIsInstance(initial_dump, dict)
+            reply, informs = self.cam_sensors.req.sensor_value("{}-n-accs".format(self._output_product))
+            assert reply.reply_ok()
+            n_accs = int(informs[0].arguments[-1])
         except Exception:
             errmsg = "Could not retrieve initial clean SPEAD accumulation: Queue is Empty."
             self.Error(errmsg, exc_info=True)
@@ -1724,7 +1727,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             #              no_channels))
             self.Step(
                 "The CBF, when configured to produce the Imaging data product set and Wideband "
-                "Fine resolution channelisation, shall channelise a total bandwidth of >= %s" % (min_bandwithd_req)
+                "Fine resolution channelisation, shall channelise a total bandwidth of >= %s" % (
+                    min_bandwithd_req)
             )
             Aqf.is_true(
                 self.cam_sensors.get_value("bandwidth") >= min_bandwithd_req,
@@ -1762,10 +1766,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             initial_freq_response = normalised_magnitude(initial_dump["xeng_raw"][:, test_baseline, :])
             where_is_the_tone = np.argmax(initial_freq_response)
             max_tone_val = np.max(initial_freq_response)
+            # 1) I think the channelisation tests might still be saturating.
+            # Could you include a dBFS peak value in the output?
+            # (take the peak auto correlation output value and divide it by the number of accumulations;
+            # you should get a value in the range 0-16129).
+            value = np.max(magnetise(initial_dump["xeng_raw"][:, test_baseline, :]))
+            valuedBFS = 20*np.log10(abs(value)/n_accs)
+
+
             self.Note(
                 "Single peak found at channel %s, with max power of %.5f(%.5fdB)"
                 % (where_is_the_tone, max_tone_val, 10 * np.log10(max_tone_val))
             )
+
 
             plt_filename = "{}/{}_overall_channel_resolution_Initial_capture.png".format(
                 self.logs_path, self._testMethodName
@@ -1778,6 +1791,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
             )
             aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1))
+
+
+
 
         self.Step(
             "Sweep the digitiser simulator over the centre frequencies of at "
@@ -4010,11 +4026,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 self.Error(errmsg, exc_info=True)
                 return
             else:
-                expected_phases = self._get_expected_data(setup_data, dump_counts, delay_coefficients, actual_phases)
+                expected_phases = self._get_expected_data(
+                    setup_data, dump_counts, delay_coefficients, actual_phases)
 
                 no_chans = range(self.n_chans_selected)
                 plot_units = "ns/s"
-                plot_title = "Randomly generated delay rate {} {}".format(delay_rate * 1e9, plot_units)
+                plot_title = "Calculated delay rate {}{} [.7(sample period/integration time)]".format(
+                    delay_rate * 1e9, plot_units)
                 plot_filename = "{}/{}_delay_rate.png".format(self.logs_path, self._testMethodName)
                 caption = (
                     "Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n"
@@ -4022,7 +4040,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     "actual values received from SPEAD accumulation."
                 )
 
-                msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
+                msg = "Observe the change in the phase slope, and confirm the phase change is as expected."
                 self.Step(msg)
                 actual_phases_ = np.unwrap(actual_phases)
                 degree = 1.0
@@ -4047,7 +4065,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     msg = (
                         "Confirm that the maximum difference ({:.3f} "
                         "degree/{:.3f} rad) between expected phase and actual phase "
-                        "between integrations is less than {} degree.".format(np.rad2deg(abs_diff), abs_diff, degree)
+                        "between integrations is less than {} degree.".format(
+                            np.rad2deg(abs_diff), abs_diff, degree)
                     )
                     Aqf.less(abs_diff, radians, msg)
 
@@ -4075,7 +4094,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                             "of {} is applied.".format(delta_expected, delta_actual, degree, delay_rate)
                         )
                         caption = (
-                            "Difference  expected({:.3f}) and actual({:.3f})"
+                            "Difference expected({:.3f}) and actual({:.3f})"
                             " phases are not equal within {} degree when delay rate of {} "
                             "is applied.".format(delta_expected, delta_actual, degree, delay_rate)
                         )
