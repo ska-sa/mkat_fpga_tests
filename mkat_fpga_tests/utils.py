@@ -5,7 +5,6 @@ import logging
 import operator
 import os
 import pwd
-import Queue
 import random
 import re
 import signal
@@ -62,32 +61,12 @@ __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexi
     "RetryError", "retryloop", "RunTestWithTimeout", "TestTimeout", "UtilsClass", "wipd",
     "zero_baselines"]
 
+
 class RetryError(Exception):
     pass
 
-class UtilsClass(object):
 
-    def get_fftshift_all(self):
-        """
-        Retrieve gain of all inputs via sensors
-        """
-        try:
-            reply, informs = self.katcp_req.sensor_value()
-            assert reply.reply_ok()
-        except Exception:
-            return
-        else:
-            sensors_required = ["antenna-channelised-voltage-input{}-fft0-shift".format(_input)
-                                for _input, _ in enumerate(cls.cam_sensors.input_labels)]
-            search = re.compile('|'.join(sensors_required))
-            sensors = OrderedDict()
-            for inf in informs:
-                if search.match(inf.arguments[2]):
-                    try:
-                        sensors[inf.arguments[2].replace('-', '_')] = eval(inf.arguments[4])
-                    except Exception:
-                        sensors[inf.arguments[2].replace('-', '_')] = inf.arguments[4]
-            return list(set(flatten(sensors.values())))[0]
+class UtilsClass(object):
 
     def clear_all_delays(self):
         """Clears all delays on all fhosts.
@@ -236,8 +215,8 @@ class UtilsClass(object):
 
         return True if sdp_instance else False
 
-
-    def stop_katsdpingest_docker(self):
+    @staticmethod
+    def stop_katsdpingest_docker():
         """ Finds if a katsdpingest docker containter is running and kills it.
 
         Returns
@@ -471,7 +450,8 @@ class UtilsClass(object):
             return bf_raw, bf_flags, bf_ts, in_wgts
 
 
-    def populate_beam_dict(self, num_wgts_to_set, value, beam_dict):
+    @staticmethod
+    def populate_beam_dict(num_wgts_to_set, value, beam_dict):
         """
             If num_wgts_to_set = -1 all inputs will be set
         """
@@ -484,7 +464,8 @@ class UtilsClass(object):
         return beam_dict
 
 
-    def populate_beam_dict_idx(self, index, value, beam_dict):
+    @staticmethod
+    def populate_beam_dict_idx(index, value, beam_dict):
         """
             Set specified beam index to weight, all other values to 0
         """
@@ -595,7 +576,7 @@ class UtilsClass(object):
         """
         parse_address = StreamAddress._parse_address_string
         try:
-            xhosts = get_hosts("xhosts")
+            xhosts = self.get_hosts("xhosts")
             xhost = xhosts[random.randrange(xhosts)]
             int_ip = int(xhost.registers.gbe_iptx.read()["data"]["reg"])
             xhost_ip = inet_ntoa(pack(">L", int_ip))
@@ -656,7 +637,7 @@ class UtilsClass(object):
             msg = "Failed to set gain for all inputs with gain of %s" % init_eq
             LOGGER.exception(msg)
             return False
-        self.addCleanup(restore_initial_equalisations)
+        self.addCleanup(self.restore_initial_equalisations)
 
     def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lookup=False):
         """Get list of all the baselines present in the correlator output.
@@ -689,7 +670,7 @@ class UtilsClass(object):
 
 
     def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None,
-        gain=None, cw_src=0, corr_noise=True):
+                        gain=None, cw_src=0, corr_noise=True):
         """
         Set the digitiser simulator (dsim) output levels, FFT shift
         and quantiser gain to optimum levels - Hardcoded.
@@ -746,7 +727,7 @@ class UtilsClass(object):
         try:
             LOGGER.info("Setting desired gain/eq via CAM interface.")
             eq_level = list(set(source_gain_dict.values()))
-            if len(eq_level) is not 1:
+            if len(eq_level) != 1:
                 for i, v in source_gain_dict.items():
                     LOGGER.info("Input %s gain set to %s" % (i, v))
                     reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
@@ -906,7 +887,7 @@ class GetSensors(object):
         start_chan = chan - chans_around
         end_chan = chan + chans_around
         if samples_per_chan == 1:
-            return self.ch_center_freqs[start_chan : end_chan + 1]
+            return self.ch_center_freqs[start_chan: end_chan + 1]
         start_freq = self.ch_center_freqs[start_chan] - self.delta_f / 2
         end_freq = self.ch_center_freqs[end_chan] + self.delta_f / 2
         sample_spacing = self.delta_f / (samples_per_chan - 1)
@@ -1020,6 +1001,7 @@ def RunTestWithTimeout(test_timeout, errmsg="Test Timed-out"):
         Aqf.failed(errmsg)
         Aqf.end(traceback=True)
 
+
 @contextmanager
 def ignored(*exceptions):
     """
@@ -1031,6 +1013,7 @@ def ignored(*exceptions):
         yield
     except exceptions:
         pass
+
 
 def FPGA_Connect(hosts, _timeout=30):
     """Utility to connect to hosts via Casperfpga"""
@@ -1045,6 +1028,7 @@ def FPGA_Connect(hosts, _timeout=30):
                 LOGGER.error("ERROR: Could not connect to the SKARABs")
                 return False
     return fpgas
+
 
 def Report_Images(image_list, caption_list=[""]):
     """Add an image to the report
@@ -1063,6 +1047,7 @@ def Report_Images(image_list, caption_list=[""]):
         LOGGER.info("Adding image to report: %s" % image)
         Aqf.image(image, caption)
 
+
 def wipd(f):
     """
     - "work in progress decorator"
@@ -1078,12 +1063,14 @@ def wipd(f):
     """
     return attr("wip")(f)
 
+
 def flatten(lst):
     """
     The flatten function here turns the list into a string, takes out all of the square brackets,
     attaches square brackets back onto the ends, and turns it back into a list.
     """
     return eval('[' + str(lst).replace('[', '').replace(']', '') + ']')
+
 
 def executed_by():
     """Get who ran the test."""
@@ -1099,8 +1086,8 @@ def executed_by():
     except Exception:
         LOGGER.error("Failed to determine who ran the test")
         Aqf.hop(
-            "Test ran by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime())
-        )
+            "Test ran by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime()))
+
 
 def encode_passwd(pw_encrypt, key=None):
     """This function encrypts a string with base64 algorithm
@@ -1115,6 +1102,7 @@ def encode_passwd(pw_encrypt, key=None):
         encoded = base64.b64encode(_cipher.encrypt(pw_encrypt.rjust(32)))
         return encoded
 
+
 def decode_passwd(pw_decrypt, key=None):
     """This function decrypts a string with base64 algorithm
     :param: pw_decrypt: Str
@@ -1128,17 +1116,21 @@ def decode_passwd(pw_decrypt, key=None):
         decoded = _cipher.decrypt(base64.b64decode(pw_decrypt))
         return decoded.strip()
 
+
 def ip2int(ipstr):
     return struct.unpack("!I", socket.inet_aton(ipstr))[0]
 
+
 def int2ip(n):
     return socket.inet_ntoa(struct.pack("!I", n))
+
 
 def complexise(input_data):
     """Convert input data shape (X,2) to complex shape (X)
     :param input_data: Xeng_Raw
     """
     return input_data[:, 0] + input_data[:, 1] * 1j
+
 
 def magnetise(input_data):
     """Convert input data shape (X,2) to complex shape (X) and
@@ -1149,11 +1141,14 @@ def magnetise(input_data):
     id_m = np.abs(id_c)
     return id_m
 
+
 def normalise(input_data):
     return input_data / VACC_FULL_RANGE
 
+
 def normalised_magnitude(input_data):
     return normalise(magnetise(input_data))
+
 
 def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None, no_clip=False):
     with np.errstate(divide="ignore"):
@@ -1169,6 +1164,7 @@ def loggerise(data, dynamic_range=70, normalise=False, normalise_to=None, no_cli
         log_data = np.asarray(log_data) - np.max(log_data)
     return log_data
 
+
 def baseline_checker(xeng_raw, check_fn):
     """Apply a test function to correlator data one baseline at a time
 
@@ -1181,13 +1177,16 @@ def baseline_checker(xeng_raw, check_fn):
             baselines.add(_baseline)
     return baselines
 
+
 def zero_baselines(xeng_raw):
     """Return baseline indices that have all-zero data"""
     return baseline_checker(xeng_raw, lambda bldata: np.all(bldata == 0))
 
+
 def nonzero_baselines(xeng_raw):
     """Return baseline indices that have some non-zero data"""
     return baseline_checker(xeng_raw, lambda bldata: np.any(bldata != 0))
+
 
 def all_nonzero_baselines(xeng_raw):
     """Return baseline indices that have all non-zero data"""
@@ -1196,6 +1195,7 @@ def all_nonzero_baselines(xeng_raw):
         return np.all(np.linalg.norm(bldata.astype(np.float64), axis=1) != 0)
 
     return baseline_checker(xeng_raw, non_zerobls)
+
 
 def init_dsim_sources(dhost):
     """Select dsim signal output, zero all sources, output scaling to 1
@@ -1240,6 +1240,7 @@ def init_dsim_sources(dhost):
     except Exception:
         LOGGER.error("Failed to select output dhost.")
 
+
 def get_dsim_source_info(dsim):
     """Return a dict with all the current sine, noise and output settings of a dsim"""
     info = dict(sin_sources={}, noise_sources={}, outputs={})
@@ -1251,6 +1252,7 @@ def get_dsim_source_info(dsim):
     for output in dsim.outputs:
         info["outputs"][output.name] = dict(output_type=output.output_type, scale=output.scale)
     return info
+
 
 def iterate_recursive_dict(dictionary, keys=()):
     """Generator; walk through a recursive dict structure
@@ -1284,6 +1286,7 @@ def iterate_recursive_dict(dictionary, keys=()):
     else:
         yield (keys, dictionary)
 
+
 def get_vacc_offset(xeng_raw):
     """Assuming a tone was only put into input 0,
        figure out if VACC is rooted by 1"""
@@ -1298,10 +1301,12 @@ def get_vacc_offset(xeng_raw):
     else:
         return False
 
+
 def get_bit_flag(packed, flag_bit):
     flag_mask = 1 << flag_bit
     flag = bool(packed & flag_mask)
     return flag
+
 
 def get_set_bits(packed, consider_bits=None):
     packed = int(packed)
@@ -1313,6 +1318,7 @@ def get_set_bits(packed, consider_bits=None):
         set_bits = set_bits.intersection(consider_bits)
     return set_bits
 
+
 def get_pfb_counts(status_dict):
     """Checks if FFT overflows and QDR status on roaches
     Param: fhosts items
@@ -1323,6 +1329,7 @@ def get_pfb_counts(status_dict):
     for host, pfb_value in status_dict:
         pfb_list[host] = (pfb_value["pfb_of0_cnt"], pfb_value["pfb_of1_cnt"])
     return pfb_list
+
 
 def get_delay_bounds(correlator):
     """
@@ -1352,14 +1359,14 @@ def get_delay_bounds(correlator):
     # Get max/min phase offset
     reg_info = fhost.registers.phase0.block_info
     b_str = reg_info["bin_pts"]
-    _b = int(b_str[1 : len(b_str) - 1].rsplit(" ")[0])
+    _b = int(b_str[1: len(b_str) - 1].rsplit(" ")[0])
     max_positive_phase_offset = 1 - 1 / float(2 ** _b)
     max_negative_phase_offset = -1 + 1 / float(2 ** _b)
     max_positive_phase_offset *= float(np.pi)
     max_negative_phase_offset *= float(np.pi)
     # Get max/min phase rate
     b_str = reg_info["bin_pts"]
-    _b = int(b_str[1 : len(b_str) - 1].rsplit(" ")[1])
+    _b = int(b_str[1: len(b_str) - 1].rsplit(" ")[1])
     max_positive_delta_phase = 1 - 1 / float(2 ** _b)
     max_negative_delta_phase = -1 + 1 / float(2 ** _b)
     # As per fhost_fpga
@@ -1381,6 +1388,7 @@ def get_delay_bounds(correlator):
         "max_phase_rate": max_positive_delta_phase,
         "min_phase_rate": max_negative_delta_phase,
     }
+
 
 def disable_warnings_messages():
     """This function disables all error warning messages
@@ -1417,6 +1425,7 @@ def disable_warnings_messages():
         logging.getLogger(logger_name).setLevel(logging.CRITICAL)
     logging.getLogger("nose.plugins.nosekatreport").setLevel(logging.INFO)
 
+
 def retryloop(attempts, timeout):
     """
     Usage:
@@ -1443,6 +1452,7 @@ def retryloop(attempts, timeout):
         if starttime + timeout < time.time():
             break
     raise RetryError("Failed to after %s attempts" % attempts)
+
 
 def human_readable_ip(hex_ip):
     hex_ip = hex_ip[2:]
