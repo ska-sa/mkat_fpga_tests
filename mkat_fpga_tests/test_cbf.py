@@ -5382,8 +5382,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         return False
                     retries += 1
                     try:
-                        bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(,
-                            beam, beam_dict, ingest_kcp_client)
+                        bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam,
+                            beam_dict, ingest_kcp_client)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None

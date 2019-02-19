@@ -54,7 +54,7 @@ cam_timeout = 60
 
 
 __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexise", "CSV_Reader",
-    "decode_passwd", "DictEval", "disable_warnings_messages", "encode_passwd", "executed_by",
+    "decode_passwd", "disable_warnings_messages", "encode_passwd", "executed_by",
     "flatten", "FPGA_Connect", "get_bit_flag", "get_delay_bounds", "get_dsim_source_info",
     "get_pfb_counts", "get_set_bits", "get_vacc_offset", "GetSensors", "human_readable_ip",
     "ignored", "init_dsim_sources", "int2ip", "ip2int", "iterate_recursive_dict", "loggerise",
@@ -912,17 +912,6 @@ class GetSensors(object):
         sample_spacing = self.delta_f / (samples_per_chan - 1)
         num_samples = int(np.round((end_freq - start_freq) / sample_spacing)) + 1
         return np.linspace(start_freq, end_freq, num_samples)
-
-
-class DictEval(object):
-    """
-     load variables in a dict into namespace
-    """
-
-    # Alt use (Not ideal): locals().update(adict)
-
-    def __init__(self, adict):
-        self.__dict__.update(adict)
 
 
 class CSV_Reader(object):
