@@ -1164,7 +1164,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         """Checking system stability before and after use"""
         try:
             self.Step("Checking system sensors integrity.")
-            for i in xrange(1):
+            for i in range(1):
                 try:
                     reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
                 except Exception:
@@ -1397,7 +1397,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # For debugging, for some weird reason we have to discard 2 dumps before capturing the
         # data with the change in phase
         _force_discard()
-        for i in xrange(dump_counts - 1):
+        for i in range(dump_counts - 1):
             self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))
             try:
                 dump = self.receiver.data_queue.get()
@@ -1422,7 +1422,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         def calc_actual_delay(setup_data):
             no_ch = self.cam_sensors.get_value("n_chans")
             first_dump = np.unwrap(actual_phases[0])
-            actual_slope = np.polyfit(xrange(0, no_ch), first_dump, 1)[0] * no_ch
+            actual_slope = np.polyfit(range(0, no_ch), first_dump, 1)[0] * no_ch
             actual_delay = self.cam_sensors.sample_period * actual_slope / np.pi
             return actual_delay
 
@@ -1431,7 +1431,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             no_ch = self.cam_sensors.get_value("n_chans")
             delay_slope = np.pi * (delay / self.cam_sensors.sample_period)
             c = delay_slope / 2
-            for i in xrange(0, no_ch):
+            for i in range(0, no_ch):
                 m = i / float(no_ch)
                 res.append(delay_slope * m - c)
             return res
@@ -1439,7 +1439,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
             expected_phases = []
             prev_delay_rate = 0
-            for dump in xrange(0, dump_counts):
+            for dump in range(0, dump_counts):
                 # For delay rate the expected delay is the average of delays
                 # applied during the integration. This is equal to the
                 # delay delta over the integration divided by two
@@ -1463,7 +1463,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
             expected_phases = []
             prev_fringe_rate = 0
-            for dump in xrange(0, dump_counts):
+            for dump in range(0, dump_counts):
                 # For fringe rate the expected delay is the average of delays
                 # applied during the integration. This is equal to the
                 # delay delta over the integration divided by two
@@ -2811,7 +2811,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "Getting SPEAD accumulation and confirm that the difference between"
                     " subsequent accumulation is Zero."
                 )
-                for dump_no in xrange(3):
+                for dump_no in range(3):
                     if dump_no == 0:
                         try:
                             this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
@@ -2851,7 +2851,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
 
                 if not Aqf.equals(dumps_comp, 0, msg):
-                    legends = ["dump #{}".format(x) for x in xrange(len(chan_responses))]
+                    legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
                     plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
                     plot_title = "Frequency Response {} @ {:.3f}MHz".format(test_chan, this_source_freq / 1e6)
                     caption = (
@@ -2902,7 +2902,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "Sweeping the digitiser simulator over the centre frequencies of at "
                 "least all channels that fall within the complete L-band: {} Hz".format(expected_fc)
             )
-            for scan_i in xrange(3):
+            for scan_i in range(3):
                 scan_dumps = []
                 frequencies = []
                 scans.append(scan_dumps)
@@ -2948,8 +2948,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     scan_dumps.append(this_freq_data)
                     frequencies.append(freq_val)
 
-            for scan_i in xrange(1, len(scans)):
-                for freq_i, freq_x in zip(xrange(len(scans[0])), frequencies):
+            for scan_i in range(1, len(scans)):
+                for freq_i, freq_x in zip(range(len(scans[0])), frequencies):
                     s0 = scans[0][freq_i]
                     s1 = scans[scan_i][freq_i]
                     norm_fac = initial_max_freq_list[freq_i]
@@ -2965,7 +2965,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
-                        legends = ["Freq scan #{}".format(x) for x in xrange(len(chan_responses))]
+                        legends = ["Freq scan #{}".format(x) for x in range(len(chan_responses))]
                         caption = (
                             "A comparison of frequency sweeping from {:.3f}Mhz to {:.3f}Mhz "
                             "scan channelisation and also, {}".format(
@@ -3112,7 +3112,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             initial_max_freq_list = []
             scans = []
             channel_responses = []
-            for scan_i in xrange(3):
+            for scan_i in range(3):
                 if scan_i:
                     self.Step("#{scan_i}: Initialising {instrument} instrument".format(**locals()))
                     intrument_success = _restart_instrument()
@@ -3162,14 +3162,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     channel_responses.append(freq_response)
 
             normalised_init_freq = np.array(initial_max_freq_list)
-            for comp in xrange(1, len(normalised_init_freq)):
+            for comp in range(1, len(normalised_init_freq)):
                 v0 = np.array(normalised_init_freq[comp - 1])
                 v1 = np.array(normalised_init_freq[comp])
 
             correct_init_freq = np.abs(np.max(v0 - v1))
 
             diff_scans_dumps = []
-            for comparison in xrange(1, len(scans)):
+            for comparison in range(1, len(scans)):
                 s0 = np.array(scans[comparison - 1])
                 s1 = np.array(scans[comparison])
                 diff_scans_dumps.append(np.max(s0 - s1))
@@ -3183,7 +3183,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
 
             if not Aqf.less(diff_scans_comp, threshold, msg):
-                legends = ["Channel Response #{}".format(x) for x in xrange(len(channel_responses))]
+                legends = ["Channel Response #{}".format(x) for x in range(len(channel_responses))]
                 plot_filename = "{}/{}_chan_resp.png".format(self.logs_path, self._testMethodName)
                 caption = "Confirm that results are consistent on CBF restart"
                 plot_title = "CBF restart consistency channel response {}".format(test_chan)
@@ -3420,7 +3420,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     caption=caption,
                                 )
 
-                        for delay, count in zip(test_delays, xrange(1, len(expected_phases))):
+                        for delay, count in zip(test_delays, range(1, len(expected_phases))):
                             msg = (
                                 "Confirm that when a delay of {} clock "
                                 "cycle({:.5f} ns) is introduced there is a phase change "
@@ -4046,7 +4046,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 decimal = len(str(degree).split(".")[-1])
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
-                for i in xrange(0, len(expected_phases_) - 1):
+                for i in range(0, len(expected_phases_) - 1):
                     delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
                     delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
                     # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
@@ -4172,7 +4172,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
                 self.Step(msg)
-                for i in xrange(0, len(expected_phases_) - 1):
+                for i in range(0, len(expected_phases_) - 1):
                     try:
                         delta_expected = np.max(expected_phases_[i + 1] - expected_phases_[i])
                         delta_actual = np.max(actual_phases_[i + 1] - actual_phases_[i])
@@ -4289,7 +4289,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
                 self.Step(msg)
-                for i in xrange(1, len(expected_phases) - 1):
+                for i in range(1, len(expected_phases) - 1):
                     delta_expected = np.abs(np.max(expected_phases_[i]))
                     delta_actual = np.abs(np.max(actual_phases_[i]))
                     # abs_diff = np.abs(delta_expected - delta_actual)
