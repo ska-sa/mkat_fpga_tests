@@ -4,30 +4,30 @@
 # Note: Include this file in the jenkins job script to setup the virtualenv.
 # Author: Mpho Mphego <mmphego@ska.ac.za>
 
-set -e
+set -e pipeline
 
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 NORMAL=$(tput sgr0)
 
-function gprint (){
-    printf "%s$1%s\n" "${GREEN}" "${NORMAL}";
+gecho() {
+    echo "${GREEN}$1${NORMAL}";
 }
 
-function rprint (){
-    printf "%s$1%s\n" "${RED}" "${NORMAL}";
+recho() {
+    echo "${RED}$1${NORMAL}";
 }
 
 # ---------------------
 VIRTUAL_ENV=".venv"
 
-gprint "Installing ${VIRTUAL_ENV} in current working directory"
+gecho "Installing ${VIRTUAL_ENV} in current working directory"
 if ! $(command -v virtualenv) >/dev/null; then
-    pip install --user virtualenv virtualenvwrapper
+    pip install virtualenv virtualenvwrapper
 fi
 $(command -v virtualenv) "${VIRTUAL_ENV}" --download --system-site-packages
 
-gprint "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
+gecho "Sourcing virtualenv and exporting ${VIRTUAL_ENV}/bin to PATH..."
 source "${VIRTUAL_ENV}/bin/activate"
 if [ -d "/opt/gcc4.9.3/bin" ]; then
     export PATH=/opt/gcc4.9.3/bin:"${VIRTUAL_ENV}/bin:$PATH"
@@ -37,15 +37,15 @@ else
     export LD_LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/:/usr/lib/x86_64-linux-gnu/:"${LD_LIBRARY_PATH}"
 fi
 $(command -v pip) install -U pip setuptools wheel
-gprint "Confirm that you are in a virtualenv: $(which python)"
+gecho "Confirm that you are in a virtualenv: $(which python)"
 
 if [ -z "${VIRTUAL_ENV}" ]; then
-    rprint "Could not create virtualenv: ${VIRTUAL_ENV}"
+    recho "Could not create virtualenv: ${VIRTUAL_ENV}"
     exit 2
 fi
 
 #
-function pkg_checker() {
+pkg_checker() {
     pkg=$1
     if ! $(command -v python) -c "import ${pkg}; print ${pkg}.__file__" >/dev/null; then
         echo "Failed to install ${pkg}";
@@ -53,15 +53,18 @@ function pkg_checker() {
     fi
 }
 
-function install_pip_requirements() {
+install_pip_requirements() {
     FILENAME=$1                  # Filename to read requirements from.
-    gprint "Installing development pip dependencies from ${FILENAME} file."
-    if [ -f "$FILENAME" ]; then
-        $(command -v python) -W ignore::Warning -m pip install --no-cache-dir --ignore-installed -r "${FILENAME}" || true
+    gecho "Installing development pip dependencies from ${FILENAME} file."
+    if [ ! -f "$FILENAME" ]; then
+        recho "File missing will try to download from GitHub."
+        wget https://raw.githubusercontent.com/ska-sa/mkat_fpga_tests/devel/pip-dev-requirements.txt
+        FILENAME="pip-dev-requirements.txt"
     fi
+    $(command -v python) -W ignore::Warning -m pip install --no-cache-dir --ignore-installed -r "${FILENAME}" || true
 }
 
-function install_pip_dependencies() {
+install_pip_dependencies() {
     pip install --upgrade \
         certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]' numpy>1.15.0 tornado==4.*
 
@@ -90,11 +93,15 @@ function install_pip_dependencies() {
         git+https://github.com/ska-sa/corr2@devel#egg=corr2
 }
 
-function post_setup(){
-    [ -f "setup.py" ] && $(command -v python) setup.py install -f
+post_setup(){
+    if [ -f "setup.py" ]; then
+        $(command -v python) setup.py install -f
+    else
+        recho 'Manually run: `python setup.py install` in mkat_fpga_tests'
+    fi
 }
 
-function verify_pkgs_installed(){
+verify_pkgs_installed(){
     declare -a pkgs=("corr2" "casperfpga" "katcp" "nosekatreport")
     for pkg in "${pkgs[@]}"; do
         pkg_checker "${pkg}";
