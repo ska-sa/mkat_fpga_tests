@@ -8,6 +8,12 @@ A [Correlator-beamforming](https://www.ska.ac.za/science-engineering/meerkat/abo
 
 ## Installation
 
+Clone the repository including all submodules attached to it.
+
+```shell
+git clone --recursive git@github.com:ska-sa/mkat_fpga_tests.git
+```
+
 Also see: [opt/dsim_dependencies/README.md](opt/dsim_dependencies/README.md)
 
 ### Python Core packages
@@ -19,14 +25,15 @@ List of dependencies:
 * [_corr2_](https://github.com/ska-sa/corr2)
 * [_nosekatreport_](https://github.com/ska-sa/nosekatreport)
 * [_spead2_](https://github.com/ska-sa/spead2)  v1.1.1
- *   [_gcc4.9.3_](https://gcc.gnu.org/gcc-4.9/): spead2 dependency.
+  *s [_gcc4.9.3_](https://gcc.gnu.org/gcc-4.9/): spead2 dependency.
 
 ### Python testing dependencies packages
 
 It is highly recommended to install [_Python virtual environment_](https://virtualenv.pypa.io/) before continuing, else below is step-by-step instructions.
 
 #### Setup and Use Virtualenv
-```bash
+
+```shell
 # Install Python essentials and pip
 curl -s https://bootstrap.pypa.io/get-pip.py | python
 pip install --user -U virtualenv # or $ sudo pip install -U virtualenv
@@ -38,7 +45,8 @@ make bootstrap
 ## Unit Testing
 
 Running unit-testing.
-```bash
+
+```shell
 # This will run all unit-tests defined in mkat_fpga_tests/test_cbf.py
 make tests
 ```
@@ -47,7 +55,7 @@ make tests
 
 The `python run_cbf_tests.py -h` script has several options. Please see `run_cbf_tests.py --help` for up-to-date detail.
 
-```bash
+```shell
 (Test)mmphego@dbelab04:~/src/mkat_fpga_tests$ ./run_cbf_tests.py
 usage: run_cbf_tests.py [-h] [--loglevel LOG_LEVEL] [-q] [--nose NOSE_ARGS]
                         [--acceptance SITE_ACCEPTANCE] [--instrument-activate]
@@ -102,11 +110,11 @@ optional arguments:
 2. Test the edge cases of a few unusually complex code that you think will probably have errors.
 3. Whenever you find a bug, write a test case to cover it before fixing it
 4. Add edge-case tests to less critical code whenever someone has time to kill
-Credit: https://softwareengineering.stackexchange.com/a/754
 5. “Code is like humour. When you have to explain it, it’s bad.” – Cory House
 
+[Credit](https://softwareengineering.stackexchange.com/a/754)
 
 ## Contributors
 
- * Mpho Mphego
- * Alec Rust
+* Mpho Mphego
+* Alec Rust
