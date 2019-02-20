@@ -59,7 +59,7 @@ DSIM_TIMEOUT = 60
 # ToDo MM (2017-07-21) Improve the logging for debugging
 @cls_end_aqf
 @system("meerkat")
-class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
+class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     """ Unit-testing class for mkat_fpga_tests"""
 
     cur_path = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
@@ -78,7 +78,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.logs_path = None
         self.corr_fix = CorrelatorFixture(logLevel=self.logger.root.level)
         try:
-            self.logs_path = create_logs_directory(self)
+            self.logs_path = self.create_logs_directory()
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client = self.conf_file["instrument_params"]["katcp_client"]
             self.katcp_req = self.corr_fix.katcp_rct.req
@@ -109,7 +109,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             if SET_DSIM_EPOCH is False:
                 try:
                     self.logger.info("This should only run once...")
-                    self.fhosts, self.xhosts = (get_hosts(self, "fhost"), get_hosts(self, "xhost"))
+                    self.fhosts, self.xhosts = (self.get_hosts("fhost"), self.get_hosts("xhost"))
                     if not self.dhost.is_running():
                         errmsg = "Dsim is not running, ensure dsim is running before test commences"
                         Aqf.end(message=errmsg)
@@ -555,7 +555,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             instrument_success = self.set_instrument()
             if instrument_success:
                 self._test_delays_control()
-                clear_all_delays(self)
+                self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
 
@@ -576,7 +576,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 self._test_fringe_rate()
                 self._test_fringe_offset()
                 self._test_delay_inputs()
-                clear_all_delays(self)
+                self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
 
@@ -1164,7 +1164,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         """Checking system stability before and after use"""
         try:
             self.Step("Checking system sensors integrity.")
-            for i in xrange(1):
+            for i in range(1):
                 try:
                     reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
                 except Exception:
@@ -1207,7 +1207,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "Digitiser simulator configured to generate Gaussian noise with scale: {}, "
             "gain: {} and fft shift: {}.".format(awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, fft_shift=fft_shift, gain=gain)
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale,
+            fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
@@ -1223,7 +1224,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # Number of integrations to load delays in the future
         num_int = int(self.conf_file["instrument_params"]["num_int_delay_load"])
         self.Step("Clear all coarse and fine delays for all inputs before test commences.")
-        delays_cleared = clear_all_delays(self)
+        delays_cleared = self.clear_all_delays()
         if not delays_cleared:
             self.Failed("Delays were not completely cleared, data might be corrupted.")
         else:
@@ -1249,7 +1250,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             curr_time = time.time()
             curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
             try:
-                baseline_lookup = get_baselines_lookup(self)
+                baseline_lookup = self.get_baselines_lookup()
                 # Choose baseline for phase comparison
                 baseline_index = baseline_lookup[(ref_source, test_source)]
                 self.Step("Get list of all the baselines present in the correlator output")
@@ -1396,7 +1397,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # For debugging, for some weird reason we have to discard 2 dumps before capturing the
         # data with the change in phase
         _force_discard()
-        for i in xrange(dump_counts - 1):
+        for i in range(dump_counts - 1):
             self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))
             try:
                 dump = self.receiver.data_queue.get()
@@ -1421,7 +1422,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         def calc_actual_delay(setup_data):
             no_ch = self.cam_sensors.get_value("n_chans")
             first_dump = np.unwrap(actual_phases[0])
-            actual_slope = np.polyfit(xrange(0, no_ch), first_dump, 1)[0] * no_ch
+            actual_slope = np.polyfit(range(0, no_ch), first_dump, 1)[0] * no_ch
             actual_delay = self.cam_sensors.sample_period * actual_slope / np.pi
             return actual_delay
 
@@ -1430,7 +1431,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             no_ch = self.cam_sensors.get_value("n_chans")
             delay_slope = np.pi * (delay / self.cam_sensors.sample_period)
             c = delay_slope / 2
-            for i in xrange(0, no_ch):
+            for i in range(0, no_ch):
                 m = i / float(no_ch)
                 res.append(delay_slope * m - c)
             return res
@@ -1438,7 +1439,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
             expected_phases = []
             prev_delay_rate = 0
-            for dump in xrange(0, dump_counts):
+            for dump in range(0, dump_counts):
                 # For delay rate the expected delay is the average of delays
                 # applied during the integration. This is equal to the
                 # delay delta over the integration divided by two
@@ -1462,7 +1463,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
             expected_phases = []
             prev_fringe_rate = 0
-            for dump in xrange(0, dump_counts):
+            for dump in range(0, dump_counts):
                 # For fringe rate the expected delay is the average of delays
                 # applied during the integration. This is equal to the
                 # delay delta over the integration divided by two
@@ -1692,8 +1693,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 cw_scale, awgn_scale, gain, fft_shift
             )
         )
-        dsim_set_success = set_input_levels(
-            self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
         )
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
@@ -2264,8 +2265,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             )
         )
 
-        dsim_set_success = set_input_levels(
-            self,
+        dsim_set_success = self.set_input_levels(
             awgn_scale=awgn_scale,
             cw_scale=cw_scale,
             freq=self.cam_sensors.get_value("bandwidth") / 2.0,
@@ -2500,8 +2500,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
         )
 
-        dsim_set_success = set_input_levels(
-            self,
+        dsim_set_success = self.set_input_levels(
             awgn_scale=awgn_scale,
             freq=self.cam_sensors.get_value("bandwidth") / 2.0,
             fft_shift=fft_shift,
@@ -2558,7 +2557,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             input_labels = sorted(self.cam_sensors.input_labels)
             inputs_to_plot = random.shuffle(input_labels)
             inputs_to_plot = input_labels[:8]
-            baselines_lookup = get_baselines_lookup(self)
+            baselines_lookup = self.get_baselines_lookup()
             present_baselines = sorted(baselines_lookup.keys())
             possible_baselines = set()
             [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
@@ -2606,7 +2605,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             else:
                 self.Passed(msg)
             self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
-            initial_equalisations = get_gain_all(self)
+            initial_equalisations = self.get_gain_all()
             self.Progress("Stored original F-engine equalisations.")
 
             def set_zero_gains():
@@ -2812,7 +2811,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     "Getting SPEAD accumulation and confirm that the difference between"
                     " subsequent accumulation is Zero."
                 )
-                for dump_no in xrange(3):
+                for dump_no in range(3):
                     if dump_no == 0:
                         try:
                             this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
@@ -2852,7 +2851,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 )
 
                 if not Aqf.equals(dumps_comp, 0, msg):
-                    legends = ["dump #{}".format(x) for x in xrange(len(chan_responses))]
+                    legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
                     plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
                     plot_title = "Frequency Response {} @ {:.3f}MHz".format(test_chan, this_source_freq / 1e6)
                     caption = (
@@ -2903,7 +2902,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 "Sweeping the digitiser simulator over the centre frequencies of at "
                 "least all channels that fall within the complete L-band: {} Hz".format(expected_fc)
             )
-            for scan_i in xrange(3):
+            for scan_i in range(3):
                 scan_dumps = []
                 frequencies = []
                 scans.append(scan_dumps)
@@ -2949,8 +2948,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     scan_dumps.append(this_freq_data)
                     frequencies.append(freq_val)
 
-            for scan_i in xrange(1, len(scans)):
-                for freq_i, freq_x in zip(xrange(len(scans[0])), frequencies):
+            for scan_i in range(1, len(scans)):
+                for freq_i, freq_x in zip(range(len(scans[0])), frequencies):
                     s0 = scans[0][freq_i]
                     s1 = scans[scan_i][freq_i]
                     norm_fac = initial_max_freq_list[freq_i]
@@ -2966,7 +2965,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     )
 
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
-                        legends = ["Freq scan #{}".format(x) for x in xrange(len(chan_responses))]
+                        legends = ["Freq scan #{}".format(x) for x in range(len(chan_responses))]
                         caption = (
                             "A comparison of frequency sweeping from {:.3f}Mhz to {:.3f}Mhz "
                             "scan channelisation and also, {}".format(
@@ -3016,8 +3015,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 cw_scale, awgn_scale, gain, fft_shift
             )
         )
-        dsim_set_success = set_input_levels(
-            self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+            freq=expected_fc, fft_shift=fft_shift, gain=gain
         )
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
@@ -3113,7 +3112,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             initial_max_freq_list = []
             scans = []
             channel_responses = []
-            for scan_i in xrange(3):
+            for scan_i in range(3):
                 if scan_i:
                     self.Step("#{scan_i}: Initialising {instrument} instrument".format(**locals()))
                     intrument_success = _restart_instrument()
@@ -3163,14 +3162,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     channel_responses.append(freq_response)
 
             normalised_init_freq = np.array(initial_max_freq_list)
-            for comp in xrange(1, len(normalised_init_freq)):
+            for comp in range(1, len(normalised_init_freq)):
                 v0 = np.array(normalised_init_freq[comp - 1])
                 v1 = np.array(normalised_init_freq[comp])
 
             correct_init_freq = np.abs(np.max(v0 - v1))
 
             diff_scans_dumps = []
-            for comparison in xrange(1, len(scans)):
+            for comparison in range(1, len(scans)):
                 s0 = np.array(scans[comparison - 1])
                 s1 = np.array(scans[comparison])
                 diff_scans_dumps.append(np.max(s0 - s1))
@@ -3184,7 +3183,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             )
 
             if not Aqf.less(diff_scans_comp, threshold, msg):
-                legends = ["Channel Response #{}".format(x) for x in xrange(len(channel_responses))]
+                legends = ["Channel Response #{}".format(x) for x in range(len(channel_responses))]
                 plot_filename = "{}/{}_chan_resp.png".format(self.logs_path, self._testMethodName)
                 caption = "Confirm that results are consistent on CBF restart"
                 plot_title = "CBF restart consistency channel response {}".format(test_chan)
@@ -3421,7 +3420,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                     caption=caption,
                                 )
 
-                        for delay, count in zip(test_delays, xrange(1, len(expected_phases))):
+                        for delay, count in zip(test_delays, range(1, len(expected_phases))):
                             msg = (
                                 "Confirm that when a delay of {} clock "
                                 "cycle({:.5f} ns) is introduced there is a phase change "
@@ -3540,17 +3539,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "fft shift: {}".format(cw_scale, cw_freq, awgn_scale, gain, fft_shift)
         )
 
-        dsim_set_success = set_input_levels(
-            self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=cw_freq, fft_shift=fft_shift, gain=gain
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=awgn_scale, cw_scale=cw_scale, freq=cw_freq, fft_shift=fft_shift, gain=gain
         )
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
         try:
             self.Step("Get the current FFT Shift before manipulation.")
-            reply, informs = self.katcp_req.fft_shift()
-            self.assertTrue(reply.reply_ok())
-            fft_shift = int(reply.arguments[-1])
+            fft_shift = int(self.get_fftshift_all())
+            assert fft_shift
             self.Progress("Current system FFT Shift: %s" % fft_shift)
         except Exception:
             self.Error("Could not get the F-Engine FFT Shift value", exc_info=True)
@@ -3794,7 +3792,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.Step("Selected test input {} and test frequency channel {}".format(test_input, test_freq_channel))
         eqs = np.zeros(n_chans, dtype=np.complex)
         eqs[test_freq_channel] = eq_scaling
-        get_and_restore_initial_eqs(self)
+        self.restore_initial_equalisations()
         try:
             reply, _informs = self.katcp_req.gain(test_input, *list(eqs))
             self.assertTrue(reply.reply_ok())
@@ -4048,7 +4046,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 decimal = len(str(degree).split(".")[-1])
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
-                for i in xrange(0, len(expected_phases_) - 1):
+                for i in range(0, len(expected_phases_) - 1):
                     delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
                     delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
                     # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
@@ -4174,7 +4172,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
                 self.Step(msg)
-                for i in xrange(0, len(expected_phases_) - 1):
+                for i in range(0, len(expected_phases_) - 1):
                     try:
                         delta_expected = np.max(expected_phases_[i + 1] - expected_phases_[i])
                         delta_actual = np.max(actual_phases_[i + 1] - actual_phases_[i])
@@ -4291,7 +4289,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
                 self.Step(msg)
-                for i in xrange(1, len(expected_phases) - 1):
+                for i in range(1, len(expected_phases) - 1):
                     delta_expected = np.abs(np.max(expected_phases_[i]))
                     delta_actual = np.abs(np.max(actual_phases_[i]))
                     # abs_diff = np.abs(delta_expected - delta_actual)
@@ -4422,7 +4420,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
                             exc_info=True)
                     else:
-                        sorted_bls = get_baselines_lookup(self, this_freq_dump, sorted_lookup=True)
+                        sorted_bls = self.get_baselines_lookup(this_freq_dump, sorted_lookup=True)
                         degree = 1.0
                         self.Step("Maximum expected delay: %s" % np.max(expected_phases))
                         for b_line in sorted_bls:
@@ -4448,7 +4446,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                                     self.Failed(desc)
 
     def _test_min_max_delays(self):
-        delays_cleared = clear_all_delays(self)
+        delays_cleared = self.clear_all_delays()
         setup_data = self._delays_setup()
 
         num_int = setup_data["num_int"]
@@ -4496,7 +4494,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         Aqf.is_true(reply.reply_ok(), msg)
 
     def _test_delays_control(self):
-        delays_cleared = clear_all_delays(self)
+        delays_cleared = self.clear_all_delays()
         setup_data = self._delays_setup()
 
         num_int = setup_data["num_int"]
@@ -4780,7 +4778,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "Digitiser simulator configured to generate Gaussian noise with scale: {}, "
             "gain: {} and fft shift: {}.".format(awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, fft_shift=fft_shift, gain=gain)
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
@@ -4913,8 +4911,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             strt_ch_idx = start_substream * ch_per_substream
             strt_freq = ch_list[strt_ch_idx] * dsim_factor
             self.Step("Start a KAT SDP docker ingest node for beam captures")
-            docker_status = start_katsdpingest_docker(
-                self,
+            docker_status = self.start_katsdpingest_docker(
                 beam_ip,
                 beam_port,
                 n_substrms_to_cap_m,
@@ -4932,7 +4929,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 self.Failed("KAT SDP Ingest Node failed to start")
 
             self.Step("Set beamformer quantiser gain for selected beam to 1")
-            set_beam_quant_gain(self, beam, 1)
+            self.set_beam_quant_gain(beam, 1)
 
             beam_dict = {}
             beam_pol = beam[-1]
@@ -4942,9 +4939,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
             self.Progress("Only one antenna gain is set to 1, the reset are set to zero")
             weight = 1.0
-            beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
+            beam_dict = self.populate_beam_dict( 1, weight, beam_dict)
             try:
-                bf_raw, cap_ts, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict)
+                bf_raw, cap_ts, bf_ts, in_wgts = self.capture_beam_data(beam, beam_dict)
             except TypeError:
                 errmsg = (
                     "Failed to capture beam data: Confirm that Docker container is "
@@ -5031,7 +5028,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: %s, eq gain: %s, fft shift: %s" % (awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=0.0, fft_shift=fft_shift, gain=gain)
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=0.0,
+            fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             self.Failed("Failed to configure digitiser simulator levels")
             return False
@@ -5261,8 +5259,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         strt_ch_idx = start_substream * ch_per_substream
         strt_freq = ch_list[strt_ch_idx] * dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
-        docker_status = start_katsdpingest_docker(
-            self,
+        docker_status = self.start_katsdpingest_docker(
             beam_ip,
             beam_port,
             n_substrms_to_cap_m,
@@ -5385,8 +5382,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                         return False
                     retries += 1
                     try:
-                        bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self,
-                            beam, beam_dict, ingest_kcp_client)
+                        bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam,
+                            beam_dict, ingest_kcp_client)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
@@ -5584,9 +5581,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
             )
-            dsim_set_success = set_input_levels(
-                self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=0, fft_shift=fft_shift, gain=gain
-            )
+            dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+                freq=0, fft_shift=fft_shift, gain=gain)
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
@@ -5594,7 +5590,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
             # Set beamformer quantiser gain for selected beam to 1 quant gain reversed TODO: Fix
-            bq_gain = set_beam_quant_gain(self, beam, 1)
+            bq_gain = self.set_beam_quant_gain(beam, 1)
             # Generating a dictionary to contain beam weights
             beam_dict = {}
             act_wgts = {}
@@ -5614,7 +5610,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     break
             self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
             weight = 1.0
-            beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
+            beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
             beam_data = []
             beam_lbls = []
             self.Step("Testing individual beam weights.")
@@ -5720,7 +5716,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             # Test weight application across all antennas
             self.Step("Testing weight application across all antennas.")
             weight = 0.4 / ants
-            beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+            beam_dict = self.populate_beam_dict( -1, weight, beam_dict)
             try:
                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
             except Exception:
@@ -5730,7 +5726,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             beam_data.append(d)
             beam_lbls.append(l)
             weight = 1.0 / ants
-            beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+            beam_dict = self.populate_beam_dict( -1, weight, beam_dict)
             try:
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
             except Exception:
@@ -5778,7 +5774,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             beam_lbls.append(l)
 
             # Set level adjust after beamforming gain to 0.5
-            bq_gain = set_beam_quant_gain(self, beam, 0.5)
+            bq_gain = self.set_beam_quant_gain(beam, 0.5)
             try:
                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(
                     beam, inp_ref_lvl=rl, beam_quant_gain=bq_gain, act_wgts=act_wgts
@@ -5817,7 +5813,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 "position.".format(substreams)
             )
             # Reset quantiser gain
-            bq_gain = set_beam_quant_gain(self, beam, 1)
+            bq_gain = self.set_beam_quant_gain(beam, 1)
             if "4k" in self.instrument:
                 # 4K
                 awgn_scale = 0.0645
@@ -5860,8 +5856,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 dsim_set_success = False
                 cw_ch = strt_ch_idx + int(ch_per_substream / 4)
                 freq = ch_list[cw_ch]
-                dsim_set_success = set_input_levels(
-                    self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=freq, fft_shift=fft_shift, gain=gain
+                dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+                    freq=freq, fft_shift=fft_shift, gain=gain
                 )
                 if not dsim_set_success:
                     self.Failed("Failed to configure digitise simulator levels")
@@ -5894,7 +5890,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 ingest_kcp_client.stop()
         except BaseException:
             pass
-        stop_katsdpingest_docker(self)
+        self.stop_katsdpingest_docker()
 
     def _test_beamforming_timeseries(self, beam_idx=0):
         """
@@ -5987,8 +5983,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         strt_ch_idx = start_substream * ch_per_substream
         strt_freq = ch_list[strt_ch_idx] * dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
-        docker_status = start_katsdpingest_docker(
-            self,
+        docker_status = self.start_katsdpingest_docker(
             beam_ip,
             beam_port,
             n_substrms_to_cap_m,
@@ -6048,8 +6043,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         self.Progress(
             "CW scale: {}, Noise scale: {}, eq gain: {}, fft shift: {}".format(cw_scale, awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(
-            self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=freq, fft_shift=fft_shift, gain=gain
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+            freq=freq, fft_shift=fft_shift, gain=gain
         )
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
@@ -6057,7 +6052,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
         beam_quant_gain = 1.0 / ants
         self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
-        set_beam_quant_gain(self, beam, beam_quant_gain)
+        self.set_beam_quant_gain(beam, beam_quant_gain)
 
         beam_dict = {}
         beam_pol = beam[-1]
@@ -6076,14 +6071,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 break
         self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
         weight = 1.0
-        # beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
-        beam_dict = populate_beam_dict(self, -1, weight, beam_dict)
+        # beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
+        beam_dict = self.populate_beam_dict(-1, weight, beam_dict)
         try:
             # Currently setting weights is broken
-            bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, beam_dict, capture_time=_capture_time)
-            # bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(self, beam, capture_time=0.1)
+            bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam, beam_dict, capture_time=_capture_time)
+            # bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data( beam, capture_time=0.1)
             # Close any KAT SDP ingest nodes
-            stop_katsdpingest_docker(self)
+            self.stop_katsdpingest_docker()
         except TypeError:
             errmsg = (
                 "Failed to capture beam data\n\n Confirm that Docker container is "
@@ -6257,8 +6252,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         strt_ch_idx = start_substream * ch_per_substream
         strt_freq = ch_list[strt_ch_idx] * dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
-        docker_status = start_katsdpingest_docker(
-            self,
+        docker_status = self.start_katsdpingest_docker(
             beam_ip,
             beam_port,
             n_substrms_to_cap_m,
@@ -6300,7 +6294,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
         beam_quant_gain = 1.0 / ants
         # self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
-        # set_beam_quant_gain(self, beam, beam_quant_gain)
+        # self.set_beam_quant_gain(beam, beam_quant_gain)
 
         beam_dict = {}
         beam_pol = beam[-1]
@@ -6319,7 +6313,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 break
         self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
         weight = 1.0
-        beam_dict = populate_beam_dict_idx(self, ref_input, weight, beam_dict)
+        beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
         # To Do: set beam weights
 
         def get_beam_data():
@@ -6423,7 +6417,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 dsim_loc_time - spectra_ref_mcount) % ticks_between_spectra
             return dsim_spectra_time
 
-        dsim_set_success = set_input_levels(self, awgn_scale=0.0, cw_scale=0.0, freq=0, fft_shift=0, gain="32767+0j")
+        dsim_set_success = self.set_input_levels(awgn_scale=0.0, cw_scale=0.0, freq=0,
+            fft_shift=0, gain="32767+0j")
         self.dhost.outputs.out_1.scale_output(0)
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
@@ -6445,14 +6440,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 # mcount_list = []
                 beam_retries -= 1
                 # Get an mcount at the start of a spectrum
-                _ = capture_beam_data(self, beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
                 time.sleep(0.005)
                 bf_raw, bf_ts = get_beam_data()
                 if np.all(bf_raw) is None or np.all(bf_ts) is None:
                     break
                 spectra_ref_mcount = bf_ts[-1]
                 # Start beam capture
-                _ = capture_beam_data(self, beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
                 # Get current mcount
                 # for pulse_int in range(num_pulse_int):
                 curr_mcount = get_dsim_mcount(spectra_ref_mcount)
@@ -6467,7 +6462,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             # beam_retries = 5
             # while beam_retries > 0:
             #    beam_retries -= 1
-            #    _ = capture_beam_data(self, beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+            #    _ = self.capture_beam_data( beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
             #    time.sleep(0.01)
             #    bf_raw, bf_ts = get_beam_data()
             #    if np.all(bf_raw) != None and np.all(bf_ts) != None:
@@ -6475,7 +6470,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             #        future_mcount = 0.5 * scale_factor_timestamp + curr_mcount + pulse_step*pulse_cap
             #        future_mcount = 8*int(future_mcount/8)
             #        load_dsim_impulse(future_mcount)
-            #        _ = capture_beam_data(self, beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+            #        _ = self.capture_beam_data( beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
             #        time.sleep(0.2)
             #        bf_raw, bf_ts = get_beam_data()
             #    if np.all(bf_raw) != None and np.all(bf_ts) != None:
@@ -6537,7 +6532,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 ingest_kcp_client.stop()
         except BaseException:
             pass
-        stop_katsdpingest_docker(self)
+        self.stop_katsdpingest_docker()
 
         # Check ADC snapshot for pulse
         # self.correlator.est_sync_epoch()
@@ -6584,7 +6579,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         beam = beams[1]
 
         # Set beamformer quantiser gain for selected beam to 1
-        set_beam_quant_gain(self, beam, 1)
+        self.set_beam_quant_gain(beam, 1)
 
         if "4k" in self.instrument:
             # 4K
@@ -6601,7 +6596,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(self, awgn_scale=awgn_scale, cw_scale=0.0, fft_shift=fft_shift, gain=gain)
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=0.0,
+            fft_shift=fft_shift, gain=gain)
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
@@ -6659,7 +6655,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         # Only one antenna gain is set to 1, this will be used as the reference
         # input level
         weight = 1.0
-        beam_dict = populate_beam_dict(self, 1, weight, beam_dict)
+        beam_dict = self.populate_beam_dict( 1, weight, beam_dict)
         try:
             bf_raw, cap_ts, bf_ts, in_wgts, pb, cf = capture_beam_data(
                 self, beam, beam_dict, target_pb, target_cfreq, capture_time=0.3
@@ -6760,7 +6756,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
         #     self.Failed(errmsg)
         #     return False
 
-        dsim_set_success = set_input_levels(
+        dsim_set_success = self.set_input_levels(
             self.corr_fix, self.dhost, awgn_scale=0.0, cw_scale=0.0, freq=100000000, fft_shift=0, gain="32767+0j"
         )
         if not dsim_set_success:
@@ -6769,7 +6765,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
         self.dhost.outputs.out_1.scale_output(0)
         dump = self.receiver.get_clean_dump()
-        baseline_lookup = get_baselines_lookup(self, dump)
+        baseline_lookup = self.get_baselines_lookup(dump)
         sync_time = self.cam_sensors.get_values("sync_epoch")
         scale_factor_timestamp = self.cam_sensors.get_values("scale_factor_timestamp")
         inp = self.cam_sensors.get_values("input_labels")[0][0]
@@ -6956,7 +6952,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
             self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
 
-        dsim_set_success = set_input_levels(
+        dsim_set_success = self.set_input_levels(
             self.corr_fix, self.dhost, awgn_scale=0.0, cw_scale=0.0, freq=100000000, fft_shift=0, gain="32767+0j"
         )
         if not dsim_set_success:
@@ -6965,7 +6961,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
 
         self.dhost.outputs.out_1.scale_output(0)
         dump = self.receiver.get_clean_dump()
-        baseline_lookup = get_baselines_lookup(self, dump)
+        baseline_lookup = self.get_baselines_lookup(dump)
         sync_time = self.cam_sensors.get_value("sync_epoch")
         scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
         inp = self.cam_sensors.input_labels[0][0]
@@ -7317,7 +7313,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                 self.Error(errmsg, exc_info=True)
             else:
-                baseline_lookup = get_baselines_lookup(self, dump)
+                baseline_lookup = self.get_baselines_lookup(dump)
                 inp_autocorr_idx = baseline_lookup[(inp, inp)]
                 dval = dump["xeng_raw"]
                 auto_corr = dval[:, inp_autocorr_idx, :]
@@ -7531,8 +7527,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             " with cw scale: %s, awgn scale: %s, eq gain: %s, fft shift: %s"
             % (cw_freq, cw_chan_set, cw_scale, awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(
-            self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=cw_freq, fft_shift=fft_shift, gain=gain, cw_src=0
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+            freq=cw_freq, fft_shift=fft_shift, gain=gain, cw_src=0
         )
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
@@ -7655,8 +7651,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     cw_scale, awgn_scale, gain, fft_shift
                 )
             )
-            dsim_set_success = set_input_levels(
-                self, awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
+            dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+                freq=expected_fc, fft_shift=fft_shift, gain=gain
             )
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
@@ -7921,8 +7917,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = set_input_levels(
-            self, awgn_scale=awgn_scale, corr_noise=False, fft_shift=fft_shift, gain=gain
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, corr_noise=False,
+            fft_shift=fft_shift, gain=gain
         )
 
         self.Step(
@@ -7947,7 +7943,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
             inputs_to_plot = random.shuffle(input_labels)
             inputs_to_plot = input_labels[:8]
             bls_to_plot = [0, 2, 4, 8, 11, 14, 23, 33]
-            baselines_lookup = get_baselines_lookup(self)
+            baselines_lookup = self.get_baselines_lookup()
             present_baselines = sorted(baselines_lookup.keys())
             possible_baselines = set()
             _ = [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
@@ -8226,8 +8222,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                     cw_scale, noise_scale, gain, fft_shift
                 )
             )
-            dsim_set_success = set_input_levels(
-                self,
+            dsim_set_success = self.set_input_levels(
                 awgn_scale=noise_scale,
                 cw_scale=cw_scale,
                 freq=ch_list[test_channel] + f_offset,
@@ -8244,7 +8239,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter):
                 errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                 self.Error(errmsg, exc_info=True)
             try:
-                baseline_lookup = get_baselines_lookup(self, dump)
+                baseline_lookup = self.get_baselines_lookup(dump)
                 # Choose baseline for phase comparison
                 baseline_index = baseline_lookup[(inp, inp)]
             except KeyError:

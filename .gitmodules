@@ -1,3 +1,6 @@
 [submodule "mkat_fpga_tests.wiki"]
 	path = mkat_fpga_tests.wiki
 	url = https://github.com/ska-sa/mkat_fpga_tests.wiki.git
+[submodule "scripts/Jenkins_Scripts"]
+	path = scripts/Jenkins_Scripts
+	url = git@github.com:ska-sa/cbf-jenkins-scripts.git
