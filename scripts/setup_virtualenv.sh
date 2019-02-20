@@ -68,17 +68,17 @@ install_pip_dependencies() {
     pip install --upgrade \
         certifi pyOpenSSL ndg-httpsclient pyasn1 'requests[security]' numpy>1.15.0 tornado==4.*
 
-    # Last tested working spead2.
-    # env CC="ccache gcc" CXX="g++" $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
-    #     https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
-    # if [ -f "spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl" ]; then
-    #     env CC="ccache gcc" CXX="g++" $(command -v python) -W ignore::Warning -m pip install \
-    #         spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl
-    # fi
-    # pkg_checker spead2
-    # cd opt/spead2
-    # env CC="ccache gcc" CXX="g++" PATH=$PATH $(command -v pip) install .
-    # cd -
+    if [ ! -f "/usr/local/lib/python2.7/dist-packages/spead2/__init__.pyc" ]; then
+        recho "Trying to install spead2 on virtualenv."
+        env CC="ccache gcc" CXX="g++" $(command -v python) -W ignore::Warning -m pip wheel --no-cache-dir \
+            https://github.com/ska-sa/spead2/releases/download/v1.2.0/spead2-1.2.0.tar.gz
+        if [ -f "spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl" ]; then
+            env CC="ccache gcc" CXX="g++" $(command -v python) -W ignore::Warning -m pip install \
+                spead2-1.2.0-cp27-cp27mu-linux_x86_64.whl
+        fi
+        pkg_checker spead2
+        env CC="ccache gcc" CXX="g++" PATH=$PATH $(command -v pip) install .
+    fi
 
     # Installing nosekatreport
     pip install -I \
