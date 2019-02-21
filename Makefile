@@ -1,6 +1,5 @@
 # Makefile for Sphinx documentation
 #
-
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
@@ -19,7 +18,7 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
-.PHONY: help clean cleanvenv html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help clean html latex latexpdf tests1k tests4k tests32k sanitytest
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -28,15 +27,19 @@ help:
 	@echo "  latexpdf   to make LaTeX files and run them through pdflatex"
 	@echo "  bootstrap  to automagically install Python virtual environment, and all dependencies in .venv"
 	@echo "  tests      to run all tests in mkat_fpga_tests/test_cbf.py"
+	@echo "  tests1k to run 1k tests in mkat_fpga_tests/test_cbf.py"
+	@echo "  tests4k to run 4k tests in mkat_fpga_tests/test_cbf.py"
+	@echo "  tests32k to run 32k tests in mkat_fpga_tests/test_cbf.py"
+	@echo "  sanitytest to run a sanity tests in mkat_fpga_tests/test_cbf.py"
 
 clean:
 	rm -rf $(BUILDDIR)/* || true;
 	$(MAKE) clean -C docs/Cover_Page || true;
-	rm -rf "/home/mmphego/src/mkat_fpga_tests/.git/index.lock" || true;
+	rm -rf ".git/index.lock" || true;
 	git checkout -- docs/* || true;
-	rm -rf -- /tmp/*.fpg *.csv *.png *.html || true;
+	rm -rf -- *.csv *.png *.html || true;
 
-superclean:
+superclean: clean
 	rm -rf -- .venv || true;
 
 html:
@@ -58,13 +61,16 @@ latexpdf:
 	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
 
 bootstrap:
-	@bash scripts/setup_virtualenv.sh $(pwd) true
+	@bash scripts/setup_virtualenv.sh
 
 tests1k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --1k"
+
 tests4k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --4k"
+
 tests32k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --32k"
+
 sanitytest:
 	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=FATAL --with-xunit --xunit-file=katreport/nosetests.xml --with-html --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.test_imaging_data_product_set;"

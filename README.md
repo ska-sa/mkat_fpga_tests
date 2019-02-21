@@ -104,6 +104,21 @@ optional arguments:
   --dev_update          Do pip install update and install latest packages
 ```
 
+## Report Generation
+
+For documentation we used [Sphinx](http://www.sphinx-doc.org/en/master/) and [latex](https://www.latex-project.org/), it is already included in the `pip-requirements.txt` to be installed.
+
+*   See: [README.md](docs/Cover_Page/README.md)
+*   See: [run_cbf_tests.py](https://github.com/ska-sa/mkat_fpga_tests/blob/devel/run_cbf_tests.py#L471)
+
+## TODO
+
+* Report generation seems to be very tedious and needs some improvements.
+    * see [run_cbf_tests.py](https://github.com/ska-sa/mkat_fpga_tests/blob/devel/run_cbf_tests.py#L471),
+    * see [report.py](https://github.com/ska-sa/mkat_fpga_tests/blob/devel/report_generator/report.py#L16), this release doesn't need to be hard-coded.
+    * see [process_core_xml.py](process_core_xml.py), this script converts `CORE.xml` (CORE export) into a json file to be used when extracting `REQ`, and etc which are then converted to `.rst` to be used by [report.py](report_generator/report.py) to generate a `latex` document... I am sure that can be improved or moved into it's own repository.
+* Improve [test_cbf.py](mkat_fpga_tests/test_cbf.py), and [aqf_utils.py](mkat_fpga_tests/aqf_utils.py)
+
 ## Testing Philosophy
 
 1. Test the common case of everything you can. This will tell you when that code breaks after you make some change (which is, in my opinion, the single greatest benefit of automated unit testing).

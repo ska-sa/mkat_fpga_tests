@@ -1,4 +1,5 @@
 NAME=Cover_Page
+.PHONY: clean
 
 $(NAME).pdf: $(NAME).tex
 	pdflatex "$<"

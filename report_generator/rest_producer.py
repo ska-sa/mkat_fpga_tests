@@ -11,6 +11,8 @@
 """Helper routines for programtically producing ReStructuredText output."""
 import logging
 import coloredlogs
+
+
 log_level = 'DEBUG'
 logging.basicConfig(level=getattr(logging, log_level))
 logger = logging.getLogger(__file__)

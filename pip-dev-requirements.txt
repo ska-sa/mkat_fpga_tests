@@ -14,7 +14,7 @@ fabric
 flake8
 flake8-html
 h5py
-idna==2.5
+idna>=2.5
 iniparse
 ipdb
 ipynose
@@ -34,10 +34,10 @@ nose-htmloutput
 nose-testconfig
 nosexcover
 ntplib
-numpy>1.15.0
+numpy==1.15.0
 pandas
 parameterized
-paramiko>=2.4
+paramiko==2.4
 pep8
 pexpect
 pillow
@@ -58,3 +58,12 @@ termcolor
 tornado==4.3
 traceback2
 trollius
+
+git+https://github.com/ska-sa/nosekatreport.git@karoocbf#egg=nosekatreport
+
+# Uncomment below if not installing these packages from a local source
+# git+https://github.com/ska-sa/casperfpga#egg=casperfpga
+# git+https://github.com/ska-sa/corr2#egg=corr2
+# git+https://github.com/ska-sa/katcp-python#egg=katcp
+# git+https://github.com/ska-sa/PySPEAD#egg=spead
+# git+https://katpull:katpull4git@github.com/ska-sa/katpoint.git#egg=katpoint

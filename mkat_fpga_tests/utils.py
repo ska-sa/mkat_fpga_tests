@@ -639,6 +639,7 @@ class UtilsClass(object):
             return False
         self.addCleanup(self.restore_initial_equalisations)
 
+
     def get_baselines_lookup(self, test_input=None, auto_corr_index=False, sorted_lookup=False):
         """Get list of all the baselines present in the correlator output.
         Param:
@@ -666,7 +667,6 @@ class UtilsClass(object):
             return sorted(baseline_lookup.items(), key=operator.itemgetter(1))
         else:
             return baseline_lookup
-
 
 
     def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None,
