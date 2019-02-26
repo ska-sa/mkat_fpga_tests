@@ -1,57 +1,69 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Automated instrument activation
 # Mpho Mphego
-if [ -z "$*" ];
-    then echo -e "Usage: $0 INSTRUMENT KATCP_HOST_IP ARRAY_NAME START_DSIM INSTRUMENT_OPS CONF_PATH \n
 
-    INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)
-    KATCP_HOST_IP: localhost (Default)/IP
-    ARRAY_NAME: array0 (Default)
-    START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)
-    DEVMODE: y/[n] [DevMode] automagically download new bitstreams from https://github.com/ska-sa/mkat_fpga/devel
-    INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable
-                                     [program, configure, require synchronisation epoch, monitor vector accumulators]
-    CONF_PATH_DIR: /etc/corr/templates/ (Default)"
-    exit 1;
-fi
-
-
-#-------------------------------------------------------------------------------------------
 export TERM=xterm
-# Convert variable contents to lower case
-declare -l DSIM
-# PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
 
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 NORMAL=$(tput sgr0)
 
+usage() {
+    echo "${RED}Usage: $0 <<INSTRUMENT>> <<KATCP_HOST_IP>> <<ARRAY_NAME>> <<START_DSIM>> <<INSTRUMENT_OPS>> <<CONF_PATH>>"
+    echo
+    echo "      INSTRUMENT: e.g. bc8n856M4k (CASE SENSATIVE)"
+    echo "      KATCP_HOST_IP: localhost (Default)/IP"
+    echo "      ARRAY_NAME: array0 (Default)"
+    echo "      START_DSIM: y/[n] (If not restarted hosts will not be deprogrammed)"
+    echo "      DEVMODE: y/[n] [DevMode] automagically download new bitstreams from https://github.com/ska-sa/mkat_fpga/devel"
+    echo "      INSTRUMENT_OPTS: 1110 (Default) :instrument-activate options, 1=enable, 0=disable"
+    echo "                                      [program, configure, require synchronisation epoch, monitor vector accumulators]"
+    echo "      CONF_PATH_DIR: /etc/corr/templates/ (Default)${NORMAL}"
+}
+
+if [ -z "$*" ] || [ "$1" == "-h" ]; then
+    usage;
+    exit 1;
+fi
+
+#-------------------------------------------------------------------------------------------
+# PATH=/usr/local/sbin:/usr/local/bin:~/bin:$PATH
+
+# Convert variable contents to lower case
+declare -l DSIM
 MACHINE=$(hostname)
 INSTRUMENT=$1
 KATCP_HOST_IP=${2:-${MACHINE}}
 ARRAY_NAME=${3:-array0}
 START_DSIM=${4:-n}
 DEVMODE=${5:-n}
-
 INSTRUMENT_OPTS=${6:-1110}
 PROG=${INSTRUMENT_OPTS:0:1}
 CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
 MVACC=${INSTRUMENT_OPTS:3:1}
-
 CONF_PATH_DIR=${6:-'/etc/corr/templates/'}
 CONF_PATH=${CONF_PATH_DIR}${INSTRUMENT}
 #-------------------------------------------------------------------------------------------
 
-function gprint (){
-    STRING=$1
-    printf "%s${STRING}%s\n" "${GREEN}" "${NORMAL}";
+gprint (){
+    local STRING=$1
+    echo "${GREEN}${STRING}${NORMAL}";
 }
 
-function rprint (){
-    STRING=$1
-    printf "%s${STRING}%s\n" "${RED}" "${NORMAL}";
+rprint (){
+    local STRING=$1
+    echo "${RED}${STRING}${NORMAL}";
 }
+
+repeatStr() {
+    local input=$1
+    local count=$2
+    local myString=$(printf "%${count}s")
+    echo "${myString// /$input }"
+}
+#-------------------------------------------------------------------------------------------
+
 if [ "${DEVMODE}" == y ]; then
     # This will give verbose output and also will abort the script immediately if part of the script fails.
     gprint "Verbose Mode!!!!"
@@ -61,12 +73,7 @@ else
     set -e
 fi
 
-function repeatStr {
-    input=$1
-    count=$2
-    myString=$(printf "%${count}s")
-    echo "${myString// /$input }"
-}
+
 
 if [ -d ".venv" ];then
     # shellcheck disable=SC1091
@@ -78,33 +85,33 @@ if [ "${DEVMODE}" == y ]; then
     # Some cleaning up before exiting.
     # trap cleanup EXIT
     gprint "Downloading latest DEVEL bitstreams from github.com and replacing bitstream location on template."
-    BITSTREAMS_LIST=`grep ^bitstream $CONF_PATH | cut -f3 -d " "`
+    BITSTREAMS_LIST=$(grep ^bitstream ${CONF_PATH} | cut -f3 -d " ")
     BITSTREAMS=(${BITSTREAMS_LIST// /})
+    # TODO: Improve this logic
     if $(echo "${BITSTREAMS_LIST}" | grep -q "/tmp") && $(ls /tmp/*.fpg 1> /dev/null 2>&1); then
         gprint "Seems like bitstreams are already in /tmp"
     else
         for bitstream in "${BITSTREAMS[@]}"; do
             FILENAME="/tmp/`echo ${bitstream} | rev | cut -d'/' -f1 | rev`";
-            URL=`echo $bitstream | cut -c15-`
+            URL=$(echo $bitstream | cut -c15-)
             gprint "Downloading file: https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}";
             wget -q --tries=5 -O "${FILENAME}" "https://raw.githubusercontent.com/ska-sa/mkat_fpga/devel${URL}" || exit 1;
             gprint "Replacing: ${bitstream}, with ${FILENAME} on ${CONF_PATH}\n\n"
             sed -i -e "s=$bitstream=$FILENAME=" "${CONF_PATH}"
         done
-        gprint "New bitstream destination:\n\n`grep ^bitstream $CONF_PATH`\n\n\n"
+        gprint "New bitstream destination:\n\n$(grep ^bitstream $CONF_PATH)\n\n\n"
     fi
 fi
 
-
 gprint "Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP}"
-VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_start_ip | cut -f 3 -d' ')
-HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_start_ip | cut -f 3 -d' ')
-DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
+VPOL=$(grep -v \#  ${CONF_PATH} | grep pol0_destination_start_ip | cut -f 3 -d' ')
+HPOL=$(grep -v \#  ${CONF_PATH} | grep pol1_destination_start_ip | cut -f 3 -d' ')
+DATAPORT=$(grep 10gbe_port ${CONF_PATH} | tail -1 | cut -f 3 -d' ')
 NUM_INPUTS=$((($(grep ^source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2))
-ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
+ARRAY_INPUTS=$(repeatStr "${VPOL}+7:${DATAPORT} ${HPOL}+7:${DATAPORT}" $NUM_INPUTS)
+DSIM=$(grep ^host ${CONF_PATH} | tail -1 | cut -d ' ' -f 3);
 gprint "No of Inputs: ${NUM_INPUTS} and FEngine Multicast IPs (VPOL: ${HPOL} and HPOL: ${VPOL}), Port: ${DATAPORT} "
 
-DSIM=$(grep ^host $CONF_PATH | tail -1 | cut -d ' ' -f 3);
 if [ "${START_DSIM}" == y ]; then
     COUNT=1
     while [ "${COUNT}" -le 5 ]; do
@@ -132,14 +139,16 @@ else
     gprint "We assuming that the DEngine is currently running..."
 fi
 
+
 if [[ "${DSIM}" = *"roach"* ]]; then
     SYNC_EPOCH=$(kcpcmd -s ${KATCP_HOST_IP}:9011 sensor-value synchronisation-epoch | grep -a '^#sensor-value' | cut -f 2 -d' ')
 else
-    SYNC_EPOCH=$($(which corr2_dsim_control.py) -c ${CONF_PATH} --resync | grep ^Reset | cut -f7 -d ' ')
+    SYNC_EPOCH=$($(command -v corr2_dsim_control.py) -c ${CONF_PATH} --resync | grep ^Reset | cut -f7 -d ' ')
 fi
-
-SYNC_TIME=$(date -d @${SYNC_EPOCH})
+SYNC_TIME=$(date -d @"${SYNC_EPOCH}")
 gprint "Synchronisation Epoch, set to (Readable): ${SYNC_TIME}"
+
+
 if [ "${SYNC_EPOCH}" != 0 ]; then
     sleep 1;
     gprint "Initialising INSTRUMENT: ${INSTRUMENT}"
@@ -163,3 +172,5 @@ if [ "${SYNC_EPOCH}" != 0 ]; then
 else
     rprint "Restart the DEngine, Having issues!!!" && exit 1;
 fi
+
+#-------------------------------------------------------------------------------------------
