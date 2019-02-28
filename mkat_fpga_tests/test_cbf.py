@@ -3994,6 +3994,124 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     )
                                     self.Failed(desc)
 
+
+
+    def _test_min_max_delays(self):
+        delays_cleared = self.clear_all_delays()
+        setup_data = self._delays_setup()
+
+        num_int = setup_data["num_int"]
+        int_time = self.cam_sensors.get_value("int_time")
+        if setup_data:
+            self.Step("Clear all coarse and fine delays for all inputs before test commences.")
+            if not delays_cleared:
+                self.Failed("Delays were not completely cleared, data might be corrupted.\n")
+            else:
+                dump_counts = 5
+                delay_bounds = get_delay_bounds(self.correlator)
+                for _name, _values in sorted(delay_bounds.iteritems()):
+                    _new_name = _name.title().replace("_", " ")
+                    self.Step("Calculate the parameters to be used for setting %s." % _new_name)
+                    delay_coefficients = 0
+                    dump = self.receiver.get_clean_dump()
+                    t_apply = dump["dump_timestamp"] + num_int * int_time
+                    setup_data["t_apply"] = t_apply
+                    no_inputs = [0] * setup_data["num_inputs"]
+                    input_source = setup_data["test_source"]
+                    no_inputs[setup_data["test_source_ind"]] = _values * dump_counts
+                    if "delay_value" in _name:
+                        delay_coefficients = ["{},0:0,0".format(dv) for dv in no_inputs]
+                    if "delay_rate" in _name:
+                        delay_coefficients = ["0,{}:0,0".format(dr) for dr in no_inputs]
+                    if "phase_offset" in _name:
+                        delay_coefficients = ["0,0:{},0".format(fo) for fo in no_inputs]
+                    else:
+                        delay_coefficients = ["0,0:0,{}".format(fr) for fr in no_inputs]
+
+                    self.Progress(
+                        "%s of %s will be set on input %s. Note: All other parameters "
+                        "will be set to zero" % (_name.title(), _values, input_source)
+                    )
+                    try:
+                        actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                    except TypeError:
+                        self.Error("Failed to set the delays/fringes", exc_info=True)
+                    else:
+                        self.Step("Confirm that the %s where successfully set" % _new_name)
+                        reply, informs = self.katcp_req.delays("antenna-channelised-voltage", )
+                        msg = (
+                            "%s where successfully set via CAM interface."
+                            "\n\t\t\t    Reply: %s\n\n" % (_new_name, reply,))
+                        Aqf.is_true(reply.reply_ok(), msg)
+
+
+    def _test_delays_control(self):
+        delays_cleared = self.clear_all_delays()
+        setup_data = self._delays_setup()
+
+        num_int = setup_data["num_int"]
+        int_time = self.cam_sensors.get_value("int_time")
+        self.Step("Disable Delays and/or Phases for all inputs.")
+        if not delays_cleared:
+            self.Failed("Delays were not completely cleared, data might be corrupted.\n")
+        else:
+            self.Passed("Confirm that the user can disable Delays and/or Phase changes via CAM interface.")
+        dump = self.receiver.get_clean_dump()
+        t_apply = dump["dump_timestamp"] + num_int * int_time
+        no_inputs = [0] * setup_data["num_inputs"]
+        input_source = setup_data["test_source"]
+        no_inputs[setup_data["test_source_ind"]] = self.cam_sensors.sample_period * 2
+        delay_coefficients = ["{},0:0,0".format(dv) for dv in no_inputs]
+        try:
+            self.Step(
+                "Request and enable Delays and/or Phases Corrections on input (%s) "
+                "via CAM interface." % input_source
+            )
+            load_strt_time = time.time()
+            reply_, _informs = self.katcp_req.delays(t_apply, *delay_coefficients, timeout=30)
+            load_done_time = time.time()
+            msg = "Delay/Fringe(s) set via CAM interface reply : %s" % str(reply_)
+            self.assertTrue(reply_.reply_ok())
+            cmd_load_time = round(load_done_time - load_strt_time, 3)
+            Aqf.is_true(reply_.reply_ok(), msg)
+            self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
+            # _give_up = int(num_int * int_time * 3)
+            # while True:
+            #    _give_up -= 1
+            #    try:
+            #        self.logger.info('Waiting for the delays to be updated')
+            #        try:
+            #            reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            #        except:
+            #            reply, informs = self.katcp_req.sensor_value()
+            # self.assertTrue(reply.reply_ok())
+            #    except Exception:
+            #        self.Error('Weirdly I couldnt get the sensor values', exc_info=True)
+            #    else:
+            #        delays_updated = list(set([int(i.arguments[-1]) for i in informs
+            #                                if '.cd.delay' in i.arguments[2]]))[0]
+            #        if delays_updated:
+            #            self.logger.info('Delays have been successfully set')
+            #            break
+            #    if _give_up == 0:
+            #        self.logger.error("Could not confirm the delays in the time stipulated, exiting")
+            #        break
+            #    time.sleep(1)
+
+        except Exception:
+            errmsg = (
+                "Failed to set delays via CAM interface with load-time: %s, "
+                "Delay coefficients: %s" % (setup_data["t_apply"], delay_coefficients,))
+            self.Error(errmsg, exc_info=True)
+            return
+        else:
+            cam_max_load_time = setup_data["cam_max_load_time"]
+            msg = "Time it took to load delay/fringe(s) %s is less than %ss" % (cmd_load_time,
+                cam_max_load_time)
+            Aqf.less(cmd_load_time, cam_max_load_time, msg)
+
+
+
     def _test_report_config(self):
         """CBF Report configuration"""
         import spead2
