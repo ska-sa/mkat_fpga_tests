@@ -186,7 +186,7 @@ class TestProcedure:
         1. The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.
         2. The baseline correlation test proves that the CBF ingests raw digitiser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
 
-        ** Baseline Correlation Product Leakage **
+        **Baseline Correlation Product Leakage**
 
         1. TBD
         2.
@@ -1028,6 +1028,20 @@ class TestProcedure:
         2. Where possible, COTS components with long support life expectancy have been chosen.
 
         Note that this test is highly subjective. The opinion of the CBF Technical Lead is sufficient to pass the test.
+        """
+        return _description
+
+    @property
+    def Linearity(self):
+        _description = """
+        **CBF Linearity**
+
+        1. Configure a digitiser simulator to generate continuous wave input signal.
+        2. Set a predetermined gain and fft_shift.
+        3. Select a random input and test channel.
+        4. Start at maximum CW scale.
+        5. Capture and calculate power in target channel while stepping the CW scale to minimum.
+        6. Plot the resultant linearity graph.
         """
         return _description
 

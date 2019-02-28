@@ -380,10 +380,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     @array_release_x
     @generic_test
-    @aqf_vr("TBD")
+    @aqf_vr("CBF.V.A.IF")
     @aqf_requirements("TBD")
     def test_linearity(self):
-        # Aqf.procedure(TestProcedure.LBandEfficiency)
+        Aqf.procedure(TestProcedure.Linearity)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
@@ -1169,16 +1169,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #     Aqf.procedure("TBD")
     #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    # @generic_test
-    # @manual_test
-    # @aqf_vr("CBF.V.A.IF")
-    # def test__informal(self):
-    #     Aqf.procedure(
-    #         "This verification event pertains to tests that are executed, "
-    #         "but do not verify any formal requirements."
-    #         "The procedures and results shall be available in the Qualification Test Report."
-    #     )
-    #     self._test_informal()
+    @array_release_x
+    @generic_test
+    @manual_test
+    @aqf_vr("CBF.V.A.IF")
+    def test__informal(self):
+        Aqf.procedure(
+            "This verification event pertains to tests that are executed, "
+            "but do not verify any formal requirements."
+            "The procedures and results shall be available in the Qualification Test Report."
+        )
+        # self._test_informal()
 
     # -----------------------------------------------------------------------------------------------------
 
