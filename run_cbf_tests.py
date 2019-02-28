@@ -116,6 +116,13 @@ def option_parser():
         default=None,
         help="Run the tests decorated with @instrument_4k",
     )
+    parser.add_argument(
+        "--array_release_x",
+        action="store_true",
+        dest="decorated_custom_tests",
+        default=False,
+        help="Run the tests decorated with @array_release_x",
+    )
 
     parser.add_argument(
         "--1k",
@@ -238,9 +245,8 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
                     # break
                     cmd[item] = cmd[item].replace("-A(", '-A"(') + '"'
 
-    if settings.get("dry_run"):
+    if settings.get("dry_run") or settings.get('gen_qtp'):
         os.environ["DRY_RUN"] = "True"
-        # settings['gen_qtp'] = True
 
     if settings.get("manual_test"):
         os.environ["MANUAL_TEST"] = "True"
@@ -668,11 +674,15 @@ def generate_sphinx_docs(settings):
                 _document_title = _document_title.replace(
                     "Qualification", _system_type + "Qualification"
                 )
-                # TODO (MM) Find a way not to hardcode this info
+
+                username = subprocess.check_output("git config --get user.name".split())
                 replaceAll(
                     latex_file,
                     "{Performed by}{}{}",
-                    "{Performed by}{M. Mphego}{Test \& Verification Engineer}",
+                    "{Performed by}{%s}{Test \& Verification Engineer}" % (
+                        username if not (username.startswith('cbftest')
+                                        or username.startswith("jenkins"))
+                                 else "Uknwown"),
                 )
 
             new_names = [_document_type, _document_num, _document_rel, _document_title]
@@ -761,91 +771,94 @@ def run_nose_test(settings):
     if settings.get("use_core_json") and settings.get("json_file"):
         cmd.append("--katreport-requirements={}".format(settings["json_file"]))
 
-    # Build the nosetests filter.
-    condition = {"OR": [], "AND": []}
-    # condition = {'OR': ['aqf_system_all and aqf_generic_test'], 'AND': []}
-    # if settings.get('system_type'):
-    #     # Include tests for this system type.
-    #     condition['OR'].append("aqf_system_%s" % settings['system_type'])
-
-    _site_location = "Karoo"
-    if settings.get("system_location", "").lower().startswith(_site_location.lower()):
-        # Disable intrusive if in the Karoo.
-        condition["AND"].append("(not aqf_intrusive)")
+    if settings.get("decorated_custom_tests", False):
+        cmd.append("-a array_release_x")
     else:
-        # Disable site_only if not in karoo.
-        condition["AND"].append("(not aqf_site_only)")
+        # Build the nosetests filter.
+        condition = {"OR": [], "AND": []}
+        # condition = {'OR': ['aqf_system_all and aqf_generic_test'], 'AND': []}
+        # if settings.get('system_type'):
+        #     # Include tests for this system type.
+        #     condition['OR'].append("aqf_system_%s" % settings['system_type'])
 
-    if settings.get("site_acceptance"):
+        _site_location = "Karoo"
         if settings.get("system_location", "").lower().startswith(_site_location.lower()):
-            # Include site_only tests if in the Karoo
-            condition["AND"].append("(aqf_site_acceptance or aqf_site_only)")
+            # Disable intrusive if in the Karoo.
+            condition["AND"].append("(not aqf_intrusive)")
         else:
-            condition["AND"].append("aqf_site_acceptance or aqf_manual_test")
+            # Disable site_only if not in karoo.
+            condition["AND"].append("(not aqf_site_only)")
 
-    if settings.get("mode"):
-        _instrument = settings.get("mode")
-        _decorated_instrument = "aqf_instrument_%s" % _instrument
         if settings.get("site_acceptance"):
-            # For Acceptance
-            # run tests decorated with aqf_instrument_MODE and site_acceptance
-            # and aqf_site_tests
-            _conditions = "(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))" % (
-                _decorated_instrument
-            )
-            condition["AND"].append(_conditions)
-        elif (
-            _instrument.startswith("bc16")
-            or _instrument.startswith("bc32")
-            or _instrument.startswith("bc64")
-            or _instrument.startswith("bc128")
-        ) and settings["system_location"].lower() == "lab":
-            logger.error("Test can ONLY be ran on SITE!!!!!!!!")
-            sys.exit(1)
+            if settings.get("system_location", "").lower().startswith(_site_location.lower()):
+                # Include site_only tests if in the Karoo
+                condition["AND"].append("(aqf_site_acceptance or aqf_site_only)")
+            else:
+                condition["AND"].append("aqf_site_acceptance or aqf_manual_test")
+
+        if settings.get("mode"):
+            _instrument = settings.get("mode")
+            _decorated_instrument = "aqf_instrument_%s" % _instrument
+            if settings.get("site_acceptance"):
+                # For Acceptance
+                # run tests decorated with aqf_instrument_MODE and site_acceptance
+                # and aqf_site_tests
+                _conditions = "(aqf_site_test or aqf_manual_test or (aqf_site_acceptance and %s))" % (
+                    _decorated_instrument
+                )
+                condition["AND"].append(_conditions)
+            elif (
+                _instrument.startswith("bc16")
+                or _instrument.startswith("bc32")
+                or _instrument.startswith("bc64")
+                or _instrument.startswith("bc128")
+            ) and settings["system_location"].lower() == "lab":
+                logger.error("Test can ONLY be ran on SITE!!!!!!!!")
+                sys.exit(1)
+            else:
+                # run only tests decorated with aqf_instrument_MODE
+                condition["AND"].append(_decorated_instrument)
         else:
-            # run only tests decorated with aqf_instrument_MODE
-            condition["AND"].append(_decorated_instrument)
-    else:
-        # Not demo mode - thus this is AUTO testing
-        if settings.get("site_acceptance"):
-            # For Acceptance Testing:
-            # run aqf_auto_test decorated with site_acceptance
-            # and aqf_demo_tests decorated with site_acceptance
-            # and aqf_site_tests
-            condition["AND"].append("(aqf_site_test or aqf_site_acceptance)")
-        else:
-            # For Qualification Testing:
-            # run all tests except site_tests
-            condition["AND"].append("(not aqf_site_test)")
-            pass
+            # Not demo mode - thus this is AUTO testing
+            if settings.get("site_acceptance"):
+                # For Acceptance Testing:
+                # run aqf_auto_test decorated with site_acceptance
+                # and aqf_demo_tests decorated with site_acceptance
+                # and aqf_site_tests
+                condition["AND"].append("(aqf_site_test or aqf_site_acceptance)")
+            else:
+                # For Qualification Testing:
+                # run all tests except site_tests
+                condition["AND"].append("(not aqf_site_test)")
+                pass
 
-    # , 'aqf_generic_test'
-    # Mix OR with AND
-    condition["or_str"] = " or ".join(condition["OR"])
-    if condition["AND"] and condition["or_str"]:
-        condition["AND"].append("(%s)" % condition["or_str"])
-        if condition["AND"][-1].startswith("("):
-            try:
-                assert settings["mode"] is None
-                condition["AND"][-1] = condition["AND"][-1].replace("(", "").replace(")", "")
-            except AssertionError:
-                condition["AND"][-1] = condition["AND"][-1].replace("(", "")
-        if not condition["AND"][-2].startswith("("):
-            condition["AND"][-2] = "(" + condition["AND"][-2]
-        cmd.append("-A(%s)" % " and ".join(condition["AND"]))
-    elif condition["AND"]:
-        cmd.append("-A(%s)" % " and ".join(condition["AND"]))
-    elif condition["or_str"]:
-        cmd.append("-A(%s)" % condition["or_str"])
+        # , 'aqf_generic_test'
+        # Mix OR with AND
+        condition["or_str"] = " or ".join(condition["OR"])
+        if condition["AND"] and condition["or_str"]:
+            condition["AND"].append("(%s)" % condition["or_str"])
+            if condition["AND"][-1].startswith("("):
+                try:
+                    assert settings["mode"] is None
+                    condition["AND"][-1] = condition["AND"][-1].replace("(", "").replace(")", "")
+                except AssertionError:
+                    condition["AND"][-1] = condition["AND"][-1].replace("(", "")
+            if not condition["AND"][-2].startswith("("):
+                condition["AND"][-2] = "(" + condition["AND"][-2]
+            cmd.append("-A(%s)" % " and ".join(condition["AND"]))
+        elif condition["AND"]:
+            cmd.append("-A(%s)" % " and ".join(condition["AND"]))
+        elif condition["or_str"]:
+            cmd.append("-A(%s)" % condition["or_str"])
 
-    # ToDo MM 01/06/2018
-    # To run manual tests or not - That is the question.
-    if not settings.get("manual_test"):
-        cmd.append("-A(%s)" % ("(not aqf_manual_test)"))
-    if not settings.get("slow_test"):
-        cmd.append("-A(%s)" % ("(not aqf_slow)"))
+        # ToDo MM 01/06/2018
+        # To run manual tests or not - That is the question.
+        if not settings.get("manual_test"):
+            cmd.append("-A(%s)" % ("(not aqf_manual_test)"))
+        if not settings.get("slow_test"):
+            cmd.append("-A(%s)" % ("(not aqf_slow)"))
 
-    cmd.append("-A(aqf_generic_test)")
+        cmd.append("-A(aqf_generic_test)")
 
     katreport_control = []
     if settings.get("jenkins"):
@@ -875,7 +888,6 @@ def run_nose_test(settings):
         for arg in nose_args.split():
             cmd.append(arg)
         # Run with --logging-level WARN if logging-level not passed in with nose_args
-
     # Let the output log be written into the katreport_dir
     cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
     logger.debug("Running nosetests with following command: %s" % cmd)
@@ -1281,7 +1293,7 @@ if __name__ == "__main__":
     logging.getLogger("tornado").setLevel(logging.CRITICAL)
     log_level = None
     if options.log_level:
-        log_level = options.log_level.strip()
+        log_level = options.log_level.strip().upper()
         try:
             import logging
 
@@ -1304,8 +1316,9 @@ if __name__ == "__main__":
         for k in dir(options)
         if not callable(getattr(options, k)) and not k.startswith("_")
     )
+    # TODO:
+    # This logic needs to be improved
     settings.update(get_system_info())
-
     settings["process_core"] = True
     settings["gather_system_settings"] = True
     # settings['tests'] = args
@@ -1431,9 +1444,8 @@ if __name__ == "__main__":
             print key, ":", settings[key]
         print "=========================="
 
-    condition = (
-        settings["report"] in ["local_&_test", "skip"] or settings.get("dry_run")
-    ) and not settings.get("cleanup")
+    condition = (settings["report"] in ["local_&_test", "skip"] or settings.get("dry_run")) \
+                and not settings.get("cleanup")
     if condition:
         run_nose_test(settings)
     if settings["report"] in ["results"]:

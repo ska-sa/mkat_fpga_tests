@@ -1,8 +1,8 @@
 import logging
 import os
 import pwd
-import tempfile
 import sys
+import tempfile
 from getpass import getuser as getusername
 
 try:
