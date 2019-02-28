@@ -60,13 +60,13 @@ The `python run_cbf_tests.py -h` script has several options. Please see `run_cbf
 usage: run_cbf_tests.py [-h] [--loglevel LOG_LEVEL] [-q] [--nose NOSE_ARGS]
                         [--acceptance SITE_ACCEPTANCE] [--instrument-activate]
                         [--dry_run] [--no-manual-test] [--available-tests]
-                        [--4k] [--32k] [--quick] [--with_html] [--QTP] [--QTR]
-                        [--no_slow] [--report REPORT] [--clean] [--dev_update]
+                        [--4k] [--array_release_x] [--1k] [--32k] [--quick]
+                        [--with_html] [--QTP] [--QTR] [--no_slow]
+                        [--report REPORT] [--clean] [--dev_update]
 
 This script auto executes CBF Tests with selected arguments.
 
 optional arguments:
-
   -h, --help            show this help message and exit
   --loglevel LOG_LEVEL  log level to use, default INFO, options INFO, DEBUG,
                         WARNING, ERROR
@@ -85,6 +85,8 @@ optional arguments:
                         this test run
   --available-tests     Do a dry run. Print all tests available
   --4k                  Run the tests decorated with @instrument_4k
+  --array_release_x     Run the tests decorated with @array_release_x
+  --1k                  Run the tests decorated with @instrument_1k
   --32k                 Run the tests decorated with @instrument_32k
   --quick               Only generate a small subset of the reports
   --with_html           Generate HTML report output
