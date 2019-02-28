@@ -16,11 +16,11 @@ import time
 from subprocess import check_output
 
 import numpy as np
-
 import spead2
 import spead2.recv as s2rx
 from casperfpga import network
 from corr2 import data_stream
+
 from Logger import LoggingClass
 
 interface_prefix = "10.100"

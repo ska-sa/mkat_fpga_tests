@@ -1,10 +1,12 @@
 # import threading
 import base64
+import datetime
 import glob
 import logging
 import operator
 import os
 import pwd
+import Queue
 import random
 import re
 import signal
@@ -13,7 +15,7 @@ import struct
 import subprocess
 import time
 import warnings
-
+from ast import literal_eval as evaluate
 from collections import Mapping, OrderedDict
 from contextlib import contextmanager
 from inspect import getframeinfo, stack
@@ -22,12 +24,13 @@ from struct import pack
 
 import h5py
 import katcp
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 from Crypto.Cipher import AES
+from mkat_fpga_tests.aqf_utils import *
 from nose.plugins.attrib import attr
 # MEMORY LEAKS DEBUGGING
 # To use, add @DetectMemLeaks decorator to function
@@ -59,7 +62,7 @@ __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexi
     "ignored", "init_dsim_sources", "int2ip", "ip2int", "iterate_recursive_dict", "loggerise",
     "magnetise", "nonzero_baselines", "normalise", "normalised_magnitude", "Report_Images",
     "RetryError", "retryloop", "RunTestWithTimeout", "TestTimeout", "UtilsClass", "wipd",
-    "zero_baselines"]
+    "array_release_x", "zero_baselines"]
 
 
 class RetryError(Exception):
@@ -214,6 +217,7 @@ class UtilsClass(object):
         # If sdp-docker-registry not found it is not running, return false
 
         return True if sdp_instance else False
+
 
     @staticmethod
     def stop_katsdpingest_docker():
@@ -492,6 +496,7 @@ class UtilsClass(object):
         except Exception:
             Aqf.failed("Failed to set beamformer quantiser gain via CAM interface")
 
+
     def get_hosts(self, hosts=None, sensor="hostname-functional-mapping"):
         """
         Get list of f/xhosts from sensors or config
@@ -512,6 +517,7 @@ class UtilsClass(object):
             informs = eval(informs[0].arguments[-1])
             informs = dict((val, key) for key, val in informs.iteritems())
             return [v for i, v in informs.iteritems() if i.startswith(hosts)]
+
 
     def get_gain_all(self):
         """
@@ -535,6 +541,7 @@ class UtilsClass(object):
                         sensors[inf.arguments[2].replace('-', '_')] = inf.arguments[4]
             return list(set(flatten(sensors.values())))[0]
 
+
     def get_fftshift_all(self):
         """
         Retrieve gain of all inputs via sensors
@@ -557,6 +564,7 @@ class UtilsClass(object):
                         sensors[inf.arguments[2].replace('-', '_')] = inf.arguments[4]
             return list(set(flatten(sensors.values())))[0]
 
+
     def create_logs_directory(self):
         """
         Create custom `logs_instrument` directory on the test dir to store generated images
@@ -568,6 +576,7 @@ class UtilsClass(object):
             LOGGER.info("Created %s for storing images." % path)
             os.makedirs(path)
         return path
+
 
     def confirm_out_dest_ip(self):
         """Confirm is correlators output destination ip is the same as the one in config file
@@ -588,6 +597,7 @@ class UtilsClass(object):
         except Exception:
             LOGGER.exception("Failed to retrieve correlator ip address.")
             return False
+
 
     def restore_src_names(self):
         """Restore default CBF input/source names.
@@ -610,6 +620,7 @@ class UtilsClass(object):
         except Exception:
             LOGGER.exception("Failed to restore CBF source names back to default.")
             return False
+
 
     def set_default_eq(self):
         """ Iterate through config sources and set eq's as per config file
@@ -742,6 +753,970 @@ class UtilsClass(object):
         except Exception:
             LOGGER.exception("Failed to set gain for input.")
             return False
+
+
+    def _test_global_manual(self, ve_num):
+        """Manual Test Method, for executing all manual tests
+
+        Parameters
+        ----------
+            ve_num: str, Verification Event Number
+        Returns
+        -------
+            results:
+                Pass or TBD
+        """
+        # Assumes dict is returned
+        _results = self.csv_manual_tests.csv_to_dict(ve_num)
+        ve_desc = _results.get("Verification Event Description", "TBD")
+        Aqf.procedure(r"%s" % ve_desc)
+        try:
+            assert evaluate(os.getenv("MANUAL_TEST", "False")) or evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            results = r"%s" % _results.get("Verification Event Results", "TBD")
+            if results != "TBD":
+                self.Step(r"%s" % _results.get("Verification Requirement Description", "TBD"))
+                self.Passed(r"%s" % results)
+                perf = _results.get("Verification Event Performed By", "TBD")
+                _date = _results.get("Date of Verification Event", "TBD")
+                if perf != "TBD":
+                    Aqf.hop(r"Test ran by: %s on %s" % (perf, _date))
+            else:
+                Aqf.tbd("This test results outstanding.")
+
+
+    def _test_input_levels(self):
+        """Testing Digitiser simulator input levels
+        Set input levels to requested values and check that the ADC and the
+        quantiser block do not see saturated samples.
+        """
+        if self.set_instrument():
+            self.Step("Setting and checking Digitiser simulator input levels")
+            self._set_input_levels_and_gain(
+                profile="cw", cw_freq=100000, cw_margin=0.3, trgt_bits=4, trgt_q_std=0.30, fft_shift=8191
+            )
+
+
+    def _set_input_levels_and_gain(
+        self, profile="noise", cw_freq=0, cw_src=0, cw_margin=0.05, trgt_bits=3.5, trgt_q_std=0.30,
+        fft_shift=511):
+        """ Set the digitiser simulator (dsim) output levels, FFT shift
+            and quantiser gain to optimum levels. ADC and quantiser snapshot
+            data is used to determine levels.
+            Param:
+                profile (default = noise):
+                    noise - digitiser output is gaussian noise.
+                    cw    - digitiser output is a constant wave pertubated by
+                            noise
+                cw_freq
+                    required cw frequency, the center of the closest channel
+                    will be chosen and then offset by 50 Hz. Center freqency
+                    is not used as this contains DC.
+                cw_src
+                    required cw source
+                cw_margin
+                    margin from full scale for cw tone. 0.1 equates to approx
+                    1.2 bits
+                trgt_bits (default = 3.5, valid = 1-9):
+                    the standard deviation of ADC snapblock data is calculated.
+                    This value sets the target standard deviation expressed in
+                    ADC bits toggling for noise. If a cw is selected, the noise
+                    specified here will be added.
+                trgt_q_std (default = 0.3):
+                    the target standard deviation of a quantiser snapblock,
+                    will be used to set the quantiser gain if profile = noise.
+                    In the case of a CW this value is not used.
+
+            Return:
+                dict containing input labels, for each input:
+                    std_dev   : ADC snapblock standard deviation. If profile =
+                                CW then this is of the added noise.
+                    bits_t    : calculated bits toggling at standard deviation
+                    fft_shift : current FFT shift value
+                    scale     : dsim output scale
+                    profile   : dsim output profile (noise or cw)
+                    adc_satr  : ADC snapshot contains saturated samples
+                    q_gain    : quantiser gain
+                    q_std_dev : quantiser snapshot standard deviation
+                    q_satr    : quantiser snapshot contains saturated samples
+                    num_sat   : number of qdelauantiser snapshot saturated samples
+                    cw_freq   : actual returned cw frequency
+
+        """
+
+        # helper functions
+        def set_sine_source(scale, cw_freq, cw_src):
+            # if cw_src == 0:
+            self.dhost.sine_sources.sin_0.set(frequency=cw_freq, scale=round(scale, 3))
+            #    return self.dhost.sine_sources.sin_0.frequency
+            # else:
+            self.dhost.sine_sources.sin_1.set(frequency=cw_freq, scale=round(scale, 3))
+            return self.dhost.sine_sources.sin_1.frequency
+
+        def adc_snapshot(source):
+            try:
+                reply, informs = self.katcp_req.adc_snapshot(source)
+                self.assertTrue(reply.reply_ok())
+                adc_data = evaluate(informs[0].arguments[1])
+                assert len(adc_data) == 8192
+                return adc_data
+            except AssertionError:
+                errmsg = "Failed to get adc snapshot for input {}, reply = {}.".format(source, reply)
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception:
+                errmsg = "Exception"
+                self.Error(errmsg, exc_info=True)
+                return False
+
+        def quant_snapshot(source):
+            try:
+                reply, informs = self.katcp_req.quantiser_snapshot(source)
+                self.assertTrue(reply.reply_ok())
+                quant_data = evaluate(informs[0].arguments[1])
+                assert len(quant_data) == 4096
+                return quant_data
+            except AssertionError:
+                errmsg = "Failed to get quantiser snapshot for input {}, reply = {}.".format(source,
+                    reply)
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception:
+                errmsg = "Exception"
+                self.Error(errmsg, exc_info=True)
+                return False
+
+        def set_gain(source, gain_str):
+            try:
+                reply, _ = self.katcp_req.gain(source, gain_str)
+                self.assertTrue(reply.reply_ok())
+                assert reply.arguments[1:][0] == gain_str
+            except AssertionError:
+                errmsg = "Failed to set gain for input {}, reply = {}".format(source, reply)
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception:
+                errmsg = "Exception"
+                self.Error(errmsg, exc_info=True)
+                return False
+
+        # main code
+        self.Step("Requesting input labels.")
+        try:
+            katcp_rct = self.corr_fix.katcp_rct.sensors
+            input_labels = evaluate(katcp_rct.input_labelling.get_value())
+            assert isinstance(input_labels, list)
+            inp_labels = [x[0] for x in input_labels]
+        except AssertionError:
+            self.Error("Failed to get input labels.", exc_info=True)
+            return False
+        except Exception:
+            errmsg = "Exception"
+            self.Error(errmsg, exc_info=True)
+            return False
+
+        # Set digitiser input level of one random input,
+        # store values from other inputs for checking
+        inp = random.choice(inp_labels)
+        ret_dict = dict.fromkeys(inp_labels, {})
+        scale = 0.1
+        margin = 0.005
+        self.dhost.noise_sources.noise_corr.set(scale=round(scale, 3))
+        # Get target standard deviation. ADC is represented by Q10.9
+        # signed fixed point.
+        target_std = pow(2.0, trgt_bits) / 512
+        found = False
+        count = 1
+        self.Step("Setting input noise level to toggle {} bits at " "standard deviation.".format(trgt_bits))
+        while not found:
+            self.Step("Capturing ADC Snapshot {} for input {}.".format(count, inp))
+            adc_data = adc_snapshot(inp)
+            cur_std = np.std(adc_data)
+            cur_diff = target_std - cur_std
+            if (abs(cur_diff) < margin) or count > 6:
+                found = True
+            else:
+                count += 1
+                perc_change = target_std / cur_std
+                scale = scale * perc_change
+                # Maximum noise power
+                if scale > 1:
+                    scale = 1
+                    found = True
+                self.dhost.noise_sources.noise_corr.set(scale=round(scale, 3))
+        noise_scale = scale
+        p_std = np.std(adc_data)
+        p_bits = np.log2(p_std * 512)
+        self.Step(
+            "Digitiser simulator noise scale set to {:.3f}, toggling {:.2f} bits at "
+            "standard deviation.".format(noise_scale, p_bits)
+        )
+
+        if profile == "cw":
+            self.Step("Setting CW scale to {} below saturation point." "".format(cw_margin))
+            # Find closest center frequency to requested value to ensure
+            # correct quantiser gain is set. Requested frequency will be set
+            # at the end.
+
+            # reply, informs = self.corr_fix.katcp_rct. \
+            #    req.quantiser_snapshot(inp)
+            # data = [evaluate(v) for v in (reply.arguments[2:])]
+            # nr_ch = len(data)
+            # ch_bw = bw / nr_ch
+            # ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
+
+            # bw = self.cam_sensors.get_value('bandwidth')
+            # nr_ch = self.n_chans_selected
+            ch_bw = self.cam_sensors.ch_center_freqs[1]
+            ch_list = self.cam_sensors.ch_center_freqs
+            freq_ch = int(round(cw_freq / ch_bw))
+            scale = 1.0
+            step = 0.005
+            count = 1
+            found = False
+            while not found:
+                self.Step("Capturing ADC Snapshot {} for input {}.".format(count, inp))
+                set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
+                adc_data = adc_snapshot(inp)
+                if (count < 5) and (np.abs(np.max(adc_data) or np.min(adc_data)) >= 0b111111111 / 512.0):
+                    scale -= step
+                    count += 1
+                else:
+                    scale -= step + cw_margin
+                    freq = set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
+                    adc_data = adc_snapshot(inp)
+                    found = True
+            self.Step("Digitiser simulator CW scale set to {:.3f}.".format(scale))
+            aqf_plot_histogram(
+                adc_data,
+                plot_filename="{}/adc_hist_{}.png".format(self.logs_path, inp),
+                plot_title=(
+                    "ADC Histogram for input {}\nAdded Noise Profile: "
+                    "Std Dev: {:.3f} equates to {:.1f} bits "
+                    "toggling.".format(inp, p_std, p_bits)
+                ),
+                caption="ADC Input Histogram",
+                bins=256,
+                ranges=(-1, 1),
+            )
+
+        else:
+            aqf_plot_histogram(
+                adc_data,
+                plot_filename="{}/adc_hist_{}.png".format(self.logs_path, inp),
+                plot_title=(
+                    "ADC Histogram for input {}\n Standard Deviation: {:.3f} equates "
+                    "to {:.1f} bits toggling".format(inp, p_std, p_bits)
+                ),
+                caption="ADC Input Histogram",
+                bins=256,
+                ranges=(-1, 1),
+            )
+
+        for key in ret_dict.keys():
+            self.Step("Capturing ADC Snapshot for input {}.".format(key))
+            # adc_data = adc_snapshot(key)
+            if profile != "cw":  # use standard deviation of noise before CW
+                p_std = np.std(adc_data)
+                p_bits = np.log2(p_std * 512)
+            ret_dict[key]["std_dev"] = p_std
+            ret_dict[key]["bits_t"] = p_bits
+            ret_dict[key]["scale"] = scale
+            ret_dict[key]["noise_scale"] = noise_scale
+            ret_dict[key]["profile"] = profile
+            ret_dict[key]["adc_satr"] = False
+            if np.abs(np.max(adc_data) or np.min(adc_data)) >= 0b111111111 / 512.0:
+                ret_dict[key]["adc_satr"] = True
+
+        # Set the fft shift to 511 for noise. This should be automated once
+        # a sensor is available to determine fft shift overflow.
+
+        self.Step("Setting FFT Shift to {}.".format(fft_shift))
+        try:
+            reply, _ = self.katcp_req.fft_shift(fft_shift)
+            self.assertTrue(reply.reply_ok())
+            for key in ret_dict.keys():
+                ret_dict[key]["fft_shift"] = reply.arguments[1:][0]
+        except AssertionError:
+            errmsg = "Failed to set FFT shift, reply = {}".format(reply)
+            self.Error(errmsg, exc_info=True)
+        except Exception:
+            errmsg = "Exception"
+            self.Error(errmsg, exc_info=True)
+
+        if profile == "cw":
+            self.Step("Setting quantiser gain for CW input.")
+            gain = 1
+            gain_str = "{}".format(int(gain)) + "+0j"
+            set_gain(inp, gain_str)
+
+            try:
+                dump = self.receiver.get_clean_dump()
+            except Queue.Empty:
+                errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                self.Error(errmsg, exc_info=True)
+            else:
+                baseline_lookup = self.get_baselines_lookup(dump)
+                inp_autocorr_idx = baseline_lookup[(inp, inp)]
+                dval = dump["xeng_raw"]
+                auto_corr = dval[:, inp_autocorr_idx, :]
+                ch_val = auto_corr[freq_ch][0]
+                next_ch_val = 0
+                # n_accs = self.cam_sensors.get_value('n_accs')
+                ch_val_array = []
+                ch_val_array.append([ch_val, gain])
+                count = 0
+                prev_ch_val_diff = 0
+                found = False
+                max_count = 100
+                two_found = False
+                while count < max_count:
+                    count += 1
+                    ch_val = next_ch_val
+                    gain += 1
+                    gain_str = "{}".format(int(gain)) + "+0j"
+                    self.Step("Setting quantiser gain of {} for input {}.".format(gain_str, inp))
+                    set_gain(inp, gain_str)
+                    try:
+                        dump = self.receiver.get_clean_dump()
+                    except Queue.Empty:
+                        errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                    except AssertionError:
+                        errmsg = (
+                            "No of channels (%s) in the spead data is inconsistent with the no of"
+                            " channels (%s) expected" % (dump["xeng_raw"].shape[0], self.n_chans_selected)
+                        )
+                        self.Failed(errmsg)
+                        return False
+                    else:
+                        dval = dump["xeng_raw"]
+                        auto_corr = dval[:, inp_autocorr_idx, :]
+                        next_ch_val = auto_corr[freq_ch][0]
+                        ch_val_diff = next_ch_val - ch_val
+                        # When the gradient start decreasing the center of the linear
+                        # section has been found. Grab the same number of points from
+                        # this point. Find 2 decreasing differences in a row
+                        if (not found) and (ch_val_diff < prev_ch_val_diff):
+                            if two_found:
+                                found = True
+                                count = max_count - count - 1
+                            else:
+                                two_found = True
+                        else:
+                            two_found = False
+                        ch_val_array.append([next_ch_val, gain])
+                        prev_ch_val_diff = ch_val_diff
+
+            y = [x[0] for x in ch_val_array]
+            x = [x[1] for x in ch_val_array]
+            grad = np.gradient(y)
+            # This does not work relibably
+            # grad_delta = []
+            # for i in range(len(grad) - 1):
+            #    grad_delta.append(grad[i + 1] / grad[i])
+            # The setpoint is where grad_delta is closest to 1
+            # grad_delta = np.asarray(grad_delta)
+            # set_point = np.argmax(grad_delta - 1.0 < 0) + 1
+            set_point = np.argmax(grad)
+            gain_str = "{}".format(int(x[set_point])) + "+0j"
+            plt.plot(x, y, label="Channel Response")
+            plt.plot(x[set_point], y[set_point], "ro", label="Gain Set Point = " "{}".format(x[set_point]))
+            plt.title("CW Channel Response for Quantiser Gain\n" "Channel = {}, Frequency = {}Hz".format(freq_ch, freq))
+            plt.ylabel("Channel Magnitude")
+            plt.xlabel("Quantiser Gain")
+            plt.legend(loc="upper left")
+            caption = "CW Channel Response for Quantiser Gain"
+            plot_filename = "{}/cw_ch_response_{}.png".format(self.logs_path, inp)
+            Aqf.matplotlib_fig(plot_filename, caption=caption)
+        else:
+            # Set quantiser gain for selected input to produces required
+            # standard deviation of quantiser snapshot
+            self.Step(
+                "Setting quantiser gain for noise input with a target " "standard deviation of {}.".format(trgt_q_std)
+            )
+            found = False
+            count = 0
+            margin = 0.01
+            gain = 300
+            gain_str = "{}".format(int(gain)) + "+0j"
+            set_gain(inp, gain_str)
+            while not found:
+                self.Step("Capturing quantiser snapshot for gain of " + gain_str)
+                data = quant_snapshot(inp)
+                cur_std = np.std(data)
+                cur_diff = trgt_q_std - cur_std
+                if (abs(cur_diff) < margin) or count > 20:
+                    found = True
+                else:
+                    count += 1
+                    perc_change = trgt_q_std / cur_std
+                    gain = gain * perc_change
+                    gain_str = "{}".format(int(gain)) + "+0j"
+                    set_gain(inp, gain_str)
+
+        # Set calculated gain for remaining inputs
+        for key in ret_dict.keys():
+            if profile == "cw":
+                ret_dict[key]["cw_freq"] = freq
+            set_gain(key, gain_str)
+            data = quant_snapshot(key)
+            p_std = np.std(data)
+            ret_dict[key]["q_gain"] = gain_str
+            ret_dict[key]["q_std_dev"] = p_std
+            ret_dict[key]["q_satr"] = False
+            rmax = np.max(np.asarray(data).real)
+            rmin = np.min(np.asarray(data).real)
+            imax = np.max(np.asarray(data).imag)
+            imin = np.min(np.asarray(data).imag)
+            if abs(rmax or rmin or imax or imin) >= 0b1111111 / 128.0:
+                ret_dict[key]["q_satr"] = True
+                count = 0
+                for val in data:
+                    if abs(val) >= 0b1111111 / 128.0:
+                        count += 1
+                ret_dict[key]["num_sat"] = count
+
+        if profile == "cw":
+            try:
+                dump = self.receiver.get_clean_dump()
+            except Queue.Empty:
+                errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                self.Failed(errmsg)
+                self.Error(errmsg, exc_info=True)
+            except AssertionError:
+                errmsg = (
+                    "No of channels (%s) in the spead data is inconsistent with the no of"
+                    " channels (%s) expected" % (dump["xeng_raw"].shape[0], self.n_chans_selected)
+                )
+                self.Failed(errmsg)
+                return False
+            else:
+                dval = dump["xeng_raw"]
+                auto_corr = dval[:, inp_autocorr_idx, :]
+                plot_filename = "{}/spectrum_plot_{}.png".format(self.logs_path, key)
+                plot_title = "Spectrum for Input {}\n" "Quantiser Gain: {}".format(key, gain_str)
+                caption = "Spectrum for CW input"
+                aqf_plot_channels(
+                    10 * np.log10(auto_corr[:, 0]),
+                    plot_filename=plot_filename,
+                    plot_title=plot_title,
+                    caption=caption,
+                    show=True,
+                )
+        else:
+            p_std = np.std(data)
+            aqf_plot_histogram(
+                np.abs(data),
+                plot_filename="{}/quant_hist_{}.png".format(self.logs_path, key),
+                plot_title=(
+                    "Quantiser Histogram for input {}\n "
+                    "Standard Deviation: {:.3f},"
+                    "Quantiser Gain: {}".format(key, p_std, gain_str)
+                ),
+                caption="Quantiser Histogram",
+                bins=64,
+                ranges=(0, 1.5),
+            )
+
+        key = ret_dict.keys()[0]
+        if profile == "cw":
+            self.Step("Digitiser simulator Sine Wave scaled at {:0.3f}".format(ret_dict[key]["scale"]))
+        self.Step("Digitiser simulator Noise scaled at {:0.3f}".format(ret_dict[key]["noise_scale"]))
+        self.Step("FFT Shift set to {}".format(ret_dict[key]["fft_shift"]))
+        for key in ret_dict.keys():
+            self.Step(
+                "{} ADC standard deviation: {:0.3f} toggling {:0.2f} bits".format(
+                    key, ret_dict[key]["std_dev"], ret_dict[key]["bits_t"]
+                )
+            )
+            self.Step(
+                "{} quantiser standard deviation: {:0.3f} at a gain of {}".format(
+                    key, ret_dict[key]["q_std_dev"], ret_dict[key]["q_gain"]
+                )
+            )
+            if ret_dict[key]["adc_satr"]:
+                self.Failed("ADC snapshot for {} contains saturated samples.".format(key))
+            if ret_dict[key]["q_satr"]:
+                self.Failed("Quantiser snapshot for {} contains saturated samples.".format(key))
+                self.Failed("{} saturated samples found".format(ret_dict[key]["num_sat"]))
+        return ret_dict
+
+
+    def _systems_tests(self):
+        """Checking system stability before and after use"""
+        try:
+            self.Step("Checking system sensors integrity.")
+            for i in range(1):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
+                except Exception:
+                    reply, informs = self.katcp_req.sensor_value(timeout=30)
+                time.sleep(10)
+
+            _errored_sensors_ = ", ".join(
+                sorted(list(set([i.arguments[2] for i in informs if "error" in i.arguments[-2]])))
+            )
+            _warning_sensors_ = ", ".join(
+                sorted(list(set([i.arguments[2] for i in informs if "warn" in i.arguments[-2]])))
+            )
+        except Exception:
+            self.Note("Could not retrieve sensors via CAM interface.")
+        else:
+            if _errored_sensors_:
+                self.Note("The following number of sensors (%s) have `ERRORS`: %s" % (
+                    len(_errored_sensors_.split(',')), _errored_sensors_))
+                # print('Following sensors have ERRORS: %s' % _errored_sensors_)
+            if _warning_sensors_:
+                self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
+                    len(_warning_sensors_.split(',')), _warning_sensors_))
+                # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
+
+
+    def _delays_setup(self, test_source_idx=2):
+        # Put some correlated noise on both outputs
+        if "4k" in self.instrument:
+            # 4K
+            awgn_scale = 0.0645
+            gain = "113+0j"
+            fft_shift = 511
+        else:
+            # 32K
+            awgn_scale = 0.063
+            gain = "344+0j"
+            fft_shift = 4095
+
+        self.Step("Configure digitiser simulator to generate Gaussian noise.")
+        self.Progress(
+            "Digitiser simulator configured to generate Gaussian noise with scale: {}, "
+            "gain: {} and fft shift: {}.".format(awgn_scale, gain, fft_shift)
+        )
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale,
+            fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
+
+        # local_src_names = self.cam_sensors.custom_input_labels
+        network_latency = float(self.conf_file["instrument_params"]["network_latency"])
+        cam_max_load_time = int(self.conf_file["instrument_params"]["cam_max_load_time"])
+        source_names = self.cam_sensors.input_labels
+        # Get name for test_source_idx
+        test_source = source_names[test_source_idx]
+        ref_source = source_names[0]
+        num_inputs = len(source_names)
+        # Number of integrations to load delays in the future
+        num_int = int(self.conf_file["instrument_params"]["num_int_delay_load"])
+        self.Step("Clear all coarse and fine delays for all inputs before test commences.")
+        delays_cleared = self.clear_all_delays()
+        if not delays_cleared:
+            self.Failed("Delays were not completely cleared, data might be corrupted.")
+        else:
+            self.Passed("Cleared all previously applied delays prior to test.")
+
+        self.Step("Retrieve initial SPEAD accumulation, in-order to calculate all " "relevant parameters.")
+        try:
+            initial_dump = self.receiver.get_clean_dump()
+        except Queue.Empty:
+            errmsg = "Could not retrieve clean SPEAD accumulation: Queue might be Empty."
+            self.Failed(errmsg, exc_info=True)
+        else:
+            self.Progress("Successfully retrieved initial spead accumulation")
+            int_time = self.cam_sensors.get_value("int_time")
+            sync_epoch = self.cam_sensors.get_value("sync_epoch")
+            # n_accs = self.cam_sensors.get_value('n_accs')]
+            # no_chans = range(self.n_chans_selected)
+            time_stamp = initial_dump["timestamp"]
+            # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
+            # int_time_ticks = n_accs * ticks_between_spectra
+            t_apply = initial_dump["dump_timestamp"] + num_int * int_time
+            t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+            curr_time = time.time()
+            curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
+            try:
+                baseline_lookup = self.get_baselines_lookup()
+                # Choose baseline for phase comparison
+                baseline_index = baseline_lookup[(ref_source, test_source)]
+                self.Step("Get list of all the baselines present in the correlator output")
+                self.Progress(
+                    "Selected input and baseline for testing respectively: %s, %s." % (test_source, baseline_index)
+                )
+                self.Progress(
+                    "Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be "
+                    "applied %s integrations/accumulations in the future."
+                    % (t_apply, t_apply_readable, curr_time, curr_time_readable, num_int)
+                )
+            except KeyError:
+                self.Failed("Initial SPEAD accumulation does not contain correct baseline ordering format.")
+                return False
+            else:
+                return {
+                    "baseline_index": baseline_index,
+                    "baseline_lookup": baseline_lookup,
+                    "initial_dump": initial_dump,
+                    "int_time": int_time,
+                    "network_latency": network_latency,
+                    "num_inputs": num_inputs,
+                    "sample_period": self.cam_sensors.sample_period,
+                    "t_apply": t_apply,
+                    "test_source": test_source,
+                    "test_source_ind": test_source_idx,
+                    "time_stamp": time_stamp,
+                    "sync_epoch": sync_epoch,
+                    "num_int": num_int,
+                    "cam_max_load_time": cam_max_load_time,
+                }
+
+
+    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=50):
+        try:
+            self.Step("Request Fringe/Delay(s) Corrections via CAM interface.")
+            load_strt_time = time.time()
+            reply, _informs = self.katcp_req.delays("antenna-channelised-voltage",
+                setup_data["t_apply"], *delay_coefficients, timeout=30)
+            load_done_time = time.time()
+            errmsg = ("%s: Failed to set delays via CAM interface with load-time: %s, "
+                      "Delay coefficients: %s" % (
+                            str(reply).replace("\_", " "),
+                            setup_data["t_apply"],
+                            delay_coefficients,
+                        ))
+            self.assertTrue(reply.reply_ok(), errmsg)
+            actual_delay_coef = reply.arguments[1:]
+            if "updated" not in actual_delay_coef[0]:
+                raise AssertionError()
+            cmd_load_time = round(load_done_time - load_strt_time, 3)
+            self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
+            # _give_up = int(setup_data['num_int'] * setup_data['int_time'] * 3)
+            # while True:
+            #    _give_up -= 1
+            #    try:
+            #        self.logger.info('Waiting for the delays to be updated on sensors: %s retry' % _give_up)
+            #        try:
+            #            reply_, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            #        except:
+            #            reply_, informs = self.katcp_req.sensor_value()
+            #        self.assertTrue(reply_.reply_ok())
+            #    except Exception:
+            #        self.logger.exception('Weirdly I could not get the sensor values')
+            #    else:
+            #        delays_updated = list(set([int(i.arguments[-1]) for i in informs
+            #                                if '.cd.delay' in i.arguments[2]]))[0]
+            #        if delays_updated:
+            #            self.logger.info('Delays have been successfully set')
+            #            msg = ('Delays set successfully via CAM interface: reply %s' % str(reply))
+            #            self.Passed(msg)
+            #            break
+            #    if _give_up == 0:
+            #        msg = ("Could not confirm the delays in the time stipulated, exiting")
+            #        self.logger.error(msg)
+            #        self.Failed(msg)
+            #        break
+            #    time.sleep(1)
+
+            # Tested elsewhere
+            # cam_max_load_time = setup_data['cam_max_load_time']
+            # msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (cmd_load_time,
+            #        cam_max_load_time)
+            # Aqf.less(cmd_load_time, cam_max_load_time, msg)
+        except Exception:
+            self.Failed(errmsg, exc_info=True)
+            return
+
+        last_discard = setup_data["t_apply"] - setup_data["int_time"]
+        num_discards = 0
+        fringe_dumps = []
+        self.Step(
+            "Getting SPEAD accumulation containing the change in fringes(s) on input: %s "
+            "baseline: %s, and discard all irrelevant accumulations."
+            % (setup_data["test_source"], setup_data["baseline_index"])
+        )
+        while True:
+            num_discards += 1
+            try:
+                dump = self.receiver.data_queue.get()
+                self.assertIsInstance(dump, dict)
+            except Exception:
+                errmsg = "Could not retrieve clean SPEAD accumulation: Queue might be Empty."
+                self.Failed(errmsg, exc_info=True)
+            else:
+                time_diff = np.abs(dump["dump_timestamp"] - last_discard)
+                if time_diff < 0.1 * setup_data["int_time"]:
+                    fringe_dumps.append(dump)
+                    msg = (
+                        "Received final accumulation before fringe "
+                        "application with dump timestamp: %s, relevant to time apply: %s "
+                        "(Difference %s)" % (dump["dump_timestamp"], setup_data["t_apply"], time_diff)
+                    )
+                    self.Passed(msg)
+                    self.logger.info(msg)
+                    break
+
+                if num_discards > max_wait_dumps:
+                    self.Failed(
+                        "Could not get accumulation with correct timestamp within %s "
+                        "accumulation periods." % max_wait_dumps
+                    )
+                    # break
+                    return
+                else:
+                    msg = (
+                        "Discarding (#%d) Spead accumulation with dump timestamp: %s"
+                        ", relevant to time to apply: %s"
+                        "(Difference %.2f), Current cmc time: %s."
+                        % (
+                            num_discards, dump["dump_timestamp"],
+                            setup_data["t_apply"], time_diff, time.time())
+                    )
+                    if num_discards <= 2:
+                        self.Progress(msg)
+                    elif num_discards == 3:
+                        self.Progress("...")
+                    elif time_diff < 3:
+                        self.Progress(msg)
+
+        def _force_discard():
+            self.receiver.data_queue.get()
+            self.receiver.data_queue.get()
+
+        # For debugging, for some weird reason we have to discard 2 dumps before capturing the
+        # data with the change in phase
+        _force_discard()
+        for i in range(dump_counts - 1):
+            self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))
+            try:
+                dump = self.receiver.data_queue.get()
+                self.assertIsInstance(dump, dict)
+            except Exception:
+                errmsg = "Could not retrieve clean SPEAD accumulation: Queue might be Empty."
+                self.Error(errmsg, exc_info=True)
+            else:
+                fringe_dumps.append(dump)
+
+        chan_resp = []
+        phases = []
+        for acc in fringe_dumps:
+            dval = acc["xeng_raw"]
+            freq_response = normalised_magnitude(dval[:, setup_data["baseline_index"], :])
+            chan_resp.append(freq_response)
+            data = complexise(dval[:, setup_data["baseline_index"], :])
+            phases.append(np.angle(data))
+        return zip(phases, chan_resp)
+
+
+    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
+        def calc_actual_delay(setup_data):
+            no_ch = self.cam_sensors.get_value("n_chans")
+            first_dump = np.unwrap(actual_phases[0])
+            actual_slope = np.polyfit(range(0, no_ch), first_dump, 1)[0] * no_ch
+            actual_delay = self.cam_sensors.sample_period * actual_slope / np.pi
+            return actual_delay
+
+        def gen_delay_vector(delay, setup_data):
+            res = []
+            no_ch = self.cam_sensors.get_value("n_chans")
+            delay_slope = np.pi * (delay / self.cam_sensors.sample_period)
+            c = delay_slope / 2
+            for i in range(0, no_ch):
+                m = i / float(no_ch)
+                res.append(delay_slope * m - c)
+            return res
+
+        def gen_delay_data(delay, delay_rate, dump_counts, setup_data):
+            expected_phases = []
+            prev_delay_rate = 0
+            for dump in range(0, dump_counts):
+                # For delay rate the expected delay is the average of delays
+                # applied during the integration. This is equal to the
+                # delay delta over the integration divided by two
+                max_delay_rate = dump * delay_rate
+                avg_delay_rate = ((max_delay_rate - prev_delay_rate) / 2) + prev_delay_rate
+                prev_delay_rate = max_delay_rate
+                tot_delay = delay + avg_delay_rate * self.cam_sensors.get_value("int_time")
+                expected_phases.append(gen_delay_vector(tot_delay, setup_data))
+            return expected_phases
+
+        def calc_actual_offset(setup_data):
+            # mid_ch = no_ch / 2
+            first_dump = actual_phases[0]
+            # Determine average offset around 5 middle channels
+            actual_offset = np.average(first_dump)  # [mid_ch-3:mid_ch+3])
+            return actual_offset
+
+        def gen_fringe_vector(offset, setup_data):
+            return [offset] * self.cam_sensors.get_value("n_chans")
+
+        def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
+            expected_phases = []
+            prev_fringe_rate = 0
+            for dump in range(0, dump_counts):
+                # For fringe rate the expected delay is the average of delays
+                # applied during the integration. This is equal to the
+                # delay delta over the integration divided by two
+                max_fringe_rate = dump * fringe_rate
+                avg_fringe_rate = ((max_fringe_rate - prev_fringe_rate) / 2) + prev_fringe_rate
+                prev_fringe_rate = max_fringe_rate
+                offset = -(fringe_offset + avg_fringe_rate * self.cam_sensors.get_value("int_time"))
+                expected_phases.append(gen_fringe_vector(offset, setup_data))
+            return expected_phases
+
+        ant_delay = []
+        for delay in delay_coefficients:
+            bits = delay.strip().split(":")
+            if len(bits) != 2:
+                raise ValueError("%s is not a valid delay setting" % delay)
+            delay = bits[0]
+            delay = delay.split(",")
+            delay = (float(delay[0]), float(delay[1]))
+            fringe = bits[1]
+            fringe = fringe.split(",")
+            fringe = (float(fringe[0]), float(fringe[1]))
+            ant_delay.append((delay, fringe))
+
+        ant_idx = setup_data["test_source_ind"]
+        delay = ant_delay[ant_idx][0][0]
+        delay_rate = ant_delay[ant_idx][0][1]
+        fringe_offset = ant_delay[ant_idx][1][0]
+        fringe_rate = ant_delay[ant_idx][1][1]
+
+        delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts + 1, setup_data)))[1:]
+        fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts + 1, setup_data))[1:]
+        result = delay_data + fringe_data
+        wrapped_results = (result + np.pi) % (2 * np.pi) - np.pi
+
+        if (fringe_offset or fringe_rate) != 0:
+            fringe_phase = [np.abs((np.min(phase) + np.max(phase)) / 2.0) for phase in fringe_data]
+            return zip(fringe_phase, wrapped_results)
+        else:
+            delay_phase = [np.abs((np.min(phase) - np.max(phase)) / 2.0) for phase in delay_data]
+            return zip(delay_phase, wrapped_results)
+
+
+    def _process_power_log(self, start_timestamp, power_log_file):
+        max_power_per_rack = 6.25
+        max_power_diff_per_rack = 33
+        max_power_cbf = 60
+        time_gap = 60
+
+        df = pd.read_csv(power_log_file, delimiter="\t")
+        headers = list(df.keys())
+        exp_headers = ["Sample Time", "PDU Host", "Phase Current", "Phase Power"]
+        if headers != exp_headers:
+            raise IOError(power_log_file)
+        pdus = list(set(list(df[headers[1]])))
+        # Slice out requested time block
+        end_ts = df["Sample Time"].iloc[-1]
+        try:
+            strt_idx = df[df["Sample Time"] >= int(start_timestamp)].index
+        except TypeError:
+            msg = ""
+            self.Error(msg, exc_info=True)
+        else:
+            df = df.loc[strt_idx]
+            end_idx = df[df["Sample Time"] <= end_ts].index
+            df = df.loc[end_idx]
+            # Check for gaps and warn
+            time_stamps = df["Sample Time"].values
+            ts_diff = np.diff(time_stamps)
+            time_gaps = np.where(ts_diff > time_gap)
+            for idx in time_gaps[0]:
+                ts = time_stamps[idx]
+                diff_time = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d_%H:%M")
+                diff = ts_diff[idx]
+                self.Step("Time gap of {}s found at {} in PDU samples.".format(diff, diff_time))
+            # Convert power column to floats and build new array
+            df_list = np.asarray(df.values.tolist())
+            power_col = [x.split(",") for x in df_list[:, 3]]
+            power_col = [[float(x) for x in y] for y in power_col]
+            curr_col = [x.split(",") for x in df_list[:, 2]]
+            curr_col = [[float(x) for x in y] for y in curr_col]
+            cp_col = zip(curr_col, power_col)
+            power_array = []
+            for idx, val in enumerate(cp_col):
+                power_array.append([df_list[idx, 0], df_list[idx, 1], val[0], val[1]])
+            # Cut array into sets containing all pdus for a time slice
+            num_pdus = len(pdus)
+            rolled_up_samples = []
+            time_slice = []
+            name_found = []
+            pdus = np.asarray(pdus)
+            # Create dictionary with rack names
+            pdu_samples = {x: [] for x in pdus}
+            for _time, name, cur, power in power_array:
+                try:
+                    name_found.index(name)
+                except ValueError:
+                    # Remove NANs
+                    if not (np.isnan(cur[0]) or np.isnan(power[0])):
+                        time_slice.append([_time, name, cur, power])
+                    name_found.append(name)
+                else:
+                    # Only add time slices with samples from all PDUS
+                    if len(time_slice) == num_pdus:
+                        rolled_up = np.zeros(3)
+                        for sample in time_slice:
+                            rolled_up += np.asarray(sample[3])
+                        # add first timestamp from slice
+                        rolled_up = np.insert(rolled_up, 0, int(time_slice[0][0]))
+                        rolled_up_samples.append(rolled_up)
+                        # Populate samples per pdu
+                        for name in pdus:
+                            sample = next(x for x in time_slice if x[1] == name)
+                            sample = (sample[2], sample[3])
+                            smple = np.asarray(sample)
+                            pdu_samples[name].append(smple)
+
+                    time_slice = []
+                    name_found = []
+            if rolled_up_samples:
+                start_time = datetime.fromtimestamp(rolled_up_samples[0][0]).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime("%Y-%m-%d %H:%M:%S")
+                ru_smpls = np.asarray(rolled_up_samples)
+                tot_power = ru_smpls[:, 1:4].sum(axis=1)
+                self.Step("Compile Power consumption report while running SFDR test.")
+                self.Progress("Power report from {} to {}".format(start_time, end_time))
+                self.Progress("Average sample time: {}s".format(int(np.diff(ru_smpls[:, 0]).mean())))
+                # Add samples for pdus in same rack
+                rack_samples = {x[: x.find("-")]: [] for x in pdus}
+                for name in pdu_samples:
+                    rack_name = name[: name.find("-")]
+                    if rack_samples[rack_name] != []:
+                        sample = np.add(rack_samples[rack_name], pdu_samples[name])
+                    else:
+                        sample = pdu_samples[name]
+                    rack_samples[rack_name] = sample
+                for rack in rack_samples:
+                    val = np.asarray(rack_samples[rack])
+                    curr = val[:, 0]
+                    power = val[:, 1]
+                    watts = power.sum(axis=1).mean()
+                    self.Step("Measure CBF Power rack and confirm power consumption is less than 6.25kW")
+                    msg = "Measured power for rack {} ({:.2f}kW) is less than {}kW".format(
+                        rack, watts, max_power_per_rack
+                    )
+                    Aqf.less(watts, max_power_per_rack, msg)
+                    phase = np.zeros(3)
+                    for i, x in enumerate(phase):
+                        phase[i] = curr[:, i].mean()
+                    self.Step("Measure CBF Power and confirm power consumption is less than 60kW")
+                    self.Progress(
+                        "Average current per phase for rack {}: P1={:.2f}A, P2={:.2f}A, "
+                        "P3={:.2f}A".format(rack, phase[0], phase[1], phase[2])
+                    )
+                    ph_m = np.max(phase)
+                    max_diff = np.max([100 * (x / ph_m) for x in ph_m - phase])
+                    max_diff = float("{:.1f}".format(max_diff))
+                    self.Step("Measure CBF Peak Power and confirm power consumption is less than 60kW")
+                    msg = "Maximum difference in current per phase for rack {} ({:.1f}%) is " "less than {}%".format(
+                        rack, max_diff, max_power_diff_per_rack
+                    )
+                    # Aqf.less(max_diff,max_power_diff_per_rack,msg)
+                    # Aqf.waived(msg)
+                watts = tot_power.mean()
+                msg = "Measured power for CBF ({:.2f}kW) is less than {}kW".format(watts, max_power_cbf)
+                Aqf.less(watts, max_power_cbf, msg)
+                watts = tot_power.max()
+                msg = "Measured peak power for CBF ({:.2f}kW) is less than {}kW".format(watts, max_power_cbf)
+                Aqf.less(watts, max_power_cbf, msg)
 
 
 class TestTimeout:
@@ -1046,6 +2021,25 @@ def Report_Images(image_list, caption_list=[""]):
     for image, caption in zip(image_list, caption_list):
         LOGGER.info("Adding image to report: %s" % image)
         Aqf.image(image, caption)
+
+
+
+def array_release_x(f):
+    """
+    Custom decorator and flag for decorating tests that you would need a QTP/QTR generated automagically
+
+    Usage CLI:
+        Following command can be used in the command line to narrow the execution of the test to
+        the ones marked with @array_release_x
+
+        nosetests -a array_release_x
+
+    Usage in Test:
+        @array_release_x
+        def test_channelistion(self):
+            pass
+    """
+    return attr("array_release_x")(f)
 
 
 def wipd(f):
