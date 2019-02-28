@@ -1045,5 +1045,23 @@ class TestProcedure:
         """
         return _description
 
+    @property
+    def GroupDelay(self):
+        _description = """
+        **Group Delay**
+
+        **TBD**
+        """
+        return _description
+
+    @property
+    def TImeSeries(self):
+        _description = """
+        **Beamformer Time-series**
+
+        **TBD**
+        """
+        return _description
+
 
 TestProcedure = TestProcedure()

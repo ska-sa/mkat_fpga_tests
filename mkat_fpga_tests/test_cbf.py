@@ -413,11 +413,28 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
     @array_release_x
-    # Test still under development, Alec will put it under test_informal
     @instrument_1k
     @instrument_4k
+    @aqf_vr('CBF.V.3.35')
+    @aqf_requirements("CBF-REQ-0124")
+    def test_beamformer_efficiency(self):
+        Aqf.procedure(TestProcedure.BeamformerEfficiency)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._bf_efficiency()
+            else:
+                Aqf.failed(self.errmsg)
+
+    @array_release_x
+    # @wipd  # Test still under development, Alec will put it under test_informal
+    @instrument_1k
+    @instrument_4k
+    @aqf_vr("CBF.V.A.IF")
     def test_beamforming_timeseries(self):
-        # Aqf.procedure(TestProcedure.Beamformer)
+        Aqf.procedure(TestProcedure.TImeSeries)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
@@ -428,11 +445,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @wipd  # Test still under development, Alec will put it under test_informal
+    # @wipd  # Test still under development, Alec will put it under test_informal
+    @array_release_x
     @instrument_1k
     @instrument_4k
+    @aqf_vr("CBF.V.A.IF")
     def test_group_delay(self):
-        # Aqf.procedure(TestProcedure.Beamformer)
+        Aqf.procedure(TestProcedure.GroupDelay)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
@@ -721,7 +740,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def test__subarray(self):
         self._test_global_manual("CBF.V.3.56")
 
-
+    @array_release_x
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.37")
@@ -1177,7 +1196,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         Aqf.procedure(
             "This verification event pertains to tests that are executed, "
             "but do not verify any formal requirements."
-            "The procedures and results shall be available in the Qualification Test Report."
         )
         # self._test_informal()
 
