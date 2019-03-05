@@ -72,5 +72,8 @@ tests4k:
 tests32k:
 	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --32k"
 
+tests1k_array_release_x:
+	@bash -c ". .venv/bin/activate; python run_cbf_tests.py --loglevel=DEBUG --1k --array_release_x"
+
 sanitytest:
 	@bash -c ". .venv/bin/activate; echo 'backend: agg' > matplotlibrc; nosetests -sv --logging-level=FATAL --with-xunit --xunit-file=katreport/nosetests.xml --with-katreport mkat_fpga_tests/test_cbf.py:test_CBF.test_imaging_data_product_set;"
