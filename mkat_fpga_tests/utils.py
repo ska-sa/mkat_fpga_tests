@@ -404,6 +404,7 @@ class UtilsClass(object):
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
             if start_only:
+                LOGGER.info("Only beam capture start issued.")
                 return ingest_kcp_client
             LOGGER.info("Capturing beam data for {} seconds".format(capture_time))
             time.sleep(capture_time)
@@ -417,14 +418,15 @@ class UtilsClass(object):
         except Exception:
             Aqf.failed(errmsg)
             LOGGER.error(errmsg)
-        try:
-            LOGGER.info("Issue {} capture stop via CAM int".format(beam))
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
-            errmsg = "Failed to issue capture_stop for beam {}: {}".format(beam, str(reply))
-            assert reply.reply_ok(), errmsg
-        except AssertionError:
-            Aqf.failed(errmsg)
-            LOGGER.exception(errmsg)
+        # Don't stop beam capture. Only stop at the end of the test.
+        #try:
+        #    LOGGER.info("Issue {} capture stop via CAM int".format(beam))
+        #    reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+        #    errmsg = "Failed to issue capture_stop for beam {}: {}".format(beam, str(reply))
+        #    assert reply.reply_ok(), errmsg
+        #except AssertionError:
+        #    Aqf.failed(errmsg)
+        #    LOGGER.exception(errmsg)
 
         try:
             LOGGER.info("Getting latest beam data captured in %s" % beamdata_dir)
@@ -678,7 +680,53 @@ class UtilsClass(object):
             return sorted(baseline_lookup.items(), key=operator.itemgetter(1))
         else:
             return baseline_lookup
-
+    
+    def get_test_levels(self, profile='noise'):
+        """
+        Get the default instrument gains/fft shift and digitiser levels
+        for the requested intrument as defined in the test config file.
+        param:
+            self: Object
+                correlator_fixture object
+            profile: String
+                Continious Wave or Noise profile ("cw","noise") 
+        returns:
+            awgn_scale: Float
+                Dsim noise scale
+            cw_scale: Float
+                Dsim cw scale
+            gain: String
+                Complex equaliser gain
+            fft_shift: Int
+                FFT shift
+        """
+        if (profile in ('noise','cw')):
+            if "1k" in self.instrument:
+                awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
+                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}noise1k_cw_scale".format(profile)]
+                gain       = self.corr_fix._test_config_file["instrument_params"]["{}noise1k_gain".format(profile)]
+                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}noise1k_fft_shift".format(profile)]
+            elif "4k" in self.instrument:                                     
+                awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
+                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
+                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
+            elif "32k" in self.instrument:
+                awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
+                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
+                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
+            else:
+                msg = "Instrument not found: {}".format(self.instrument)
+                self.logger.exception(msg)
+                self.Failed(msg)
+                return False
+        else:
+            msg = "Profile selected does not exist: {}".format(profile)
+            self.logger.exception(msg)
+            self.Failed(msg)
+            return False
+        return float(awgn_scale), float(cw_scale), gain, int(fft_shift)
 
     def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None,
                         gain=None, cw_src=0, corr_noise=True):
@@ -780,7 +828,7 @@ class UtilsClass(object):
                 perf = _results.get("Verification Event Performed By", "TBD")
                 _date = _results.get("Date of Verification Event", "TBD")
                 if perf != "TBD":
-                    Aqf.hop(r"Test ran by: %s on %s" % (perf, _date))
+                    Aqf.hop(r"Test run by: %s on %s" % (perf, _date))
             else:
                 Aqf.tbd("This test results outstanding.")
 
@@ -1274,16 +1322,7 @@ class UtilsClass(object):
 
     def _delays_setup(self, test_source_idx=2):
         # Put some correlated noise on both outputs
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.0645
-            gain = "113+0j"
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = "344+0j"
-            fft_shift = 4095
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
 
         self.Step("Configure digitiser simulator to generate Gaussian noise.")
         self.Progress(
@@ -1329,9 +1368,9 @@ class UtilsClass(object):
             # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
             # int_time_ticks = n_accs * ticks_between_spectra
             t_apply = initial_dump["dump_timestamp"] + num_int * int_time
-            t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+            t_apply_readable = datetime.datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
             curr_time = time.time()
-            curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
+            curr_time_readable = datetime.datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
             try:
                 baseline_lookup = self.get_baselines_lookup()
                 # Choose baseline for phase comparison
@@ -1620,7 +1659,7 @@ class UtilsClass(object):
             time_gaps = np.where(ts_diff > time_gap)
             for idx in time_gaps[0]:
                 ts = time_stamps[idx]
-                diff_time = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d_%H:%M")
+                diff_time = datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d_%H:%M")
                 diff = ts_diff[idx]
                 self.Step("Time gap of {}s found at {} in PDU samples.".format(diff, diff_time))
             # Convert power column to floats and build new array
@@ -1668,8 +1707,8 @@ class UtilsClass(object):
                     time_slice = []
                     name_found = []
             if rolled_up_samples:
-                start_time = datetime.fromtimestamp(rolled_up_samples[0][0]).strftime("%Y-%m-%d %H:%M:%S")
-                end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime("%Y-%m-%d %H:%M:%S")
+                start_time = datetime.datetime.fromtimestamp(rolled_up_samples[0][0]).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = datetime.datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime("%Y-%m-%d %H:%M:%S")
                 ru_smpls = np.asarray(rolled_up_samples)
                 tot_power = ru_smpls[:, 1:4].sum(axis=1)
                 self.Step("Compile Power consumption report while running SFDR test.")
@@ -2073,14 +2112,14 @@ def executed_by():
         if user == "root":
             raise OSError
         Aqf.hop(
-            "Test ran by: {} on {} system on {}.\n".format(
+            "Test run by: {} on {} system on {}.\n".format(
                 user, os.uname()[1].upper(), time.strftime("%Y-%m-%d %H:%M:%S")
             )
         )
     except Exception:
         LOGGER.error("Failed to determine who ran the test")
         Aqf.hop(
-            "Test ran by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime()))
+            "Test run by: Jenkins on system {} on {}.\n".format(os.uname()[1].upper(), time.ctime()))
 
 
 def encode_passwd(pw_encrypt, key=None):

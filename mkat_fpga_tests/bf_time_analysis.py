@@ -233,7 +233,9 @@ def analyse_beam_data(
 
     # %
     # import IPython;IPython.embed()
-    for cond in (True, False):
+    # Do not reorder data, bug has been fixed
+    #for cond in (True, False):
+    for cond in (False,):
         reset_data = True
         if reset_data:
             dn_lim_cmplx0 = copy.deepcopy(dn_lim_cmplx0_copy)

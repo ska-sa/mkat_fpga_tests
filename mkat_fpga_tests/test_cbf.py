@@ -279,7 +279,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 heading("CBF Channelisation Wideband Coarse L-band")
                 num_discards = 1
-                if n_chans >= 2048:
+                if n_chans == 32768:
+                    self._test_channelisation(
+                        test_chan, no_channels=n_chans,
+                        req_chan_spacing=31250, num_discards=num_discards
+                    )
+                elif n_chans == 4096:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
                         req_chan_spacing=250e3, num_discards=num_discards
@@ -324,10 +329,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
+                n_chans = self.n_chans_selected
                 heading("CBF Channelisation Wideband Coarse SFDR L-band")
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
                     self.n_chans_selected))
-                self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
+                if n_chans == 32768:
+                    self._test_sfdr_peaks(required_chan_spacing=31250, no_channels=n_ch_to_test)  # Hz
+                elif n_chans == 4096:
+                    self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
+                else:
+                    self._test_sfdr_peaks(required_chan_spacing=1000e3, no_channels=n_ch_to_test)  # Hz
             else:
                 self.Failed(self.errmsg)
 
@@ -389,10 +400,25 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                self._test_linearity(
-                    test_channel=100, cw_start_scale=1, noise_scale=0.001,
-                    gain="10+j", fft_shift=8191, max_steps=20
-                )
+                n_chans = self.n_chans_selected
+                if n_chans == 32768:
+                    # 1k FFT shift = 16 stages
+                    self._test_linearity(
+                        test_channel=100, cw_start_scale=0.5, noise_scale=0.065,
+                        gain="400+j", fft_shift=65535, max_steps=20
+                    )
+                elif n_chans == 4096:
+                    # 1k FFT shift = 13 stages
+                    self._test_linearity(
+                        test_channel=100, cw_start_scale=1, noise_scale=0.001,
+                        gain="10+j", fft_shift=8191, max_steps=20
+                    )
+                else:
+                    # 1k FFT shift = 11 stages
+                    self._test_linearity(
+                        test_channel=100, cw_start_scale=1, noise_scale=0.063,
+                        gain="150+j", fft_shift=2047, max_steps=14
+                    )
             else:
                 self.Failed(self.errmsg)
 
@@ -445,7 +471,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    # @wipd  # Test still under development, Alec will put it under test_informal
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -1219,37 +1244,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         last_source_freq = None
 
         print_counts = 3
-
-        if "1k" in self.instrument:
-            cw_scale = 0.9
-            awgn_scale = 0.085
-            gain = "7+0j"
-            fft_shift = 8191
-            test_chan = 596
-        elif "4k" in self.instrument:
-            cw_scale = 0.9
-            awgn_scale = 0.085
-            gain = "7+0j"
-            fft_shift = 8191
-            # cw_scale = 0.9
-            # awgn_scale = 0.1
-            # gain = '7+0j'
-            # fft_shift = 8191
-            # cw_scale = 0.9
-            # awgn_scale = 0.0
-            # gain = '7+0j'
-            # fft_shift = 8191
-        elif "32k":
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = "11+0j"
-            fft_shift = 32767
-        else:
-            msg = "Instrument not found: {}".format(self.instrument)
-            self.logger.exception(msg)
-            self.Failed(msg)
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=101, chans_around=2)
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         # Why is this necessary
@@ -1687,7 +1682,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             center_bin.append("Channel spacing: {:.3f}kHz".format(chan_spacing / 1e3))
 
             channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(no_of_responses)]
-            np.savetxt("Boop.csv", channel_response_list, delimiter=",")
+            np.savetxt("wideband_channelisation_response_data.csv", channel_response_list, delimiter=",")
             plot_title = "PFB Channel Response"
             plot_filename = "{}/{}_adjacent_channels.png".format(self.logs_path, self._testMethodName)
 
@@ -1814,19 +1809,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if log_power:
             self.Progress("Logging power usage in the background.")
 
-        if "4k" in self.instrument:
-            # 4K
-            cw_scale = 0.675
-            awgn_scale = 0.05
-            gain = "11+0j"
-            fft_shift = 8191
-        else:
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = "11+0j"
-            fft_shift = 32767
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         self.Step(
             "Digitiser simulator configured to generate a continuous wave, "
             "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
@@ -2008,7 +1991,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             figure out if VACC is rooted by 1
         """
         heading("SPEAD Accumulation Verification")
-        cw_scale = 0.035
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        #cw_scale = 0.035
         freq = 300e6
         self.Step(
             "Digitiser simulator configured to generate cw tone with frequency: {}MHz, "
@@ -2040,6 +2024,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             init_dsim_sources(self.dhost)
             self.logger.info("Set cw tone on pole 1")
+            self.dhost.sine_sources.sin_0.set(scale=0, frequency=freq)
             self.dhost.sine_sources.sin_1.set(scale=cw_scale, frequency=freq)
             self.Step("Capture a correlator SPEAD accumulation and,")
             dump = self.receiver.get_clean_dump(discard=50)
@@ -2053,17 +2038,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     def _test_product_baselines(self):
         heading("CBF Baseline Correlation Products")
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.0645
-            gain = "113+0j"
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = "344+0j"
-            fft_shift = 4095
-
+        # Setting DSIM to generate noise
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
         self.Step(
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -2346,7 +2322,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=9, chans_around=1)
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         source_period_in_samples = self.n_chans_selected * 2
-        cw_scale = 0.675
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        awgn_scale = 0
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
+        )
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
         self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=cw_scale, repeat_n=source_period_in_samples)
         self.Step(
             "Digitiser simulator configured to generate periodic wave "
@@ -2465,7 +2448,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
             return
         else:
-            cw_scale = 0.675
+            awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+            awgn_scale = 0
+            dsim_set_success = self.set_input_levels(
+                awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
+            )
+            if not dsim_set_success:
+                self.Failed("Failed to configure digitise simulator levels")
+                return False
             self.Step("Digitiser simulator configured to generate continuous wave")
             self.Step(
                 "Sweeping the digitiser simulator over the centre frequencies of at "
@@ -2565,19 +2555,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "fall within {} complete L-band".format(np.max(requested_test_freqs) / 1e6, test_chan)
         )
 
-        if "4k" in self.instrument:
-            # 4K
-            cw_scale = 0.675
-            awgn_scale = 0.05
-            gain = "11+0j"
-            fft_shift = 8191
-        else:
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = "11+0j"
-            fft_shift = 32767
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         self.Step(
             "Digitiser simulator configured to generate a continuous wave, "
             "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
@@ -3090,18 +3068,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         ch_list = self.cam_sensors.ch_center_freqs
         cw_freq = ch_list[int(self.n_chans_selected / 2)]
 
-        if "4k" in self.instrument:
-            cw_scale = 0.7
-            awgn_scale = 0.085
-            gain = "7+0j"
-            fft_shift = 8191
-        else:
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = "11+0j"
-            fft_shift = 32767
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         self.Step(
             "Digitiser simulator configured to generate a continuous wave (cwg0), "
             "with cw scale: {}, cw frequency: {}, awgn scale: {}, eq gain: {}, "
@@ -4336,17 +4303,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_data_product(self, _baseline=False, _tiedarray=False):
         """CBF Imaging Data Product Set"""
         # Put some correlated noise on both outputs
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.0645
-            gain = "113+0j"
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = "344+0j"
-            fft_shift = 4095
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
         self.Step("Configure a digitiser simulator to generate correlated noise.")
         self.Progress(
             "Digitiser simulator configured to generate Gaussian noise with scale: {}, "
@@ -4453,16 +4410,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
                 beam_ip = beam_ip.split("+")[0]
                 start_beam_ip = beam_ip
-                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_capture"])
+                if "1k" in self.instrument:
+                    frac_to_cap = float(self.conf_file["beamformer"]["1k_band_to_capture"])
+                elif "4k" in self.instrument:
+                    frac_to_cap = float(self.conf_file["beamformer"]["4k_band_to_capture"])
+                elif "32k" in self.instrument:
+                    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
+                n_substrms_to_cap_m = int(frac_to_cap*substreams)
                 start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+                if start_substream > (substreams - 1):
+                    self.logger.warning = (
+                        "Starting substream is larger than substreams available: {}. "
+                        "Fix in test configuration file".format(substeams)
+                    )
+                    start_substream = substreams - 1
                 if start_substream + n_substrms_to_cap_m > substreams:
-                    errmsg = (
+                    self.logger.warning = (
                         "Substream start + substreams to process "
                         "is more than substreams available: {}. "
                         "Fix in test configuration file".format(substeams)
                     )
-                    self.Failed(errmsg)
-                    return False
                 ticks_between_spectra = self.cam_sensors.get_value(
                     "antenna_channelised_voltage_n_samples_between_spectra"
                 )
@@ -4585,18 +4552,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     def _test_gain_correction(self):
         """CBF Gain Correction"""
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.0645
-            # gain = 113
-            gain = 30
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = 344
-            fft_shift = 4095
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
+        # previous 4k gain was 30 which was less than normal 113. Levels should be checked
         self.Step("Configure a digitiser simulator to generate correlated noise.")
         self.Progress(
             "Digitiser simulator configured to generate Gaussian noise, "
@@ -4766,10 +4723,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # assert running_instrument is not False
             # msg = 'Running instrument currently does not have beamforming capabilities.'
             # assert running_instrument.endswith('4k'), msg
-            self.Step("Discontinue any capturing of %s and %s, if active." % (beams[0], beams[1]))
-            reply, informs = self.katcp_req.capture_stop(beams[0])
+            self.Step("Start capturing of %s and %s." % (beams[0], beams[1]))
+            reply, informs = self.katcp_req.capture_start(beams[0])
             self.assertTrue(reply.reply_ok())
-            reply, informs = self.katcp_req.capture_stop(beams[1])
+            reply, informs = self.katcp_req.capture_start(beams[1])
             self.assertTrue(reply.reply_ok())
 
             # Get instrument parameters
@@ -4803,16 +4760,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
             beam_ip = beam_ip.split("+")[0]
             start_beam_ip = beam_ip
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_capture"])
+            if "1k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["1k_band_to_capture"])
+            elif "4k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["4k_band_to_capture"])
+            elif "32k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
+            n_substrms_to_cap_m = int(frac_to_cap*substreams)
             start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            if start_substream > (substreams - 1):
+                self.logger.warning = (
+                    "Starting substream is larger than substreams available: {}. "
+                    "Fix in test configuration file".format(substeams)
+                )
+                start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                errmsg = (
+                self.logger.warning = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substeams)
                 )
-                self.Failed(errmsg)
-                return False
+                n_substrms_to_cap_m = substreams - start_substream
             ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
             assert isinstance(ticks_between_spectra, int)
             spectra_per_heap = self.cam_sensors.get_value(beam_name + "_spectra_per_heap")
@@ -4983,14 +4951,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             missed_perc = missed_heaps.size / part.size
                             perc = 0.60
                             if missed_perc > perc:
-                                self.Progress("Missed heap percentage = {}%%".format(missed_perc * 100))
-                                self.Progress("Missed heaps = {}".format(missed_heaps))
-                                self.Progress(
+                                self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
+                                self.logger.warning("Missed heaps = {}".format(missed_heaps))
+                                self.logger.warning(
                                     "Beam captured missed more than %s%% heaps. Retrying..." % (
                                         perc * 100))
                                 missed_err = True
-                                # break
-                        # Good capture, break out of loop
+                        # Good capture, continue
                         if not missed_err:
                             break
 
@@ -5039,32 +5006,25 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 cap_db_mean = np.mean(cap_db)
                 if avg_only:
                     return cap_avg, in_wgts
-                # NOT WORKING
-                # labels = ''
-                # lbls = self.parameters(self)
-                # for lbl in lbls:
-                #    bm = beam[-1]
-                #    if lbl.find(bm) != -1:
-                #        wght = self.correlator.bops.get_beam_weights(beam, lbl)
-                # print lbl, wght
-                #        labels += (lbl+"={} ").format(wght)
+
                 labels = ""
-                label_values = in_wgts.values()
-                if label_values[1:] == label_values[:-1]:
-                    labels += "All inputs = {}\n".format(label_values[0])
-                else:
-                    tmp = {}
-                    for key, val in in_wgts.items():
-                        if val not in tmp.values():
-                            tmp[key] = val
-                        else:
-                            for k, v in tmp.items():
-                                if val == v:
-                                    tmp.pop(k)
-                            tmp["Multiple Inputs"] = val
-                    for key in tmp:
-                        labels += (key + " = {}\n").format(tmp[key])
-                labels += "Mean = {:0.2f}dB\n".format(cap_db_mean)
+                if in_wgts != {}:
+                    label_values = in_wgts.values()
+                    if label_values[1:] == label_values[:-1]:
+                        labels += "All inputs = {}\n".format(label_values[0])
+                    else:
+                        tmp = {}
+                        for key, val in in_wgts.items():
+                            if val not in tmp.values():
+                                tmp[key] = val
+                            else:
+                                for k, v in tmp.items():
+                                    if val == v:
+                                        tmp.pop(k)
+                                tmp["Multiple Inputs"] = val
+                        for key in tmp:
+                            labels += (key + " = {}\n").format(tmp[key])
+                    labels += "Mean = {:0.2f}dB\n".format(cap_db_mean)
 
                 failed = False
                 if inp_ref_lvl == 0:
@@ -5138,19 +5098,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return cap_avg, labels, inp_ref_lvl, expected, cap_idx, in_wgts, failed
 
             # Setting DSIM to generate noise
-            if "4k" in self.instrument:
-                # 4K
-                awgn_scale = 0.0645
-                cw_scale = 0.0
-                gain = "113+0j"
-                fft_shift = 511
-            else:
-                # 32K
-                awgn_scale = 0.063
-                cw_scale = 0.0
-                gain = "344+0j"
-                fft_shift = 4095
-
+            awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -5163,7 +5111,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
-            # Set beamformer quantiser gain for selected beam to 1 quant gain reversed TODO: Fix
+            # Set beamformer quantiser gain for selected beam to 1 quant gain (TODO: was revesed at one point. To check but it should be fine now)
             bq_gain = self.set_beam_quant_gain(beam, 1)
             # Generating a dictionary to contain beam weights
             beam_dict = {}
@@ -5193,8 +5141,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # Use weights from previous test
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam,
                     beam_dict=beam_dict, conf_data_type=True)
-            except Exception:
-                errmsg = "Failed to retrieve beamformer data"
+            except Exception as e:
+                errmsg = "Failed to retrieve beamformer data: {}".format(e)
                 self.Failed(errmsg)
                 return False
             beam_data.append(d)
@@ -5258,8 +5206,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "Captured mean value = {:.2f}, Calculated mean value "
                         "(using reference value) = {:.2f}".format(cap_mean, exp_mean)
                     )
-                except Exception:
-                    errmsg = "Failed to retrieve beamformer data"
+                except Exception as e:
+                    errmsg = "Failed to retrieve beamformer data: {}".format(e)
                     self.Failed(errmsg)
                     return
                 if round(weight, 1) < 1:
@@ -5293,8 +5241,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beam_dict = self.populate_beam_dict( -1, weight, beam_dict)
             try:
                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
-            except Exception:
-                errmsg = "Failed to retrieve beamformer data:"
+            except Exception as e:
+                errmsg = "Failed to retrieve beamformer data: {}".format(e)
                 self.Failed(errmsg)
                 return
             beam_data.append(d)
@@ -5303,8 +5251,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beam_dict = self.populate_beam_dict( -1, weight, beam_dict)
             try:
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_dict, rl)
-            except Exception:
-                errmsg = "Failed to retrieve beamformer data"
+            except Exception as e:
+                errmsg = "Failed to retrieve beamformer data: {}".format(e)
                 self.Failed(errmsg)
                 return
             beam_data.append(d)
@@ -5325,7 +5273,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 log_dynamic_range=90,
                 log_normalise_to=1,
                 caption="Captured beamformer data",
-                hlines=[exp0, exp1],
+                hlines=[exp1, exp0],
                 plot_type="bf",
                 hline_strt_idx=1,
             )
@@ -5339,8 +5287,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # Use weights from previous test
                 d, l, rl, exp0, nc, act_wgts, dummy = get_beam_data(beam, beam_quant_gain=bq_gain,
                     act_wgts=act_wgts)
-            except Exception:
-                errmsg = "Failed to retrieve beamformer data:"
+            except Exception as e:
+                errmsg = "Failed to retrieve beamformer data: {}".format(e)
                 self.Failed(errmsg)
                 return
             beam_data.append(d)
@@ -5353,8 +5301,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 d, l, rl, exp1, nc, act_wgts, dummy = get_beam_data(
                     beam, inp_ref_lvl=rl, beam_quant_gain=bq_gain, act_wgts=act_wgts
                 )
-            except Exception:
-                errmsg = "Failed to retrieve beamformer data:"
+            except Exception as e:
+                errmsg = "Failed to retrieve beamformer data: {}".format(e)
                 self.Failed(errmsg)
                 return
             beam_data.append(d)
@@ -5388,18 +5336,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             # Reset quantiser gain
             bq_gain = self.set_beam_quant_gain(beam, 1)
-            if "4k" in self.instrument:
-                # 4K
-                awgn_scale = 0.0645
-                cw_scale = 0.01
-                gain = "113+0j"
-                fft_shift = 511
-            else:
-                # 32K
-                awgn_scale = 0.063
-                cw_scale = 0.01
-                gain = "344+0j"
-                fft_shift = 4095
+            awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
 
             self.Progress(
                 "Digitiser simulator configured to generate a stepping "
@@ -5449,8 +5386,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     if failed:
                         aligned_failed = True
-                except Exception:
-                    errmsg = "Failed to retrieve beamformer data"
+                except Exception as e:
+                    errmsg = "Failed to retrieve beamformer data: {}".format(e)
                     self.Failed(errmsg)
                     return False
             if aligned_failed:
@@ -5485,7 +5422,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Set custom source names
             # local_src_names = self.cam_sensors.custom_input_labels
             # reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
-            self.assertTrue(reply.reply_ok())
+            # self.assertTrue(reply.reply_ok())
             # labels = reply.arguments[1:]
             labels = self.cam_sensors.input_labels
             beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
@@ -5494,9 +5431,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             msg = "Running instrument currently does not have beamforming capabilities."
             assert not running_instrument.endswith("32k"), msg
             self.Step("Discontinue any capturing of %s and %s, if active." % (beams[0], beams[1]))
-            reply, informs = self.katcp_req.capture_stop(beams[0], timeout=60)
+            reply, informs = self.katcp_req.capture_start(beams[0], timeout=60)
             self.assertTrue(reply.reply_ok())
-            reply, informs = self.katcp_req.capture_stop(beams[1], timeout=60)
+            reply, informs = self.katcp_req.capture_start(beams[1], timeout=60)
             self.assertTrue(reply.reply_ok())
 
             # Get instrument parameters
@@ -5527,16 +5464,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
             beam_ip = beam_ip.split("+")[0]
             start_beam_ip = beam_ip
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_capture"])
+            if "1k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["1k_band_to_capture"])
+            elif "4k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["4k_band_to_capture"])
+            elif "32k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
+            n_substrms_to_cap_m = int(frac_to_cap*substreams)
             start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            if start_substream > (substreams - 1):
+                self.logger.warning = (
+                    "Starting substream is larger than substreams available: {}. "
+                    "Fix in test configuration file".format(substeams)
+                )
+                start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                errmsg = (
+                self.logger.warning = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substeams)
                 )
-                self.Failed(errmsg)
-                return False
+                n_substrms_to_cap_m = substreams - start_substream
             ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
             assert isinstance(ticks_between_spectra, int)
             spectra_per_heap = self.cam_sensors.get_value(beam_name + "_spectra_per_heap")
@@ -5580,29 +5528,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         cw_ch = strt_ch_idx + int(ch_per_substream / 4)
 
         # Setting DSIM to generate off center bin CW time sequence
-        if "4k" in self.instrument:
-            # 4K
-            _capture_time = 0.1
-            awgn_scale = 0.085
-            cw_scale = 0.9
-            gain = 7
-            fft_shift = 8191
-        elif "1k" in self.instrument:
-            #
-            _capture_time = 2
-            awgn_scale = 0.085
-            cw_scale = 0.9
-            gain = "30+0j"
-            fft_shift = 1023
-            cw_ch = 65
-        else:
-            # 32K
-            _capture_time = 0.1
-            awgn_scale = 0.063
-            cw_scale = 0.01
-            gain = "344+0j"
-            fft_shift = 4095
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        _capture_time = 0.1
         freq = ch_list[cw_ch] + center_bin_offset_freq
 
         self.Step(
@@ -5699,7 +5626,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
             bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
 
-            np.save("skarab_bf_data_plus.np", bf_raw)
+            # np.save("skarab_bf_data_plus.np", bf_raw)
             # return True
             from bf_time_analysis import analyse_beam_data
 
@@ -5760,10 +5687,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert running_instrument is not False
             # msg = 'Running instrument currently does not have beamforming capabilities.'
             # assert running_instrument.endswith('1k'), msg
-            self.Step("Discontinue any capturing of %s and %s, if active." % (beams[0], beams[1]))
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[0])
+            self.Step("Start capture on %s and %s." % (beams[0], beams[1]))
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beams[0])
             self.assertTrue(reply.reply_ok())
-            reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beams[1])
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beams[1])
             self.assertTrue(reply.reply_ok())
             sync_time = self.cam_sensors.get_value("sync_time")
 
@@ -5776,7 +5703,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
             dsim_factor = float(
                 self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
-            substreams = self.cam_sensors.get_value("n_xengs")
+            substreams = self.cam_sensors.get_value("n_bengs")
         except AssertionError:
             self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
             return False
@@ -5795,16 +5722,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
             beam_ip = beam_ip.split("+")[0]
             start_beam_ip = beam_ip
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_capture"])
+            if "1k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["1k_band_to_capture"])
+            elif "4k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["4k_band_to_capture"])
+            elif "32k" in self.instrument:
+                frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
+            n_substrms_to_cap_m = int(frac_to_cap*substreams)
             start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            if start_substream > (substreams - 1):
+                self.logger.warning = (
+                    "Starting substream is larger than substreams available: {}. "
+                    "Fix in test configuration file".format(substeams)
+                )
+                start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                errmsg = (
+                self.logger.warning = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substeams)
                 )
-                self.Failed(errmsg)
-                return False
+                n_substrms_to_cap_m = substreams - start_substream
             ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
             assert isinstance(ticks_between_spectra, int)
             spectra_per_heap = self.cam_sensors.get_value(beam_name + "_spectra_per_heap")
@@ -5815,15 +5753,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             errmsg = "%s" % str(reply).replace("\_", " ")
             self.Error(errmsg, exc_info=True)
             return False
-        except Exception:
-            errmsg = "Exception"
+        except Exception as e:
+            errmsg = "Exception: {}".format(e)
             self.Error(errmsg, exc_info=True)
             return False
-
         # Compute the start IP address according to substream start index
         beam_ip = int2ip(ip2int(beam_ip) + start_substream)
         # Compute spectrum parameters
         strt_ch_idx = start_substream * ch_per_substream
+        strt_ch = strt_ch_idx
+        stop_ch = strt_ch + ch_per_substream*n_substrms_to_cap_m
         strt_freq = ch_list[strt_ch_idx] * dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
         docker_status = self.start_katsdpingest_docker(
@@ -5853,7 +5792,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         _timeout = 10
         try:
             import katcp
-
             ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
             ingest_kcp_client.setDaemon(True)
             ingest_kcp_client.start()
@@ -5866,9 +5804,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except Exception:
             self.Error("Could not connect to katcp client", exc_info=True)
 
-        beam_quant_gain = 1.0 / ants
-        # self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
-        # self.set_beam_quant_gain(beam, beam_quant_gain)
+        beam_quant_gain = 1
+        self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
+        self.set_beam_quant_gain(beam, beam_quant_gain)
 
         beam_dict = {}
         beam_pol = beam[-1]
@@ -5888,17 +5826,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
         weight = 1.0
         beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
-        # To Do: set beam weights
 
         def get_beam_data():
             try:
-                bf_raw, bf_flags, bf_ts, in_wgts = capture_beam_data(
-                    self, beam, ingest_kcp_client=ingest_kcp_client, stop_only=True
+                bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(
+                    beam, ingest_kcp_client=ingest_kcp_client, stop_only=True
                 )
-            except Exception:
+            except Exception as e:
                 errmsg = (
                     "Failed to capture beam data: Confirm that Docker container is "
-                    "running and also confirm the igmp version = 2 "
+                    "running and also confirm the igmp version = 2. Error message: {} ".format(e)
                 )
                 self.Error(errmsg, exc_info=True)
                 return False
@@ -5914,9 +5851,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     missed_perc = missed_heaps.size / part.size
                     perc = 0.50
                     if missed_perc > perc:
-                        self.Progress("Missed heap percentage = {}%%".format(missed_perc * 100))
-                        self.Progress("Missed heaps = {}".format(missed_heaps))
-                        self.Failed("Beam captured missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
+                        self.logger.warning("Missed heaps = {}".format(missed_heaps))
+                        self.logger.warning("Beam captured missed more than %s%% heaps. Retrying..." % (perc * 100))
                         return None, None
             # Print missed heaps
             idx = start_substream
@@ -5999,106 +5936,146 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return False
 
         out_func = []
-        num_pulse_caps = 500
-        # num_pulse_int = 2
+        num_pulse_caps = 400
+        print_modulus = num_pulse_caps / 10
         # pulse_step must be divisible by 8
-        pulse_step = 16
-        points_around_trg = 16
-        chan_str = 0
-        chan_stp = 511
+        if "1k" in self.instrument:
+            pulse_step = 16
+            load_lead_factor = 1
+        elif "4k" in self.instrument:
+            pulse_step = 16*4
+            load_lead_factor = 10
+        elif "32k" in self.instrument:
+            pulse_step = 16*32
+            load_lead_factor = 40
+        points_around_trg = 1024
         load_lead_time = 0.01
         load_lead_mcount = 8 * int(load_lead_time * scale_factor_timestamp / 8)
+        first_cap = True
         for pulse_cap in range(num_pulse_caps):
-            beam_retries = 5
-            while beam_retries > 0:
-                # mcount_list = []
-                beam_retries -= 1
-                # Get an mcount at the start of a spectrum
-                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
-                time.sleep(0.005)
-                bf_raw, bf_ts = get_beam_data()
-                if np.all(bf_raw) is None or np.all(bf_ts) is None:
+            catch_pulse_retries = 5
+            while catch_pulse_retries > 0:
+                catch_pulse_retries -= 1
+                beam_retries = 5
+                while beam_retries > 0:
+                    beam_retries -= 1
+                    # Get a reference mcount
+                    _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+                    if first_cap:
+                        time.sleep(0.5)
+                        first_cap = False
+                    else:
+                        # Only set beam weights on first capture
+                        beam_dict = None
+                        time.sleep(0.01)
+                    bf_raw, bf_ts = get_beam_data()
+                    if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
+                        spectra_ref_mcount = bf_ts[-1]
+                        # Start beam capture
+                        _ = self.capture_beam_data(beam, beam_dict=beam_dict, ingest_kcp_client=ingest_kcp_client, start_only=True)
+                        # Get current mcount
+                        curr_mcount = get_dsim_mcount(spectra_ref_mcount)
+                        future_mcount = load_lead_mcount + curr_mcount + pulse_step * pulse_cap
+                        self.logger.info('Current mcount = {}, Future mcount = {}, Load lead time = {}s, '
+                                         'Mcount difference = {}'.format(
+                                         curr_mcount, future_mcount, load_lead_time,
+                                         future_mcount - curr_mcount))
+                        load_dsim_impulse(future_mcount)
+                        time.sleep(load_lead_time*load_lead_factor)
+                        bf_raw, bf_ts = get_beam_data()
+                        if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
+                            break
+                        else:
+                            self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                else:
+                    self.Failed("Beam data capture failed.")
                     break
-                spectra_ref_mcount = bf_ts[-1]
-                # Start beam capture
-                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
-                # Get current mcount
-                # for pulse_int in range(num_pulse_int):
-                curr_mcount = get_dsim_mcount(spectra_ref_mcount)
-                future_mcount = load_lead_mcount + curr_mcount + pulse_step * pulse_cap
-                load_dsim_impulse(future_mcount)
-                # mcount_list.append(future_mcount)
-                # while get_dsim_mcount(spectra_ref_mcount) < future_mcount:
-                time.sleep(load_lead_time)
-                bf_raw, bf_ts = get_beam_data()
-                if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
+                try:
+                    assert future_mcount
+                except Exception:
+                    return False
+                trgt_spectra_idx = np.where(bf_ts > future_mcount)[0]
+                if points_around_trg > trgt_spectra_idx.size:
+                    #self.Note('Capture {} did not contain enough spectra to search.'.format(pulse_cap))
+                    self.logger.warning('Capture {} did not contain enough spectra to search.'.format(pulse_cap))
+                elif trgt_spectra_idx.size == 0:
+                    fault_delta = (future_mcount - dbf_ts[-1]) / scale_factor_timestamp
+                    #self.Note
+                    #    "Target spectra timestamp too late by {} seconds".format(fault_delta))
+                    self.logger.warning(
+                        "Target spectra timestamp too late by {} seconds".format(fault_delta))
+                elif trgt_spectra_idx.size == bf_ts.size:
+                    fault_delta = (bf_ts[0] - future_mcount) / scale_factor_timestamp
+                    #self.Note(
+                    #    "Target spectra timestamp too early by {} seconds".format(fault_delta))
+                    self.logger.warning(
+                        "Target spectra timestamp too early by {} seconds".format(fault_delta))
+                else:
+                    trgt_spectra_idx = trgt_spectra_idx[0] - 1
+                    if (pulse_cap % print_modulus) == 0: 
+                        self.Progress(
+                            "Capture {} of {}, target specra found at index {} of beam capture "
+                            "containing {} spectra".format(pulse_cap, num_pulse_caps, trgt_spectra_idx, bf_ts.shape[0])
+                        )
+                    for i in range(trgt_spectra_idx - points_around_trg, trgt_spectra_idx + 1):
+                        spectra_mean_val = np.sum(np.abs(complexise(bf_raw[strt_ch:stop_ch, i, :]))) / (
+                            stop_ch - strt_ch
+                        )
+                        spectra_ts = bf_ts[i]
+                        ts_delta = int(spectra_ts) - future_mcount
+                        out_func.append([ts_delta, spectra_mean_val])
                     break
-            # beam_retries = 5
-            # while beam_retries > 0:
-            #    beam_retries -= 1
-            #    _ = self.capture_beam_data( beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
-            #    time.sleep(0.01)
-            #    bf_raw, bf_ts = get_beam_data()
-            #    if np.all(bf_raw) != None and np.all(bf_ts) != None:
-            #        curr_mcount = bf_ts[-1]
-            #        future_mcount = 0.5 * scale_factor_timestamp + curr_mcount + pulse_step*pulse_cap
-            #        future_mcount = 8*int(future_mcount/8)
-            #        load_dsim_impulse(future_mcount)
-            #        _ = self.capture_beam_data( beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
-            #        time.sleep(0.2)
-            #        bf_raw, bf_ts = get_beam_data()
-            #    if np.all(bf_raw) != None and np.all(bf_ts) != None:
-            #        break
             else:
-                self.Failed("Beam data capture failed.")
-                break
-            # num_found = 0
-            # captured_list = []
-            # for trgt_mcount in mcount_list[:-1]:
-            try:
-                assert future_mcount
-            except Exception:
-                return False
-            trgt_spectra_idx = np.where(bf_ts > future_mcount)[0]
-            if trgt_spectra_idx.size == 0:
-                self.logger.warning(
-                    "Target spectra timestamp too late by {} seconds".format(
-                        (future_mcount - bf_ts[-1]) / scale_factor_timestamp
-                    )
-                )
-            elif trgt_spectra_idx.size == bf_ts.size:
-                self.logger.warning(
-                    "Target spectra timestamp too early by {} seconds".format(
-                        (bf_ts[0] - future_mcount) / scale_factor_timestamp
-                    )
-                )
-            else:
-                trgt_spectra_idx = trgt_spectra_idx[0] - 1
-                # num_found += 1
-                self.Progress(
-                    "Target specra found at index {} of beam capture "
-                    "containing {} spectra".format(trgt_spectra_idx, bf_ts.shape[0])
-                )
-                # trgt_cap_list = []
-                for i in range(trgt_spectra_idx - points_around_trg, trgt_spectra_idx + 1):
-                    spectra_mean_val = np.sum(np.abs(complexise(bf_raw[chan_str:chan_stp, i, :]))) / (
-                        chan_stp - chan_str
-                    )
-                    spectra_ts = bf_ts[i]
-                    ts_delta = int(spectra_ts) - future_mcount
-                    # trgt_cap_list.append([ts_delta,spectra_mean_val])
-                    out_func.append([ts_delta, spectra_mean_val])
-                # captured_list.append(trgt_cap_list)
-                # print ('{}:{}'.format(ts_delta,spectra_mean_val))
+                self.Failed('Cannot find pulse, moving on to next step')
         else:
             # Remove any values which don't make sense, these happend when a capture missed the target mcount
+            out_func_orig = out_func[:]
             rem_index = np.where((np.sum(out_func, axis=1)) > 30000)
             out_func = np.delete(out_func, rem_index, axis=0)
-            x = [x[0] for x in out_func]
-            y = [y[1] for y in out_func]
-            plt.scatter(x, y)
-            plt.show()
-            # import IPython;IPython.embed()
+            x = np.asarray([x[0] for x in out_func])
+            y = np.asarray([y[1] for y in out_func])
+            # Remove zeros
+            zero_idxs = np.where(y==0)
+            x = np.delete(x, zero_idxs, axis=0)
+            y = np.delete(y, zero_idxs, axis=0)
+            if y.size == 0:
+                self.Failed('Could not find pulse within {} spectra'.format(points_around_trg))
+                # Close any KAT SDP ingest nodes
+                try:
+                    if ingest_kcp_client:
+                        ingest_kcp_client.stop()
+                except BaseException:
+                    pass
+                self.stop_katsdpingest_docker()
+                return False
+            # Sort dataset along x (sample count) axis
+            sorted_idxs = x.argsort()
+            sorted_x = x[sorted_idxs]
+            sorted_y = y[sorted_idxs]
+            group_delay_raw = sorted_x[np.argmax(sorted_y)]
+            gd_sign = np.sign(group_delay_raw)
+            group_delay_raw = abs(group_delay_raw)
+            gd_exp = int(round(np.log(group_delay_raw)/np.log(2)))
+            group_delay = gd_sign*2**gd_exp
+            self.Passed('Group delay = {} samples'.format(int(group_delay)))
+            aqf_plot_xy(
+                ([sorted_x,sorted_y],[""]),
+                plot_filename="{}/{}_group_delay.png".format(self.logs_path, self._testMethodName),
+                plot_title="Group delay response of an impulse convoluted with a beam spectral window.",
+                caption=("An impulse is incremented by {} samples for {} steps in a target beam spectrum. "
+                         "{} channels are captured and averaged of beam spectral responses surrounding the "
+                         "impulse target spectrum. The impulse timestamp is subtracted from the sample "
+                         "timestamp of the averaged beam spectrum. This timestamp delta plotted along the "
+                         "x-axis, and the averaged beam spectrum value along the y-axis.".format(
+                             pulse_step, num_pulse_caps, stop_ch-strt_ch)),
+                vlines=[group_delay],
+                xlabel="Sample Offset from Impulse",
+                ylabel="Average Beam Response",
+            )
+
+            # Pass data through a smoothing filter
+            #import scipy
+            #smooth_y = scipy.signal.savgol_filter(sorted_y, 101, 3)
 
         # Close any KAT SDP ingest nodes
         try:
@@ -6107,22 +6084,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except BaseException:
             pass
         self.stop_katsdpingest_docker()
-
-        # Check ADC snapshot for pulse
-        # self.correlator.est_sync_epoch()
-        # sync_time = self.cam_sensors.get_value('sync_time')
-        # bf_raw, bf_ts = get_beam_data()
-        # curr_mcount = bf_ts[-1]
-        # future_mcount = 1 * scale_factor_timestamp + curr_mcount
-        # load_dsim_impulse(future_mcount)
-        # unix_time = sync_time + (future_mcount/scale_factor_timestamp)
-        # error_mcount = self.correlator.mcnt_from_time(unix_time) - future_mcount
-        # unix_time = sync_time + (future_mcount-error_mcount-4000)/scale_factor_timestamp
-        # a = self.correlator.fops.get_adc_snapshot(unix_time=unix_time)[labels[1]].data
-        # print time.time()
-        # print unix_time
-        # print self.correlator.mcnt_from_time(unix_time) - future_mcount
-        # print np.argmax(a)
 
     def _bf_efficiency(self):
 
@@ -6154,18 +6115,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # Set beamformer quantiser gain for selected beam to 1
         self.set_beam_quant_gain(beam, 1)
-
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.032
-            gain = "226+0j"
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = "344+0j"
-            fft_shift = 4095
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
         self.Step(
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -6617,6 +6567,461 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #         else:
     #             self.Failed(self.errmsg)
 
+    def _test_input_levels(self):
+        """Testing Digitiser simulator input levels
+        Set input levels to requested values and check that the ADC and the
+        quantiser block do not see saturated samples.
+        """
+        if self.set_instrument():
+            self.Step("Setting and checking Digitiser simulator input levels")
+            self._set_input_levels_and_gain(
+                profile="cw", cw_freq=100000, cw_margin=0.3, trgt_bits=4, trgt_q_std=0.30, fft_shift=8191
+            )
+
+    def _set_input_levels_and_gain(
+        self, profile="noise", cw_freq=0, cw_src=0, cw_margin=0.05, trgt_bits=3.5, trgt_q_std=0.30, fft_shift=511
+    ):
+        """ Set the digitiser simulator (dsim) output levels, FFT shift
+            and quantiser gain to optimum levels. ADC and quantiser snapshot
+            data is used to determine levels.
+            Param:
+                profile (default = noise):
+                    noise - digitiser output is gaussian noise.
+                    cw    - digitiser output is a constant wave pertubated by
+                            noise
+                cw_freq
+                    required cw frequency, the center of the closest channel
+                    will be chosen and then offset by 50 Hz. Center freqency
+                    is not used as this contains DC.
+                cw_src
+                    required cw source
+                cw_margin
+                    margin from full scale for cw tone. 0.1 equates to approx
+                    1.2 bits
+                trgt_bits (default = 3.5, valid = 1-9):
+                    the standard deviation of ADC snapblock data is calculated.
+                    This value sets the target standard deviation expressed in
+                    ADC bits toggling for noise. If a cw is selected, the noise
+                    specified here will be added.
+                trgt_q_std (default = 0.3):
+                    the target standard deviation of a quantiser snapblock,
+                    will be used to set the quantiser gain if profile = noise.
+                    In the case of a CW this value is not used.
+
+            Return:
+                dict containing input labels, for each input:
+                    std_dev   : ADC snapblock standard deviation. If profile =
+                                CW then this is of the added noise.
+                    bits_t    : calculated bits toggling at standard deviation
+                    fft_shift : current FFT shift value
+                    scale     : dsim output scale
+                    profile   : dsim output profile (noise or cw)
+                    adc_satr  : ADC snapshot contains saturated samples
+                    q_gain    : quantiser gain
+                    q_std_dev : quantiser snapshot standard deviation
+                    q_satr    : quantiser snapshot contains saturated samples
+                    num_sat   : number of qdelauantiser snapshot saturated samples
+                    cw_freq   : actual returned cw frequency
+
+        """
+
+        # helper functions
+        def set_sine_source(scale, cw_freq, cw_src):
+            # if cw_src == 0:
+            self.dhost.sine_sources.sin_0.set(frequency=cw_freq, scale=round(scale, 3))
+            #    return self.dhost.sine_sources.sin_0.frequency
+            # else:
+            self.dhost.sine_sources.sin_1.set(frequency=cw_freq, scale=round(scale, 3))
+            return self.dhost.sine_sources.sin_1.frequency
+
+        def adc_snapshot(source):
+            try:
+                reply, informs = self.katcp_req.adc_snapshot(source)
+                self.assertTrue(reply.reply_ok())
+                adc_data = evaluate(informs[0].arguments[1])
+                assert len(adc_data) == 8192
+                return adc_data
+            except AssertionError:
+                errmsg = "Failed to get adc snapshot for input {}, reply = {}.".format(source, reply)
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception:
+                errmsg = "Exception"
+                self.Error(errmsg, exc_info=True)
+                return False
+
+        def quant_snapshot(source):
+            try:
+                reply, informs = self.katcp_req.quantiser_snapshot(source)
+                self.assertTrue(reply.reply_ok())
+                quant_data = evaluate(informs[0].arguments[1])
+                assert len(quant_data) == 4096
+                return quant_data
+            except AssertionError:
+                errmsg = "Failed to get quantiser snapshot for input {}, reply = {}.".format(source,
+                    reply)
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception:
+                errmsg = "Exception"
+                self.Error(errmsg, exc_info=True)
+                return False
+
+        def set_gain(source, gain_str):
+            try:
+                reply, informs = self.katcp_req.gain(source, gain_str)
+                self.assertTrue(reply.reply_ok())
+                #assert reply.arguments[1:][0] == gain_str
+            except AssertionError:
+                errmsg = "Failed to set gain for input {}, reply = {}".format(source, reply)
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception:
+                errmsg = "Exception"
+                self.Error(errmsg, exc_info=True)
+                return False
+
+        # main code
+        self.Step("Requesting input labels.")
+        try:
+            katcp_rct = self.corr_fix.katcp_rct.sensors
+            input_labels = evaluate(katcp_rct.input_labelling.get_value())
+            assert isinstance(input_labels, list)
+            inp_labels = [x[0] for x in input_labels]
+        except AssertionError:
+            self.Error("Failed to get input labels.", exc_info=True)
+            return False
+        except Exception:
+            errmsg = "Exception"
+            self.Error(errmsg, exc_info=True)
+            return False
+
+        # Set digitiser input level of one random input,
+        # store values from other inputs for checking
+        inp = random.choice(inp_labels)
+        ret_dict = dict.fromkeys(inp_labels, {})
+        scale = 0.1
+        margin = 0.005
+        self.dhost.noise_sources.noise_corr.set(scale=round(scale, 3))
+        # Get target standard deviation. ADC is represented by Q10.9
+        # signed fixed point.
+        target_std = pow(2.0, trgt_bits) / 512
+        found = False
+        count = 1
+        self.Step("Setting input noise level to toggle {} bits at " "standard deviation.".format(trgt_bits))
+        while not found:
+            self.Step("Capturing ADC Snapshot {} for input {}.".format(count, inp))
+            adc_data = adc_snapshot(inp)
+            cur_std = np.std(adc_data)
+            cur_diff = target_std - cur_std
+            if (abs(cur_diff) < margin) or count > 6:
+                found = True
+            else:
+                count += 1
+                perc_change = target_std / cur_std
+                scale = scale * perc_change
+                # Maximum noise power
+                if scale > 1:
+                    scale = 1
+                    found = True
+                self.dhost.noise_sources.noise_corr.set(scale=round(scale, 3))
+        noise_scale = scale
+        p_std = np.std(adc_data)
+        p_bits = np.log2(p_std * 512)
+        self.Step(
+            "Digitiser simulator noise scale set to {:.3f}, toggling {:.2f} bits at "
+            "standard deviation.".format(noise_scale, p_bits)
+        )
+
+        if profile == "cw":
+            self.Step("Setting CW scale to {} below saturation point." "".format(cw_margin))
+            # Find closest center frequency to requested value to ensure
+            # correct quantiser gain is set. Requested frequency will be set
+            # at the end.
+
+            # reply, informs = self.corr_fix.katcp_rct. \
+            #    req.quantiser_snapshot(inp)
+            # data = [evaluate(v) for v in (reply.arguments[2:])]
+            # nr_ch = len(data)
+            # ch_bw = bw / nr_ch
+            # ch_list = np.linspace(0, bw, nr_ch, endpoint=False)
+
+            # bw = self.cam_sensors.get_value('bandwidth')
+            # nr_ch = self.n_chans_selected
+            ch_bw = self.cam_sensors.ch_center_freqs[1]
+            ch_list = self.cam_sensors.ch_center_freqs
+            freq_ch = int(round(cw_freq / ch_bw))
+            scale = 1.0
+            step = 0.005
+            count = 1
+            found = False
+            while not found:
+                self.Step("Capturing ADC Snapshot {} for input {}.".format(count, inp))
+                set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
+                adc_data = adc_snapshot(inp)
+                if (count < 5) and (np.abs(np.max(adc_data) or np.min(adc_data)) >= 0b111111111 / 512.0):
+                    scale -= step
+                    count += 1
+                else:
+                    scale -= step + cw_margin
+                    freq = set_sine_source(scale, ch_list[freq_ch] + 50, cw_src)
+                    adc_data = adc_snapshot(inp)
+                    found = True
+            self.Step("Digitiser simulator CW scale set to {:.3f}.".format(scale))
+            aqf_plot_histogram(
+                adc_data,
+                plot_filename="{}/adc_hist_{}.png".format(self.logs_path, inp),
+                plot_title=(
+                    "ADC Histogram for input {}\nAdded Noise Profile: "
+                    "Std Dev: {:.3f} equates to {:.1f} bits "
+                    "toggling.".format(inp, p_std, p_bits)
+                ),
+                caption="ADC Input Histogram",
+                bins=256,
+                ranges=(-1, 1),
+            )
+
+        else:
+            aqf_plot_histogram(
+                adc_data,
+                plot_filename="{}/adc_hist_{}.png".format(self.logs_path, inp),
+                plot_title=(
+                    "ADC Histogram for input {}\n Standard Deviation: {:.3f} equates "
+                    "to {:.1f} bits toggling".format(inp, p_std, p_bits)
+                ),
+                caption="ADC Input Histogram",
+                bins=256,
+                ranges=(-1, 1),
+            )
+
+        for key in ret_dict.keys():
+            self.Step("Capturing ADC Snapshot for input {}.".format(key))
+            # adc_data = adc_snapshot(key)
+            if profile != "cw":  # use standard deviation of noise before CW
+                p_std = np.std(adc_data)
+                p_bits = np.log2(p_std * 512)
+            ret_dict[key]["std_dev"] = p_std
+            ret_dict[key]["bits_t"] = p_bits
+            ret_dict[key]["scale"] = scale
+            ret_dict[key]["noise_scale"] = noise_scale
+            ret_dict[key]["profile"] = profile
+            ret_dict[key]["adc_satr"] = False
+            if np.abs(np.max(adc_data) or np.min(adc_data)) >= 0b111111111 / 512.0:
+                ret_dict[key]["adc_satr"] = True
+
+        # Set the fft shift to 511 for noise. This should be automated once
+        # a sensor is available to determine fft shift overflow.
+
+        self.Step("Setting FFT Shift to {}.".format(fft_shift))
+        try:
+            reply, informs = self.katcp_req.fft_shift(fft_shift)
+            self.assertTrue(reply.reply_ok())
+            for key in ret_dict.keys():
+                ret_dict[key]["fft_shift"] = reply.arguments[1:][0]
+        except AssertionError:
+            errmsg = "Failed to set FFT shift, reply = {}".format(reply)
+            self.Error(errmsg, exc_info=True)
+        except Exception:
+            errmsg = "Exception"
+            self.Error(errmsg, exc_info=True)
+
+        if profile == "cw":
+            self.Step("Setting quantiser gain for CW input.")
+            gain = 1
+            gain_str = "{}".format(int(gain)) + "+0j"
+            set_gain(inp, gain_str)
+
+            try:
+                dump = self.receiver.get_clean_dump()
+            except Queue.Empty:
+                errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                self.Error(errmsg, exc_info=True)
+            else:
+                baseline_lookup = get_baselines_lookup(self, dump)
+                inp_autocorr_idx = baseline_lookup[(inp, inp)]
+                dval = dump["xeng_raw"]
+                auto_corr = dval[:, inp_autocorr_idx, :]
+                ch_val = auto_corr[freq_ch][0]
+                next_ch_val = 0
+                # n_accs = self.cam_sensors.get_value('n_accs')
+                ch_val_array = []
+                ch_val_array.append([ch_val, gain])
+                count = 0
+                prev_ch_val_diff = 0
+                found = False
+                max_count = 100
+                two_found = False
+                while count < max_count:
+                    count += 1
+                    ch_val = next_ch_val
+                    gain += 1
+                    gain_str = "{}".format(int(gain)) + "+0j"
+                    self.Step("Setting quantiser gain of {} for input {}.".format(gain_str, inp))
+                    set_gain(inp, gain_str)
+                    try:
+                        dump = self.receiver.get_clean_dump()
+                    except Queue.Empty:
+                        errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                    except AssertionError:
+                        errmsg = (
+                            "No of channels (%s) in the spead data is inconsistent with the no of"
+                            " channels (%s) expected" % (dump["xeng_raw"].shape[0], self.n_chans_selected)
+                        )
+                        self.Failed(errmsg)
+                        return False
+                    else:
+                        dval = dump["xeng_raw"]
+                        auto_corr = dval[:, inp_autocorr_idx, :]
+                        next_ch_val = auto_corr[freq_ch][0]
+                        ch_val_diff = next_ch_val - ch_val
+                        # When the gradient start decreasing the center of the linear
+                        # section has been found. Grab the same number of points from
+                        # this point. Find 2 decreasing differences in a row
+                        if (not found) and (ch_val_diff < prev_ch_val_diff):
+                            if two_found:
+                                found = True
+                                count = max_count - count - 1
+                            else:
+                                two_found = True
+                        else:
+                            two_found = False
+                        ch_val_array.append([next_ch_val, gain])
+                        prev_ch_val_diff = ch_val_diff
+
+            y = [x[0] for x in ch_val_array]
+            x = [x[1] for x in ch_val_array]
+            grad = np.gradient(y)
+            # This does not work relibably
+            # grad_delta = []
+            # for i in range(len(grad) - 1):
+            #    grad_delta.append(grad[i + 1] / grad[i])
+            # The setpoint is where grad_delta is closest to 1
+            # grad_delta = np.asarray(grad_delta)
+            # set_point = np.argmax(grad_delta - 1.0 < 0) + 1
+            set_point = np.argmax(grad)
+            gain_str = "{}".format(int(x[set_point])) + "+0j"
+            plt.plot(x, y, label="Channel Response")
+            plt.plot(x[set_point], y[set_point], "ro", label="Gain Set Point = " "{}".format(x[set_point]))
+            plt.title("CW Channel Response for Quantiser Gain\n" "Channel = {}, Frequency = {}Hz".format(freq_ch, freq))
+            plt.ylabel("Channel Magnitude")
+            plt.xlabel("Quantiser Gain")
+            plt.legend(loc="upper left")
+            caption = "CW Channel Response for Quantiser Gain"
+            plot_filename = "{}/cw_ch_response_{}.png".format(self.logs_path, inp)
+            Aqf.matplotlib_fig(plot_filename, caption=caption)
+        else:
+            # Set quantiser gain for selected input to produces required
+            # standard deviation of quantiser snapshot
+            self.Step(
+                "Setting quantiser gain for noise input with a target " "standard deviation of {}.".format(trgt_q_std)
+            )
+            found = False
+            count = 0
+            margin = 0.01
+            gain = 300
+            gain_str = "{}".format(int(gain)) + "+0j"
+            set_gain(inp, gain_str)
+            while not found:
+                self.Step("Capturing quantiser snapshot for gain of " + gain_str)
+                data = quant_snapshot(inp)
+                cur_std = np.std(data)
+                cur_diff = trgt_q_std - cur_std
+                if (abs(cur_diff) < margin) or count > 20:
+                    found = True
+                else:
+                    count += 1
+                    perc_change = trgt_q_std / cur_std
+                    gain = gain * perc_change
+                    gain_str = "{}".format(int(gain)) + "+0j"
+                    set_gain(inp, gain_str)
+
+        # Set calculated gain for remaining inputs
+        for key in ret_dict.keys():
+            if profile == "cw":
+                ret_dict[key]["cw_freq"] = freq
+            set_gain(key, gain_str)
+            data = quant_snapshot(key)
+            p_std = np.std(data)
+            ret_dict[key]["q_gain"] = gain_str
+            ret_dict[key]["q_std_dev"] = p_std
+            ret_dict[key]["q_satr"] = False
+            rmax = np.max(np.asarray(data).real)
+            rmin = np.min(np.asarray(data).real)
+            imax = np.max(np.asarray(data).imag)
+            imin = np.min(np.asarray(data).imag)
+            if abs(rmax or rmin or imax or imin) >= 0b1111111 / 128.0:
+                ret_dict[key]["q_satr"] = True
+                count = 0
+                for val in data:
+                    if abs(val) >= 0b1111111 / 128.0:
+                        count += 1
+                ret_dict[key]["num_sat"] = count
+
+        if profile == "cw":
+            try:
+                dump = self.receiver.get_clean_dump()
+            except Queue.Empty:
+                errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                self.Failed(errmsg)
+                self.Error(errmsg, exc_info=True)
+            except AssertionError:
+                errmsg = (
+                    "No of channels (%s) in the spead data is inconsistent with the no of"
+                    " channels (%s) expected" % (dump["xeng_raw"].shape[0], self.n_chans_selected)
+                )
+                self.Failed(errmsg)
+                return False
+            else:
+                dval = dump["xeng_raw"]
+                auto_corr = dval[:, inp_autocorr_idx, :]
+                plot_filename = "{}/spectrum_plot_{}.png".format(self.logs_path, key)
+                plot_title = "Spectrum for Input {}\n" "Quantiser Gain: {}".format(key, gain_str)
+                caption = "Spectrum for CW input"
+                aqf_plot_channels(
+                    10 * np.log10(auto_corr[:, 0]),
+                    plot_filename=plot_filename,
+                    plot_title=plot_title,
+                    caption=caption,
+                    show=True,
+                )
+        else:
+            p_std = np.std(data)
+            aqf_plot_histogram(
+                np.abs(data),
+                plot_filename="{}/quant_hist_{}.png".format(self.logs_path, key),
+                plot_title=(
+                    "Quantiser Histogram for input {}\n "
+                    "Standard Deviation: {:.3f},"
+                    "Quantiser Gain: {}".format(key, p_std, gain_str)
+                ),
+                caption="Quantiser Histogram",
+                bins=64,
+                ranges=(0, 1.5),
+            )
+
+        key = ret_dict.keys()[0]
+        if profile == "cw":
+            self.Step("Digitiser simulator Sine Wave scaled at {:0.3f}".format(ret_dict[key]["scale"]))
+        self.Step("Digitiser simulator Noise scaled at {:0.3f}".format(ret_dict[key]["noise_scale"]))
+        self.Step("FFT Shift set to {}".format(ret_dict[key]["fft_shift"]))
+        for key in ret_dict.keys():
+            self.Step(
+                "{} ADC standard deviation: {:0.3f} toggling {:0.2f} bits".format(
+                    key, ret_dict[key]["std_dev"], ret_dict[key]["bits_t"]
+                )
+            )
+            self.Step(
+                "{} quantiser standard deviation: {:0.3f} at a gain of {}".format(
+                    key, ret_dict[key]["q_std_dev"], ret_dict[key]["q_gain"]
+                )
+            )
+            if ret_dict[key]["adc_satr"]:
+                self.Failed("ADC snapshot for {} contains saturated samples.".format(key))
+            if ret_dict[key]["q_satr"]:
+                self.Failed("Quantiser snapshot for {} contains saturated samples.".format(key))
+                self.Failed("{} saturated samples found".format(ret_dict[key]["num_sat"]))
+        return ret_dict
+
     def _small_voltage_buffer(self):
         channel_list = self.cam_sensors.ch_center_freqs
         # Choose a frequency 3 quarters through the band
@@ -6628,19 +7033,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         channel_bandwidth = self.cam_sensors.delta_f
         input_labels = self.cam_sensors.input_labels
 
-        if "4k" in self.instrument:
-            # 4K
-            cw_scale = 0.675
-            awgn_scale = 0.05
-            gain = "11+0j"
-            fft_shift = 8191
-        else:
-            # 32K
-            cw_scale = 0.375
-            awgn_scale = 0.085
-            gain = "11+0j"
-            fft_shift = 32767
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         self.Step(
             "Digitiser simulator configured to generate a continuous wave at %s Hz (channel=%s),"
             " with cw scale: %s, awgn scale: %s, eq gain: %s, fft shift: %s"
@@ -6722,19 +7115,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             print_counts = 3
             req_chan_spacing = 250e3
 
-            if "4k" in self.instrument:
-                # 4K
-                cw_scale = 0.675
-                awgn_scale = 0.05
-                gain = "11+0j"
-                fft_shift = 8191
-            else:
-                # 32K
-                cw_scale = 0.375
-                awgn_scale = 0.085
-                gain = "11+0j"
-                fft_shift = 32767
-
+            awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
             self.Step(
                 "Digitiser simulator configured to generate a continuous wave, "
                 "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
@@ -6992,17 +7373,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     def _test_product_baseline_leakage(self):
         heading("CBF Baseline Correlation Product Leakage")
-        if "4k" in self.instrument:
-            # 4K
-            awgn_scale = 0.0645
-            gain = "113+0j"
-            fft_shift = 511
-        else:
-            # 32K
-            awgn_scale = 0.063
-            gain = "344+0j"
-            fft_shift = 4095
-
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
         self.Step(
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)

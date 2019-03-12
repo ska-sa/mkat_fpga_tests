@@ -5,4 +5,4 @@
 
 # INTERACTIVE MATPLOTLIB
 # For when one needs to debug for instance, plt.show() and etc
-backend: agg
+backend: TKagg

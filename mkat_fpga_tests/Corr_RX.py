@@ -169,7 +169,7 @@ class CorrRx(threading.Thread, LoggingClass):
                     )
                 else:
                     if (xeng_raw == old_data).all():
-                        self.logger.error(
+                        self.logger.debug(
                             "Got repeat freq %s with SAME data for time %s" % (this_freq, this_time)
                         )
                     else:

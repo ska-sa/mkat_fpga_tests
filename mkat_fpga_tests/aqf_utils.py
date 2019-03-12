@@ -535,7 +535,6 @@ def aqf_plot_xy(
             LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
             return False
         dotted_line = True
-
         if isinstance(vlines, list):
             try:
                 plt.axvline(x=next(_vlines), linestyle="dashdot", color=plt_color)
@@ -582,15 +581,15 @@ def aqf_plot_xy(
     # if caption:
     # plt.figtext(.1, -.25, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
 
-    if vlines_plotd:
-        ymid = np.min(plot_data) / 2.0
-        plt.annotate(
-            "", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->")
-        )
-        plt.annotate(
-            "", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->")
-        )
-        plt.text(vlines[0], ymid + 1, annotate_text)
+    #if vlines_plotd:
+    #    ymid = np.min(plot_data) / 2.0
+    #    plt.annotate(
+    #        "", xy=[vlines[0], ymid], xytext=(vlines[1], ymid), arrowprops=dict(arrowstyle="<->")
+    #    )
+    #    plt.annotate(
+    #        "", xy=[vlines[1], ymid], xytext=(vlines[2], ymid), arrowprops=dict(arrowstyle="<->")
+    #    )
+    #    plt.text(vlines[0], ymid + 1, annotate_text)
 
     if hlines:
         if not isinstance(hlines, list):

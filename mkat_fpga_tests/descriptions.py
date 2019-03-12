@@ -188,8 +188,23 @@ class TestProcedure:
 
         **Baseline Correlation Product Leakage**
 
-        1. TBD
-        2.
+        1. Configure a digitiser simulator to be used as input source to F-Engines
+        2. Configure a digitiser simulator to generate correlated input noise signal.
+        3. Get list of all possible baselines (including redundant baselines) present in the correlator output from SPEAD accumulation
+        4. Check that each baseline (or its reverse-order counterpart) is present in the correlator output
+        5. Expect all baselines and all channels to be non-zero with Digitiser Simulator set to output AWGN.
+              - Confirm that no baselines have all-zero visibilities.
+              - Confirm that all baseline visibilities are non-zero across all channels
+        6. Save initial f-engine equalisations, and ensure they are restored at the end of the test
+        7. Set all inputs gains to `Zero`, and confirm that output product is all-zeros
+        8. - Confirm that all the inputs equalisations have been set to 'Zero'.
+            -  Confirm that all baseline visibilities are `Zero`.
+        9. Iterate through input combinations, verifying for each that the correct output appears in the correct baseline product.
+            - Set gain/equalisation correction on relevant input
+            - Retrieving SPEAD accumulation and,
+            - Confirm if gain/equalization correction has been applied.
+        10. Check that expected baseline visibilities are non-zero with non-zero inputs and,
+            - Confirm that expected baselines visibilities are 'Zeros'
         """
         return _description
 
@@ -1050,7 +1065,16 @@ class TestProcedure:
         _description = """
         **Group Delay**
 
-        **TBD**
+        1. Choose a random input, set the beam weight for this input to 1 and the rest to zero.
+        2. Set the FFT shift to 0 and the EQ gain to maximum (32767).
+        3. Configure a digitiser simulator to generate an impulse at a given sample count (mcount).
+        4. Step this impulse though a beam spectra (convolute the impulse with a spectral window).
+        5. Plot the average beam spectral response of surrounding spectra against sample count delta.
+        6. Determine sample count delta by subtracting the impulse mcount from the spectral mcount.
+        7. By convoluting the impulse with a spectral window a sinc fucntion is expected.
+        8. Find the peak of the resulting sinc fucntion and report the sample count (mcount) offset.
+        9. The peak will occur when the impulse is in the DC channel of the target spectrum, thus this determines the group delay of the system.
+
         """
         return _description
 
