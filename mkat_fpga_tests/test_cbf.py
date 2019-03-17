@@ -150,7 +150,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             del self.receiver
 
 
-    def set_instrument(self, acc_time=None, **kwargs):
+    def set_instrument(self, acc_time=None, stop_channels=None, **kwargs):
         self.receiver = None
         acc_timeout = 60
         self.errmsg = None
@@ -182,10 +182,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # This logic can be improved
             if acc_time:
                 pass
-            elif n_ants == 4:
-                acc_time = 0.5
+            elif n_ants == 64:
+                acc_time = 2.0
             else:
-                acc_time = n_ants / 32.0
+                acc_time = 0.5
+                #acc_time = n_ants / 32.0
             reply, informs = self.katcp_req.accumulation_length(acc_time, timeout=acc_timeout)
             self.assertTrue(reply.reply_ok())
             acc_time = float(reply.arguments[-1])
@@ -209,7 +210,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # ToDo maybe select stop channels depending on the no of ants
             # This logic can be improved
             start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
-            if n_ants == 64 and n_chans == 4096:
+            if stop_channels:
+                pass
+            elif n_ants == 64 and n_chans == 4096:
                 stop_channels = 2047
             elif n_chans == 1024:
                 stop_channels = 1023
@@ -262,7 +265,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.addCleanup(gc.collect)
             return True
 
-
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -273,23 +275,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(acc_time=0.5, stop_channels=100)
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 heading("CBF Channelisation Wideband Coarse L-band")
                 num_discards = 1
-                if n_chans == 32768:
+                if "32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
                         req_chan_spacing=31250, num_discards=num_discards
                     )
-                elif n_chans == 4096:
+                elif "4k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
                         req_chan_spacing=250e3, num_discards=num_discards
                     )
-                else:
+                elif "1k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
                         req_chan_spacing=1000e3, num_discards=num_discards
@@ -333,11 +335,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 heading("CBF Channelisation Wideband Coarse SFDR L-band")
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
                     self.n_chans_selected))
-                if n_chans == 32768:
+                if "32k" in self.instrument:
                     self._test_sfdr_peaks(required_chan_spacing=31250, no_channels=n_ch_to_test)  # Hz
-                elif n_chans == 4096:
+                elif "4k" in self.instrument:
                     self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
-                else:
+                elif "1k" in self.instrument:
                     self._test_sfdr_peaks(required_chan_spacing=1000e3, no_channels=n_ch_to_test)  # Hz
             else:
                 self.Failed(self.errmsg)
@@ -401,24 +403,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             instrument_success = self.set_instrument()
             if instrument_success:
                 n_chans = self.n_chans_selected
-                if n_chans == 32768:
-                    # 1k FFT shift = 16 stages
-                    self._test_linearity(
-                        test_channel=100, cw_start_scale=0.5, noise_scale=0.065,
-                        gain="400+j", fft_shift=65535, max_steps=20
-                    )
-                elif n_chans == 4096:
-                    # 1k FFT shift = 13 stages
-                    self._test_linearity(
-                        test_channel=100, cw_start_scale=1, noise_scale=0.001,
-                        gain="10+j", fft_shift=8191, max_steps=20
-                    )
-                else:
-                    # 1k FFT shift = 11 stages
-                    self._test_linearity(
-                        test_channel=100, cw_start_scale=1, noise_scale=0.063,
-                        gain="150+j", fft_shift=2047, max_steps=14
-                    )
+                awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+                cw_start_scale = cw_scale + 0.3
+                if cw_start_scale > 1.0:
+                    cw_start_scale = 1.0
+                self._test_linearity(
+                    test_channel=100, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
+                    gain=gain, fft_shift=fft_shift, max_steps=14
+                )
             else:
                 self.Failed(self.errmsg)
 
@@ -496,7 +488,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(acc_time=0.5, stop_channels=500)
             if instrument_success:
                 self._test_product_baselines()
                 self._test_back2back_consistency()
@@ -641,16 +633,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(acc_time=(0.5
-                if self.cam_sensors.sensors.n_ants.get_value() == 4
-                else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
+            #instrument_success = self.set_instrument(acc_time=(0.5
+            #    if self.cam_sensors.sensors.n_ants.get_value() == 4
+            #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
+            instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["delay_test_acc_time"]))
             if instrument_success:
-                self._test_delay_tracking()
-                self._test_delay_rate()
-                self._test_fringe_rate()
-                self._test_fringe_offset()
-                self._test_delay_inputs()
-                self.clear_all_delays()
+                #self._test_delay_tracking()
+                #self._test_delay_rate()
+                self._test_phase_rate_step()
+                #self._test_phase_offset()
+                #self._test_delay_inputs()
+                #self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
 
@@ -3540,16 +3533,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # _rate = get_delay_bounds(self.corr_fix.correlator).get('min_delay_rate')
             delay_rate = 0.7 * (self.cam_sensors.sample_period / self.cam_sensors.get_value("int_time"))
             delay_value = 0
-            fringe_offset = 0
-            fringe_rate = 0
+            phase_offset = 0
+            phase_rate = 0
             load_time = setup_data["t_apply"]
             delay_rates = [0] * setup_data["num_inputs"]
             delay_rates[setup_data["test_source_ind"]] = delay_rate
             delay_coefficients = ["0,{}:0,0".format(fr) for fr in delay_rates]
-            self.Step("Calculate the parameters to be used for setting Fringe(s)/Delay(s).")
+            self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
             self.Progress(
-                "Delay Rate: %s, Delay Value: %s, Fringe Offset: %s, Fringe Rate: %s "
-                % (delay_rate, delay_value, fringe_offset, fringe_rate)
+                "Delay Rate: %s, Delay Value: %s, Phase Offset: %s, Phase Rate: %s "
+                % (delay_rate, delay_value, phase_offset, phase_rate)
             )
 
             try:
@@ -3659,29 +3652,73 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     dump_counts,
                 )
 
-    def _test_fringe_rate(self):
-        msg = "CBF Delay and Phase Compensation Functional VR: -- Fringe rate"
+    def _test_phase_rate_step(self):
+        msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
+        heading(msg)
+        setup_data = self._delays_setup()
+        if setup_data:
+            dump_counts = 1
+            _rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
+            phase_rate = (np.pi / 8.0) / _rand_gen
+            phase_rate = 0.1
+            delay_value = 0
+            delay_rate = 0
+            phase_offset = 0
+            load_time = setup_data["t_apply"]
+            phase_rates = [0] * setup_data["num_inputs"]
+            import IPython;IPython.embed()
+            for phase_rate in np.arange(0.1, 0.5, 0.05):
+                phase_rate = round(phase_rate, 3)
+                phase_rates[setup_data["test_source_ind"]] = phase_rate
+                delay_coefficients = ["0,0:0,{}".format(fr) for fr in phase_rates]
+
+                try:
+                    actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                    actual_phases = [phases for phases, response in actual_data]
+
+                except TypeError:
+                    errmsg = "Could not retrieve actual delay rate data. Aborting test: Exception: {}".format(e)
+                    self.Error(errmsg, exc_info=True)
+                    return
+                else:
+                    expected_phases = self._get_expected_data(setup_data, dump_counts, delay_coefficients, actual_phases)
+
+                    actual_phases_ = np.unwrap(actual_phases)
+                    msg = ('Mean phase: {:.3f}, set rate: {:.5f}, actual rate: {:.5f}.'
+                                   ''.format(
+                                             actual_phases_.mean(), 
+                                             phase_rate,
+                                             phase_rate))
+                    Aqf.step(msg)
+
+    def _test_phase_rate(self):
+        msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
         heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             dump_counts = 5
             _rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
-            fringe_rate = (np.pi / 8.0) / _rand_gen
+            phase_rate = (np.pi / 8.0) / _rand_gen
+            phase_rate = 0.1
             delay_value = 0
             delay_rate = 0
-            fringe_offset = 0
+            phase_offset = 0
             load_time = setup_data["t_apply"]
-            fringe_rates = [0] * setup_data["num_inputs"]
-            fringe_rates[setup_data["test_source_ind"]] = fringe_rate
-            delay_coefficients = ["0,0:0,{}".format(fr) for fr in fringe_rates]
+            phase_rates = [0] * setup_data["num_inputs"]
+            phase_rates_corr = [0] * setup_data["num_inputs"]
+            phase_rates[setup_data["test_source_ind"]] = phase_rate
+            phase_rates_corr[setup_data["test_source_ind"]] = phase_rate*1.15
+            delay_coefficients = ["0,0:0,{}".format(fr) for fr in phase_rates]
+            delay_coefficients_corr = ["0,0:0,{}".format(fr) for fr in phase_rates_corr]
 
-            self.Step("Calculate the parameters to be used for setting Fringe(s)/Delay(s).")
+            self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
             self.Progress(
-                "Delay Rate: %s, Delay Value: %s, Fringe Offset: %s, Fringe Rate: %s "
-                % (delay_rate, delay_value, fringe_offset, fringe_rate)
+                "Delay Rate: %s seconds/second, Delay Value: %s radians, "
+                "Phase Offset: %s radians, Phase Rate: %s radians/second"
+                % (delay_rate, delay_value, phase_offset, phase_rate)
             )
             try:
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients_corr)
                 actual_phases = [phases for phases, response in actual_data]
 
             except TypeError:
@@ -3693,10 +3730,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 no_chans = range(self.n_chans_selected)
                 plot_units = "rads/sec"
-                plot_title = "Randomly generated fringe rate {} {}".format(fringe_rate, plot_units)
-                plot_filename = "{}/{}_fringe_rate.png".format(self.logs_path, self._testMethodName)
+                plot_title = "Randomly generated phase rate {} {}".format(phase_rate, plot_units)
+                plot_filename = "{}/{}_phase_rate.png".format(self.logs_path, self._testMethodName)
                 caption = (
-                    "Actual vs Expected Unwrapped Correlation Phase [Fringe Rate].\n"
+                    "Actual vs Expected Unwrapped Correlation Phase [Phase Rate].\n"
                     "Note: Dashed line indicates expected value and solid line "
                     "indicates actual values received from SPEAD accumulation."
                 )
@@ -3706,97 +3743,130 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 decimal = len(str(degree).split(".")[-1])
                 actual_phases_ = np.unwrap(actual_phases)
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
-                msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
+                msg = "Observe the change in the phase, and confirm the phase change is as expected."
                 self.Step(msg)
-                for i in range(0, len(expected_phases_) - 1):
-                    try:
-                        delta_expected = np.max(expected_phases_[i + 1] - expected_phases_[i])
-                        delta_actual = np.max(actual_phases_[i + 1] - actual_phases_[i])
-                    except IndexError:
-                        errmsg = "Failed: Index is out of bounds"
-                        self.Error(errmsg, exc_info=True)
-                    else:
-                        abs_diff = np.abs(delta_expected - delta_actual)
-                        # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-                        msg = (
-                            "Confirm that the difference between expected({:.3f}) "
-                            "phases and actual({:.3f}) phases are 'Almost Equal' within "
-                            "{} degree when fringe rate of {} is applied.".format(
-                                delta_expected, delta_actual, degree, fringe_rate
-                            )
-                        )
-                        Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
+                # This is needed if a subset of channels were captured.
+                # TODO: if captured channels does not start a 0 this slice is incorrect. To Fix
+                try:
+                    expected_phases_slice = expected_phases_[:,:actual_phases_.shape[1]]
+                    phase_err      = actual_phases_ - expected_phases_slice
+                    phase_err_max  = np.max(phase_err, axis=1)
+                    phase_step_act = np.diff(actual_phases_, axis=0)
+                    phase_step_exp = np.diff(expected_phases_slice, axis=0)
+                    phase_step_err = phase_step_act - phase_step_exp
+                    phase_step_err_max = np.max(phase_step_err, axis=1)
+                    Aqf.step('Check that the phase step per accumulation is within '
+                             '{} deg / {:.3f} rad of the expected step ({:.3f} rad) '
+                             'at a rate of {:.3f} radians/second.'
+                             ''.format(degree, np.deg2rad(degree), 
+                                       phase_step_exp[0][0],
+                                       phase_rate))
+                    for i, err in enumerate(phase_step_err_max):
+                        msg = ('Expected vs measured phase offset between accumulations '
+                               '{} and {} = {:.3f} radians.'.format(i, i+1, err))
+                        Aqf.less(np.abs(err), np.deg2rad(degree), msg)
+                    Aqf.step('Check that the absolute phase for each accumulation is within '
+                             '{} deg / {:.3f} rad of the expected phase.'
+                             ''.format(degree, np.deg2rad(degree)))
+                    for i, err in enumerate(phase_err_max):
+                        msg = ('Accumulation {}: Mean phase: {:.3f}, expected phase: {:.3f}. '
+                               'Offset: {:.3f} radians.'
+                               ''.format(i, 
+                                         actual_phases_[i].mean(), 
+                                         expected_phases_slice[i].mean(),
+                                         err))
+                        Aqf.less(np.abs(err), np.deg2rad(degree), msg)
+                except IndexError:
+                    import IPython;IPython.embed()
 
-                        msg = (
-                            "Confirm that the maximum difference ({:.3f} "
-                            "deg / {:.3f} rad) between expected phase and actual phase "
-                            "between integrations is less than {} degree\n".format(
-                                np.rad2deg(abs_diff), abs_diff, degree
-                            )
-                        )
-                        Aqf.less(abs_diff, radians, msg)
+                #for i in range(0, len(expected_phases_) - 1):
+                #    try:
+                #        delta_expected = np.max(expected_phases_[i + 1] - expected_phases_[i])
+                #        delta_actual = np.max(actual_phases_[i + 1] - actual_phases_[i])
+                #        delta_diff = delta_actual - delta_expected
+                #        abs_diff = np.max(actual_phases_[i] - expected_phases_[i][:actual_phases_[i].size])
+                #    except IndexError:
+                #        errmsg = "Failed: Index is out of bounds"
+                #        self.Error(errmsg, exc_info=True)
+                #    else:
+                #        #abs_diff = np.abs(delta_expected - delta_actual)
+                #        #abs_diff_deg = np.rad2deg(abs_diff)
+                #        Aqf.step(
+                #            "Maximum phase change between accumulations {} and {} in radians, "
+                #            "expected = {:.3f}, measured = {:.3f}."
+                #            "".format(i, i+1, delta_expected, delta_actual))
+                #        msg = ("Expected vs measured difference = {:.3f} radians "
+                #               "which shall be within {} degree ({:.3f} radians)"
+                #               "".format(delta_diff, degree, np.deg2rad(degree)))
+                #        Aqf.almost_equals(delta_actual, delta_expected, np.deg2rad(degree), msg)
 
-                        try:
-                            delta_actual_s = delta_actual - (delta_actual % degree)
-                            delta_expected_s = delta_expected - (delta_expected % degree)
-                            np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-                        except AssertionError:
-                            self.Step(
-                                "Difference between expected({:.3f}) phases and actual({:.3f}) "
-                                "phases are 'Not almost equal' within {} degree when fringe rate "
-                                "of {} is applied.".format(delta_expected, delta_actual, degree, fringe_rate)
-                            )
+                #        Aqf.step("Accumulation {}: Mean expected phase: ({:.3f} rad), mean measured phase: ({:.3f} rad)."
+                #                 "".format(i, expected_phases_[i].mean(), actual_phases_[i].mean()))
+                #        msg = ("Confirm maximum difference between expected phase and measured phase ({:.3f} rad) is less than {:.3f} rad."
+                #               "".format(abs_diff, np.deg2rad(degree)))
+                #        Aqf.less(abs_diff, np.deg2rad(degree), msg)
 
-                            caption = (
-                                "Difference expected({:.3f}) and "
-                                "actual({:.3f}) phases are not equal within {} degree when "
-                                "fringe rate of {} is applied.".format(
-                                    delta_expected, delta_actual, degree, fringe_rate
-                                )
-                            )
+                        #try:
+                        #    delta_actual_s = delta_actual - (delta_actual % degree)
+                        #    delta_expected_s = delta_expected - (delta_expected % degree)
+                        #    np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+                        #except AssertionError:
+                        #    self.Step(
+                        #        "Difference between expected({:.3f}) phases and actual({:.3f}) "
+                        #        "phases are 'Not almost equal' within {} degree when phase rate "
+                        #        "of {} is applied.".format(delta_expected, delta_actual, degree, phase_rate)
+                        #    )
 
-                            actual_phases_i = (delta_actual, actual_phases[i])
-                            if len(expected_phases[i]) == 2:
-                                expected_phases_i = (delta_expected, expected_phases[i][-1])
-                            else:
-                                expected_phases_i = (delta_expected, expected_phases[i])
+                        #    caption = (
+                        #        "Difference expected({:.3f}) and "
+                        #        "actual({:.3f}) phases are not equal within {} degree when "
+                        #        "phase rate of {} is applied.".format(
+                        #            delta_expected, delta_actual, degree, phase_rate
+                        #        )
+                        #    )
 
-                            aqf_plot_phase_results(
-                                no_chans,
-                                actual_phases_i,
-                                expected_phases_i,
-                                plot_filename="{}/{}_fringe_rate_{}.png".format(
-                                    self.logs_path, self._testMethodName, i
-                                ),
-                                plot_title="Fringe Rate: Actual vs Expected Phase Response",
-                                plot_units=plot_units,
-                                caption=caption,
-                            )
+                        #    actual_phases_i = (delta_actual, actual_phases[i])
+                        #    if len(expected_phases[i]) == 2:
+                        #        expected_phases_i = (delta_expected, expected_phases[i][-1])
+                        #    else:
+                        #        expected_phases_i = (delta_expected, expected_phases[i])
+
+                        #    aqf_plot_phase_results(
+                        #        no_chans,
+                        #        actual_phases_i,
+                        #        expected_phases_i,
+                        #        plot_filename="{}/{}_phase_rate_{}.png".format(
+                        #            self.logs_path, self._testMethodName, i
+                        #        ),
+                        #        plot_title="Phase Rate: Actual vs Expected Phase Response",
+                        #        plot_units=plot_units,
+                        #        caption=caption,
+                        #    )
 
                 aqf_plot_phase_results(
                     no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption
                 )
 
-    def _test_fringe_offset(self):
-        msg = "CBF Delay and Phase Compensation Functional VR: Fringe offset"
+    def _test_phase_offset(self):
+        msg = "CBF Delay and Phase Compensation Functional VR: Phase offset"
         heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
             dump_counts = 5
-            fringe_offset = (np.pi / 2.0) * np.random.rand() * dump_counts
-            # fringe_offset = 1.22796022444
+            phase_offset = (np.pi / 2.0) * np.random.rand() * dump_counts
+            # phase_offset = 1.22796022444
             delay_value = 0
             delay_rate = 0
-            fringe_rate = 0
+            phase_rate = 0
             load_time = setup_data["t_apply"]
-            fringe_offsets = [0] * setup_data["num_inputs"]
-            fringe_offsets[setup_data["test_source_ind"]] = fringe_offset
-            delay_coefficients = ["0,0:{},0".format(fo) for fo in fringe_offsets]
+            phase_offsets = [0] * setup_data["num_inputs"]
+            phase_offsets[setup_data["test_source_ind"]] = phase_offset
+            delay_coefficients = ["0,0:{},0".format(fo) for fo in phase_offsets]
 
-            self.Step("Calculate the parameters to be used for setting Fringe(s)/Delay(s).")
+            self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
             self.Progress(
-                "Delay Rate: %s, Delay Value: %s, Fringe Offset: %s, Fringe Rate: %s "
-                % (delay_rate, delay_value, fringe_offset, fringe_rate))
+                "Delay Rate: %s, Delay Value: %s, Phase Offset: %s, Phase Rate: %s "
+                % (delay_rate, delay_value, phase_offset, phase_rate))
 
             try:
                 actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
@@ -3808,10 +3878,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_phases = self._get_expected_data(setup_data, dump_counts, delay_coefficients, actual_phases)
                 no_chans = range(self.n_chans_selected)
                 plot_units = "rads"
-                plot_title = "Randomly generated fringe offset {:.3f} {}".format(fringe_offset, plot_units)
-                plot_filename = "{}/{}_fringe_offset.png".format(self.logs_path, self._testMethodName)
+                plot_title = "Randomly generated phase offset {:.3f} {}".format(phase_offset, plot_units)
+                plot_filename = "{}/{}_phase_offset.png".format(self.logs_path, self._testMethodName)
                 caption = (
-                    "Actual vs Expected Unwrapped Correlation Phase [Fringe Offset].\n"
+                    "Actual vs Expected Unwrapped Correlation Phase [Phase Offset].\n"
                     "Note: Dashed line indicates expected value and solid line "
                     "indicates actual values received from SPEAD accumulation. "
                     "Values are rounded off to 3 decimals places"
@@ -3833,8 +3903,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     msg = (
                         "Confirm that the difference between expected({:.3f})"
                         " phases and actual({:.3f}) phases are 'Almost Equal' "
-                        "within {:.3f} degree when fringe offset of {:.3f} is "
-                        "applied.".format(delta_expected, delta_actual, degree, fringe_offset)
+                        "within {:.3f} degree when phase offset of {:.3f} is "
+                        "applied.".format(delta_expected, delta_actual, degree, phase_offset)
                     )
 
                     Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
@@ -3857,16 +3927,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.Step(
                             "Difference between expected({:.5f}) phases "
                             "and actual({:.5f}) phases are 'Not almost equal' "
-                            "within {} degree when fringe offset of {} is applied.".format(
-                                delta_expected, delta_actual, degree, fringe_offset
+                            "within {} degree when phase offset of {} is applied.".format(
+                                delta_expected, delta_actual, degree, phase_offset
                             )
                         )
 
                         caption = (
                             "Difference expected({:.3f}) and actual({:.3f}) "
-                            "phases are not equal within {:.3f} degree when fringe offset "
+                            "phases are not equal within {:.3f} degree when phase offset "
                             "of {:.3f} {} is applied.".format(
-                                delta_expected, delta_actual, degree, fringe_offset, plot_units
+                                delta_expected, delta_actual, degree, phase_offset, plot_units
                             )
                         )
 
@@ -3879,9 +3949,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             no_chans,
                             actual_phases_i,
                             expected_phases_i,
-                            plot_filename="{}/{}_{}_fringe_offset.png".format(self.logs_path,
+                            plot_filename="{}/{}_{}_phase_offset.png".format(self.logs_path,
                                 self._testMethodName, i),
-                            plot_title=("Fringe Offset:\nActual vs Expected Phase Response"),
+                            plot_title=("Phase Offset:\nActual vs Expected Phase Response"),
                             plot_units=plot_units,
                             caption=caption,
                         )
@@ -3892,7 +3962,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     def _test_delay_inputs(self):
         """
-        CBF Delay Compensation/LO Fringe stopping polynomial:
+        CBF Delay Compensation/LO Phase stopping polynomial:
         Delay applied to the correct input
         """
         msg = "CBF Delay and Phase Compensation Functional VR: Delays applied to the correct input"
@@ -4022,7 +4092,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     try:
                         actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
                     except TypeError:
-                        self.Error("Failed to set the delays/fringes", exc_info=True)
+                        self.Error("Failed to set the delays/phases", exc_info=True)
                     else:
                         self.Step("Confirm that the %s where successfully set" % _new_name)
                         reply, informs = self.katcp_req.delays("antenna-channelised-voltage", )
@@ -4057,11 +4127,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             load_strt_time = time.time()
             reply_, _informs = self.katcp_req.delays(t_apply, *delay_coefficients, timeout=30)
             load_done_time = time.time()
-            msg = "Delay/Fringe(s) set via CAM interface reply : %s" % str(reply_)
+            msg = "Delay/Phase(s) set via CAM interface reply : %s" % str(reply_)
             self.assertTrue(reply_.reply_ok())
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             Aqf.is_true(reply_.reply_ok(), msg)
-            self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
+            self.Step("Phase/Delay load command took {} seconds".format(cmd_load_time))
             # _give_up = int(num_int * int_time * 3)
             # while True:
             #    _give_up -= 1
@@ -4093,7 +4163,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return
         else:
             cam_max_load_time = setup_data["cam_max_load_time"]
-            msg = "Time it took to load delay/fringe(s) %s is less than %ss" % (cmd_load_time,
+            msg = "Time it took to load delay/phase(s) %s is less than %ss" % (cmd_load_time,
                 cam_max_load_time)
             Aqf.less(cmd_load_time, cam_max_load_time, msg)
 

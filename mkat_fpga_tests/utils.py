@@ -1352,7 +1352,7 @@ class UtilsClass(object):
         else:
             self.Passed("Cleared all previously applied delays prior to test.")
 
-        self.Step("Retrieve initial SPEAD accumulation, in-order to calculate all " "relevant parameters.")
+        self.Step("Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.")
         try:
             initial_dump = self.receiver.get_clean_dump()
         except Queue.Empty:
@@ -1420,7 +1420,20 @@ class UtilsClass(object):
                             delay_coefficients,
                         ))
             self.assertTrue(reply.reply_ok(), errmsg)
-            actual_delay_coef = reply.arguments[1:]
+            #TODO check that delay coeffiecients were loaded at the correct time
+            n_ants = int(self.cam_sensors.get_value("n_ants"))
+            actual_delay_coef = []
+            for inputs in range(n_ants*2):
+                delays = self.cam_sensors.get_value('input{}_delay'.format(inputs))
+                delays = delays.replace('(','')
+                delays = delays.replace(')','')
+                delays = delays.split(',')
+                try:
+                    delays = map(float)
+                except ValueError:
+                    # delays not set!
+
+
             if "updated" not in actual_delay_coef[0]:
                 raise AssertionError()
             cmd_load_time = round(load_done_time - load_strt_time, 3)
@@ -1466,7 +1479,7 @@ class UtilsClass(object):
         fringe_dumps = []
         self.Step(
             "Getting SPEAD accumulation containing the change in fringes(s) on input: %s "
-            "baseline: %s, and discard all irrelevant accumulations."
+            "baseline: %s, and discard all preceding accumulations."
             % (setup_data["test_source"], setup_data["baseline_index"])
         )
         while True:
@@ -1480,10 +1493,11 @@ class UtilsClass(object):
             else:
                 time_diff = np.abs(dump["dump_timestamp"] - last_discard)
                 if time_diff < 0.1 * setup_data["int_time"]:
-                    fringe_dumps.append(dump)
+                    # Dont add this dump... delay has not been applied yet...
+                    #fringe_dumps.append(dump)
                     msg = (
                         "Received final accumulation before fringe "
-                        "application with dump timestamp: %s, relevant to time apply: %s "
+                        "application with dump timestamp: %s, apply time: %s "
                         "(Difference %s)" % (dump["dump_timestamp"], setup_data["t_apply"], time_diff)
                     )
                     self.Passed(msg)
@@ -1500,7 +1514,7 @@ class UtilsClass(object):
                 else:
                     msg = (
                         "Discarding (#%d) Spead accumulation with dump timestamp: %s"
-                        ", relevant to time to apply: %s"
+                        ", apply time: %s "
                         "(Difference %.2f), Current cmc time: %s."
                         % (
                             num_discards, dump["dump_timestamp"],
@@ -1513,14 +1527,7 @@ class UtilsClass(object):
                     elif time_diff < 3:
                         self.Progress(msg)
 
-        def _force_discard():
-            self.receiver.data_queue.get()
-            self.receiver.data_queue.get()
-
-        # For debugging, for some weird reason we have to discard 2 dumps before capturing the
-        # data with the change in phase
-        _force_discard()
-        for i in range(dump_counts - 1):
+        for i in range(dump_counts):
             self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))
             try:
                 dump = self.receiver.data_queue.get()

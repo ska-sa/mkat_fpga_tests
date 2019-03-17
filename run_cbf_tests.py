@@ -123,6 +123,13 @@ def option_parser():
         default=False,
         help="Run the tests decorated with @array_release_x",
     )
+    parser.add_argument(
+        "--subset",
+        action="store_true",
+        dest="decorated_subset_tests",
+        default=False,
+        help="Run the tests decorated with @subset",
+    )
 
     parser.add_argument(
         "--1k",
@@ -772,6 +779,8 @@ def run_nose_test(settings):
         cmd.append("--katreport-requirements={}".format(settings["json_file"]))
 
     if settings.get("decorated_custom_tests", False):
+        cmd.append("-a array_release_x")
+    elif settings.get("decorated_custom_tests", False):
         cmd.append("-a array_release_x")
     else:
         # Build the nosetests filter.
