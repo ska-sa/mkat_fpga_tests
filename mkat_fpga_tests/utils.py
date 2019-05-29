@@ -62,7 +62,7 @@ __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexi
     "ignored", "init_dsim_sources", "int2ip", "ip2int", "iterate_recursive_dict", "loggerise",
     "magnetise", "nonzero_baselines", "normalise", "normalised_magnitude", "Report_Images",
     "RetryError", "retryloop", "RunTestWithTimeout", "TestTimeout", "UtilsClass", "wipd",
-    "array_release_x", "zero_baselines"]
+    "array_release_x", "subset", "zero_baselines"]
 
 
 class RetryError(Exception):
@@ -703,9 +703,9 @@ class UtilsClass(object):
         if (profile in ('noise','cw')):
             if "1k" in self.instrument:
                 awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
-                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}noise1k_cw_scale".format(profile)]
-                gain       = self.corr_fix._test_config_file["instrument_params"]["{}noise1k_gain".format(profile)]
-                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}noise1k_fft_shift".format(profile)]
+                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
+                gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
+                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
             elif "4k" in self.instrument:                                     
                 awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
                 cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
@@ -1405,8 +1405,46 @@ class UtilsClass(object):
                     "cam_max_load_time": cam_max_load_time,
                 }
 
+    def _test_coeff(self, setup_data, delay_coefficients, max_wait_dumps=50):
+        reply, _informs = self.katcp_req.delays("antenna-channelised-voltage",
+            setup_data["t_apply"], *delay_coefficients, timeout=30)
+        n_ants = int(self.cam_sensors.get_value("n_ants"))
+        actual_delay_coef = []
+        for inputs in range(n_ants*2):
+            delays = self.cam_sensors.get_value('input{}_delay'.format(inputs))
+            delays = delays.replace('(','')
+            delays = delays.replace(')','')
+            delays = delays.split(',')
+            try:
+                delays = map(float, delays)
+                actual_delay_coef.append(delays)
+            except ValueError:
+                errmsg = "Error reading delay values: {}".format(delays)
+                self.Failed(errmsg, exc_info=True)
+        actual_delay_coef  = np.array(actual_delay_coef)
+        actual_delay_coef  = np.delete(actual_delay_coef, 0, axis=1)
+        request_delay_coef = [s.replace(':',',') for s in delay_coefficients]
+        request_delay_coef = [s.split(',') for s in request_delay_coef]
+        request_delay_coef = [map(float,inp) for inp in request_delay_coef]
+        error_indexes = np.where(request_delay_coef != actual_delay_coef)
+        error_margin = np.deg2rad(1)
+        delay_name_pos = ['delay', 'delay rate', 'phase offset', 'phase rate']
+        for err_idx, err_row in enumerate(error_indexes[0]):
+            err_col = error_indexes[1][err_idx]
+            actual_delay_val  = actual_delay_coef[err_row][err_col]
+            request_delay_val = request_delay_coef[err_row][err_col]
+            diff = actual_delay_val - request_delay_val
+            if abs(diff) > error_margin:
+                setting = delay_name_pos[err_col]
+                errmsg = ('Input {} {} set ({:.5f}) does not match requested ({:.5f}), '
+                          'difference = {}'
+                          ''.format(err_row, setting, actual_delay_val, 
+                                    request_delay_val, diff))
+                self.Failed(errmsg, exc_info = True)
 
-    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, max_wait_dumps=50):
+
+    def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, 
+                         max_wait_dumps=30, err_margin_deg=1):
         try:
             self.Step("Request Fringe/Delay(s) Corrections via CAM interface.")
             load_strt_time = time.time()
@@ -1421,6 +1459,7 @@ class UtilsClass(object):
                         ))
             self.assertTrue(reply.reply_ok(), errmsg)
             #TODO check that delay coeffiecients were loaded at the correct time
+            # Check that requested value has been set
             n_ants = int(self.cam_sensors.get_value("n_ants"))
             actual_delay_coef = []
             for inputs in range(n_ants*2):
@@ -1429,12 +1468,35 @@ class UtilsClass(object):
                 delays = delays.replace(')','')
                 delays = delays.split(',')
                 try:
-                    delays = map(float)
+                    delays = map(float, delays)
+                    actual_delay_coef.append(delays)
                 except ValueError:
-                    # delays not set!
+                    errmsg = "Error reading delay values: {}".format(delays)
+                    self.Failed(errmsg, exc_info=True)
+            actual_delay_coef  = np.array(actual_delay_coef)
+            actual_delay_coef  = np.delete(actual_delay_coef, 0, axis=1)
+            request_delay_coef = [s.replace(':',',') for s in delay_coefficients]
+            request_delay_coef = [s.split(',') for s in request_delay_coef]
+            request_delay_coef = [map(float,inp) for inp in request_delay_coef]
+            error_indexes = np.where(request_delay_coef != actual_delay_coef)
+            error_margin = np.deg2rad(err_margin_deg)
+            delay_name_pos = ['delay', 'delay rate', 'phase offset', 'phase rate']
+            for err_idx, err_row in enumerate(error_indexes[0]):
+                err_col = error_indexes[1][err_idx]
+                actual_delay_val  = actual_delay_coef[err_row][err_col]
+                request_delay_val = request_delay_coef[err_row][err_col]
+                diff = actual_delay_val - request_delay_val
+                if abs(diff) > error_margin:
+                    self.Step('{}'.format(error_margin))
+                    setting = delay_name_pos[err_col]
+                    errmsg = ('Input {} {} set ({:.5f}) does not match requested ({:.5f}), '
+                              'difference = {}'
+                              ''.format(err_row, setting, actual_delay_val, 
+                                        request_delay_val, diff))
+                    self.Failed(errmsg, exc_info = True)
 
-
-            if "updated" not in actual_delay_coef[0]:
+            if "updated" not in reply.arguments[1]:
+                errmsg = errmsg + ' katcp reply: {}'.format(reply)
                 raise AssertionError()
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             self.Step("Fringe/Delay load command took {} seconds".format(cmd_load_time))
@@ -1470,7 +1532,7 @@ class UtilsClass(object):
             # msg = 'Time it took to load delay/fringe(s) %s is less than %ss' % (cmd_load_time,
             #        cam_max_load_time)
             # Aqf.less(cmd_load_time, cam_max_load_time, msg)
-        except Exception:
+        except AssertionError:
             self.Failed(errmsg, exc_info=True)
             return
 
@@ -1546,8 +1608,7 @@ class UtilsClass(object):
             chan_resp.append(freq_response)
             data = complexise(dval[:, setup_data["baseline_index"], :])
             phases.append(np.angle(data))
-        return zip(phases, chan_resp)
-
+        return zip(phases, chan_resp), actual_delay_coef, error_indexes
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
         def calc_actual_delay(setup_data):
@@ -1605,24 +1666,21 @@ class UtilsClass(object):
                 expected_phases.append(gen_fringe_vector(offset, setup_data))
             return expected_phases
 
-        ant_delay = []
-        for delay in delay_coefficients:
-            bits = delay.strip().split(":")
-            if len(bits) != 2:
-                raise ValueError("%s is not a valid delay setting" % delay)
-            delay = bits[0]
-            delay = delay.split(",")
-            delay = (float(delay[0]), float(delay[1]))
-            fringe = bits[1]
-            fringe = fringe.split(",")
-            fringe = (float(fringe[0]), float(fringe[1]))
-            ant_delay.append((delay, fringe))
+        try:
+            if type(delay_coefficients[0]) == str:
+                ant_delay = [s.replace(':',',') for s in delay_coefficients]
+                ant_delay = [s.split(',') for s in ant_delay]
+                ant_delay = [map(float,inp) for inp in ant_delay]
+            else:
+                ant_delay = delay_coefficients
 
-        ant_idx = setup_data["test_source_ind"]
-        delay = ant_delay[ant_idx][0][0]
-        delay_rate = ant_delay[ant_idx][0][1]
-        fringe_offset = ant_delay[ant_idx][1][0]
-        fringe_rate = ant_delay[ant_idx][1][1]
+            ant_idx = setup_data["test_source_ind"]
+            delay = ant_delay[ant_idx][0]
+            delay_rate = ant_delay[ant_idx][1]
+            fringe_offset = ant_delay[ant_idx][2]
+            fringe_rate = ant_delay[ant_idx][3]
+        except Exception as e:
+            raise ValueError("[} is not a valid delay setting: {}".format(ant_delay, e))
 
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts + 1, setup_data)))[1:]
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts + 1, setup_data))[1:]
@@ -2086,6 +2144,23 @@ def array_release_x(f):
             pass
     """
     return attr("array_release_x")(f)
+
+def subset(f):
+    """
+    Custom decorator and flag for decorating tests that you would need a QTP/QTR generated automagically
+
+    Usage CLI:
+        Following command can be used in the command line to narrow the execution of the test to
+        the ones marked with @subset
+
+        nosetests -a subset
+
+    Usage in Test:
+        @subset
+        def test_channelistion(self):
+            pass
+    """
+    return attr("subset")(f)
 
 
 def wipd(f):

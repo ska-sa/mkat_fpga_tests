@@ -187,24 +187,8 @@ class TestProcedure:
         2. The baseline correlation test proves that the CBF ingests raw digitiser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
 
         **Baseline Correlation Product Leakage**
+        TBD
 
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate correlated input noise signal.
-        3. Get list of all possible baselines (including redundant baselines) present in the correlator output from SPEAD accumulation
-        4. Check that each baseline (or its reverse-order counterpart) is present in the correlator output
-        5. Expect all baselines and all channels to be non-zero with Digitiser Simulator set to output AWGN.
-              - Confirm that no baselines have all-zero visibilities.
-              - Confirm that all baseline visibilities are non-zero across all channels
-        6. Save initial f-engine equalisations, and ensure they are restored at the end of the test
-        7. Set all inputs gains to `Zero`, and confirm that output product is all-zeros
-        8. - Confirm that all the inputs equalisations have been set to 'Zero'.
-            -  Confirm that all baseline visibilities are `Zero`.
-        9. Iterate through input combinations, verifying for each that the correct output appears in the correct baseline product.
-            - Set gain/equalisation correction on relevant input
-            - Retrieving SPEAD accumulation and,
-            - Confirm if gain/equalization correction has been applied.
-        10. Check that expected baseline visibilities are non-zero with non-zero inputs and,
-            - Confirm that expected baselines visibilities are 'Zeros'
         """
         return _description
 
@@ -509,7 +493,7 @@ class TestProcedure:
         2. Calculate the maximum/minimum delays that can be set.
         3. Request Maximum and Minimum delay(s) corrections via CAM interface, and
             - Confirm that the maximum/minimum delays have been set
-        4. TBD, For all subsequent SPEAD accumulations captured observe the change in the phase slope, and confirm the phase change is as expected.
+        4. For all subsequent SPEAD accumulations captured observe the change in the phase slope, and confirm the phase change is as expected.
         """
         return _description
 
@@ -1083,7 +1067,15 @@ class TestProcedure:
         _description = """
         **Beamformer Time-series**
 
-        **TBD**
+        1. Configure a digitiser simulator to be used as input source to F-Engines
+        2. Configure a digitiser simulator to generate a CW offset from the center of a channel by 1% of the channel bandwidth.
+        3. Capture continous beam data
+        4. Plot the captured real and imaginary component for the chosen channel over time.
+        5. Verify that this is a continous sine wave.
+        6. Compute the fourier transform of the captured time series.
+        7. Verify that there is only one frequency component present.
+        8. Plot the phase of the captured channel over timed.
+        9. Verify that the phase is linear with no jumps.
         """
         return _description
 

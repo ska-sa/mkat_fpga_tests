@@ -213,18 +213,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if stop_channels:
                 pass
             elif n_ants == 64 and n_chans == 4096:
-                stop_channels = 2047
+                stop_channels = 1023
             elif n_chans == 1024:
                 stop_channels = 1023
             else:
                 stop_channels = int(self.conf_file["instrument_params"].get("stop_channels", 2047))
-            self.Step(
-                "Starting receiver on port %s, will only capture channels between %s-%s"
-                % (data_output_port, start_channels, stop_channels)
-            )
             self.Note(
-                "Configuring SPEAD receiver to capture %s channels from %s to %s."
-                % (stop_channels - start_channels + 1, start_channels, stop_channels)
+                "Requesting SPEAD receiver to capture %s channels from %s to %s on port %s."
+                % (stop_channels - start_channels + 1, start_channels, stop_channels, data_output_port)
             )
             self.receiver = CorrRx(
                 product_name=self._output_product,
@@ -250,8 +246,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.n_chans_selected = int(_test_dump.get("n_chans_selected",
                 self.cam_sensors.get_value("n_chans"))
             )
-            self.logger.info(
-                "Confirmed number of channels %s, from initial dump" % self.n_chans_selected
+            self.Note(
+                    "Actual number of channels captured (channels are captured in partitions): %s" % self.n_chans_selected
             )
         except Exception:
             self.Error(self.errmsg, exc_info=True)
@@ -275,12 +271,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(acc_time=0.5, stop_channels=100)
+            instrument_success = self.set_instrument(acc_time=2.0)#, stop_channels=100)
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 heading("CBF Channelisation Wideband Coarse L-band")
-                num_discards = 1
+                num_discards = 2
                 if "32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
@@ -479,6 +475,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.4")
@@ -488,13 +485,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(acc_time=0.5, stop_channels=500)
+            instrument_success = self.set_instrument(acc_time=2.0)#, stop_channels=2047)
             if instrument_success:
                 self._test_product_baselines()
                 self._test_back2back_consistency()
                 self._test_freq_scan_consistency()
-                self._test_spead_verify()
-                self._test_product_baseline_leakage()
+                #self._test_spead_verify()
+                #self._test_product_baseline_leakage()
             else:
                 self.Failed(self.errmsg)
 
@@ -638,12 +635,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
             instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["delay_test_acc_time"]))
             if instrument_success:
-                #self._test_delay_tracking()
-                #self._test_delay_rate()
-                self._test_phase_rate_step()
+                self._test_delay_tracking()
+                self._test_delay_rate()
+                self._test_phase_rate()
+                #TODO test broken: fix
                 #self._test_phase_offset()
-                #self._test_delay_inputs()
-                #self.clear_all_delays()
+                self._test_delay_inputs()
+                self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
 
@@ -2050,11 +2048,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         try:
             self.Step("Change CBF input labels and confirm via CAM interface.")
-            reply_, _ = self.katcp_req.input_labels()
-            self.assertTrue(reply_.reply_ok())
-            ori_source_name = reply_.arguments[1:]
+            #reply_, _ = self.katcp_req.input_labels()
+            #self.assertTrue(reply_.reply_ok())
+            #ori_source_name = reply_.arguments[1:]
+            ori_source_name = self.cam_sensors.input_labels
             self.Progress("Original source names: {}".format(", ".join(ori_source_name)))
         except Exception:
+            #import IPython;IPython.embed()
             self.Error("Failed to retrieve input labels via CAM interface", exc_info=True)
         try:
             local_src_names = self.cam_sensors.custom_input_labels
@@ -2063,15 +2063,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except Exception:
             self.Error("Could not retrieve new source names via CAM interface:\n %s" % (str(reply)))
         else:
-            source_names = reply.arguments[1:]
+            #source_names = reply.arguments[1:]
+            source_names = self.cam_sensors.input_labels
             msg = "Source names changed to: {}".format(", ".join(source_names))
             self.Passed(msg)
 
         try:
             if self.cam_sensors.sensors.n_ants.value > 16:
-                _discards = 60
+                #_discards = 60
+                _discards = 8
             else:
-                _discards = 30
+                #_discards = 30
+                _discards = 2
 
             self.Step(
                 "Capture an initial correlator SPEAD accumulation while discarding {} "
@@ -2205,6 +2208,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step(bls_msg)
             # dataFrame = pd.DataFrame(index=sorted(input_labels),
             #                          columns=list(sorted(present_baselines)))
+
+            #import IPython;IPython.embed()
 
             for count, inp in enumerate(input_labels, start=1):
                 if count > 10:
@@ -3652,64 +3657,30 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     dump_counts,
                 )
 
-    def _test_phase_rate_step(self):
-        msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
-        heading(msg)
-        setup_data = self._delays_setup()
-        if setup_data:
-            dump_counts = 1
-            _rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
-            phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 0.1
-            delay_value = 0
-            delay_rate = 0
-            phase_offset = 0
-            load_time = setup_data["t_apply"]
-            phase_rates = [0] * setup_data["num_inputs"]
-            import IPython;IPython.embed()
-            for phase_rate in np.arange(0.1, 0.5, 0.05):
-                phase_rate = round(phase_rate, 3)
-                phase_rates[setup_data["test_source_ind"]] = phase_rate
-                delay_coefficients = ["0,0:0,{}".format(fr) for fr in phase_rates]
-
-                try:
-                    actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
-                    actual_phases = [phases for phases, response in actual_data]
-
-                except TypeError:
-                    errmsg = "Could not retrieve actual delay rate data. Aborting test: Exception: {}".format(e)
-                    self.Error(errmsg, exc_info=True)
-                    return
-                else:
-                    expected_phases = self._get_expected_data(setup_data, dump_counts, delay_coefficients, actual_phases)
-
-                    actual_phases_ = np.unwrap(actual_phases)
-                    msg = ('Mean phase: {:.3f}, set rate: {:.5f}, actual rate: {:.5f}.'
-                                   ''.format(
-                                             actual_phases_.mean(), 
-                                             phase_rate,
-                                             phase_rate))
-                    Aqf.step(msg)
-
     def _test_phase_rate(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
         heading(msg)
         setup_data = self._delays_setup()
+        #for i in np.arange(0.1,0.5,0.001):
+        #    phase_rate = i
+        #    phase_rates = [0] * setup_data["num_inputs"]
+        #    phase_rates[setup_data["test_source_ind"]] = phase_rate
+        #    delay_coefficients = ["0,0:0,{}".format(fr) for fr in phase_rates]
+        #    self._test_coeff(setup_data, delay_coefficients)
+        #return
+
         if setup_data:
+            #import IPython;IPython.embed()
             dump_counts = 5
             _rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
             phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 0.1
             delay_value = 0
             delay_rate = 0
             phase_offset = 0
             load_time = setup_data["t_apply"]
             phase_rates = [0] * setup_data["num_inputs"]
-            phase_rates_corr = [0] * setup_data["num_inputs"]
             phase_rates[setup_data["test_source_ind"]] = phase_rate
-            phase_rates_corr[setup_data["test_source_ind"]] = phase_rate*1.15
             delay_coefficients = ["0,0:0,{}".format(fr) for fr in phase_rates]
-            delay_coefficients_corr = ["0,0:0,{}".format(fr) for fr in phase_rates_corr]
 
             self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
             self.Progress(
@@ -3718,7 +3689,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 % (delay_rate, delay_value, phase_offset, phase_rate)
             )
             try:
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients_corr)
+                actual_data, set_delay_coeff, error_indexes = self._get_actual_data(setup_data, 
+                                                                                    dump_counts, 
+                                                                                    delay_coefficients)
                 actual_phases = [phases for phases, response in actual_data]
 
             except TypeError:
@@ -3726,7 +3699,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error(errmsg, exc_info=True)
                 return
             else:
-                expected_phases = self._get_expected_data(setup_data, dump_counts, delay_coefficients, actual_phases)
+                expected_phases = self._get_expected_data(setup_data, dump_counts, set_delay_coeff, actual_phases)
 
                 no_chans = range(self.n_chans_selected)
                 plot_units = "rads/sec"
@@ -4787,7 +4760,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             local_src_names = self.cam_sensors.custom_input_labels
             reply, informs = self.katcp_req.input_labels(*local_src_names)
             self.assertTrue(reply.reply_ok())
-            labels = reply.arguments[1:]
+            labels = self.cam_sensors.input_labels
             beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
             # running_instrument = self.corr_fix.get_running_instrument()
             # assert running_instrument is not False
