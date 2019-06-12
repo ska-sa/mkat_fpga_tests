@@ -63,7 +63,7 @@ class CorrelatorFixture(Logger.LoggingClass):
         self.logger.setLevel(kwargs.get('logLevel', logging.DEBUG))
         self.katcp_client = katcp_client
         self.prim_port = "7147"
-        self.corr_config = None
+        #self.corr_config = None
         self.corr2ini_path = None
         self._correlator = None
         self._dhost = None
@@ -81,6 +81,40 @@ class CorrelatorFixture(Logger.LoggingClass):
         # ToDo get array name from file...instead of test config file
         self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument()
+        try:
+            if os.path.exists(self.config_filename):
+                self.logger.info(
+                    "Retrieving info from config file: %s" % self.config_filename
+                )
+                self.corr_config = parse_ini_file(self.config_filename)
+                self.dsim_conf = self.corr_config["dsimengine"]
+                self.xeng_product_name = self.corr_config["xengine"]["output_products"]
+                self.feng_product_name = self.corr_config["fengine"]["output_products"]
+                self.beam0_product_name = self.corr_config["beam0"]["output_products"]
+                self.beam1_product_name = self.corr_config["beam1"]["output_products"]
+            # This is if an instrument is not running, should not be neccessary
+            #elif self.instrument is not None:
+            #    self.corr2ini_path = "/etc/corr/templates/{}".format(self.instrument)
+            #    self.logger.info(
+            #        "Setting CORR2INI system environment to point to %s" % self.corr2ini_path
+            #    )
+            #    os.environ["CORR2INI"] = self.corr2ini_path
+            #    self.corr_config = parse_ini_file(self.corr2ini_path)
+            #    self.dsim_conf = self.corr_config["dsimengine"]
+            else:
+                errmsg = (
+                    "Could not retrieve information from running config file in /etc/corr, "
+                    "Perhaps, restart CBF manually and ensure dsim is running.\n"
+                )
+                self.logger.error(errmsg)
+                sys.exit(errmsg)
+        except:
+            errmsg = (
+                "Could not retrieve information from running config file in /etc/corr, "
+                "Perhaps, restart CBF manually and ensure dsim is running.\n"
+            )
+            self.logger.error(errmsg)
+            sys.exit(errmsg)
 
     @property
     def rct(self):
@@ -116,27 +150,6 @@ class CorrelatorFixture(Logger.LoggingClass):
         if self._dhost is not None:
             return self._dhost
         else:
-            if os.path.exists(self.config_filename):
-                self.logger.info(
-                    "Retrieving dsim engine info from config file: %s" % self.config_filename
-                )
-                self.corr_config = parse_ini_file(self.config_filename)
-                self.dsim_conf = self.corr_config["dsimengine"]
-            elif self.instrument is not None:
-                self.corr2ini_path = "/etc/corr/templates/{}".format(self.instrument)
-                self.logger.info(
-                    "Setting CORR2INI system environment to point to %s" % self.corr2ini_path
-                )
-                os.environ["CORR2INI"] = self.corr2ini_path
-                self.corr_config = parse_ini_file(self.corr2ini_path)
-                self.dsim_conf = self.corr_config["dsimengine"]
-            else:
-                errmsg = (
-                    "Could not retrieve dsim information from running config file in /etc/corr, "
-                    "Perhaps, restart CBF manually and ensure dsim is running.\n"
-                )
-                self.logger.error(errmsg)
-                sys.exit(errmsg)
             try:
                 self._dhost = FpgaDsimHost(
                     self.dsim_conf["host"], config=self.dsim_conf, transport=SkarabTransport,

@@ -15,6 +15,7 @@ import struct
 import subprocess
 import time
 import warnings
+import math
 from ast import literal_eval as evaluate
 from collections import Mapping, OrderedDict
 from contextlib import contextmanager
@@ -85,75 +86,87 @@ class UtilsClass(object):
             self.Error("Retrieving number of fengines via corr object: %s" % no_fengines, exc_info=True)
 
         delay_coefficients = ["0,0:0,0"] * no_fengines
-        _retries = 3
-        errmsg = ""
-        while _retries:
-            _retries -= 1
-            try:
-                dump = self.receiver.get_clean_dump(discard=0)
-                deng_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
-                discard = 0
-                while True:
-                    dump = self.receiver.data_queue.get(timeout=10)
-                    dump_timestamp = dump["dump_timestamp"]
-                    time_diff = np.abs(dump_timestamp - deng_timestamp)
-                    if time_diff < 1:
-                        break
-                    if discard > 10:
-                        raise AssertionError
-                    discard += 1
-                errmsg = "Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]" % (
-                    dump_timestamp,
-                    deng_timestamp,
-                    time_diff,
-                )
-                num_int = int(self.conf_file["instrument_params"]["num_int_delay_load"])
-                t_apply = dump_timestamp + (num_int * int_time)
-                start_time = time.time()
-                reply, informs = self.corr_fix.katcp_rct.req.delays("antenna-channelised-voltage",
-                    t_apply, *delay_coefficients)
-                time_end = time.time() - start_time
-                errmsg = "Delays command could not be executed in the given time: {}".format(reply)
-                assert reply.reply_ok(), errmsg
-                # end_time = 0
-                # while True:
-                #    _give_up -= 1
-                #    try:
-                #        LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
-                #        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-                #        assert reply.reply_ok()
-                #    except Exception:
-                #        LOGGER.exception("Weirdly I couldn't get the sensor values, fix it and figure it out")
-                #    else:
-                #        delays_updated = list(set([int(i.arguments[-1]) for i in informs
-                #                                    if '.cd.delay' in i.arguments[2]]))[0]
-                #        if delays_updated:
-                #            LOGGER.info('Delays have been successfully set')
-                #            end_time = time.time()
-                #            break
-                #    if _give_up == 0:
-                #        LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
-                #        break
-                # time_end = abs(end_time - start_time)
-                self.logger.info("Time it took to set and confirm the delays {}s".format(time_end))
-                dump = self.receiver.get_clean_dump(discard=(num_int + 2))
-                _max = int(np.max(np.angle(dump["xeng_raw"][:, 33, :][5:-5])))
-                _min = int(np.min(np.angle(dump["xeng_raw"][:, 0, :][5:-5])))
-                errmsg = "Max/Min delays found: %s/%s ie not cleared" % (_max, _min)
-                assert _min == _max == 0, errmsg
-                self.logger.info(
-                    "Delays cleared successfully. Dump timestamp is in-sync with epoch: {}".format(
-                        time_diff
-                    )
-                )
-                return True
-            except AssertionError:
-                self.logger.warning(errmsg)
-            except TypeError:
-                self.logger.exception("Object has no attributes")
-                return False
-            except Exception:
-                self.logger.exception(errmsg)
+        try:
+            # TODO Not sure why this was done?
+            #dump = self.receiver.get_clean_dump(discard=0)
+            #deng_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
+            #discard = 0
+            #while True:
+            #    dump = self.receiver.data_queue.get(timeout=10)
+            #    dump_timestamp = dump["dump_timestamp"]
+            #    time_diff = np.abs(dump_timestamp - deng_timestamp)
+            #    self.logger.info("Time difference between dump_timestamp and deng_timestamp = {}".format(time_diff))
+            #    if time_diff < 1:
+            #        break
+            #    if discard > 10:
+            #        raise AssertionError
+            #    discard += 1
+            #errmsg = "Dump timestamp (%s) is not in-sync with epoch (%s) [diff: %s]" % (
+            #    dump_timestamp,
+            #    deng_timestamp,
+            #    time_diff,
+            #)
+
+            # Just set the time from cmc time, if CMCs are synchronised there is no need to to get time from dump 
+            #num_int = int(self.conf_file["instrument_params"]["num_int_delay_load"])
+            #t_apply = dump_timestamp + (num_int * int_time)
+            buffer_time = 1
+            delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time']) + buffer_time
+            current_time = time.time()
+            t_apply = current_time + delay_load_lead_time
+            t_apply_dumps = math.ceil(delay_load_lead_time / int_time)
+            reply, informs = self.corr_fix.katcp_rct.req.delays(self.corr_fix.feng_product_name,
+                t_apply, *delay_coefficients)
+            errmsg = "Delays command could not be executed: {}".format(reply)
+            assert reply.reply_ok(), errmsg
+            # This is the old method for reading back delays
+            # end_time = 0
+            # while True:
+            #    _give_up -= 1
+            #    try:
+            #        LOGGER.info('Waiting for the delays to be updated: %s retry' % _give_up)
+            #        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            #        assert reply.reply_ok()
+            #    except Exception:
+            #        LOGGER.exception("Weirdly I couldn't get the sensor values, fix it and figure it out")
+            #    else:
+            #        delays_updated = list(set([int(i.arguments[-1]) for i in informs
+            #                                    if '.cd.delay' in i.arguments[2]]))[0]
+            #        if delays_updated:
+            #            LOGGER.info('Delays have been successfully set')
+            #            end_time = time.time()
+            #            break
+            #    if _give_up == 0:
+            #        LOGGER.error("Could not confirm the delays in the time stipulated, exiting")
+            #        break
+            # time_end = abs(end_time - start_time)
+            #dump = self.receiver.get_clean_dump(discard=(t_apply_dumps + 2))
+            #_max = int(np.max(np.angle(dump["xeng_raw"][:, 33, :][5:-5])))
+            #_min = int(np.min(np.angle(dump["xeng_raw"][:, 0, :][5:-5])))
+            #errmsg = "Max/Min delays found: %s/%s ie not cleared" % (_max, _min)
+            #assert _min == _max == 0, errmsg
+            #self.logger.info(
+            #    "Delays cleared successfully. Dump timestamp is in-sync with epoch: {}".format(
+            #        time_diff
+            #    )
+            #)
+            timeout = delay_load_lead_time * 2
+            start_time = time.time()
+            while True:
+                if self._confirm_delays(delay_coefficients, err_margin = 0):
+                    self.logger.info("Delays cleared successfully.")
+                    break
+                elif (time.time() - start_time) > timeout:
+                    errmsg = "Delays were not cleared."
+                    raise AssertionError
+            return True
+        except AssertionError:
+            self.logger.warning(errmsg)
+        except TypeError:
+            self.logger.exception("Object has no attributes")
+            return False
+        except Exception:
+            self.logger.exception(errmsg)
         return False
 
     def start_katsdpingest_docker(
@@ -1320,7 +1333,7 @@ class UtilsClass(object):
                 # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
-    def _delays_setup(self, test_source_idx=2):
+    def _delays_setup(self, test_source_idx=2, determine_start_time=True):
         # Put some correlated noise on both outputs
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
 
@@ -1344,7 +1357,12 @@ class UtilsClass(object):
         ref_source = source_names[0]
         num_inputs = len(source_names)
         # Number of integrations to load delays in the future
-        num_int = int(self.conf_file["instrument_params"]["num_int_delay_load"])
+        int_time = self.cam_sensors.get_value("int_time")
+        delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
+        min_int_delay_load = math.ceil(delay_load_lead_time / int_time)
+        num_int_delay_load = int(self.conf_file['instrument_params']['num_int_delay_load'])
+        num_int_delay_load = max(num_int_delay_load, min_int_delay_load)
+        load_lead_time = num_int_delay_load * int_time
         self.Step("Clear all coarse and fine delays for all inputs before test commences.")
         delays_cleared = self.clear_all_delays()
         if not delays_cleared:
@@ -1360,14 +1378,13 @@ class UtilsClass(object):
             self.Failed(errmsg, exc_info=True)
         else:
             self.Progress("Successfully retrieved initial spead accumulation")
-            int_time = self.cam_sensors.get_value("int_time")
             sync_epoch = self.cam_sensors.get_value("sync_epoch")
             # n_accs = self.cam_sensors.get_value('n_accs')]
             # no_chans = range(self.n_chans_selected)
             time_stamp = initial_dump["timestamp"]
             # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
             # int_time_ticks = n_accs * ticks_between_spectra
-            t_apply = initial_dump["dump_timestamp"] + num_int * int_time
+            t_apply = initial_dump["dump_timestamp"] + load_lead_time
             t_apply_readable = datetime.datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
             curr_time = time.time()
             curr_time_readable = datetime.datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
@@ -1379,11 +1396,12 @@ class UtilsClass(object):
                 self.Progress(
                     "Selected input and baseline for testing respectively: %s, %s." % (test_source, baseline_index)
                 )
-                self.Progress(
-                    "Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be "
-                    "applied %s integrations/accumulations in the future."
-                    % (t_apply, t_apply_readable, curr_time, curr_time_readable, num_int)
-                )
+                if determine_start_time:
+                    self.Progress(
+                        "Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be "
+                        "applied %s integrations/accumulations in the future."
+                        % (t_apply, t_apply_readable, curr_time, curr_time_readable, num_int_delay_load)
+                    )
             except KeyError:
                 self.Failed("Initial SPEAD accumulation does not contain correct baseline ordering format.")
                 return False
@@ -1401,9 +1419,57 @@ class UtilsClass(object):
                     "test_source_ind": test_source_idx,
                     "time_stamp": time_stamp,
                     "sync_epoch": sync_epoch,
-                    "num_int": num_int,
+                    "num_int": num_int_delay_load,
                     "cam_max_load_time": cam_max_load_time,
                 }
+
+    def _confirm_delays(self, delay_coefficients, err_margin = 1):
+        labels = [x.lower() for x in self.cam_sensors.input_labels]
+        if self.conf_file['instrument_params']['sensor_named_by_label'] == 'False':
+            num_inputs = len(labels)
+            labels = ['input'+str(x) for x in range(num_inputs)]
+        delay_values = []
+        for label in labels:
+            sens_name = self.corr_fix.feng_product_name+'-'+label+'-delay'
+            sens_name = sens_name.replace('-','_')
+            delay_values.append(self.cam_sensors.get_value(sens_name))
+        delay_coeff = [re.split(',|:', x) for x in delay_coefficients]
+        delay_coeff = [[float(y) for y in x] for x in delay_coeff]
+        try:
+            delay_values = [x[1:-1] for x in delay_values]
+            delay_values = [x.split(',') for x in delay_values]
+            delay_values = [x[1:] for x in delay_values]
+            delay_values = [[float(y) for y in x] for x in delay_values]
+        except:
+            errmsg = "Read delay values are not in the correct format."
+            self.Error(errmsg, exc_info=True)
+            return False, None
+        diff_array = np.abs(np.array(delay_values) - np.array(delay_coeff))
+        coeff_err = (diff_array > err_margin).any()
+        if coeff_err:
+            errmsg = ('Actual delay values set not within tolerance:\n'
+                      'Actual: {}\n'
+                      'Requested: {}'
+                      ''.format(delay_values, delay_coeff))
+            self.Failed(errmsg, exc_info = False)
+        return not(coeff_err), delay_values
+
+        #error_margin = np.deg2rad(err_margin)
+        #delay_name_pos = ['delay', 'delay rate', 'phase offset', 'phase rate']
+        #for idx, row in enumerate(diff_values):
+        #    err_col = error_indexes[1][err_idx]
+        #    actual_delay_val  = actual_delay_coef[err_row][err_col]
+        #    request_delay_val = request_delay_coef[err_row][err_col]
+        #    diff = actual_delay_val - request_delay_val
+        #    if abs(diff) > error_margin:
+        #        self.Step('{}'.format(error_margin))
+        #        setting = delay_name_pos[err_col]
+        #        errmsg = ('Input {} {} set ({:.5f}) does not match requested ({:.5f}), '
+        #                  'difference = {}'
+        #                  ''.format(err_row, setting, actual_delay_val,
+        #                            request_delay_val, diff))
+        #        self.Failed(errmsg, exc_info = True)
+
 
     def _test_coeff(self, setup_data, delay_coefficients, max_wait_dumps=50):
         reply, _informs = self.katcp_req.delays("antenna-channelised-voltage",
@@ -1444,11 +1510,11 @@ class UtilsClass(object):
 
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, 
-                         max_wait_dumps=30, err_margin_deg=1):
+                         max_wait_dumps=30):
         try:
             self.Step("Request Fringe/Delay(s) Corrections via CAM interface.")
             load_strt_time = time.time()
-            reply, _informs = self.katcp_req.delays("antenna-channelised-voltage",
+            reply, _informs = self.katcp_req.delays(self.corr_fix.feng_product_name,
                 setup_data["t_apply"], *delay_coefficients, timeout=30)
             load_done_time = time.time()
             errmsg = ("%s: Failed to set delays via CAM interface with load-time: %s, "
@@ -1458,43 +1524,6 @@ class UtilsClass(object):
                             delay_coefficients,
                         ))
             self.assertTrue(reply.reply_ok(), errmsg)
-            #TODO check that delay coeffiecients were loaded at the correct time
-            # Check that requested value has been set
-            n_ants = int(self.cam_sensors.get_value("n_ants"))
-            actual_delay_coef = []
-            for inputs in range(n_ants*2):
-                delays = self.cam_sensors.get_value('input{}_delay'.format(inputs))
-                delays = delays.replace('(','')
-                delays = delays.replace(')','')
-                delays = delays.split(',')
-                try:
-                    delays = map(float, delays)
-                    actual_delay_coef.append(delays)
-                except ValueError:
-                    errmsg = "Error reading delay values: {}".format(delays)
-                    self.Failed(errmsg, exc_info=True)
-            actual_delay_coef  = np.array(actual_delay_coef)
-            actual_delay_coef  = np.delete(actual_delay_coef, 0, axis=1)
-            request_delay_coef = [s.replace(':',',') for s in delay_coefficients]
-            request_delay_coef = [s.split(',') for s in request_delay_coef]
-            request_delay_coef = [map(float,inp) for inp in request_delay_coef]
-            error_indexes = np.where(request_delay_coef != actual_delay_coef)
-            error_margin = np.deg2rad(err_margin_deg)
-            delay_name_pos = ['delay', 'delay rate', 'phase offset', 'phase rate']
-            for err_idx, err_row in enumerate(error_indexes[0]):
-                err_col = error_indexes[1][err_idx]
-                actual_delay_val  = actual_delay_coef[err_row][err_col]
-                request_delay_val = request_delay_coef[err_row][err_col]
-                diff = actual_delay_val - request_delay_val
-                if abs(diff) > error_margin:
-                    self.Step('{}'.format(error_margin))
-                    setting = delay_name_pos[err_col]
-                    errmsg = ('Input {} {} set ({:.5f}) does not match requested ({:.5f}), '
-                              'difference = {}'
-                              ''.format(err_row, setting, actual_delay_val, 
-                                        request_delay_val, diff))
-                    self.Failed(errmsg, exc_info = True)
-
             if "updated" not in reply.arguments[1]:
                 errmsg = errmsg + ' katcp reply: {}'.format(reply)
                 raise AssertionError()
@@ -1608,7 +1637,7 @@ class UtilsClass(object):
             chan_resp.append(freq_response)
             data = complexise(dval[:, setup_data["baseline_index"], :])
             phases.append(np.angle(data))
-        return zip(phases, chan_resp), actual_delay_coef, error_indexes
+        return zip(phases, chan_resp)
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
         def calc_actual_delay(setup_data):

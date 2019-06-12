@@ -23,6 +23,8 @@ import subprocess
 import sys
 import time
 import unittest
+import re
+import math
 from ast import literal_eval as evaluate
 from datetime import datetime
 
@@ -635,10 +637,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
             instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["delay_test_acc_time"]))
             if instrument_success:
-                self._test_delay_tracking()
-                self._test_delay_rate()
-                self._test_phase_rate()
-                #TODO test broken: fix
+                #self._test_delay_tracking()
+                #self._test_delay_rate()
+                #self._test_phase_rate()
                 #self._test_phase_offset()
                 self._test_delay_inputs()
                 self.clear_all_delays()
@@ -2054,7 +2055,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ori_source_name = self.cam_sensors.input_labels
             self.Progress("Original source names: {}".format(", ".join(ori_source_name)))
         except Exception:
-            #import IPython;IPython.embed()
             self.Error("Failed to retrieve input labels via CAM interface", exc_info=True)
         try:
             local_src_names = self.cam_sensors.custom_input_labels
@@ -2208,8 +2208,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step(bls_msg)
             # dataFrame = pd.DataFrame(index=sorted(input_labels),
             #                          columns=list(sorted(present_baselines)))
-
-            #import IPython;IPython.embed()
 
             for count, inp in enumerate(input_labels, start=1):
                 if count > 10:
@@ -2737,10 +2735,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_delay_tracking(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay tracking"
         heading(msg)
-        setup_data = self._delays_setup()
+        num_inputs = len(self.cam_sensors.input_labels)
+        test_source_idx = random.randrange(num_inputs)
+        setup_data = self._delays_setup(test_source_idx=test_source_idx, determine_start_time=False)
         if setup_data:
-            num_int = setup_data["num_int"]
+            delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
             int_time = self.cam_sensors.get_value("int_time")
+            delay_load_lead_intg = math.ceil(delay_load_lead_time / int_time)
             # katcp_port = self.cam_sensors.get_value('katcp_port')
             no_chans = range(self.n_chans_selected)
             sampling_period = self.cam_sensors.sample_period
@@ -2766,25 +2767,24 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     delays[setup_data["test_source_ind"]] = delay
                     delay_coefficients = ["{},0:0,0".format(dv) for dv in delays]
                     try:
-                        errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                        this_freq_dump = self.receiver.get_clean_dump(discard=0)
-                        self.assertIsInstance(this_freq_dump, dict), errmsg
-                        t_apply = this_freq_dump["dump_timestamp"] + (num_int * int_time)
-                        t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+                        #errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+                        #this_freq_dump = self.receiver.get_clean_dump(discard=0)
+                        #self.assertIsInstance(this_freq_dump, dict), errmsg
+                        #t_apply = this_freq_dump["dump_timestamp"] + (num_int * int_time)
+                        #t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
                         curr_time = time.time()
                         curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
+                        t_apply = curr_time + delay_load_lead_time
+                        t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
                         self.Step("Delay #%s will be applied with the following parameters:" % count)
                         msg = (
-                            "On baseline %s and input %s, Current cmc time: %s (%s)"
-                            ", Current Dump timestamp: %s (%s), "
+                            "On baseline %s and input %s, Current cmc time: %s (%s), "
                             "Delay(s) will be applied @ %s (%s), Delay to be applied: %s"
                             % (
                                 setup_data["baseline_index"],
                                 setup_data["test_source"],
                                 curr_time,
                                 curr_time_readable,
-                                this_freq_dump["dump_timestamp"],
-                                this_freq_dump["dump_timestamp_readable"],
                                 t_apply,
                                 t_apply_readable,
                                 delay,
@@ -2797,7 +2797,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         )
                         self.logger.info("Setting a delay of %s via cam interface" % delay)
                         load_strt_time = time.time()
-                        reply, _informs = self.katcp_req.delays("antenna-channelised-voltage", t_apply, *delay_coefficients)
+                        reply, _informs = self.katcp_req.delays(self.corr_fix.feng_product_name, t_apply, *delay_coefficients)
                         load_done_time = time.time()
                         formated_reply = str(reply).replace("\_", " ")
                         errmsg = (
@@ -2842,11 +2842,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         #      'integration time of {:.3f}s'
                         #      .format(cmd_load_time, cam_max_load_time, int_time))
                         # Aqf.less(cmd_load_time, cam_max_load_time, msg)
-                    except Exception:
-                        self.Error(errmsg, exc_info=True)
+                    except Exception as e:
+                        self.Error('Error occured during delay tracking test: {}'.format(e), exc_info=True)
 
                     try:
-                        _num_discards = num_int + 2
+                        _num_discards = delay_load_lead_intg + 4
                         self.Step(
                             "Getting SPEAD accumulation(while discarding %s dumps) containing "
                             "the change in delay(s) on input: %s baseline: %s."
@@ -2854,6 +2854,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         )
                         self.logger.info("Getting dump...")
                         dump = self.receiver.get_clean_dump(discard=_num_discards)
+                        if not(self._confirm_delays(delay_coefficients, 
+                                                    err_margin = float(self.conf_file["delay_req"]["delay_resolution"]))[0]):
+                            self.Error('Requested delay of {} was not set, check output of logfile.')
                         self.logger.info("Done...")
                         assert isinstance(dump, dict)
                         self.Progress(
@@ -2879,11 +2882,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             actual_phases = get_actual_phases()
 
             try:
-                if set([float(0)]) in [set(i) for i in actual_phases[1:]] or not actual_phases:
-                    self.Failed(
-                        "Delays could not be applied at time_apply: {} "
-                        "possibly in the past.\n".format(setup_data["t_apply"])
-                    )
+                if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+                    self.Failed("Phases are all zero")
+                elif not actual_phases:
+                    self.Failed("Phases were not captured")
                 else:
                     # actual_phases = [phases for phases, response in actual_data]
                     # actual_response = [response for phases, response in actual_data]
@@ -2965,10 +2967,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     caption=caption,
                                 )
 
-                        for delay, count in zip(test_delays, range(1, len(expected_phases))):
+                        for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
                             msg = (
                                 "Confirm that when a delay of {} clock "
-                                "cycle({:.5f} ns) is introduced there is a phase change "
+                                "cycle ({:.5f} ns) is introduced there is a phase change "
                                 "of {:.3f} degrees as expected to within {} degree.".format(
                                     (count + 1) * 0.5, delay * 1e9, np.rad2deg(np.pi) * (count + 1) * 0.5, degree
                                 )
@@ -3670,7 +3672,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #return
 
         if setup_data:
-            #import IPython;IPython.embed()
             dump_counts = 5
             _rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
             phase_rate = (np.pi / 8.0) / _rand_gen
@@ -3689,9 +3690,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 % (delay_rate, delay_value, phase_offset, phase_rate)
             )
             try:
-                actual_data, set_delay_coeff, error_indexes = self._get_actual_data(setup_data, 
-                                                                                    dump_counts, 
-                                                                                    delay_coefficients)
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
                 actual_phases = [phases for phases, response in actual_data]
 
             except TypeError:
@@ -3699,7 +3698,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error(errmsg, exc_info=True)
                 return
             else:
-                expected_phases = self._get_expected_data(setup_data, dump_counts, set_delay_coeff, actual_phases)
+                phase_rad_per_sec_req = float(self.conf_file["delay_req"]["phase_rate_resolution"])
+                phase_resolution_req = float(self.conf_file["delay_req"]["phase_resolution"])
+                phase_rate_err, act_delay_coeff = self._confirm_delays(delay_coefficients, err_margin = phase_rad_per_sec_req)
+                Aqf.is_true(phase_rate_err, "Confirm that the phase rate set is within {} radians/second.".format(phase_rad_per_sec_req))
+                expected_phases = self._get_expected_data(setup_data, dump_counts, act_delay_coeff, actual_phases)
 
                 no_chans = range(self.n_chans_selected)
                 plot_units = "rads/sec"
@@ -3711,9 +3714,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "indicates actual values received from SPEAD accumulation."
                 )
 
-                degree = 1.0
-                radians = (degree / 360) * np.pi * 2
-                decimal = len(str(degree).split(".")[-1])
                 actual_phases_ = np.unwrap(actual_phases)
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 msg = "Observe the change in the phase, and confirm the phase change is as expected."
@@ -3729,18 +3729,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     phase_step_err = phase_step_act - phase_step_exp
                     phase_step_err_max = np.max(phase_step_err, axis=1)
                     Aqf.step('Check that the phase step per accumulation is within '
-                             '{} deg / {:.3f} rad of the expected step ({:.3f} rad) '
+                            '{:.3f} deg / {} radians of the expected step ({:.3f} radians) '
                              'at a rate of {:.3f} radians/second.'
-                             ''.format(degree, np.deg2rad(degree), 
+                             ''.format(np.rad2deg(phase_resolution_req), phase_resolution_req, 
                                        phase_step_exp[0][0],
                                        phase_rate))
                     for i, err in enumerate(phase_step_err_max):
                         msg = ('Expected vs measured phase offset between accumulations '
                                '{} and {} = {:.3f} radians.'.format(i, i+1, err))
-                        Aqf.less(np.abs(err), np.deg2rad(degree), msg)
+                        Aqf.less(np.abs(err), phase_resolution_req, msg)
                     Aqf.step('Check that the absolute phase for each accumulation is within '
                              '{} deg / {:.3f} rad of the expected phase.'
-                             ''.format(degree, np.deg2rad(degree)))
+                             ''.format(np.rad2deg(phase_resolution_req), phase_resolution_req ))
                     for i, err in enumerate(phase_err_max):
                         msg = ('Accumulation {}: Mean phase: {:.3f}, expected phase: {:.3f}. '
                                'Offset: {:.3f} radians.'
@@ -3748,7 +3748,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                          actual_phases_[i].mean(), 
                                          expected_phases_slice[i].mean(),
                                          err))
-                        Aqf.less(np.abs(err), np.deg2rad(degree), msg)
+                        Aqf.less(np.abs(err), phase_resolution_req, msg)
                 except IndexError:
                     import IPython;IPython.embed()
 
@@ -3825,9 +3825,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         heading(msg)
         setup_data = self._delays_setup()
         if setup_data:
-            dump_counts = 5
-            phase_offset = (np.pi / 2.0) * np.random.rand() * dump_counts
+            dump_counts = 1
+            # phase_offset = (np.pi / 2.0) * np.random.rand() * dump_counts
             # phase_offset = 1.22796022444
+            phase_offset = np.pi*random.random()*[1 if random.random() < 0.5 else -1][0]
             delay_value = 0
             delay_rate = 0
             phase_rate = 0
@@ -3844,6 +3845,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
                 actual_phases = [phases for phases, response in actual_data]
+                #TODO Get set phase offset value and calculate expected accordingly
             except TypeError:
                 self.Error("Could not retrieve actual delay rate data. Aborting test", exc_info=True)
                 return
@@ -3861,76 +3863,79 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
 
                 # Ignoring first dump because the delays might not be set for full
-                # integration.
-                degree = 1.0
-                decimal = len(str(degree).split(".")[-1])
+                # integration - Note this is not done as the apply time should be at the start
+                # of integration so first dump is used.
+                phase_resolution_req = float(self.conf_file["delay_req"]["phase_resolution"])
                 actual_phases_ = np.unwrap(actual_phases)
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
-                msg = "Observe the change in the phase slope, and confirm the phase change is as " "expected."
+                msg = "Observe a step change in the phase, and confirm the phase change is as expected."
                 self.Step(msg)
-                for i in range(1, len(expected_phases) - 1):
-                    delta_expected = np.abs(np.max(expected_phases_[i]))
-                    delta_actual = np.abs(np.max(actual_phases_[i]))
-                    # abs_diff = np.abs(delta_expected - delta_actual)
-                    abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-                    msg = (
-                        "Confirm that the difference between expected({:.3f})"
-                        " phases and actual({:.3f}) phases are 'Almost Equal' "
-                        "within {:.3f} degree when phase offset of {:.3f} is "
-                        "applied.".format(delta_expected, delta_actual, degree, phase_offset)
-                    )
+                #for i in range(1, len(expected_phases) - 1):
+                delta_expected = (np.max(expected_phases_[0]))
+                delta_actual = (np.max(actual_phases_[0]))
+                abs_diff = np.abs(delta_expected - delta_actual)
+                msg = (
+                    "Confirm that the difference between expected ({:.3f} radians)"
+                    " phases and actual ({:.3f} radians) phases are 'Almost Equal' "
+                    "within {:.3f} radians when phase offset of {:.3f} radians is "
+                    "applied.".format(delta_expected, delta_actual, phase_resolution_req, phase_offset)
+                )
 
-                    Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
+                Aqf.almost_equals(delta_expected, delta_actual, phase_resolution_req, msg)
 
-                    Aqf.less(
-                        abs_diff,
-                        degree,
-                        "Confirm that the maximum difference({:.3f} "
-                        "degrees/{:.3f}rads) between expected phase and actual phase "
-                        "between integrations is less than {:.3f} degree\n".format(
-                            abs_diff, np.deg2rad(abs_diff), degree
-                        ),
-                    )
-                    try:
-                        delta_actual_s = delta_actual - (delta_actual % degree)
-                        delta_expected_s = delta_expected - (delta_expected % degree)
-                        np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+                Aqf.less(
+                    abs_diff,
+                    phase_resolution_req,
+                    "Confirm that the maximum difference ("
+                    "{:.3f} radians) between expected phase and actual phase "
+                    "between integrations is less than {:.3f} radians\n".format(
+                        abs_diff, phase_resolution_req
+                    ),
+                )
+                #TODO Seems like supurflous testing, need to look at this code again.
+                #import IPython;IPython.embed()
+                #try:
+                #    delta_actual_s = delta_actual - (delta_actual % degree)
+                #    delta_expected_s = delta_expected - (delta_expected % degree)
+                #    decimal = len(str(degree).split(".")[-1])
+                #    np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
 
-                    except AssertionError:
-                        self.Step(
-                            "Difference between expected({:.5f}) phases "
-                            "and actual({:.5f}) phases are 'Not almost equal' "
-                            "within {} degree when phase offset of {} is applied.".format(
-                                delta_expected, delta_actual, degree, phase_offset
-                            )
-                        )
+                #except AssertionError:
+                #    self.Step(
+                #        "Difference between expected({:.5f}) phases "
+                #        "and actual({:.5f}) phases are 'Not almost equal' "
+                #        "within {} degree when phase offset of {} is applied.".format(
+                #            delta_expected, delta_actual, degree, phase_offset
+                #        )
+                #    )
 
-                        caption = (
-                            "Difference expected({:.3f}) and actual({:.3f}) "
-                            "phases are not equal within {:.3f} degree when phase offset "
-                            "of {:.3f} {} is applied.".format(
-                                delta_expected, delta_actual, degree, phase_offset, plot_units
-                            )
-                        )
+                #    caption = (
+                #        "Difference expected({:.3f}) and actual({:.3f}) "
+                #        "phases are not equal within {:.3f} degree when phase offset "
+                #        "of {:.3f} {} is applied.".format(
+                #            delta_expected, delta_actual, degree, phase_offset, plot_units
+                #        )
+                #    )
 
-                        actual_phases_i = (delta_actual, actual_phases[i])
-                        if len(expected_phases[i]) == 2:
-                            expected_phases_i = (delta_expected, expected_phases[i][-1])
-                        else:
-                            expected_phases_i = (delta_expected, expected_phases[i])
-                        aqf_plot_phase_results(
-                            no_chans,
-                            actual_phases_i,
-                            expected_phases_i,
-                            plot_filename="{}/{}_{}_phase_offset.png".format(self.logs_path,
-                                self._testMethodName, i),
-                            plot_title=("Phase Offset:\nActual vs Expected Phase Response"),
-                            plot_units=plot_units,
-                            caption=caption,
-                        )
+                #    actual_phases_i = (delta_actual, actual_phases[i])
+                #    if len(expected_phases[i]) == 2:
+                #        expected_phases_i = (delta_expected, expected_phases[i][-1])
+                #    else:
+                #        expected_phases_i = (delta_expected, expected_phases[i])
+                #    aqf_plot_phase_results(
+                #        no_chans,
+                #        actual_phases_i,
+                #        expected_phases_i,
+                #        plot_filename="{}/{}_{}_phase_offset.png".format(self.logs_path,
+                #            self._testMethodName, i),
+                #        plot_title=("Phase Offset:\nActual vs Expected Phase Response"),
+                #        plot_units=plot_units,
+                #        caption=caption,
+                #    )
 
+                #import IPython;IPython.embed()
                 aqf_plot_phase_results(
-                    no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption
+                    no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption, dump_counts
                 )
 
     def _test_delay_inputs(self):
@@ -3940,89 +3945,87 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         """
         msg = "CBF Delay and Phase Compensation Functional VR: Delays applied to the correct input"
         heading(msg)
+        self.Step(
+            "The test will sweep through four(4) randomly selected baselines, select and "
+            "set a delay value, Confirm if the delay set is as expected."
+        )
         setup_data = self._delays_setup()
-        if setup_data:
-            self.Step(
-                "The test will sweep through four(4) randomly selected baselines, select and "
-                "set a delay value, Confirm if the delay set is as expected."
-            )
-            input_labels = self.cam_sensors.input_labels
-            random.shuffle(input_labels)
-            input_labels = input_labels[4:]
-            for delayed_input in input_labels:
-                test_delay_val = random.randrange(self.cam_sensors.sample_period, step=0.83e-10, int=float)
-                # test_delay_val = self.cam_sensors.sample_period  # Pi
-                expected_phases = self.cam_sensors.ch_center_freqs * 2 * np.pi * test_delay_val
-                expected_phases -= np.max(expected_phases) / 2.0
-                self.Step("Clear all coarse and fine delays for all inputs before testing input %s." % delayed_input)
-                delays_cleared = True  # clear_all_delays(self)
-                if not delays_cleared:
-                    self.Failed("Delays were not completely cleared, data might be corrupted.\n")
-                else:
-                    self.Passed("Cleared all previously applied delays prior to test.\n")
-                    delays = [0] * setup_data["num_inputs"]
-                    # Get index for input to delay
-                    test_source_idx = input_labels.index(delayed_input)
-                    self.Step("Selected input to test: {}".format(delayed_input))
-                    delays[test_source_idx] = test_delay_val
-                    self.Step("Randomly selected delay value ({}) relevant to sampling period".format(test_delay_val))
-                    delay_coefficients = ["{},0:0,0".format(dv) for dv in delays]
-                    int_time = setup_data["int_time"]
-                    num_int = setup_data["num_int"]
-                    try:
-                        this_freq_dump = self.receiver.get_clean_dump()
-                        t_apply = this_freq_dump["dump_timestamp"] + (num_int * int_time)
-                        t_apply_readable = this_freq_dump["dump_timestamp_readable"]
-                        self.Step("Delays will be applied with the following parameters:")
-                        self.Progress("Current cmc time: %s (%s)" % (time.time(), time.strftime("%H:%M:%S")))
-                        self.Progress(
-                            "Current Dump timestamp: %s (%s)"
-                            % (this_freq_dump["dump_timestamp"], this_freq_dump["dump_timestamp_readable"])
-                        )
-                        self.Progress("Time delays will be applied: %s (%s)" % (t_apply, t_apply_readable))
-                        self.Progress("Delay coefficients: %s" % delay_coefficients)
-                        reply, _informs = self.katcp_req.delays("antenna-channelised-voltage", t_apply, *delay_coefficients)
-                        self.assertTrue(reply.reply_ok())
-                    except Exception:
-                        self.Failed("Failed to execute katcp requests!")
-                        return
-                    else:
-                        Aqf.is_true(reply.reply_ok(), str(reply).replace("\_", " "))
+        num_inputs = len(self.cam_sensors.input_labels)
+        delay_resolution_req = float(self.conf_file["delay_req"]["delay_resolution"])
+        phase_resolution_req = float(self.conf_file["delay_req"]["phase_resolution"])
+        input_labels = self.cam_sensors.input_labels
+        shuffled_labels = input_labels[:]
+        random.shuffle(shuffled_labels)
+        shuffled_labels = shuffled_labels[-4:]
+        delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
+        for delayed_input in shuffled_labels:
+            test_delay_val = random.randrange(self.cam_sensors.sample_period, step=0.83e-10, int=float)
+            # test_delay_val = self.cam_sensors.sample_period  # Pi
+            expected_phases = self.cam_sensors.ch_center_freqs * 2 * np.pi * test_delay_val
+            expected_phases -= np.max(expected_phases) / 2.0
+            cap_chans = self.receiver.channels
+            expected_phases = expected_phases[cap_chans[0]:cap_chans[1]+1]
+            delays = [0] * num_inputs
+            # Get index for input to delay
+            test_source_idx = input_labels.index(delayed_input)
+            self.Step("Selected input to test: {}".format(delayed_input))
+            delays[test_source_idx] = test_delay_val
+            self.Step("Randomly selected delay value ({}) relative to sampling period".format(test_delay_val))
+            delay_coefficients = ["{},0:0,0".format(dv) for dv in delays]
+            self.Progress("Delay coefficients: %s" % delay_coefficients)
+            try:
+                reply, _informs = self.katcp_req.delays(self.corr_fix.feng_product_name, 
+                            time.time() + delay_load_lead_time, *delay_coefficients)
+                self.assertTrue(reply.reply_ok())
+            except Exception as e:
+                self.Failed("Error occured: {}".format(e))
+                return
+            else:
+                timeout = 4
+                while True:
+                    # Get dumps until the que is empty and check that delays have been applied
+                    dump = self.receiver.get_clean_dump()
+                    dly_applied, act_dly_coeff = self._confirm_delays(delay_coefficients,
+                                                                      err_margin = delay_resolution_req)
+                    if dly_applied:
                         self.Passed("Delays where successfully applied on input: {}".format(delayed_input))
-                    try:
-                        self.Step(
-                            "Getting SPEAD accumulation (while discarding subsequent dumps) containing "
-                            "the change in delay(s) on input: %s." % (test_source_idx)
-                        )
-                        dump = self.receiver.get_clean_dump(discard=35)
-                    except Exception:
-                        self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
-                            exc_info=True)
+                        break
+                    elif timeout == 0:
+                        self.Error("Delays could not be applied to reqested input {}.".format(delayed_input))
+                        break
                     else:
-                        sorted_bls = self.get_baselines_lookup(this_freq_dump, sorted_lookup=True)
-                        degree = 1.0
-                        self.Step("Maximum expected delay: %s" % np.max(expected_phases))
-                        for b_line in sorted_bls:
-                            b_line_val = b_line[1]
-                            b_line_dump = dump["xeng_raw"][:, b_line_val, :]
-                            b_line_phase = np.angle(complexise(b_line_dump))
-                            # np.deg2rad(1) = 0.017 ie error should be withing 2 decimals
-                            b_line_phase_max = round(np.max(b_line_phase), 2)
-                            if (delayed_input in b_line[0]) and b_line[0] != (delayed_input, delayed_input):
-                                msg = "Confirm that the baseline(s) {} expected delay is within 1 " "degree.".format(
-                                    b_line[0]
-                                )
-                                Aqf.array_abs_error(
-                                    np.abs(b_line_phase[5:-5]), np.abs(expected_phases[5:-5]), msg, degree
-                                )
-                            else:
-                                # TODO Readdress this failure and calculate
-                                if b_line_phase_max != 0.0:
-                                    desc = (
-                                        "Checking baseline {}, index: {}, phase offset found, "
-                                        "maximum error value = {} rads".format(b_line[0], b_line_val, b_line_phase_max)
-                                    )
-                                    self.Failed(desc)
+                        timeout -= 1
+            try:
+                self.Step(
+                    "Getting SPEAD accumulation containing "
+                    "the change in delay(s) on input: %s." % (test_source_idx)
+                )
+                dump = self.receiver.get_clean_dump(discard=7)
+            except Exception:
+                self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
+                    exc_info=True)
+            else:
+                sorted_bls = self.get_baselines_lookup(dump, sorted_lookup=True)
+                self.Step("Maximum expected delay: %s" % np.max(expected_phases))
+                for b_line in sorted_bls:
+                    b_line_val = b_line[1]
+                    b_line_dump = dump["xeng_raw"][:, b_line_val, :]
+                    b_line_phase = np.angle(complexise(b_line_dump))
+                    # np.deg2rad(1) = 0.017 ie error should be withing 2 decimals
+                    b_line_phase_max = round(np.max(b_line_phase), 2)
+                    if (delayed_input in b_line[0]) and b_line[0] != (delayed_input, delayed_input):
+                        msg = "Confirm baseline(s) {} expected delay.".format(b_line[0])
+                        Aqf.array_abs_error(
+                            np.abs(b_line_phase[5:-5]), np.abs(expected_phases[5:-5]), msg, phase_resolution_req
+                        )
+                    else:
+                        # TODO Readdress this failure and calculate
+                        if b_line_phase_max != 0.0:
+                            desc = (
+                                "Checking baseline {}, index: {}, phase offset found, "
+                                "maximum error value = {} rads".format(b_line[0], b_line_val, b_line_phase_max)
+                            )
+                            self.Failed(desc)
 
 
 
