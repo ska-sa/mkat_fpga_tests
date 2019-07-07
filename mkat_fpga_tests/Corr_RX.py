@@ -275,6 +275,7 @@ class CorrRx(threading.Thread, LoggingClass):
             if self.quit_event.isSet():
                 self._Thread__stop()
                 self.logger.info("FORCEFULLY Stopped SPEAD receiver")
+        #self.logger.info('Setting SPEAD receiver quit event.')
 
     def stopped(self):
         return self._Thread__stopped
@@ -404,6 +405,7 @@ class CorrRx(threading.Thread, LoggingClass):
                     self.logger.info("Got a signal from main(), exiting rx loop...")
                     break
         finally:
+            self.logger.info("Calling stream stop method")
             try:
                 strm.stop()
                 self.logger.info("SPEAD receiver stopped")

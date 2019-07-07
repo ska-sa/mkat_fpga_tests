@@ -90,6 +90,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.assertIsInstance(self.katcp_req_sensors, katcp.resource_client.AttrMappingProxy)
             self.Note("Connecting to katcp client on %s" % self.corr_fix.katcp_client)
             self.cam_sensors = GetSensors(self.corr_fix)
+            # Note this is to be used for channelisation tests and subsequent efficiency calculation
+            self.selected_channels = [int(self.conf_file["instrument_params"].get("start_channels")),
+                                      int(self.conf_file["instrument_params"].get("stop_channels"))]
         except AttributeError:
             errmsg = "Is the instrument up??"
             Aqf.failed(errmsg)
@@ -132,13 +135,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "Failed to set Digitiser sync epoch via CAM interface.")
                     sync_time = float(informs[0].arguments[-1])
                     self.assertIsInstance(sync_time, float, msg="Issues with reading Sync epoch")
-                    reply, informs = self.katcp_req.sync_epoch(sync_time)
-                    self.assertTrue(reply.reply_ok(), msg="Failed to set digitiser sync epoch")
-                    self.logger.info("Digitiser sync epoch set successfully")
+                    # This is only setting the value that was just read
+                    #reply, informs = self.katcp_req.sync_epoch(sync_time)
+                    #self.assertTrue(reply.reply_ok(), msg="Failed to set digitiser sync epoch")
+                    #self.logger.info("Digitiser sync epoch set successfully")
                     SET_DSIM_EPOCH = self._dsim_set = True
+                except AssertionError as e:
+                    self.Error(e, exe_info=True)
                 except Exception:
                     self.Error(errmsg, exc_info=True)
-
 
     # This needs proper testing
     def tearDown(self):
@@ -147,13 +152,40 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert not self.receiver
         except AssertionError:
             self.logger.info("Cleaning up the receiver!!!!")
-            add_cleanup(self.receiver.stop)
-            self.receiver = None
+            #add_cleanup(self.receiver.stop)
+            self.Step("Waiting for receiver to stop.")
+            self.receiver.stop()
+            #TODO Investigate why this is need
+            try:
+                dump = self.receiver.get_clean_dump(dump_timeout = 10)
+                self.logger.info("Got a clean dump while trying to stop the receiver.")
+            except Exception as e:
+                self.logger.info("Getting dump while stopping failed with exception: {}".format(e))
+            #retry_count = 10
+            #while retry_count > 0:
+            #    try:
+            #        _test_dump = self.receiver.get_clean_dump()
+            #        break
+            #    except Exception as e:
+            #        if retry_count == 0:
+            #            raise(e)
+            #        self.logger.info("Got exception during get_clean_dump "
+            #                         "(sleeping for 10 seconds then trying {} more times): "
+            #                         "{}".format(retry_count, e))
+            #        time.sleep(10)
+            #        retry_count -= 1
+            self.receiver.join(timeout = 10)
+            if self.receiver.stopped():
+                self.Step("SPEAD receiver has been stopped.")
+            else:
+                self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
+            self.logger.info("Sleeping for 10 seconds to clean up memory.")
+            time.sleep(10)
 
 
-    def set_instrument(self, acc_time=None, stop_channels=None, **kwargs):
-        self.receiver = None
+    def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
+        #self.receiver = None
         acc_timeout = 60
         self.errmsg = None
         # Reset digitiser simulator to all Zeros
@@ -167,7 +199,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "Currently running instrument %s-%s as per /etc/corr" % (
                     self.corr_fix.array_name,
                     self.instrument))
-            self._systems_tests()
+            if start_receiver:
+                self._systems_tests()
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
             self.Error(errmsg, exc_info=True)
@@ -178,90 +211,120 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Configure a digitiser simulator to be used as input source to F-Engines.")
             self.Progress("Digitiser Simulator running on host: %s" % self.dhost.host)
 
-        try:
-            n_ants = int(self.cam_sensors.get_value("n_ants"))
-            n_chans = int(self.cam_sensors.get_value("n_chans"))
-            # This logic can be improved
-            if acc_time:
-                pass
-            elif n_ants == 64:
-                acc_time = 2.0
-            else:
-                acc_time = 0.5
-                #acc_time = n_ants / 32.0
-            reply, informs = self.katcp_req.accumulation_length(acc_time, timeout=acc_timeout)
-            self.assertTrue(reply.reply_ok())
-            acc_time = float(reply.arguments[-1])
-            self.Step("Set and confirm accumulation period via CAM interface.")
-            self.Progress("Accumulation time set to {:.3f} seconds".format(acc_time))
-        except Exception:
-            self.Error("Failed to set accumulation time.", exc_info=True)
+        if start_receiver:
+            try:
+                n_ants = int(self.cam_sensors.get_value("n_ants"))
+                n_chans = int(self.cam_sensors.get_value("n_chans"))
+                # This logic can be improved
+                if acc_time:
+                    pass
+                elif n_ants == 64:
+                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
+                else:
+                    acc_time = 0.5
+                    #acc_time = n_ants / 32.0
+                reply, informs = self.katcp_req.accumulation_length(acc_time, timeout=acc_timeout)
+                self.assertTrue(reply.reply_ok())
+                acc_time = float(reply.arguments[-1])
+                self.Step("Set and confirm accumulation period via CAM interface.")
+                self.Progress("Accumulation time set to {:.3f} seconds".format(acc_time))
+            except Exception:
+                self.Error("Failed to set accumulation time.", exc_info=True)
 
-        try:
-            self._output_product = self.conf_file["instrument_params"]["output_product"]
-            data_output_ip, data_output_port = self.cam_sensors.get_value(
-                self._output_product.replace("-", "_") + "_destination"
-            ).split(":")
-            self.Step(
-                "Starting SPEAD receiver listening on %s:%s, CBF output product: %s"
-                % (data_output_ip, data_output_port, self._output_product)
-            )
-            katcp_ip = self.corr_fix.katcp_client
-            katcp_port = int(self.corr_fix.katcp_rct.port)
-            self.Step("Connected to katcp on %s" % katcp_ip)
-            # ToDo maybe select stop channels depending on the no of ants
-            # This logic can be improved
-            start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
-            if stop_channels:
-                pass
-            elif n_ants == 64 and n_chans == 4096:
-                stop_channels = 1023
-            elif n_chans == 1024:
-                stop_channels = 1023
+            init_receiver = False
+            if 'self.receiver' not in locals():
+                init_receiver = True
+                self.logger.info('Receiver not in locals')
+            elif self.receiver == None:
+                init_receiver = True
+                self.logger.info('Receiver is apparently None: {}'.format(self.receiver))
+            try:
+                if init_receiver:
+                    data_output_ip, data_output_port = self.cam_sensors.get_value(
+                        self.corr_fix.xeng_product_name.replace("-", "_") + "_destination"
+                    ).split(":")
+                    self.Step(
+                        "Starting SPEAD receiver listening on %s:%s, CBF output product: %s"
+                        % (data_output_ip, data_output_port, self.corr_fix.xeng_product_name)
+                    )
+                    katcp_ip = self.corr_fix.katcp_client
+                    katcp_port = int(self.corr_fix.katcp_rct.port)
+                    self.Step("Connected to katcp on %s" % katcp_ip)
+                    # ToDo maybe select stop channels depending on the no of ants
+                    # This logic can be improved
+                    start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
+                    if stop_channels:
+                        pass
+                    elif n_ants == 64 and n_chans == 4096:
+                        stop_channels = 4095
+                    elif n_chans == 1024:
+                        stop_channels = 1023
+                    else:
+                        stop_channels = int(self.conf_file["instrument_params"].get("stop_channels", 2047))
+                    self.Note(
+                        "Requesting SPEAD receiver to capture %s channels from %s to %s on port %s."
+                        % (stop_channels - start_channels + 1, start_channels, stop_channels, data_output_port)
+                    )
+                    self.receiver = CorrRx(
+                        product_name=self.corr_fix.xeng_product_name,
+                        katcp_ip=katcp_ip,
+                        katcp_port=katcp_port,
+                        port=data_output_port,
+                        channels=(start_channels, stop_channels),
+                    )
+                    self.receiver.setName("CorrRx Thread")
+                    self.errmsg = "Failed to create SPEAD data receiver"
+                    self.assertIsInstance(self.receiver, CorrRx), self.errmsg
+                    #start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
+                    self.receiver.start()
+                    retry_count = 10
+                    while retry_count > 0:
+                        if self.receiver.isAlive() == False:
+                            self.logger.info("Receiver is not alive yet, waiting 10 seconds and trying again.")
+                            time.sleep(10)
+                            retry_count -= 1
+                        else:
+                            break
+                    self.errmsg = "Spead Receiver not Running, possible "
+                    self.assertTrue(self.receiver.isAlive(), msg=self.errmsg)
+                    self.corr_fix.start_x_data
+                    self.logger.info(
+                        "Getting a test dump to confirm number of channels else, test fails "
+                        "if cannot retrieve dump"
+                    )
+                    retry_count = 10
+                    while retry_count > 0:
+                        try:
+                            _test_dump = self.receiver.get_clean_dump()
+                            break
+                        except Exception as e:
+                            if retry_count == 0:
+                                raise(e)
+                            self.logger.info("Got exception during get_clean_dump "
+                                             "(sleeping for 10 seconds then trying {} more times): "
+                                             "{}".format(retry_count, e))
+                            time.sleep(10)
+                            retry_count -= 1
+                    self.errmsg = "Getting empty dumps!!!!"
+                    self.assertIsInstance(_test_dump, dict, self.errmsg)
+                    self.n_chans_selected = int(_test_dump.get("n_chans_selected",
+                        self.cam_sensors.get_value("n_chans"))
+                    )
+                    self.Note(
+                            "Actual number of channels captured (channels are captured in partitions): %s" % self.n_chans_selected
+                    )
+            except Exception as e:
+                self.Error(self.errmsg + {"Exception: {}".format(e)}, exc_info=True)
+                return False
             else:
-                stop_channels = int(self.conf_file["instrument_params"].get("stop_channels", 2047))
-            self.Note(
-                "Requesting SPEAD receiver to capture %s channels from %s to %s on port %s."
-                % (stop_channels - start_channels + 1, start_channels, stop_channels, data_output_port)
-            )
-            self.receiver = CorrRx(
-                product_name=self._output_product,
-                katcp_ip=katcp_ip,
-                katcp_port=katcp_port,
-                port=data_output_port,
-                channels=(start_channels, stop_channels),
-            )
-            self.receiver.setName("CorrRx Thread")
-            self.errmsg = "Failed to create SPEAD data receiver"
-            self.assertIsInstance(self.receiver, CorrRx), self.errmsg
-            start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
-            self.errmsg = "Spead Receiver not Running, possible "
-            self.assertTrue(self.receiver.isAlive(), msg=self.errmsg)
-            self.corr_fix.start_x_data
-            self.logger.info(
-                "Getting a test dump to confirm number of channels else, test fails "
-                "if cannot retrieve dump"
-            )
-            _test_dump = self.receiver.get_clean_dump()
-            self.errmsg = "Getting empty dumps!!!!"
-            self.assertIsInstance(_test_dump, dict, self.errmsg)
-            self.n_chans_selected = int(_test_dump.get("n_chans_selected",
-                self.cam_sensors.get_value("n_chans"))
-            )
-            self.Note(
-                    "Actual number of channels captured (channels are captured in partitions): %s" % self.n_chans_selected
-            )
-        except Exception:
-            self.Error(self.errmsg, exc_info=True)
-            return False
-        else:
-            # Run system tests before each test is ran
-            self.addCleanup(self._systems_tests)
-            self.addCleanup(self.corr_fix.stop_x_data)
-            self.addCleanup(self.receiver.stop)
-            self.addCleanup(executed_by)
-            self.addCleanup(gc.collect)
-            return True
+                # Run system tests before each test is ran
+                self.addCleanup(self._systems_tests)
+                self.addCleanup(self.corr_fix.stop_x_data)
+                #if init_receiver:
+                #    self.addCleanup(self.receiver.stop)
+        self.addCleanup(executed_by)
+        self.addCleanup(gc.collect)
+        return True
 
     @array_release_x
     @instrument_1k
@@ -273,12 +336,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(acc_time=2.0)#, stop_channels=100)
+            instrument_success = self.set_instrument(
+                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]),
+                    stop_channels = 100)#self.selected_channels[1])
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 heading("CBF Channelisation Wideband Coarse L-band")
-                num_discards = 2
+                num_discards = 3
                 if "32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
@@ -382,7 +447,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(start_receiver=False)
             if instrument_success:
                 self._test_efficiency()
             else:
@@ -412,72 +477,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-    @array_release_x
-    @instrument_1k
-    @instrument_4k
-    @aqf_vr("CBF.V.3.34")
-    @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
-    def test_beamforming(self):
-        Aqf.procedure(TestProcedure.Beamformer)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_beamforming()
-            else:
-                self.Failed(self.errmsg)
-
-    @array_release_x
-    @instrument_1k
-    @instrument_4k
-    @aqf_vr('CBF.V.3.35')
-    @aqf_requirements("CBF-REQ-0124")
-    def test_beamformer_efficiency(self):
-        Aqf.procedure(TestProcedure.BeamformerEfficiency)
-        try:
-            assert eval(os.getenv('DRY_RUN', 'False'))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._bf_efficiency()
-            else:
-                Aqf.failed(self.errmsg)
-
-    @array_release_x
-    # @wipd  # Test still under development, Alec will put it under test_informal
-    @instrument_1k
-    @instrument_4k
-    @aqf_vr("CBF.V.A.IF")
-    def test_beamforming_timeseries(self):
-        Aqf.procedure(TestProcedure.TImeSeries)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_beamforming_timeseries()
-            else:
-                self.Failed(self.errmsg)
 
 
-    @array_release_x
-    @instrument_1k
-    @instrument_4k
-    @aqf_vr("CBF.V.A.IF")
-    def test_group_delay(self):
-        Aqf.procedure(TestProcedure.GroupDelay)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_group_delay()
-            else:
-                self.Failed(self.errmsg)
-
-
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.4")
@@ -487,11 +488,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(acc_time=2.0)#, stop_channels=2047)
+            instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))#, stop_channels=100)
             if instrument_success:
+                num_discard = 5
                 self._test_product_baselines()
-                self._test_back2back_consistency()
-                self._test_freq_scan_consistency()
+                self._test_back2back_consistency(num_discard = num_discard*4)
+                self._test_freq_scan_consistency(num_discard = num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -561,6 +563,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                 chan_index = self.n_chans_selected
                 n_chans = self.cam_sensors.get_value("n_chans")
+                n_ants = int(self.cam_sensors.get_value("n_ants"))
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 self._test_vacc(
                     test_chan,
@@ -615,7 +618,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(start_receiver = False)
             if instrument_success:
                 self._test_delays_control()
                 self.clear_all_delays()
@@ -635,12 +638,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #instrument_success = self.set_instrument(acc_time=(0.5
             #    if self.cam_sensors.sensors.n_ants.get_value() == 4
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
-            instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["delay_test_acc_time"]))
+            instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
-                #self._test_delay_tracking()
-                #self._test_delay_rate()
-                #self._test_phase_rate()
-                #self._test_phase_offset()
+                self._test_delay_tracking()
+                self._test_delay_rate()
+                self._test_phase_rate()
+                self._test_phase_offset()
                 self._test_delay_inputs()
                 self.clear_all_delays()
             else:
@@ -656,7 +659,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(start_receiver=False)
             if instrument_success:
                 self._test_report_config()
             else:
@@ -678,8 +681,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-
-    @array_release_x
+    # TODO Add these to critical tests
+    #@array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.28")
     @aqf_requirements("CBF-REQ-0157")
@@ -741,6 +744,75 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             instrument_success = self.set_instrument()
             if instrument_success:
                 self._small_voltage_buffer()
+            else:
+                self.Failed(self.errmsg)
+
+    @array_release_x
+    @subset
+    @beamforming
+    @instrument_1k
+    @instrument_4k
+    @aqf_vr("CBF.V.3.34")
+    @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
+    def test_x_beamforming(self):
+        Aqf.procedure(TestProcedure.Beamformer)
+        try:
+            assert evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            instrument_success = self.set_instrument(start_receiver = False)
+            if instrument_success:
+                self._test_beamforming()
+            else:
+                self.Failed(self.errmsg)
+
+    @beamforming
+    @instrument_1k
+    @instrument_4k
+    @aqf_vr('CBF.V.3.35')
+    @aqf_requirements("CBF-REQ-0124")
+    def test_beamformer_efficiency(self):
+        Aqf.procedure(TestProcedure.BeamformerEfficiency)
+        try:
+            assert eval(os.getenv('DRY_RUN', 'False'))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if instrument_success:
+                self._bf_efficiency()
+            else:
+                Aqf.failed(self.errmsg)
+
+    #@array_release_x
+    @beamforming
+    # @wipd  # Test still under development, Alec will put it under test_informal
+    @instrument_1k
+    @instrument_4k
+    @aqf_vr("CBF.V.A.IF2")
+    def test_y_beamforming_timeseries(self):
+        Aqf.procedure(TestProcedure.TimeSeries)
+        try:
+            assert evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            instrument_success = self.set_instrument(start_receiver = False)
+            if instrument_success:
+                self._test_beamforming_timeseries()
+            else:
+                self.Failed(self.errmsg)
+
+
+    #@array_release_x
+    #@subset
+    @beamforming
+    @instrument_1k
+    @instrument_4k
+    @aqf_vr("CBF.V.A.IF")
+    def test_z_group_delay(self):
+        Aqf.procedure(TestProcedure.GroupDelay)
+        try:
+            assert evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            instrument_success = self.set_instrument(start_receiver = False)
+            if instrument_success:
+                self._test_group_delay()
             else:
                 self.Failed(self.errmsg)
 
@@ -1205,16 +1277,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #     Aqf.procedure("TBD")
     #     Aqf.not_tested("This requirement will not be tested on AR3")
 
-    @array_release_x
-    @generic_test
-    @manual_test
-    @aqf_vr("CBF.V.A.IF")
-    def test__informal(self):
-        Aqf.procedure(
-            "This verification event pertains to tests that are executed, "
-            "but do not verify any formal requirements."
-        )
-        # self._test_informal()
+    #@array_release_x
+    #@generic_test
+    #@manual_test
+    #@aqf_vr("CBF.V.A.IF")
+    #def test__informal(self):
+    #    Aqf.procedure(
+    #        "This verification event pertains to tests that are executed, "
+    #        "but do not verify any formal requirements."
+    #    )
+    #    # self._test_informal()
 
     # -----------------------------------------------------------------------------------------------------
 
@@ -1222,7 +1294,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                       Test Methods                            #
     #################################################################
 
-    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=3):
+    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=5):
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         # [CBF-REQ-0053]
@@ -1264,7 +1336,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             initial_dump = self.receiver.get_clean_dump(discard=5)
 
             self.assertIsInstance(initial_dump, dict)
-            reply, informs = self.cam_sensors.req.sensor_value("{}-n-accs".format(self._output_product))
+            reply, informs = self.cam_sensors.req.sensor_value("{}-n-accs".format(self.corr_fix.xeng_product_name))
             assert reply.reply_ok()
             n_accs = int(informs[0].arguments[-1])
         except Exception:
@@ -1401,8 +1473,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     return False
             else:
                 # No of spead heap discards relevant to vacc
+                int_time = self.cam_sensors.get_value("int_time")
                 discards = 0
-                max_wait_dumps = 50
+                max_wait_dumps = 10
                 while True:
                     try:
                         queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
@@ -1419,8 +1492,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         break
                     else:
                         timestamp_diff = np.abs(queued_dump["dump_timestamp"] - deng_timestamp)
-                        # print colored(timestamp_diff, 'red')
-                        if timestamp_diff < 2:
+                        #print colored(timestamp_diff, 'red')
+                        if timestamp_diff < num_discards*int_time:
                             msg = (
                                 "Received correct accumulation timestamp: %s, relevant to "
                                 "DEngine timestamp: %s (Difference %.2f)"
@@ -1674,7 +1747,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             center_bin.append("Channel spacing: {:.3f}kHz".format(chan_spacing / 1e3))
 
             channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(no_of_responses)]
-            np.savetxt("wideband_channelisation_response_data.csv", channel_response_list, delimiter=",")
+            csv_filename = "/".join([self._katreport_dir, r"wideband_channelisation_response_data.csv"])
+            np.savetxt(csv_filename, channel_response_list, delimiter=",")
             plot_title = "PFB Channel Response"
             plot_filename = "{}/{}_adjacent_channels.png".format(self.logs_path, self._testMethodName)
 
@@ -1734,21 +1808,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 xlabel="Sample Steps",
                 ylimits=y_axis_limits,
             )
-
-            Aqf.is_true(
-                low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
-                "Confirm that the relative response at the low band-edge "
+            
+            # Not a requirement anymore, just report
+            #low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
+            Aqf.step(
+                "The relative response at the low band-edge: "
                 "(-{co_lo_band_edge_rel_resp} dB @ {co_low_freq} Hz, actual source freq "
-                "{co_low_src_freq}) is within the range of {desired_cutoff_resp} +- 1% "
-                "relative to channel centre response.".format(**locals()),
+                "{co_low_src_freq}) relative to channel centre response.".format(**locals()),
             )
-
-            Aqf.is_true(
-                low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
-                "Confirm that the relative response at the high band-edge "
+            #low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
+            Aqf.step(
+                "The relative response at the high band-edge: "
                 "(-{co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq "
-                "{co_high_src_freq}) is within the range of {desired_cutoff_resp} +- 1% "
-                "relative to channel centre response.".format(**locals()),
+                "{co_high_src_freq}) relative to channel centre response.".format(**locals()),
             )
 
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, cutoff=53, plots_debug=False, log_power=True):
@@ -2071,10 +2143,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             if self.cam_sensors.sensors.n_ants.value > 16:
                 #_discards = 60
-                _discards = 8
+                _discards = 10
             else:
                 #_discards = 30
-                _discards = 2
+                _discards = 5
 
             self.Step(
                 "Capture an initial correlator SPEAD accumulation while discarding {} "
@@ -2160,17 +2232,28 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Passed("All the inputs equalisations have been set to Zero.")
 
             def read_zero_gains():
-                try:
-                    for _input in input_labels:
-                        reply, _ = self.katcp_req.gain(_input)
-                        self.assertTrue(reply.reply_ok())
-                        eq_values = reply.arguments[-1]
-                        self.assertEqual(eq_values, "0j")
-                except Exception:
-                    self.Failed("Failed to retrieve gains/equalisations.")
-                else:
-                    msg = "Confirm that all the inputs equalisations have been set to 'Zero'."
-                    Aqf.equals(eq_values, "0j", msg)
+                retries = 5
+                while True:
+                    try:
+                        for _input in input_labels:
+                            reply, _ = self.katcp_req.gain(_input)
+                            self.assertTrue(reply.reply_ok())
+                            eq_values = reply.arguments[1:]
+                            eq_values = [complex(x) for x in eq_values]
+                            eq_values = np.asarray(eq_values)
+                            eq_sum = eq_values.sum()
+                    except Exception as e:
+                        self.Failed("Failed to retrieve gains/equalisations: {}".format(e))
+                        break
+                    else:
+                        msg = "Confirm that all the inputs equalisations have been set to 'Zero'."
+                        if (eq_sum == complex(0)) or (retries == 0):
+                            Aqf.equals(eq_sum, complex(0), msg)
+                            break
+                        else:
+                            self.logger.info("Sum of eq values read back = {}, retyring".format(eq_sum))
+                            retries -= 1
+                            time.sleep(5)
 
             self.Step("Set all inputs gains to 'Zero', and confirm that output product is all-zero")
             set_zero_gains()
@@ -2303,7 +2386,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
-    def _test_back2back_consistency(self):
+    def _test_back2back_consistency(self, num_discard = 4):
         """
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
@@ -2334,8 +2417,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         )
 
         try:
-            _discards = (20 if self.cam_sensors.sensors.n_ants.value > 16 else 10)
-            this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
+            #_discards = (20 if self.cam_sensors.sensors.n_ants.value > 16 else 10)
+            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
             assert isinstance(this_freq_dump, dict)
         except AssertionError:
             errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
@@ -2362,7 +2445,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 for dump_no in range(3):
                     if dump_no == 0:
                         try:
-                            this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
+                            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -2372,7 +2455,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             initial_max_freq = np.max(this_freq_dump["xeng_raw"])
                     else:
                         try:
-                            this_freq_dump = self.receiver.get_clean_dump(discard=_discards)
+                            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
                             assert isinstance(this_freq_dump, dict)
                         except AssertionError:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -2417,7 +2500,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         caption=caption,
                     )
 
-    def _test_freq_scan_consistency(self, threshold=1e-1):
+    def _test_freq_scan_consistency(self, threshold=1e-1, num_discard = 4):
         """This test confirms if the identical frequency scans produce equal results."""
         heading("Spead Accumulation Frequency Consistency")
         self.Step("Randomly select a channel to test.")
@@ -2437,7 +2520,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         source_period_in_samples = self.n_chans_selected * 2
 
         try:
-            test_dump = self.receiver.get_clean_dump(discard=50)
+            test_dump = self.receiver.get_clean_dump(discard = num_discard)
             assert isinstance(test_dump, dict)
         except Exception:
             errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
@@ -2474,7 +2557,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
-                            this_freq_dump = self.receiver.get_clean_dump(discard=20)
+                            #TODO Check if 4 discards are enough.
+                            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -2490,7 +2574,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
-                            this_freq_dump = self.receiver.get_clean_dump(discard=20)
+                            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -3092,18 +3176,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         try:
             self.Step("Confirm all F-engines do not contain PFB errors/warnings")
-            for i in range(3):
+            retries = 4
+            while True:
                 try:
                     reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=60)
                 except BaseException:
                     reply, informs = self.katcp_req.sensor_value(timeout=60)
                 self.assertTrue(reply.reply_ok())
+                pfb_status = list(set([i.arguments[-2] for i in informs if "pfb.or0-err-cnt" in i.arguments[2]]))[0]
+                if (pfb_status == 'nominal') or (retries == 0):
+                    break
+                else:
+                    retries -= 1
         except Exception:
             msg = "Failed to retrieve sensor values via CAM interface"
             self.Error(msg, exc_info=True)
             return
         else:
-            pfb_status = list(set([i.arguments[-2] for i in informs if "pfb.or0-err-cnt" in i.arguments[2]]))[0]
             Aqf.equals(pfb_status, "nominal", "Confirm that all F-Engines report nominal PFB status")
 
         try:
@@ -3739,7 +3828,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                '{} and {} = {:.3f} radians.'.format(i, i+1, err))
                         Aqf.less(np.abs(err), phase_resolution_req, msg)
                     Aqf.step('Check that the absolute phase for each accumulation is within '
-                             '{} deg / {:.3f} rad of the expected phase.'
+                            '{:.3f} deg / {:.3f} rad of the expected phase.'
                              ''.format(np.rad2deg(phase_resolution_req), phase_resolution_req ))
                     for i, err in enumerate(phase_err_max):
                         msg = ('Accumulation {}: Mean phase: {:.3f}, expected phase: {:.3f}. '
@@ -4000,7 +4089,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "Getting SPEAD accumulation containing "
                     "the change in delay(s) on input: %s." % (test_source_idx)
                 )
-                dump = self.receiver.get_clean_dump(discard=7)
+                dump = self.receiver.get_clean_dump(discard=9)
             except Exception:
                 self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
                     exc_info=True)
@@ -4080,20 +4169,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     def _test_delays_control(self):
         delays_cleared = self.clear_all_delays()
-        setup_data = self._delays_setup()
-
-        num_int = setup_data["num_int"]
         int_time = self.cam_sensors.get_value("int_time")
         self.Step("Disable Delays and/or Phases for all inputs.")
         if not delays_cleared:
             self.Failed("Delays were not completely cleared, data might be corrupted.\n")
         else:
             self.Passed("Confirm that the user can disable Delays and/or Phase changes via CAM interface.")
-        dump = self.receiver.get_clean_dump()
-        t_apply = dump["dump_timestamp"] + num_int * int_time
-        no_inputs = [0] * setup_data["num_inputs"]
-        input_source = setup_data["test_source"]
-        no_inputs[setup_data["test_source_ind"]] = self.cam_sensors.sample_period * 2
+        delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
+        num_inputs = len(self.cam_sensors.input_labels)
+        no_inputs = [0] * num_inputs
+        input_source = self.cam_sensors.input_labels[0]
+        no_inputs[0] = self.cam_sensors.sample_period * 2
         delay_coefficients = ["{},0:0,0".format(dv) for dv in no_inputs]
         try:
             self.Step(
@@ -4101,13 +4187,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "via CAM interface." % input_source
             )
             load_strt_time = time.time()
-            reply_, _informs = self.katcp_req.delays(t_apply, *delay_coefficients, timeout=30)
+            t_apply = load_strt_time + delay_load_lead_time
+            reply_, _informs = self.katcp_req.delays(self.corr_fix.feng_product_name, t_apply, *delay_coefficients)
             load_done_time = time.time()
             msg = "Delay/Phase(s) set via CAM interface reply : %s" % str(reply_)
             self.assertTrue(reply_.reply_ok())
             cmd_load_time = round(load_done_time - load_strt_time, 3)
             Aqf.is_true(reply_.reply_ok(), msg)
             self.Step("Phase/Delay load command took {} seconds".format(cmd_load_time))
+            if not(self._confirm_delays(delay_coefficients, 
+                   err_margin = float(self.conf_file["delay_req"]["delay_resolution"]))[0]):
+                raise Exception
             # _give_up = int(num_int * int_time * 3)
             # while True:
             #    _give_up -= 1
@@ -4131,14 +4221,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #        break
             #    time.sleep(1)
 
-        except Exception:
+        except Exception as e:
             errmsg = (
                 "Failed to set delays via CAM interface with load-time: %s, "
-                "Delay coefficients: %s" % (setup_data["t_apply"], delay_coefficients,))
-            self.Error(errmsg, exc_info=True)
+                "Delay coefficients: %s" % (t_apply, delay_coefficients,))
+            self.Error(errmsg + "Exception = {}".format(e), exc_info=True)
             return
         else:
-            cam_max_load_time = setup_data["cam_max_load_time"]
+            cam_max_load_time = self.conf_file["instrument_params"]["cam_max_load_time"]
             msg = "Time it took to load delay/phase(s) %s is less than %ss" % (cmd_load_time,
                 cam_max_load_time)
             Aqf.less(cmd_load_time, cam_max_load_time, msg)
@@ -4599,6 +4689,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_gain_correction(self):
         """CBF Gain Correction"""
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
+        nominal_gain = float(gain.split('+')[0])
         # previous 4k gain was 30 which was less than normal 113. Levels should be checked
         self.Step("Configure a digitiser simulator to generate correlated noise.")
         self.Progress(
@@ -4617,13 +4708,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step("Randomly selected input to test: %s" % (test_input))
         n_chans = self.cam_sensors.get_value("n_chans")
         rand_ch = random.choice(range(n_chans)[: self.n_chans_selected])
-        gain_vector = [gain] * n_chans
-        base_gain = gain
+        gain_vector = [nominal_gain] * n_chans
         try:
-            reply, informs = self.katcp_req.gain(test_input, base_gain)
+            reply, informs = self.katcp_req.gain(test_input, nominal_gain)
             self.assertTrue(reply.reply_ok())
         except Exception:
-            self.Failed("Gain correction on %s could not be set to %s.: " "KATCP Reply: %s" % (test_input, gain, reply))
+            self.Failed("Gain correction on %s could not be set to %s.: " "KATCP Reply: %s" % (test_input, nominal_gain, reply))
             return False
 
         _discards = 5
@@ -4659,18 +4749,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.assertTrue(reply.reply_ok())
             except Exception:
                 self.Failed(
-                    "Gain correction on %s could not be set to %s.: " "KATCP Reply: %s" % (test_input, gain, reply)
+                    "Gain correction on %s could not be set to %s.: " "KATCP Reply: %s" % (test_input, nominal_gain, reply)
                 )
                 return False
+            gain_step = nominal_gain/4
+            start_gain = gain_step
+            max_chan_found = False
+            upper_req_string = ""
             while not found:
                 if not fnd_less_one:
                     target = 1
-                    gain_inc = 5
+                    gain_step = int(gain_step/2)
                 else:
                     target = 6
-                    gain_inc = 400
-                gain = gain + gain_inc
-                gain_vector[rand_ch] = gain
+                    gain_step = int(gain_step*2)
+                gain_set  = start_gain + gain_step
+                gain_vector[rand_ch] = gain_set
                 try:
                     reply, _ = self.katcp_req.gain(test_input, *gain_vector)
                     self.assertTrue(reply.reply_ok())
@@ -4686,7 +4780,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         rand_ch,
                         reply.arguments[rand_ch + 1],
                     )
-                    self.Passed(msg)
+                    self.Step(msg)
                     try:
                         dump = self.receiver.get_clean_dump(discard=_discards)
                         self.assertIsInstance(dump, dict)
@@ -4696,34 +4790,52 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     else:
                         response = np.abs(complexise(dump["xeng_raw"][:, auto_corr_idx, :]))
                         response = 10 * np.log10(response)
-                        self.Progress("Maximum value found in channel {}".format(np.argmax(response)))
-                        # resp_diff = response[rand_ch] - initial_resp[rand_ch]
-                        resp_diff = response[rand_ch] - prev_resp[rand_ch]
+                        #TODO Is there any value in checking which channel is maximum
+                        #if not(max_chan_found):
+                        #    max_chan_found = True
+                        #    max_chan = np.argmax(response)
+                        #    self.Progress("Maximum value found in channel {}".format(max_chan))
+                        #elif np.argmax(response) != max_chan:
+                        #    self.Error('Maximum value found in channel {} which is not the correct channel'.format(np.argmax(response)))
+
+                        if fnd_less_one:
+                            resp_diff = response[rand_ch] - min_response[rand_ch]
+                        else:
+                            resp_diff = response[rand_ch] - prev_resp[rand_ch]
                         prev_resp = response
-                        if resp_diff < target:
+                        if abs(resp_diff) < target:
                             msg = (
-                                "Output power increased by less than 1 dB "
-                                "(actual = {:.2f} dB) with a gain "
-                                "increment of {}.".format(resp_diff, complex(gain_inc))
+                                "Output power changed by less than {} dB "
+                                "(actual = {:.2f} dB) {}with gain set to "
+                                "{}.".format(target, resp_diff, upper_req_string, complex(gain_set))
                             )
-                            self.Passed(msg)
-                            fnd_less_one = True
+                            if fnd_less_one:
+                                self.Step(msg)
+                            else:
+                                self.Passed(msg)
+                                fnd_less_one = True
+                                min_response = response
+                                upper_req_string = "from initial value of {:.2f} at gain {} ".format(
+                                                       min_response[rand_ch], complex(gain_set))
                             chan_resp.append(response)
-                            legends.append("Gain set to %s" % (complex(gain)))
-                        elif fnd_less_one and (resp_diff > target):
+                            legends.append("Gain set to %s" % (complex(gain_set)))
+                        elif abs(resp_diff) > target:
                             msg = (
-                                "Output power increased by more than 6 dB "
-                                "(actual = {:.2f} dB) with a gain "
-                                "increment of {}.".format(resp_diff, complex(gain_inc))
+                                "Output power changed by more than {} dB "
+                                "(actual = {:.2f} dB) {}with gain set to "
+                                "{}.".format(target, resp_diff, upper_req_string, complex(gain_set))
                             )
-                            self.Passed(msg)
-                            found = True
+                            if not(fnd_less_one):
+                                self.Step(msg)
+                            else:
+                                self.Passed(msg)
+                                found = True
                             chan_resp.append(response)
-                            legends.append("Gain set to %s" % (complex(gain)))
+                            legends.append("Gain set to %s" % (complex(gain_set)))
                         else:
                             pass
                 count += 1
-                if count == 7:
+                if count == 10:
                     self.Failed("Gains to change output power by less than 1 and more than 6 dB " "could not be found.")
                     found = True
 
@@ -4737,7 +4849,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     log_dynamic_range=90,
                     log_normalise_to=1,
                     caption="Gain Correction channel response, gain varied for channel %s, "
-                    "all remaining channels are set to %s" % (rand_ch, complex(base_gain)),
+                    "all remaining channels are set to %s" % (rand_ch, complex(nominal_gain)),
                 )
             else:
                 self.Failed("Could not retrieve channel response with gain/eq corrections.")
@@ -7408,7 +7520,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         requested_test_freqs = np.asarray(requested_test_freqs)
         chan_responses = 10 * np.log10(np.abs(np.asarray(chan_responses)))
         try:
-            binwidth = self.cam_sensors.get_value("bandwidth") / (self.n_chans_selected - 1)
+            n_chans = int(self.cam_sensors.get_value("n_chans"))
+            binwidth = self.cam_sensors.get_value("bandwidth") / (n_chans - 1)
             efficiency_calc(requested_test_freqs, chan_responses, binwidth)
         except Exception:
             msg = "Could not compute the data, rerun test"
@@ -7759,16 +7872,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 return 10 * np.log10(np.abs(freq_response[test_channel]))
 
-        Aqf.hop("Requesting input labels.")
-        try:
-            # Build dictionary with inputs and
-            # which fhosts they are associated with.
-            reply, informs = self.katcp_req.input_labels()
-            if reply.reply_ok():
-                inp = reply.arguments[1:][0]
-        except Exception:
-            self.Failed("Failed to get input labels. KATCP Reply: {}".format(reply))
-            return False
+        inp = random.choice(self.cam_sensors.input_labels)
         Aqf.hop("Sampling input {}".format(inp))
         cw_scale = cw_start_scale
         cw_delta = 0.1

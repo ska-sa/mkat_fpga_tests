@@ -275,7 +275,7 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
             if shell:
                 kwargs_cmd["shell"] = True
                 str_cmd = " ".join(cmd)
-                logger.debug("Run command with shell: %s" % str_cmd)
+                logger.info("Run command with shell: %s" % str_cmd)
                 return subprocess.call(str_cmd, **kwargs_cmd)
             else:
                 return subprocess.call(cmd, **kwargs_cmd)
@@ -634,11 +634,13 @@ def generate_sphinx_docs(settings):
         logger.debug("Let me sleep for a while")
         time.sleep(2)
         cmd = ["make", "latexpdf"]
-        if settings.get("log_level") == "DEBUG":
-            status = run_command(settings, cmd)
-        else:
-            logger.info("Note: Generating documents quietly.")
-            status = run_command(settings, cmd, log_file)
+        #TODO This can be added back in when the doc generation works 100%
+        #if settings.get("log_level") == "DEBUG":
+        #    status = run_command(settings, cmd)
+        #else:
+        #    logger.info("Note: Generating documents quietly.")
+        #    status = run_command(settings, cmd, log_file)
+        status = run_command(settings, cmd)
 
     if status:
         logger.error("Error occurred while making document, bailing!!")
@@ -780,8 +782,8 @@ def run_nose_test(settings):
 
     if settings.get("decorated_custom_tests", False):
         cmd.append("-a array_release_x")
-    elif settings.get("decorated_custom_tests", False):
-        cmd.append("-a array_release_x")
+    elif settings.get("decorated_subset_tests", False):
+        cmd.append("-a subset")
     else:
         # Build the nosetests filter.
         condition = {"OR": [], "AND": []}
@@ -899,7 +901,7 @@ def run_nose_test(settings):
         # Run with --logging-level WARN if logging-level not passed in with nose_args
     # Let the output log be written into the katreport_dir
     cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
-    logger.debug("Running nosetests with following command: %s" % cmd)
+    logger.info("Running nosetests with following command: %s" % cmd)
     return run_command(settings, cmd, shell=True)
 
 
@@ -1130,7 +1132,7 @@ def gather_system_settings(settings):
         },
         "system_type": {
             "label": "CBF Instrument Under Test",
-            "description": "The name of the instrument that was ran:",
+            "description": "The name of the instrument that was run:",
         },
         # 'dist':         {
         #                     'label': 'OS Distribution',

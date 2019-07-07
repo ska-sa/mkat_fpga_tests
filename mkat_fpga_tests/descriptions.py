@@ -187,8 +187,9 @@ class TestProcedure:
         2. The baseline correlation test proves that the CBF ingests raw digitiser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
 
         **Baseline Correlation Product Leakage**
-        TBD
 
+        1. TBD
+        2.
         """
         return _description
 
@@ -1058,12 +1059,11 @@ class TestProcedure:
         7. By convoluting the impulse with a spectral window a sinc fucntion is expected.
         8. Find the peak of the resulting sinc fucntion and report the sample count (mcount) offset.
         9. The peak will occur when the impulse is in the DC channel of the target spectrum, thus this determines the group delay of the system.
-
         """
         return _description
 
     @property
-    def TImeSeries(self):
+    def TimeSeries(self):
         _description = """
         **Beamformer Time-series**
 

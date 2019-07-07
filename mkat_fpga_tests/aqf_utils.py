@@ -268,9 +268,9 @@ def aqf_plot_channels(
                 msg = "Acceptable Passband Ripple: {:.3f}dB".format(cutoff)
                 add_hxline(cutoff, msg)
 
-                cutoff = cutoff * 2
-                msg = "Cutoff Frequency: {:.3f}dB".format(cutoff)
-                add_hxline(cutoff, msg)
+                #cutoff = cutoff * 2
+                msg = "Channel Crossover: {:.3f}dB".format(-6)
+                add_hxline(-6, msg)
             elif int(cutoff) == -6:
                 msg = "Average band-edge: {:.3f}dB".format(cutoff)
                 add_hxline(cutoff, msg)

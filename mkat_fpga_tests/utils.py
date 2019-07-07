@@ -63,7 +63,7 @@ __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexi
     "ignored", "init_dsim_sources", "int2ip", "ip2int", "iterate_recursive_dict", "loggerise",
     "magnetise", "nonzero_baselines", "normalise", "normalised_magnitude", "Report_Images",
     "RetryError", "retryloop", "RunTestWithTimeout", "TestTimeout", "UtilsClass", "wipd",
-    "array_release_x", "subset", "zero_baselines"]
+    "array_release_x", "subset", "beamforming", "zero_baselines"]
 
 
 class RetryError(Exception):
@@ -713,25 +713,34 @@ class UtilsClass(object):
             fft_shift: Int
                 FFT shift
         """
+
+        int_time = round(self.cam_sensors.get_value("int_time"),1)
+        int_time = str(int_time).split('.')
+        int_time = '_'+ int_time[0] + '_' + int_time[1]
         if (profile in ('noise','cw')):
-            if "1k" in self.instrument:
-                awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
-                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
-                gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
-                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
-            elif "4k" in self.instrument:                                     
-                awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
-                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
-                gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
-                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
-            elif "32k" in self.instrument:
-                awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
-                cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
-                gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
-                fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
-            else:
-                msg = "Instrument not found: {}".format(self.instrument)
-                self.logger.exception(msg)
+            try:
+                if "1k" in self.instrument:
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale{}".format(profile, int_time)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale{}".format(profile, int_time)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
+                elif "4k" in self.instrument:                                     
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
+                elif "32k" in self.instrument:
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
+                else:
+                    msg = "Instrument not found: {}".format(self.instrument)
+                    self.logger.exception(msg)
+                    self.Failed(msg)
+                    return False
+            except KeyError:
+                msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file.'.format(int_time))
                 self.Failed(msg)
                 return False
         else:
@@ -739,6 +748,13 @@ class UtilsClass(object):
             self.logger.exception(msg)
             self.Failed(msg)
             return False
+        # Scale gain according to profile_acc_time
+        #gain_real = float(gain.split('+')[0])
+        #gain_imag = gain.split('+')[1]
+        ##gain_real = gain_real / (int_time / float(self.conf_file["instrument_params"]["profile_acc_time"]))
+        #gain_real = gain_real / 2
+        #gain_real = round(gain_real,1)
+        #gain = '{}+{}'.format(gain_real,gain_imag)
         return float(awgn_scale), float(cw_scale), gain, int(fft_shift)
 
     def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None,
@@ -2190,6 +2206,23 @@ def subset(f):
             pass
     """
     return attr("subset")(f)
+
+def beamforming(f):
+    """
+    Custom decorator and flag for decorating tests that you would need a QTP/QTR generated automagically
+
+    Usage CLI:
+        Following command can be used in the command line to narrow the execution of the test to
+        the ones marked with @subset
+
+        nosetests -a beamforming
+
+    Usage in Test:
+        @beamforming
+        def test_channelistion(self):
+            pass
+    """
+    return attr("beamforming")(f)
 
 
 def wipd(f):

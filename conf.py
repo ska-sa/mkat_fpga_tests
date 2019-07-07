@@ -297,6 +297,27 @@ def replaceAll(_file, searchExp, replaceExp):
         for line in newlines:
             f.write(line)
 
+def replaceItemandEnd(_file, searchExp, replaceExp, searchEnd, replaceEnd):
+    """Search and replace"""
+    expFound = False
+    with open(_file, "r") as f:
+        newlines = []
+        for line in f.readlines():
+            if expFound:
+                _searchExp = searchEnd
+                _replaceExp = replaceEnd
+            else:
+                _searchExp = searchExp
+                _replaceExp = replaceExp
+            if _searchExp in line:
+                newlines.append(line.replace(_searchExp, _replaceExp))
+                expFound = not(expFound)
+            else:
+                newlines.append(line)
+
+    with open(_file, "w") as f:
+        for line in newlines:
+            f.write(line)
 
 def exit_handler():
     """Will execute upon script exit"""
@@ -314,7 +335,7 @@ def exit_handler():
                 # r'\section{',
                 # r"\bigskip\hrule\bigskip",
                 # r"{longtable}{|l|l|l|l|l|l|}",
-                r"{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|}",
+                # r"{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|}",
                 r"{} \(",
                 r"$C\)",
                 "\item[",
@@ -334,7 +355,7 @@ def exit_handler():
                 r"Following sensors have WARNINGS",
                 # "{tabulary}{\linewidth}[t]{|T|T|T|T|}",
                 # "{tabulary}{\linewidth}[t]{|T|T|T|}",
-                r"end{tabulary}",
+                # r"end{tabulary}",
                 # "\item{",
                 # "\end{savenotes}",
                 # "\chapter{TP",
@@ -350,7 +371,7 @@ def exit_handler():
             new_tags = [
                 # r'\newpage\section{',
                 # r"\vspace{5mm}\bigskip\hrule\bigskip",
-                r"{longtable}[l]{|p{1in}|p{0.6in}|p{1.3in}|p{0.6in}|p{1.3in}|p{0.6in}|}",
+                # r"{longtable}[l]{|p{1in}|p{0.6in}|p{1.3in}|p{0.6in}|p{1.3in}|p{0.6in}|}",
                 "{} (",
                 "$C)",
                 "\item\hspace{-0.15cm}",
@@ -365,12 +386,12 @@ def exit_handler():
                 r'19" racks',
                 r"\noindent\sphinxincludegraphics[width=0.650\linewidth]",
                 #NOTE: This may be needed for QTR, works for QTP
-                #r"\clearpage\section{CBF",
+                # r"\clearpage\section{CBF",
                 r"Following sensors have \textcolor{red}{ERRORS}",
                 r"Following sensors have \textcolor{orange}{WARNINGS}",
                 # "{longtable}[c]{|l|l|l|}",
                 # "{longtable}[c]{|p{1in}|c|c|c|c|c|c|c|}",
-                r"end{longtable}",
+                # r"end{longtable}",
                 # "\item",
                 # "\end{savenotes}\\newpage",
                 # "\section{TP",
@@ -385,6 +406,14 @@ def exit_handler():
 
             for _old_tags, _new_tags in zip(old_tags, new_tags):
                 replaceAll(tex_file, _old_tags, _new_tags)
+            
+            replaceItemandEnd(
+                    tex_file,
+                    r"{tabulary}{\linewidth}[t]{|T|T|T|T|T|T|}",
+                    r"{longtable}[l]{|p{1in}|p{0.6in}|p{1.3in}|p{0.6in}|p{1.3in}|p{0.6in}|}",
+                    r"end{tabulary}",
+                    r"end{longtable}"
+            )
 
             docutype = "".join(_document_data.get("document_type").keys()).lower()
             if docutype == "qtp":
