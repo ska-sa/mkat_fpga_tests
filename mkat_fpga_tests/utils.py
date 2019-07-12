@@ -72,6 +72,24 @@ class RetryError(Exception):
 
 class UtilsClass(object):
 
+    def get_real_clean_dump(self, discard=0):
+        """
+            The data queue is cleared by calling get_clean_dump repeatedly
+            until the procedure actually takes as long as an integration.
+        """
+        time_diff = 0
+        timeout = 0
+        while time_diff < 0.1:
+            start_time = time.time()
+            data = self.receiver.get_clean_dump(discard=discard)
+            time_diff = time.time() - start_time
+            self.Step("time_diff = {}".format(time_diff))
+            timeout += 1
+            if timeout == 10:
+                self.Failed("Clean dump could not be obtained. See log.")
+                return False
+        return data
+
     def clear_all_delays(self):
         """Clears all delays on all fhosts.
         Param: object
@@ -116,7 +134,7 @@ class UtilsClass(object):
             t_apply = current_time + delay_load_lead_time
             t_apply_dumps = math.ceil(delay_load_lead_time / int_time)
             reply, informs = self.corr_fix.katcp_rct.req.delays(self.corr_fix.feng_product_name,
-                t_apply, *delay_coefficients)
+                t_apply, *delay_coefficients, timeout = 30)
             errmsg = "Delays command could not be executed: {}".format(reply)
             assert reply.reply_ok(), errmsg
             # This is the old method for reading back delays
@@ -544,8 +562,14 @@ class UtilsClass(object):
         except Exception:
             return
         else:
-            sensors_required = ["antenna-channelised-voltage-input{}-eq".format(_input)
-                                for _input, _ in enumerate(self.cam_sensors.input_labels)]
+            sensors_required = []
+            labels = [x.lower() for x in self.cam_sensors.input_labels]
+            if self.conf_file['instrument_params']['sensor_named_by_label'] == 'False':
+                num_inputs = len(labels)
+                labels = ['input'+str(x) for x in range(num_inputs)]
+            for label in labels:
+                sens_name = self.corr_fix.feng_product_name+'-'+label+'-eq'
+                sensors_required.append(sens_name)
             search = re.compile('|'.join(sensors_required))
             sensors = OrderedDict()
             for inf in informs:
@@ -567,8 +591,14 @@ class UtilsClass(object):
         except Exception:
             return
         else:
-            sensors_required = ["antenna-channelised-voltage-input{}-fft0-shift".format(_input)
-                                for _input, _ in enumerate(self.cam_sensors.input_labels)]
+            sensors_required = []
+            labels = [x.lower() for x in self.cam_sensors.input_labels]
+            if self.conf_file['instrument_params']['sensor_named_by_label'] == 'False':
+                num_inputs = len(labels)
+                labels = ['input'+str(x) for x in range(num_inputs)]
+            for label in labels:
+                sens_name = self.corr_fix.feng_product_name+'-'+label+'-fft0-shift'
+                sensors_required.append(sens_name)
             search = re.compile('|'.join(sensors_required))
             sensors = OrderedDict()
             for inf in informs:
@@ -653,6 +683,7 @@ class UtilsClass(object):
             return False
 
 
+    #TODO This does nothing... check this code
     def restore_initial_equalisations(self):
         init_eq = self.get_gain_all()
         try:
@@ -725,13 +756,13 @@ class UtilsClass(object):
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
                 elif "4k" in self.instrument:                                     
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale{}".format(profile, int_time)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale{}".format(profile, int_time)]
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
                 elif "32k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale{}".format(profile, int_time)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale{}".format(profile, int_time)]
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
                 else:
@@ -740,9 +771,29 @@ class UtilsClass(object):
                     self.Failed(msg)
                     return False
             except KeyError:
-                msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file.'.format(int_time))
-                self.Failed(msg)
-                return False
+                msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file. Profile for 0.5 seconds used'.format(int_time))
+                self.logger.error(msg)
+                #Aqf.note(msg)
+                try: 
+                    if "1k" in self.instrument:
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale_0_5".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale_0_5".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
+                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
+                    elif "4k" in self.instrument:                                     
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale_0_5".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale_0_5".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
+                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
+                    elif "32k" in self.instrument:
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale_0_5".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale_0_5".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
+                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
+                except KeyError:
+                    msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file.'.format(int_time))
+                    self.Failed(msg)
+                    return False
         else:
             msg = "Profile selected does not exist: {}".format(profile)
             self.logger.exception(msg)
@@ -1459,6 +1510,7 @@ class UtilsClass(object):
         except:
             errmsg = "Read delay values are not in the correct format."
             self.Error(errmsg, exc_info=True)
+            import IPython;IPython.embed()
             return False, None
         diff_array = np.abs(np.array(delay_values) - np.array(delay_coeff))
         coeff_err = (diff_array > err_margin).any()
@@ -1935,6 +1987,22 @@ class GetSensors(object):
         return input_labels
 
     @property
+    def input_labels_pols(self):
+        """
+        Input labels(s) including polarisation
+
+        Return
+        ---------
+        List: simplified input labels, label polarisation
+        """
+        try:
+            input_labelling = eval(self.sensors.input_labelling.get_value())
+            input_labels = [(x[0],x[-1]) for x in [list(i) for i in input_labelling]]
+        except Exception as e:
+            Aqf.failed('Failed reading input labels: {}'.format(e))
+        return input_labels
+
+    @property
     def custom_input_labels(self):
         """
         Simplified custom input labels(s)
@@ -1944,7 +2012,7 @@ class GetSensors(object):
         List: simplified custom input labels
         """
         n_ants = int(self.get_value("n_ants"))
-        return ["inp0{:02d}_{}".format(x, i) for x in xrange(n_ants) for i in "xy"]
+        return ["inp{:03d}{}".format(x, i) for x in xrange(n_ants) for i in "xy"]
 
     @property
     def ch_center_freqs(self):

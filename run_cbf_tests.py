@@ -656,7 +656,7 @@ def generate_sphinx_docs(settings):
             and os.path.exists(latex_pdf)
         ):
             logger.debug("Generating MeerKAT cover page")
-            # ToDo: MM 16-Nov-2017 Improve this logic
+            # TODO: MM 16-Nov-2017 Improve this logic. If something goes wrong with cover page generation you have to restore the original page from git. Rather make a original template and use that.
             _document_title = document_data["project"] + document_data["document_type"].values()[0]
             _document_type = "%s: Qualification Test %s" % (
                 document_data["document_type"].keys()[0],
@@ -671,12 +671,15 @@ def generate_sphinx_docs(settings):
             if settings.get("gen_qtr", False):
                 logger.debug("Making fixes for QTR on Cover page")
                 instrument_running = settings.get("system_type", "Unknown")
-                if int(instrument_running[2 : instrument_running.find("n856")]) >= 16:
-                    _system_type = " (%s [Tested only Half-Band(2k)]) " % settings.get(
-                        "system_type", "Unknown"
-                    )
-                else:
-                    _system_type = " (%s) " % settings.get("system_type", "Unknown")
+                # TODO: find better way of reporting this
+                #if int(instrument_running[2 : instrument_running.find("n856")]) >= 16:
+                #    _system_type = " (%s [Tested only Half-Band(2k)]) " % settings.get(
+                #        "system_type", "Unknown").split('_')[0]
+                #else:
+                #    # Remove everything after the underscore if present
+                #    _system_type = " (%s) " % settings.get("system_type", "Unknown").split('_')[0]
+                # Remove everything after the underscore if present
+                _system_type = " (%s) " % settings.get("system_type", "Unknown").split('_')[0]
                 _document_num = document_data["document_number"].get(
                     document_data.get("documented_instrument", "Unknown"), "Unknown"
                 )[0]
@@ -693,7 +696,6 @@ def generate_sphinx_docs(settings):
                                         or username.startswith("jenkins"))
                                  else "Uknwown"),
                 )
-
             new_names = [_document_type, _document_num, _document_rel, _document_title]
             for _new, _old in zip(new_names, orig_names):
                 replaceAll(latex_file, _old, _new)
@@ -900,7 +902,8 @@ def run_nose_test(settings):
             cmd.append(arg)
         # Run with --logging-level WARN if logging-level not passed in with nose_args
     # Let the output log be written into the katreport_dir
-    cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
+    # WARNING just for testing ipython
+    #cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
     logger.info("Running nosetests with following command: %s" % cmd)
     return run_command(settings, cmd, shell=True)
 
