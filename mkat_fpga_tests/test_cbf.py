@@ -5847,6 +5847,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]
             scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
+            reg_size = 32
+            reg_size_max = pow(2, reg_size)
+            threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
             dsim_factor = float(
                 self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
             substreams = self.cam_sensors.get_value("n_bengs")
@@ -6025,11 +6028,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
             return bf_raw, bf_ts
 
-        def load_dsim_impulse(load_timestamp, offset=0):
+        def load_dsim_impulse(load_timestamp):
             self.dhost.registers.src_sel_cntrl.write(src_sel_0=2)
             self.dhost.registers.src_sel_cntrl.write(src_sel_1=0)
             self.dhost.registers.impulse_delay_correction.write(reg=16)
-            load_timestamp = load_timestamp + offset
+            load_timestamp = load_timestamp
             # lt_abs_t = datetime.fromtimestamp(
             #    sync_time + load_timestamp / scale_factor_timestamp)
             # curr_t = datetime.fromtimestamp(time.time())
@@ -6044,13 +6047,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    self.Failed('Timestamp drift too big. Resynchronise digitiser simulator.')
             # Digitiser simulator local clock factor of 8 slower
             # (FPGA clock = sample clock / 8).
+
             load_timestamp = load_timestamp / 8.0
             if not load_timestamp.is_integer():
                 self.Failed("Timestamp received in accumulation not divisible" " by 8: {:.15f}".format(
                     load_timestamp))
             load_timestamp = int(load_timestamp)
-            reg_size = 32
-            load_ts_lsw = load_timestamp & (pow(2, reg_size) - 1)
+            load_ts_lsw = load_timestamp & (reg_size_max-1)
             load_ts_msw = load_timestamp >> reg_size
 
             # dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()['data']['reg']
@@ -6062,172 +6065,142 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         def get_dsim_mcount(spectra_ref_mcount):
             # Get the current mcount and shift it to the start of a spectra
-            dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()["data"]["reg"]
-            dsim_loc_msw = self.dhost.registers.local_time_msw.read()["data"]["reg"]
-            reg_size = 32
-            dsim_loc_time = dsim_loc_msw * pow(2, reg_size) + dsim_loc_lsw
-            if not (spectra_ref_mcount / 8.0).is_integer():
-                self.Failed("Spectra reference mcount is not divisible" " by 8: {:.15f}".format(
-                    spectra_ref_mcount))
-            dsim_loc_time = dsim_loc_time * 8
-            # Shift current dsim time to the edge of a spectra
-            dsim_spectra_time = dsim_loc_time - (
-                dsim_loc_time - spectra_ref_mcount) % ticks_between_spectra
-            return dsim_spectra_time
+            while True:
+                dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()["data"]["reg"]
+                dsim_loc_msw = self.dhost.registers.local_time_msw.read()["data"]["reg"]
+                if not(reg_size_max - dsim_loc_lsw < threems_in_200mhz_cnt):
+                    dsim_loc_time = dsim_loc_msw*reg_size_max + dsim_loc_lsw
+                    dsim_loc_time = dsim_loc_time * 8
+                    # Shift current dsim time to the edge of a spectra
+                    dsim_spectra_time = dsim_loc_time - (
+                            dsim_loc_time - spectra_ref_mcount) % ticks_between_spectra
+                    dsim_spectra_time = dsim_spectra_time/8.
+                    if not(dsim_spectra_time).is_integer():
+                        self.Failed("Dsim spectra time is not divisible by 8, dsim count has probably shifted, re-start test.")
+                        return False
+                    return dsim_spectra_time
 
         dsim_set_success = self.set_input_levels(awgn_scale=0.0, cw_scale=0.0, freq=0,
-            fft_shift=0, gain="32767+0j")
+            fft_shift=0, gain="65535+0j")
         self.dhost.outputs.out_1.scale_output(0)
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
-        
-        import IPython;IPython.embed()
-        return
 
-        out_func = []
-        num_pulse_caps = 400
-        print_modulus = num_pulse_caps / 10
-        # pulse_step must be divisible by 8
+        num_pulse_caps = 40
+        # pulse_step must be divisible by 8. Not neccessary anymore?
         if "1k" in self.instrument:
             pulse_step = 16
-            load_lead_factor = 1
         elif "4k" in self.instrument:
-            pulse_step = 16*4
-            load_lead_factor = 10
+            pulse_step = 8
         elif "32k" in self.instrument:
             pulse_step = 16*32
-            load_lead_factor = 40
+        load_lead_time = 0.015 
         points_around_trg = 1024
-        load_lead_time = 0.01
-        load_lead_mcount = 8 * int(load_lead_time * scale_factor_timestamp / 8)
-        first_cap = True
-        for pulse_cap in range(num_pulse_caps):
-            catch_pulse_retries = 5
-            while catch_pulse_retries > 0:
-                catch_pulse_retries -= 1
-                beam_retries = 5
-                while beam_retries > 0:
-                    beam_retries -= 1
-                    # Get a reference mcount
-                    _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
-                    if first_cap:
-                        time.sleep(0.5)
-                        first_cap = False
-                    else:
-                        # Only set beam weights on first capture
-                        beam_dict = None
-                        time.sleep(0.01)
-                    bf_raw, bf_ts = get_beam_data()
-                    if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
-                        spectra_ref_mcount = bf_ts[-1]
-                        # Start beam capture
-                        _ = self.capture_beam_data(beam, beam_dict=beam_dict, ingest_kcp_client=ingest_kcp_client, start_only=True)
-                        # Get current mcount
-                        curr_mcount = get_dsim_mcount(spectra_ref_mcount)
-                        future_mcount = load_lead_mcount + curr_mcount + pulse_step * pulse_cap
-                        self.logger.info('Current mcount = {}, Future mcount = {}, Load lead time = {}s, '
-                                         'Mcount difference = {}'.format(
-                                         curr_mcount, future_mcount, load_lead_time,
-                                         future_mcount - curr_mcount))
-                        load_dsim_impulse(future_mcount)
-                        time.sleep(load_lead_time*load_lead_factor)
-                        bf_raw, bf_ts = get_beam_data()
-                        if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
-                            break
-                        else:
-                            self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+        load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
+        load_lead_ts     = load_lead_mcount/8.
+        if not load_lead_ts.is_integer():
+            self.Failed("Load lead timestamp is not divisible by 8. Check ticks_between_spectra")
+        # Get reference beam capture to determine timestamp boundaries.
+        bf_raw, bf_flags, bf_ts, _in_wgts = self.capture_beam_data(
+                    beam, beam_dict=beam_dict, ingest_kcp_client=ingest_kcp_client
+                )
+        spectra_ref_mcount = bf_ts[-1]
+        if not (spectra_ref_mcount / 8.0).is_integer():
+            self.Failed("Spectra reference mcount is not divisible" " by 8: {:.15f}".format(
+                        spectra_ref_mcount))
+
+        beam_retries = 5
+        while beam_retries > 0:
+            future_ts_array = []
+            # Start a beam capture, set pulses and capture data 
+            _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+            for pulse_cap in range(num_pulse_caps):
+                if pulse_cap == 0:
+                    curr_ts = get_dsim_mcount(spectra_ref_mcount)
                 else:
-                    self.Failed("Beam data capture failed.")
-                    break
-                try:
-                    assert future_mcount
-                except Exception:
-                    return False
-                trgt_spectra_idx = np.where(bf_ts > future_mcount)[0]
-                if points_around_trg > trgt_spectra_idx.size:
-                    #self.Note('Capture {} did not contain enough spectra to search.'.format(pulse_cap))
-                    self.logger.warning('Capture {} did not contain enough spectra to search.'.format(pulse_cap))
-                elif trgt_spectra_idx.size == 0:
-                    fault_delta = (future_mcount - dbf_ts[-1]) / scale_factor_timestamp
-                    #self.Note
-                    #    "Target spectra timestamp too late by {} seconds".format(fault_delta))
-                    self.logger.warning(
-                        "Target spectra timestamp too late by {} seconds".format(fault_delta))
-                elif trgt_spectra_idx.size == bf_ts.size:
-                    fault_delta = (bf_ts[0] - future_mcount) / scale_factor_timestamp
-                    #self.Note(
-                    #    "Target spectra timestamp too early by {} seconds".format(fault_delta))
-                    self.logger.warning(
-                        "Target spectra timestamp too early by {} seconds".format(fault_delta))
-                else:
-                    trgt_spectra_idx = trgt_spectra_idx[0] - 1
-                    if (pulse_cap % print_modulus) == 0: 
-                        self.Progress(
-                            "Capture {} of {}, target specra found at index {} of beam capture "
-                            "containing {} spectra".format(pulse_cap, num_pulse_caps, trgt_spectra_idx, bf_ts.shape[0])
-                        )
-                    for i in range(trgt_spectra_idx - points_around_trg, trgt_spectra_idx + 1):
-                        spectra_mean_val = np.sum(np.abs(complexise(bf_raw[strt_ch:stop_ch, i, :]))) / (
-                            stop_ch - strt_ch
-                        )
-                        spectra_ts = bf_ts[i]
-                        ts_delta = int(spectra_ts) - future_mcount
-                        out_func.append([ts_delta, spectra_mean_val])
-                    break
+                    while curr_ts < future_ts:
+                        curr_ts = get_dsim_mcount(spectra_ref_mcount)
+                future_ts = load_lead_ts + curr_ts + pulse_step*pulse_cap
+                future_ts_array.append(future_ts)
+                load_dsim_impulse(future_ts)
+            time.sleep(0.5)
+            bf_raw, bf_ts = get_beam_data()
+            if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
+                break
             else:
-                self.Failed('Cannot find pulse, moving on to next step')
-        else:
-            # Remove any values which don't make sense, these happend when a capture missed the target mcount
-            out_func_orig = out_func[:]
-            rem_index = np.where((np.sum(out_func, axis=1)) > 30000)
-            out_func = np.delete(out_func, rem_index, axis=0)
-            x = np.asarray([x[0] for x in out_func])
-            y = np.asarray([y[1] for y in out_func])
-            # Remove zeros
-            zero_idxs = np.where(y==0)
-            x = np.delete(x, zero_idxs, axis=0)
-            y = np.delete(y, zero_idxs, axis=0)
-            if y.size == 0:
-                self.Failed('Could not find pulse within {} spectra'.format(points_around_trg))
-                # Close any KAT SDP ingest nodes
-                try:
-                    if ingest_kcp_client:
-                        ingest_kcp_client.stop()
-                except BaseException:
-                    pass
-                self.stop_katsdpingest_docker()
-                return False
-            # Sort dataset along x (sample count) axis
-            sorted_idxs = x.argsort()
-            sorted_x = x[sorted_idxs]
-            sorted_y = y[sorted_idxs]
-            group_delay_raw = sorted_x[np.argmax(sorted_y)]
-            gd_sign = np.sign(group_delay_raw)
-            group_delay_raw = abs(group_delay_raw)
-            gd_exp = int(round(np.log(group_delay_raw)/np.log(2)))
-            group_delay = gd_sign*2**gd_exp
-            self.Passed('Group delay = {} samples'.format(int(group_delay)))
-            aqf_plot_xy(
-                ([sorted_x,sorted_y],[""]),
-                plot_filename="{}/{}_group_delay.png".format(self.logs_path, self._testMethodName),
-                plot_title="Group delay response of an impulse convoluted with a beam spectral window.",
-                caption=("An impulse is incremented by {} samples for {} steps in a target beam spectrum. "
-                         "{} channels are captured and averaged of beam spectral responses surrounding the "
-                         "impulse target spectrum. The impulse timestamp is subtracted from the sample "
-                         "timestamp of the averaged beam spectrum. This timestamp delta plotted along the "
-                         "x-axis, and the averaged beam spectrum value along the y-axis.".format(
-                             pulse_step, num_pulse_caps, stop_ch-strt_ch)),
-                vlines=[group_delay],
-                xlabel="Sample Offset from Impulse",
-                ylabel="Average Beam Response",
-            )
+                self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                self.Note('Retrying beam cap')
+                beam_retries -= 1
+        trgt_spectra_idx = []
+        for ts in future_ts_array:
+            try:
+                trgt_spectra_idx.append(np.where(bf_ts > ts*8)[0][0] - 1)
+            except IndexError:
+                self.Note('Target spectra not found for timestamp: {}'.format(ts))
+        # Check all timestamps makes sense
+        ts_steps_found = [bf_ts[trgt_spectra_idx[x]]/8 - future_ts_array[x] for x in range(len(trgt_spectra_idx))]
+        if False in set(np.equal(np.diff(ts_steps_found), -1*pulse_step)):
+            self.Failed("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
+        if False in set(np.greater(np.diff(trgt_spectra_idx), points_around_trg)):
+            self.Failed("Not enough spectra around target to find response: {}".format(np.diff(trgt_spectra_idx)))
 
-            # Pass data through a smoothing filter
-            #import scipy
-            #smooth_y = scipy.signal.savgol_filter(sorted_y, 101, 3)
+        out_func = []
+        for i, trgt_spectra in enumerate(trgt_spectra_idx):
+            for j in range(trgt_spectra - points_around_trg, trgt_spectra + points_around_trg):
+                spectra_mean_val = np.sum(np.abs(complexise(bf_raw[strt_ch:stop_ch, j, :]))) / (stop_ch - strt_ch)
+                spectra_ts = bf_ts[j]
+                ts_delta = int(spectra_ts) - future_ts_array[i]*8
+                out_func.append([ts_delta, spectra_mean_val])
 
-        # Close any KAT SDP ingest nodes
+        x = np.asarray([x[0] for x in out_func])
+        y = np.asarray([y[1] for y in out_func])
+        # Remove zeros
+        zero_idxs = np.where(y==0)
+        x = np.delete(x, zero_idxs, axis=0)
+        y = np.delete(y, zero_idxs, axis=0)
+        if y.size == 0:
+            self.Failed('Could not find pulse within {} spectra'.format(points_around_trg))
+            # Close any KAT SDP ingest nodes
+            try:
+                if ingest_kcp_client:
+                    ingest_kcp_client.stop()
+            except BaseException:
+                pass
+            self.stop_katsdpingest_docker()
+            return False
+        # Sort dataset along x (sample count) axis
+        sorted_idxs = x.argsort()
+        sorted_x = x[sorted_idxs]
+        sorted_y = y[sorted_idxs]
+        group_delay_raw = sorted_x[np.argmax(sorted_y)]
+        gd_sign = np.sign(group_delay_raw)
+        group_delay_raw = abs(group_delay_raw)
+        gd_exp = int(round(np.log(group_delay_raw)/np.log(2)))
+        group_delay = gd_sign*2**gd_exp
+        self.Passed('Group delay = {} samples'.format(int(group_delay)))
+        aqf_plot_xy(
+            ([sorted_x,sorted_y],[""]),
+            plot_filename="{}/{}_group_delay.png".format(self.logs_path, self._testMethodName),
+            plot_title="Group delay response of an impulse convoluted with a beam spectral window.",
+            caption=("An impulse is incremented by {} samples for {} steps in a target beam spectrum. "
+                     "{} channels are captured and averaged of beam spectral responses surrounding the "
+                     "impulse target spectrum. The impulse timestamp is subtracted from the sample "
+                     "timestamp of the averaged beam spectrum. This timestamp delta plotted along the "
+                     "x-axis, and the averaged beam spectrum value along the y-axis.".format(
+                         pulse_step, num_pulse_caps, stop_ch-strt_ch)),
+            vlines=[group_delay],
+            xlabel="Sample Offset from Impulse",
+            ylabel="Average Beam Response",
+        )
+
+
+#
+#            # Pass data through a smoothing filter
+#            #import scipy
+#            #smooth_y = scipy.signal.savgol_filter(sorted_y, 101, 3)
+#
+#        # Close any KAT SDP ingest nodes
         try:
             if ingest_kcp_client:
                 ingest_kcp_client.stop()

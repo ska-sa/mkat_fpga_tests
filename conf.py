@@ -44,7 +44,7 @@ source_encoding = "utf-8"
 master_doc = "index"
 
 # General information about the project.
-project = u"MeerKAT Correlator-Beamformer "
+project = u"MeerKAT Correlator-Beamformer"
 copyright = u"SKA South Africa, 2009-2018"
 author = u"Mpho Mphego <mmphego@ska.ac.za>"
 
@@ -233,7 +233,7 @@ latex_elements = {
     \let\cleardoublepage\clearpage
     """,
     "fontpkg": r"\usepackage{times}",
-    "releasename": "Array Release 3",
+    "releasename": _document_data.get("array_release", ""),
     "maketitle": "",
 }
 
