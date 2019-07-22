@@ -6081,6 +6081,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        
+        import IPython;IPython.embed()
+        return
 
         out_func = []
         num_pulse_caps = 400
