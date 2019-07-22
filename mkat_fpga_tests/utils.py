@@ -72,21 +72,31 @@ class RetryError(Exception):
 
 class UtilsClass(object):
 
-    def get_real_clean_dump(self, discard=0):
+    def get_real_clean_dump(self, discard=0, quiet=False):
         """
             The data queue is cleared by calling get_clean_dump repeatedly
             until the procedure actually takes as long as an integration.
         """
         time_diff = 0
-        timeout = 0
+        retries = 10
         while time_diff < 0.1:
-            start_time = time.time()
-            data = self.receiver.get_clean_dump(discard=discard)
-            time_diff = time.time() - start_time
-            self.Step("time_diff = {}".format(time_diff))
-            timeout += 1
-            if timeout == 10:
-                self.Failed("Clean dump could not be obtained. See log.")
+            try:
+                start_time = time.time()
+                data = self.receiver.get_clean_dump(discard=discard)
+                self.assertIsInstance(data, dict)
+                time_diff = time.time() - start_time
+                self.logger.info("Time difference between capturing dumps = {}".format(time_diff))
+                retries -= 1
+                if retries == 0:
+                    raise Exception('Could not retrieve clean SPEAD accumulation, retries exausted.')
+            except AssertionError:
+                errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
+                if not quiet:
+                    self.Error(errmsg, exc_info=True)
+                return False
+            except Exception as e:
+                if not quiet:
+                    self.Error(e, exc_info=True)
                 return False
         return data
 

@@ -195,8 +195,8 @@ try:
             _document_data.get("document_type")[_document_data.get("document_type").keys()[0]],
         ]
     )
-    _array_release = _document_data.get("array_release", 3)
-    _filename = "%s_MeerKat_Correlator_Beamformer_Array_Release_%s_%s.tex" % (
+    _array_release = _document_data.get("array_release", "").replace(" ","_")
+    _filename = "%s_MeerKat_Correlator_Beamformer_%s_%s.tex" % (
         _document_number,
         _array_release,
         _document_type.replace(" ", "_"),

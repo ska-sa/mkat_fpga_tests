@@ -92,6 +92,7 @@ class CorrelatorFixture(Logger.LoggingClass):
                 self.feng_product_name = self.corr_config["fengine"]["output_products"]
                 self.beam0_product_name = self.corr_config["beam0"]["output_products"]
                 self.beam1_product_name = self.corr_config["beam1"]["output_products"]
+                self.xeng_outbits = self.corr_config["xengine"]["xeng_outbits"]
             # This is if an instrument is not running, should not be neccessary
             #elif self.instrument is not None:
             #    self.corr2ini_path = "/etc/corr/templates/{}".format(self.instrument)

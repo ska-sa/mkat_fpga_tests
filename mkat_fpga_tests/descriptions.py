@@ -9,6 +9,25 @@ class TestProcedure:
         return _description
 
     @property
+    def ProcessingPipelineFaultDetection(self):
+        _description = """
+        **Processing Pipeline Fault Detection**
+
+        Refer to test procedure in CBF.V.3.29: CBF Systematic Error Reporting VE
+        """
+        return _description
+    @property
+    def MemoryFaultDetection(self):
+        _description = """
+        **Memory Error Detection**
+
+        1. Induce memory errors.
+        2. Confirm that the appropriate sensors report the fault.
+
+        """
+        return _description
+
+    @property
     def LinkFaultDetection(self):
         _description = """
         **Link Error Detection**
@@ -84,7 +103,7 @@ class TestProcedure:
 
         **CBF Git Version Information**
 
-        1. Retrieve CORE software information
+        1. Report the following:
             - Repository directory
             - Repository branch and status
             - Repository version/tag
@@ -163,34 +182,35 @@ class TestProcedure:
             - Confirm that identical frequency scans between subsequent SPEAD accumulations produce equal results.
 
 
-        **SPEAD Accumulation Verification**
-
-        Note: This test verifies if a cw tone is only applied to a single input 0, Confirm if VACC is rooted by 1
-
-        1. Configure a digitiser simulator to be used as input source to F-Engines
-        2. Configure a digitiser simulator to generate continuous wave, on input 0
-        3. Set a predetermined accumulation period
-            - Confirm it has been set via CAM interface.
-        4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        5. Capture SPEAD accumulation, and
-            - Confirm that auto-correlation in baseline 0 contains Non-Zeros and,
-            - Baseline 1 is Zeros, when cw tone is only outputted on input 0.
-        6. Reset digitiser simulator to Zeros
-        7. Configure digitiser simulator configured to generate cw tone with frequency on input 1
-            - Capture a correlator SPEAD accumulation.
-            - Confirm that auto-correlation in baseline 1 contains non-Zeros and
-            - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
 
         **Route Digitisers Raw Data Verification**
 
         1. The antennas interface to the same core 40Gb/s Ethernet switch as the CBF components. This same switch also provides the interfaces to all data subscribers. The switch is designed to offer a full crossbar interconnect, and so any port is able to access data from any other port at full linerate. All data products, CBF and DIG included, multicast their data into this switch. Any port may subscribe to any combination of these streams using industry-standard IGMPv2 signalling up to the full linerate capacity of the local port.
         2. The baseline correlation test proves that the CBF ingests raw digitiser data. If the baseline correlation test and the analysis in point 1 verifies this requirement.
-
-        **Baseline Correlation Product Leakage**
-
-        1. TBD
-        2.
         """
+        #**SPEAD Accumulation Verification**
+
+        #Note: This test verifies if a cw tone is only applied to a single input 0, Confirm if VACC is rooted by 1
+
+        #1. Configure a digitiser simulator to be used as input source to F-Engines
+        #2. Configure a digitiser simulator to generate continuous wave, on input 0
+        #3. Set a predetermined accumulation period
+        #    - Confirm it has been set via CAM interface.
+        #4. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
+        #5. Capture SPEAD accumulation, and
+        #    - Confirm that auto-correlation in baseline 0 contains Non-Zeros and,
+        #    - Baseline 1 is Zeros, when cw tone is only outputted on input 0.
+        #6. Reset digitiser simulator to Zeros
+        #7. Configure digitiser simulator configured to generate cw tone with frequency on input 1
+        #    - Capture a correlator SPEAD accumulation.
+        #    - Confirm that auto-correlation in baseline 1 contains non-Zeros and
+        #    - Baseline 0 is Zeros, when cw tone is only outputted on input 1.
+
+        #**Baseline Correlation Product Leakage**
+        #
+        #1. TBD
+        #2.
+        #"""
         return _description
 
     @property
@@ -509,8 +529,18 @@ class TestProcedure:
         4. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         5. Initiate SPEAD receiver, enable data to flow and confirm CBF output product
-        **Missing**
-        10. Measure/record the filter-bank spectral response from a channel from the output of the beamformer
+        6. Calculate number of frequencies to iterate on
+        7. Randomly select a frequency channel to test.
+        8. Capture an initial correlator SPEAD accumulation and,
+            - Determine the number of frequency channels
+            - Confirm that the number of channels in the SPEAD accumulation, is equal to the number of frequency channels as calculated
+            - Confirm that the Channelise total bandwidth is >= 770000000.0Hz.
+            - Confirm the number of calculated channel frequency step is within requirement.
+            - Verify that the calculated channel frequency step size is within requirement
+            - Confirm the channelisation spacing and confirm that it is within the maximum tolerance.
+        9. Sweep the digitiser simulator over the centre frequencies of at least all the channels that fall within the complete L-band
+            - Capture channel response for every frequency channel in the selected frequencies calculated
+        10. Measure/record the filterbank spectral response from a channel from the output of the beamformer
         11. Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth for each swept channel
         12. Compute the efficiency as the ratio of Half Power Bandwidth to the Noise Equivalent Bandwidth: efficiency = HPBW/NEBW
         """

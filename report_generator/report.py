@@ -764,7 +764,8 @@ class Report(object):
             self.docproducer.add_indented_raw_text("Test Summary: %s" % _tests_summary)
         else:
             self.docproducer.add_heading('chapter',
-                'CBF Array Release %s Requirements Verification Matrix' % _array_release)
+                #'CBF Array Release %s Requirements Verification Matrix' % _array_release)
+                'CBF Functional Release Requirements Verification Matrix')
             _title = 'Requirements Verification Traceability Matrix'
             # self.docproducer.add_box_note("`Tests not implemented` are due to the requirements "
             #                              " not being applicable to the array release under test. "

@@ -84,6 +84,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.logs_path = self.create_logs_directory()
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client = self.conf_file["instrument_params"]["katcp_client"]
+            self.data_retries = int(self.conf_file["instrument_params"]["data_retries"])
             self.katcp_req = self.corr_fix.katcp_rct.req
             self.assertIsInstance(self.katcp_req, katcp.resource_client.AttrMappingProxy)
             self.katcp_req_sensors = self.corr_fix.katcp_rct_sensor.req
@@ -157,7 +158,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.receiver.stop()
             #TODO Investigate why this is need
             try:
-                dump = self.receiver.get_clean_dump(dump_timeout = 10)
+                #dump = self.receiver.get_clean_dump(dump_timeout = 10)
+                self.get_real_clean_dump(quiet=True)
                 self.logger.info("Got a clean dump while trying to stop the receiver.")
             except Exception as e:
                 self.logger.info("Getting dump while stopping failed with exception: {}".format(e))
@@ -174,14 +176,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #                         "{}".format(retry_count, e))
             #        time.sleep(10)
             #        retry_count -= 1
-            self.receiver.join(timeout = 10)
+            #TODO Join timeout to be investigated
+            self.receiver.join(timeout = 1)
             if self.receiver.stopped():
                 self.Step("SPEAD receiver has been stopped.")
             else:
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
-            self.logger.info("Sleeping for 10 seconds to clean up memory.")
-            time.sleep(10)
+            #self.logger.info("Sleeping for 10 seconds to clean up memory.")
+            #time.sleep(10)
 
 
     def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
@@ -342,6 +345,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
+                test_chan = 100
                 heading("CBF Channelisation Wideband Coarse L-band")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
@@ -495,7 +499,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if instrument_success:
                 num_discard = 5
                 self._test_product_baselines()
-                self._test_back2back_consistency(num_discard = num_discard*4)
+                self._test_back2back_consistency()
                 self._test_freq_scan_consistency(num_discard = num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
@@ -686,25 +690,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
     # TODO Add these to critical tests
-    #@array_release_x
+    @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.28")
     @aqf_requirements("CBF-REQ-0157")
     def test_fault_detection(self):
+        Aqf.procedure(TestProcedure.ProcessingPipelineFaultDetection)
+        Aqf.procedure(TestProcedure.MemoryFaultDetection)
         Aqf.procedure(TestProcedure.LinkFaultDetection)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                # self._test_network_link_error()
-                # self._test_memory_error()
-                heading("Processing Pipeline Failures")
-                self.Note("Test is being qualified by CBF.V.3.29")
-                heading("HMC Memory errors")
-                self.Note("See waiver")
-                heading("Network Link errors")
-                self.Note("See waiver")
+                self._test_network_link_error()
+                #self._test_memory_error()
+                #heading("Processing Pipeline Failures")
+                #self.Note("Test is being qualified by CBF.V.3.29")
+                #heading("HMC Memory errors")
+                #self.Note("See waiver")
+                #heading("Network Link errors")
+                #self.Note("See waiver")
             else:
                 self.Failed(self.errmsg)
 
@@ -768,6 +774,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
+    @array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -784,12 +791,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 Aqf.failed(self.errmsg)
 
-    #@array_release_x
+    @array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
     @instrument_1k
     @instrument_4k
-    @aqf_vr("CBF.V.A.IF2")
+    @aqf_vr("CBF.V.A.IF")
     def test_y_beamforming_timeseries(self):
         Aqf.procedure(TestProcedure.TimeSeries)
         try:
@@ -802,7 +809,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    #@array_release_x
+    @array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -1329,99 +1336,85 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
-        try:
-            self.Step(
-                "Randomly select a frequency channel to test. Capture an initial correlator "
-                "SPEAD accumulation, determine the number of frequency channels"
-            )
-            # initial_dump = self.receiver.get_clean_dump(discard=num_discards * 10)
-            initial_dump = self.receiver.get_clean_dump(discard=5)
+        n_accs = self.cam_sensors.get_value("n_accs")
+        bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
+        self.Progress(
+            "Randomly selected frequency channel to test: {} and "
+            "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
+        )
+        # Aqf.equals(4096, no_channels,
+        #           'Confirm that the number of channels in the SPEAD accumulation, is equal '
+        #           'to the number of frequency channels as calculated: {}'.format(
+        #              no_channels))
+        self.Step(
+            "The CBF, when configured to produce the Imaging data product set and Wideband "
+            "Fine resolution channelisation, shall channelise a total bandwidth of >= %s" % (
+                min_bandwithd_req)
+        )
+        Aqf.is_true(
+            self.cam_sensors.get_value("bandwidth") >= min_bandwithd_req,
+            "Channelise total bandwidth {}Hz shall be >= {}Hz.".format(
+                self.cam_sensors.get_value("bandwidth"), min_bandwithd_req
+            ),
+        )
+        # TODO (MM) 2016-10-27, As per JM
+        # Channel spacing is reported as 209.266kHz. This is probably spot-on, considering we're
+        # using a dsim that's not actually sampling at 1712MHz. But this is problematic for the
+        # test report. We would be getting 1712MHz/8192=208.984375kHz on site.
+        # Maybe we should be reporting this as a fraction of total sampling rate rather than
+        # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
+        # chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
+        chan_spacing = self.cam_sensors.get_value("bandwidth") / self.cam_sensors.get_value("n_chans")
+        chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
+        self.Step(
+            "CBF-REQ-0043 and CBF-REQ-0053 Confirm that the number of calculated channel "
+            "frequency step is within requirement."
+        )
+        msg = "Verify that the calculated channel frequency (%s Hz)step size is between %s and " "%s Hz" % (
+            chan_spacing,
+            req_chan_spacing / 2,
+            req_chan_spacing,
+        )
+        Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
 
-            self.assertIsInstance(initial_dump, dict)
-            reply, informs = self.cam_sensors.req.sensor_value("{}-n-accs".format(self.corr_fix.xeng_product_name))
-            assert reply.reply_ok()
-            n_accs = int(informs[0].arguments[-1])
-        except Exception:
-            errmsg = "Could not retrieve initial clean SPEAD accumulation: Queue is Empty."
-            self.Error(errmsg, exc_info=True)
-            return
-
-        else:
-            bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
-            self.Progress(
-                "Randomly selected frequency channel to test: {} and "
-                "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
-            )
-            # Aqf.equals(4096, no_channels,
-            #           'Confirm that the number of channels in the SPEAD accumulation, is equal '
-            #           'to the number of frequency channels as calculated: {}'.format(
-            #              no_channels))
-            self.Step(
-                "The CBF, when configured to produce the Imaging data product set and Wideband "
-                "Fine resolution channelisation, shall channelise a total bandwidth of >= %s" % (
-                    min_bandwithd_req)
-            )
-            Aqf.is_true(
-                self.cam_sensors.get_value("bandwidth") >= min_bandwithd_req,
-                "Channelise total bandwidth {}Hz shall be >= {}Hz.".format(
-                    self.cam_sensors.get_value("bandwidth"), min_bandwithd_req
-                ),
-            )
-            # TODO (MM) 2016-10-27, As per JM
-            # Channel spacing is reported as 209.266kHz. This is probably spot-on, considering we're
-            # using a dsim that's not actually sampling at 1712MHz. But this is problematic for the
-            # test report. We would be getting 1712MHz/8192=208.984375kHz on site.
-            # Maybe we should be reporting this as a fraction of total sampling rate rather than
-            # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
-            # chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
-            chan_spacing = self.cam_sensors.get_value("bandwidth") / self.cam_sensors.get_value("n_chans")
-            chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
-            self.Step(
-                "CBF-REQ-0043 and CBF-REQ-0053 Confirm that the number of calculated channel "
-                "frequency step is within requirement."
-            )
-            msg = "Verify that the calculated channel frequency (%s Hz)step size is between %s and " "%s Hz" % (
-                chan_spacing,
-                req_chan_spacing / 2,
-                req_chan_spacing,
-            )
-            Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
-
-            self.Step(
-                "CBF-REQ-0046 and CBF-REQ-0047 Confirm that the channelisation spacing and "
-                "confirm that it is within the maximum tolerance."
-            )
-            msg = "Channelisation spacing is within maximum tolerance of 1% of the " "channel spacing."
-            Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
-            initial_dump = self.receiver.get_clean_dump(discard=num_discards)
-            initial_freq_response = normalised_magnitude(initial_dump["xeng_raw"][:, test_baseline, :])
-            where_is_the_tone = np.argmax(initial_freq_response)
-            max_tone_val = np.max(initial_freq_response)
-            # 1) I think the channelisation tests might still be saturating.
-            # Could you include a dBFS peak value in the output?
-            # (take the peak auto correlation output value and divide it by the number of accumulations;
-            # you should get a value in the range 0-16129).
-            value = np.max(magnetise(initial_dump["xeng_raw"][:, test_baseline, :]))
-            valuedBFS = 20*np.log10(abs(value)/n_accs)
-
-
-            self.Note(
-                "Single peak found at channel %s, with max power of %.5f(%.5fdB)"
-                % (where_is_the_tone, max_tone_val, 10 * np.log10(max_tone_val))
-            )
-
-
-            plt_filename = "{}/{}_overall_channel_resolution_Initial_capture.png".format(
-                self.logs_path, self._testMethodName
-            )
-            plt_title = "Initial Overall frequency response at %s" % test_chan
-            caption = (
-                "An overall frequency response at the centre frequency %s,"
-                "and selected baseline %s to test. Digitiser simulator is configured to "
-                "generate a continuous wave, with cw scale: %s, awgn scale: %s, Eq gain: %s "
-                "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
-            )
-            aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1))
+        self.Step(
+            "CBF-REQ-0046 and CBF-REQ-0047 Confirm that the channelisation spacing and "
+            "confirm that it is within the maximum tolerance."
+        )
+        msg = "Channelisation spacing is within maximum tolerance of 1% of the " "channel spacing."
+        Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
+        one_more = True
+        for i in range(self.data_retries):  
+            initial_dump = self.get_real_clean_dump()
+            if initial_dump is not False:
+                initial_freq_response = normalised_magnitude(initial_dump["xeng_raw"][:, test_baseline, :])
+                where_is_the_tone = np.argmax(initial_freq_response)
+                max_tone_val = np.max(initial_freq_response)
+                if not(one_more): break
+                if where_is_the_tone == test_chan and one_more:
+                    one_more = False
+            self.logger.warning("CW not found, retrying capture.")
+        # 1) I think the channelisation tests might still be saturating.
+        # Could you include a dBFS peak value in the output?
+        # (take the peak auto correlation output value and divide it by the number of accumulations;
+        # you should get a value in the range 0-16129).
+        value = np.max(magnetise(initial_dump["xeng_raw"][:, test_baseline, :]))
+        valuedBFS = 20*np.log10(abs(value)/n_accs)
+        self.Note(
+            "Single peak found at channel %s, with max power of %.5f(%.5fdB)"
+            % (where_is_the_tone, max_tone_val, 10 * np.log10(max_tone_val))
+        )
+        plt_filename = "{}/{}_overall_channel_resolution_Initial_capture.png".format(
+            self.logs_path, self._testMethodName
+        )
+        plt_title = "Initial Overall frequency response at %s" % test_chan
+        caption = (
+            "An overall frequency response at the centre frequency %s,"
+            "and selected baseline %s to test. Digitiser simulator is configured to "
+            "generate a continuous wave, with cw scale: %s, awgn scale: %s, Eq gain: %s "
+            "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
+        )
+        aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1))
 
 
 
@@ -2125,273 +2118,283 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Failed("Failed to configure digitise simulator levels")
             return False
 
-        try:
-            self.Step("Change CBF input labels and confirm via CAM interface.")
-            #reply_, _ = self.katcp_req.input_labels()
-            #self.assertTrue(reply_.reply_ok())
-            #ori_source_name = reply_.arguments[1:]
-            ori_source_name = self.cam_sensors.input_labels
-            self.Progress("Original source names: {}".format(", ".join(ori_source_name)))
-        except Exception:
-            self.Error("Failed to retrieve input labels via CAM interface", exc_info=True)
-        try:
-            local_src_names = self.cam_sensors.custom_input_labels
-            reply, _ = self.katcp_req.input_labels(*local_src_names)
-            self.assertTrue(reply.reply_ok())
-        except Exception:
-            self.Error("Could not retrieve new source names via CAM interface:\n %s" % (str(reply)))
-        else:
-            #source_names = reply.arguments[1:]
-            source_names = self.cam_sensors.input_labels
-            msg = "Source names changed to: {}".format(", ".join(source_names))
-            self.Passed(msg)
+        # Does not make sense to change input labels anymore. These should be set at instrument initialisation
+        #try:
+        #    #self.Step("Change CBF input labels and confirm via CAM interface.")
+        #    #reply_, _ = self.katcp_req.input_labels()
+        #    #self.assertTrue(reply_.reply_ok())
+        #    #ori_source_name = reply_.arguments[1:]
+        #    ori_source_name = self.cam_sensors.input_labels
+        #    self.Progress("Original source names: {}".format(", ".join(ori_source_name)))
+        #except Exception:
+        #    self.Error("Failed to retrieve input labels via CAM interface", exc_info=True)
+        #try:
+        #    local_src_names = self.cam_sensors.custom_input_labels
+        #    reply, _ = self.katcp_req.input_labels(*local_src_names)
+        #    self.assertTrue(reply.reply_ok())
+        #except Exception:
+        #    self.Error("Could not retrieve new source names via CAM interface:\n %s" % (str(reply)))
+        #else:
+        #    #source_names = reply.arguments[1:]
+        #    source_names = self.cam_sensors.input_labels
+        #    msg = "Source names changed to: {}".format(", ".join(source_names))
+        #    self.Passed(msg)
 
-        try:
-            if self.cam_sensors.sensors.n_ants.value > 16:
-                #_discards = 60
-                _discards = 10
-            else:
-                #_discards = 30
-                _discards = 5
+        # Moving away from discards. Going to retry captures until it works or times out.
+        #try:
+        #    if self.cam_sensors.sensors.n_ants.value > 16:
+        #        #_discards = 60
+        #        _discards = 10
+        #    else:
+        #        #_discards = 30
+        #        _discards = 5
 
-            self.Step(
-                "Capture an initial correlator SPEAD accumulation while discarding {} "
-                "accumulations, and retrieve list of all the correlator input labels via "
-                "Cam interface.".format(_discards)
-            )
-            #test_dump = self.receiver.get_clean_dump(discard=_discards)
-            test_dump = self.get_real_clean_dump()
-            self.assertIsInstance(test_dump, dict)
-        except AssertionError:
-            errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
-            self.Error(errmsg, exc_info=True)
-        else:
+        #try:
+        #    self.Step(
+        #        "Capture an initial correlator SPEAD accumulation, "
+        #        "and retrieve list of all the correlator input labels via "
+        #        "Cam interface.".format(_discards)
+        #    )
+        #    #test_dump = self.receiver.get_clean_dump(discard=_discards)
+        #    test_dump = self.get_real_clean_dump()
+        #    self.assertIsInstance(test_dump, dict)
+        #except AssertionError:
+        #    errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
+        #    self.Error(errmsg, exc_info=True)
+        #else:
             # Get bls ordering from get dump
-            self.Step(
-                "Get list of all possible baselines (including redundant baselines) present "
-                "in the correlator output from SPEAD accumulation"
-            )
+        self.Step(
+            "Get list of all possible baselines (including redundant baselines) present "
+            "in the correlator output from SPEAD accumulation"
+        )
 
-            bls_ordering = evaluate(self.cam_sensors.get_value("bls_ordering"))
-            input_labels = sorted(self.cam_sensors.input_labels)
-            inputs_to_plot = random.shuffle(input_labels)
-            inputs_to_plot = input_labels[:8]
-            baselines_lookup = self.get_baselines_lookup()
-            present_baselines = sorted(baselines_lookup.keys())
-            possible_baselines = set()
-            [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
+        bls_ordering = evaluate(self.cam_sensors.get_value("bls_ordering"))
+        input_labels = sorted(self.cam_sensors.input_labels)
+        inputs_to_plot = random.shuffle(input_labels)
+        inputs_to_plot = input_labels[:8]
+        baselines_lookup = self.get_baselines_lookup()
+        present_baselines = sorted(baselines_lookup.keys())
+        possible_baselines = set()
+        [possible_baselines.add((li, lj)) for li in input_labels for lj in input_labels]
 
-            test_bl = sorted(list(possible_baselines))
-            self.Step(
-                "Confirm that each baseline (or its reverse-order counterpart) is present in "
-                "the correlator output"
-            )
+        test_bl = sorted(list(possible_baselines))
+        self.Step(
+            "Confirm that each baseline (or its reverse-order counterpart) is present in "
+            "the correlator output"
+        )
 
-            baseline_is_present = {}
-            for test_bl in possible_baselines:
-                baseline_is_present[test_bl] = test_bl in present_baselines or test_bl[::-1] in present_baselines
-            # Select some baselines to plot
-            plot_baselines = (
-                (input_labels[0], input_labels[0]),
-                (input_labels[0], input_labels[1]),
-                (input_labels[0], input_labels[2]),
-                (input_labels[-1], input_labels[-1]),
-                (input_labels[-1], input_labels[-2]),
-            )
-            plot_baseline_inds = []
-            for bl in plot_baselines:
-                if bl in baselines_lookup:
-                    plot_baseline_inds.append(baselines_lookup[bl])
-                else:
-                    plot_baseline_inds.append(baselines_lookup[bl[::-1]])
+        baseline_is_present = {}
+        for test_bl in possible_baselines:
+            baseline_is_present[test_bl] = test_bl in present_baselines or test_bl[::-1] in present_baselines
+        # Select some baselines to plot
+        plot_baselines = (
+            (input_labels[0], input_labels[0]),
+            (input_labels[0], input_labels[1]),
+            (input_labels[0], input_labels[2]),
+            (input_labels[-1], input_labels[-1]),
+            (input_labels[-1], input_labels[-2]),
+        )
+        plot_baseline_inds = []
+        for bl in plot_baselines:
+            if bl in baselines_lookup:
+                plot_baseline_inds.append(baselines_lookup[bl])
+            else:
+                plot_baseline_inds.append(baselines_lookup[bl[::-1]])
 
-            plot_baseline_legends = tuple(
-                "{bl[0]}, {bl[1]}: {ind}".format(bl=bl, ind=ind)
-                for bl, ind in zip(plot_baselines, plot_baseline_inds)
-            )
+        plot_baseline_legends = tuple(
+            "{bl[0]}, {bl[1]}: {ind}".format(bl=bl, ind=ind)
+            for bl, ind in zip(plot_baselines, plot_baseline_inds)
+        )
 
-            msg = "Confirm that all baselines are present in correlator output."
-            Aqf.is_true(all(baseline_is_present.values()), msg)
-            test_data = test_dump["xeng_raw"]
-            self.Step(
-                "Expect all baselines and all channels to be " "non-zero with Digitiser Simulator set to output AWGN."
-            )
+        msg = "Confirm that all baselines are present in correlator output."
+        Aqf.is_true(all(baseline_is_present.values()), msg)
+        for i in range(self.data_retries):  
+            test_data = self.get_real_clean_dump()
+            if test_data is not False:
+                z_baselines = zero_baselines(test_data["xeng_raw"])
+                if not(z_baselines): break
+            self.logger.warning("Baseslines with all-zero visibilites found, retrying capture.")
+        #self.Step(
+        #    "Expect all baselines and all channels to be " "non-zero with Digitiser Simulator set to output AWGN."
+        #)
+        if test_data is not False:
             msg = "Confirm that no baselines have all-zero visibilities."
-            Aqf.is_false(zero_baselines(test_data), msg)
+            Aqf.is_false(z_baselines, msg)
             msg = "Confirm that all baseline visibilities are non-zero across all channels"
-            if not nonzero_baselines(test_data) == all_nonzero_baselines(test_data):
+            if not nonzero_baselines(test_data["xeng_raw"]) == all_nonzero_baselines(test_data["xeng_raw"]):
                 self.Failed(msg)
             else:
                 self.Passed(msg)
-            #self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
-            #initial_equalisations = self.get_gain_all()
-            #self.Progress("Stored original F-engine equalisations.")
+        #self.Step("Save initial f-engine equalisations, and ensure they are " "restored at the end of the test")
+        #initial_equalisations = self.get_gain_all()
+        #self.Progress("Stored original F-engine equalisations.")
 
-            def set_zero_gains():
+        def set_zero_gains():
+            try:
+                for _input in input_labels:
+                    reply, _ = self.katcp_req.gain(_input, 0)
+                    self.assertTrue(reply.reply_ok())
+            except Exception:
+                self.Error("Failed to set equalisations on all F-engines", exc_info=True)
+            else:
+                self.Passed("All the inputs equalisations have been set to Zero.")
+
+        def read_zero_gains():
+            retries = 5
+            while True:
                 try:
                     for _input in input_labels:
-                        reply, _ = self.katcp_req.gain(_input, 0)
+                        reply, _ = self.katcp_req.gain(_input)
                         self.assertTrue(reply.reply_ok())
-                except Exception:
-                    self.Error("Failed to set equalisations on all F-engines", exc_info=True)
+                        eq_values = reply.arguments[1:]
+                        eq_values = [complex(x) for x in eq_values]
+                        eq_values = np.asarray(eq_values)
+                        eq_sum = eq_values.sum()
+                except Exception as e:
+                    self.Failed("Failed to retrieve gains/equalisations: {}".format(e))
+                    break
                 else:
-                    self.Passed("All the inputs equalisations have been set to Zero.")
-
-            def read_zero_gains():
-                retries = 5
-                while True:
-                    try:
-                        for _input in input_labels:
-                            reply, _ = self.katcp_req.gain(_input)
-                            self.assertTrue(reply.reply_ok())
-                            eq_values = reply.arguments[1:]
-                            eq_values = [complex(x) for x in eq_values]
-                            eq_values = np.asarray(eq_values)
-                            eq_sum = eq_values.sum()
-                    except Exception as e:
-                        self.Failed("Failed to retrieve gains/equalisations: {}".format(e))
+                    msg = "Confirm that all the inputs equalisations have been set to 'Zero'."
+                    if (eq_sum == complex(0)) or (retries == 0):
+                        Aqf.equals(eq_sum, complex(0), msg)
                         break
                     else:
-                        msg = "Confirm that all the inputs equalisations have been set to 'Zero'."
-                        if (eq_sum == complex(0)) or (retries == 0):
-                            Aqf.equals(eq_sum, complex(0), msg)
-                            break
-                        else:
-                            self.logger.info("Sum of eq values read back = {}, retyring".format(eq_sum))
-                            retries -= 1
-                            time.sleep(5)
+                        self.logger.info("Sum of eq values read back = {}, retyring".format(eq_sum))
+                        retries -= 1
+                        time.sleep(5)
 
-            self.Step("Set all inputs gains to 'Zero', and confirm that output product is all-zero")
-            set_zero_gains()
-            read_zero_gains()
-            test_data = self.get_real_clean_dump(1)
+        self.Step("Set all inputs gains to 'Zero', and confirm that output product is all-zero")
+        set_zero_gains()
+        read_zero_gains()
+        for i in range(self.data_retries):  
+            test_data = self.get_real_clean_dump()
+            if test_data is not False:
+                nz_baselines = nonzero_baselines(test_data["xeng_raw"])
+                if not(nz_baselines): break
+            self.logger.warning("Baseslines with non-zero visibilites found, retrying capture.")
+
+        if test_data is not False:
             Aqf.is_false(
-                nonzero_baselines(test_data["xeng_raw"]),
-                "Confirm that all baseline visibilities are 'Zero' after " "{} discards.\n".format(
-                    _discards),
+                nz_baselines,
+                "Confirm that all baseline visibilities are 'Zero'."
             )
-            # -----------------------------------
-            all_inputs = sorted(set(input_labels))
-            zero_inputs = set(input_labels)
-            nonzero_inputs = set()
+        # -----------------------------------
+        all_inputs = sorted(set(input_labels))
+        zero_inputs = set(input_labels)
+        nonzero_inputs = set()
 
-            def calc_zero_and_nonzero_baselines(nonzero_inputs):
-                nonzeros = set()
-                zeros = set()
-                for inp_i in all_inputs:
-                    for inp_j in all_inputs:
-                        if (inp_i, inp_j) not in present_baselines:
-                            continue
-                        if inp_i in nonzero_inputs and inp_j in nonzero_inputs:
-                            nonzeros.add((inp_i, inp_j))
-                        else:
-                            zeros.add((inp_i, inp_j))
-                return zeros, nonzeros
-
-            bls_msg = (
-                "Iterate through input combinations, verifying for each that "
-                "the correct output appears in the correct baseline product.\n"
-            )
-            self.Step(bls_msg)
-            # dataFrame = pd.DataFrame(index=sorted(input_labels),
-            #                          columns=list(sorted(present_baselines)))
-
-            for count, inp in enumerate(input_labels, start=1):
-                if count > 10:
-                    break
-                #old_eq = complex(initial_equalisations)
-                old_eq = gain
-                self.Step(
-                    "Iteratively set gain/equalisation correction on relevant " "input %s set to %s." % (inp, old_eq)
-                )
-                try:
-                    reply, _ = self.katcp_req.gain(inp, old_eq)
-                    self.assertTrue(reply.reply_ok())
-                except AssertionError:
-                    errmsg = "%s: Failed to set gain/eq of %s for input %s" % (str(reply), old_eq, inp)
-                    self.Error(errmsg, exc_info=True)
-                else:
-                    msg = "Gain/Equalisation correction on input %s set to %s." % (inp, old_eq)
-                    self.Passed(msg)
-                    zero_inputs.remove(inp)
-                    nonzero_inputs.add(inp)
-                    expected_z_bls, expected_nz_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
-                    try:
-                        self.Step(
-                            "Retrieving SPEAD accumulation and confirm if gain/equalisation "
-                            "correction has been applied."
-                        )
-                        #test_dump = self.receiver.get_clean_dump(discard=_discards)
-                        test_dump = self.get_real_clean_dump(2)
-                        self.assertIsInstance(test_dump, dict)
-                    except Exception as e:
-                        errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
-                        self.Error(errmsg, exc_info=True)
+        def calc_zero_and_nonzero_baselines(nonzero_inputs):
+            nonzeros = set()
+            zeros = set()
+            for inp_i in all_inputs:
+                for inp_j in all_inputs:
+                    if (inp_i, inp_j) not in present_baselines:
+                        continue
+                    if inp_i in nonzero_inputs and inp_j in nonzero_inputs:
+                        nonzeros.add((inp_i, inp_j))
                     else:
+                        zeros.add((inp_i, inp_j))
+            return zeros, nonzeros
+
+        bls_msg = (
+            "Iterate through input combinations, verifying for each that "
+            "the correct output appears in the correct baseline product."
+        )
+        self.Step(bls_msg)
+        self.Step(
+            "Confirm that gain/equalisation correction has been applied."
+                )
+        # dataFrame = pd.DataFrame(index=sorted(input_labels),
+        #                          columns=list(sorted(present_baselines)))
+
+        for count, inp in enumerate(input_labels, start=1):
+            if count > 10:
+                break
+            #old_eq = complex(initial_equalisations)
+            old_eq = gain
+            self.logger.info(
+                "Gain/equalisation correction on input %s set to %s." % (inp, old_eq)
+            )
+            try:
+                reply, _ = self.katcp_req.gain(inp, old_eq)
+                self.assertTrue(reply.reply_ok())
+            except AssertionError:
+                errmsg = "%s: Failed to set gain/eq of %s for input %s" % (str(reply), old_eq, inp)
+                self.Error(errmsg, exc_info=True)
+            else:
+                msg = "Gain/Equalisation correction on input %s set to %s." % (inp, old_eq)
+                self.Passed(msg)
+                zero_inputs.remove(inp)
+                nonzero_inputs.add(inp)
+                expected_z_bls, expected_nz_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
+                for i in range(self.data_retries):  
+                    test_dump = self.get_real_clean_dump()
+                    if test_dump is not False:
                         test_data = test_dump["xeng_raw"]
-                        # plot baseline channel response
-                        if inp in inputs_to_plot:
-                            plot_data = [
-                                normalised_magnitude(test_data[:, i, :])
-                                # plot_data = [loggerise(test_data[:, i, :])
-                                for i in plot_baseline_inds
-                            ]
-                            plot_filename = "{}/{}_channel_resp_{}.png".format(
-                                self.logs_path, self._testMethodName.replace(" ", "_"), inp
-                            )
-
-                            plot_title = "Baseline Correlation Products on input: %s" % inp
-
-                            _caption = (
-                                "Baseline Correlation Products on input:{} {} with the "
-                                "following non-zero inputs:\n {} \n "
-                                "and\nzero inputs:\n {}".format(
-                                    inp, bls_msg, ", ".join(sorted(nonzero_inputs)),
-                                    ", ".join(sorted(zero_inputs))
-                                )
-                            )
-
-                            aqf_plot_channels(
-                                zip(plot_data, plot_baseline_legends),
-                                plot_filename,
-                                plot_title,
-                                log_dynamic_range=None,
-                                log_normalise_to=1,
-                                caption=_caption,
-                                ylimits=(-0.1, np.max(plot_data) + 0.1),
-                            )
                         actual_nz_bls_indices = all_nonzero_baselines(test_data)
                         actual_nz_bls = set([tuple(bls_ordering[i]) for i in actual_nz_bls_indices])
-
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i]) for i in actual_z_bls_indices])
-                        msg = "Confirm that the expected baseline visibilities are non-zero with non-zero inputs"
-                        self.Step(msg)
-                        msg = msg + " (%s) and," % (sorted(nonzero_inputs))
-                        if actual_nz_bls == expected_nz_bls:
-                            self.Passed(msg)
-                        else:
-                            self.Failed(msg)
+                        if (actual_nz_bls == expected_nz_bls) and (actual_z_bls == expected_z_bls): break
+                    self.logger.warning("Correct baselines with non-zero and zero visibilites not found, retrying capture.")
 
-                        msg = "Confirm that the expected baselines visibilities are 'Zeros'.\n"
-                        self.Step(msg)
-                        if actual_z_bls == expected_z_bls:
-                            self.Passed(msg)
-                        else:
-                            self.Failed(msg)
+                if test_dump is not False:
+                    msg = "Baseline visibilities are non-zero with non-zero inputs"
+                    msg = msg + " (%s)" % (sorted(nonzero_inputs))
+                    if actual_nz_bls == expected_nz_bls:
+                        self.Passed(msg)
+                    else:
+                        self.Failed(msg)
 
-                        # Sum of all baselines powers expected to be non zeros
-                        # sum_of_bl_powers = (
-                        #     [normalised_magnitude(test_data[:, expected_bl, :])
-                        #      for expected_bl in [baselines_lookup[expected_nz_bl_ind]
-                        #                          for expected_nz_bl_ind in sorted(expected_nz_bls)]])
-                        test_data = None
-                        # dataFrame.loc[inp][sorted(
-                        #     [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
+                    msg = "All other baseline visibilities are zero."
+                    if actual_z_bls == expected_z_bls:
+                        self.Passed(msg)
+                    else:
+                        self.Failed(msg)
+                    # plot baseline channel response
+                    if inp in inputs_to_plot:
+                        plot_data = [
+                            normalised_magnitude(test_data[:, i, :])
+                            # plot_data = [loggerise(test_data[:, i, :])
+                            for i in plot_baseline_inds
+                        ]
+                        plot_filename = "{}/{}_channel_resp_{}.png".format(
+                            self.logs_path, self._testMethodName.replace(" ", "_"), inp
+                        )
 
-            # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
+                        plot_title = "Baseline Correlation Products on input: %s" % inp
 
-    def _test_back2back_consistency(self, num_discard = 4):
+                        _caption = (
+                            "Baseline Correlation Products on input:{} {} with the "
+                            "following non-zero inputs:\n {} \n "
+                            "and\nzero inputs:\n {}".format(
+                                inp, bls_msg, ", ".join(sorted(nonzero_inputs)),
+                                ", ".join(sorted(zero_inputs))
+                            )
+                        )
+
+                        aqf_plot_channels(
+                            zip(plot_data, plot_baseline_legends),
+                            plot_filename,
+                            plot_title,
+                            log_dynamic_range=None,
+                            log_normalise_to=1,
+                            caption=_caption,
+                            ylimits=(-0.1, np.max(plot_data) + 0.1),
+                        )
+
+                    # Sum of all baselines powers expected to be non zeros
+                    # sum_of_bl_powers = (
+                    #     [normalised_magnitude(test_data[:, expected_bl, :])
+                    #      for expected_bl in [baselines_lookup[expected_nz_bl_ind]
+                    #                          for expected_nz_bl_ind in sorted(expected_nz_bls)]])
+                    test_data = None
+                    # dataFrame.loc[inp][sorted(
+                    #     [i for i in expected_nz_bls])[-1]] = np.sum(sum_of_bl_powers)
+
+        # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
+
+    def _test_back2back_consistency(self):
         """
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
@@ -2399,115 +2402,73 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         heading("Spead Accumulation Back-to-Back Consistency")
         self.Step("Randomly select a channel to test.")
         n_chans = self.cam_sensors.get_value("n_chans")
-        test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
+        test_channels = random.sample(range(n_chans)[: self.n_chans_selected], 20)
         test_baseline = 0  # auto-corr
-        self.Progress("Randomly selected test channel %s and bls %s" % (test_chan, test_baseline))
-        self.Step("Calculate a list of frequencies to test")
-        requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=9, chans_around=1)
-        expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
+        self.Progress("Randomly selected test channels: %s" % (test_channels))
         source_period_in_samples = self.n_chans_selected * 2
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-        awgn_scale = 0
+        # Reset the dsim and set fft_shifts and gains
         dsim_set_success = self.set_input_levels(
-            awgn_scale=awgn_scale, cw_scale=cw_scale, freq=expected_fc, fft_shift=fft_shift, gain=gain
+            awgn_scale=0, cw_scale=0, freq=0, fft_shift=fft_shift, gain=gain
         )
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
-        self.dhost.sine_sources.sin_0.set(frequency=expected_fc, scale=cw_scale, repeat_n=source_period_in_samples)
         self.Step(
-            "Digitiser simulator configured to generate periodic wave "
-            "({:.3f}Hz with FFT-length {}) in order for each FFT to be "
-            "identical.".format(expected_fc / 1e6, source_period_in_samples)
+            "Digitiser simulator configured to generate periodic CW "
+            "with repeating samples equal to FFT-length {}) in order for each FFT to be "
+            "identical.".format(source_period_in_samples)
         )
-
-        try:
-            #_discards = (20 if self.cam_sensors.sensors.n_ants.value > 16 else 10)
-            #this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
-            this_freq_dump = self.get_real_clean_dump(discard=2)
-            assert isinstance(this_freq_dump, dict)
-        except AssertionError:
-            errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
-            self.Error(errmsg, exc_info=True)
-            return False
-        else:
-            self.Step(
-                "Sweep the digitiser simulator over the selected/requested frequencies " "within the complete L-band"
-            )
-            for i, freq in enumerate(requested_test_freqs):
-                Aqf.hop(
-                    "Getting channel response for freq {}/{} @ {:.3f} MHz.".format(
-                        i + 1, len(requested_test_freqs), freq / 1e6
-                    )
-                )
-                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples)
-                this_source_freq = self.dhost.sine_sources.sin_0.frequency
+        self.Step(
+            "Get a reference SPEAD accumulation and confirm that the following accumulation is identical."
+        )
+        ch_list = self.cam_sensors.ch_center_freqs
+        ch_bw = ch_list[1]
+        center_offset = ch_bw*0.1
+        for chan in test_channels:
+            freq = ch_list[chan] + center_offset
+            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples)
+            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            Aqf.hop("Getting response for channel {} @ {:.3f} MHz.".format(chan, (this_source_freq / 1e6)))
+            # Retry if correct data not received. This may be due to congestion on the receiver que
+            for i in range(self.data_retries):
                 dumps_data = []
                 chan_responses = []
-                self.Step(
-                    "Getting SPEAD accumulation and confirm that the difference between"
-                    " subsequent accumulation is Zero."
-                )
-                for dump_no in range(3):
-                    if dump_no == 0:
-                        try:
-                            #this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
-                            this_freq_dump = self.get_real_clean_dump(discard=2)
-                            assert isinstance(this_freq_dump, dict)
-                        except AssertionError:
-                            errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                            self.Error(errmsg, exc_info=True)
-                            return False
+                # Clear cue and wait for one integration period
+                dump = self.get_real_clean_dump(discard=1)
+                if dump is not False:
+                    for dump_no in range(2):
+                        this_freq_dump = self.get_real_clean_dump()
+                        if this_freq_dump is not False:
+                            this_freq_data = this_freq_dump["xeng_raw"]
+                            dumps_data.append(this_freq_data)
+                            this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
+                            chan_responses.append(this_freq_response)
                         else:
-                            initial_max_freq = np.max(this_freq_dump["xeng_raw"])
-                    else:
-                        try:
-                            #this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
-                            this_freq_dump = self.get_real_clean_dump(discard=2)
-                            assert isinstance(this_freq_dump, dict)
-                        except AssertionError:
-                            errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                            self.Error(errmsg, exc_info=True)
+                            return False
+                    dumps_comp = (np.where(dumps_data[0] != dumps_data[1])[0])
+                    if len(dumps_comp) == 0: break
 
-                    try:
-                        this_freq_data = this_freq_dump["xeng_raw"]
-                        assert isinstance(this_freq_data, np.ndarray)
-                    except AssertionError:
-                        errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                        self.Error(errmsg, exc_info=True)
-                        return False
-                    dumps_data.append(this_freq_data)
-                    this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
-                    chan_responses.append(this_freq_response)
-
-                # Maximum difference between the initial max frequency and the last max freq
-                dumps_comp = np.max(dumps_data[-1]) - initial_max_freq
-                msg = (
-                    "Confirm that the maximum difference between the subsequent SPEAD accumulations"
-                    " with the same frequency input ({}Hz) is 'Zero' on baseline {}.".format(
-                        this_source_freq, test_baseline
-                    )
+            msg = ("Subsequent SPEAD accumulations are identical.")
+            if not Aqf.equals(len(dumps_comp), 0, msg):
+                print (np.where(dumps_data[0] != dumps_data[1]))
+                legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
+                plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
+                plot_title = "Frequency Response {} @ {:.3f}MHz".format(test_chan, this_source_freq / 1e6)
+                caption = (
+                    "Comparison of back-to-back SPEAD accumulations with digitiser simulator "
+                    "configured to generate periodic wave ({:.3f}Hz with FFT-length {}) "
+                    "in order for each FFT to be identical".format(this_source_freq, source_period_in_samples)
                 )
-
-                if not Aqf.equals(dumps_comp, 0, msg):
-                    import IPython;IPython.embed()
-                    legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
-                    plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
-                    plot_title = "Frequency Response {} @ {:.3f}MHz".format(test_chan, this_source_freq / 1e6)
-                    caption = (
-                        "Comparison of back-to-back SPEAD accumulations with digitiser simulator "
-                        "configured to generate periodic wave ({:.3f}Hz with FFT-length {}) "
-                        "in order for each FFT to be identical".format(this_source_freq, source_period_in_samples)
-                    )
-                    aqf_plot_channels(
-                        zip(chan_responses, legends),
-                        plot_filename,
-                        plot_title,
-                        log_dynamic_range=90,
-                        log_normalise_to=1,
-                        normalise=False,
-                        caption=caption,
-                    )
+                aqf_plot_channels(
+                    zip(chan_responses, legends),
+                    plot_filename,
+                    plot_title,
+                    log_dynamic_range=90,
+                    log_normalise_to=1,
+                    normalise=False,
+                    caption=caption,
+                )
 
     def _test_freq_scan_consistency(self, threshold=1e-1, num_discard = 4):
         """This test confirms if the identical frequency scans produce equal results."""
@@ -3255,7 +3216,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         def ip2int(ipstr):
             return struct.unpack("!I", socket.inet_aton(ipstr))[0]
 
-        def get_spead_data():
+        def get_spead_data(self):
             try:
                 self.receiver.get_clean_dump()
             except Queue.Empty:
@@ -3264,7 +3225,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 msg = (
                     "Confirm that the SPEAD accumulation is being produced by "
-                    "instrument but not verified.\n")
+                    "instrument but not verified.")
                 self.Passed(msg)
 
         # Record the current multicast destination of one of the F-engine data
@@ -3279,34 +3240,24 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     host.host.upper()))
                 return
 
-        def get_lru_status(self, host):
-
-            if host in self.fhosts:
-                engine_type = "feng"
-            else:
-                engine_type = "xeng"
-
+        def get_xeng_status(self, status='warn'):
+            
             try:
-                try:
-                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(
-                        "%s-%s-lru-ok".format(host.host, engine_type)
-                    )
-                except BaseException:
-                    reply, informs = self.katcp_req.sensor_value("%s-%s-lru-ok".format(host.host,
-                        engine_type))
-            except BaseException:
-                self.Failed("Could not get sensor attributes on %s".format(host.host))
+                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                self.assertTrue(reply.reply_ok())
+            except Exception:
+                msg = "Failed to retrieve sensor values via CAM interface"
+                self.Error(msg, exc_info=True)
+                return
             else:
-                if reply.reply_ok() and (int(informs[0].arguments[-1]) == 1):
-                    return 1
-                elif reply.reply_ok() and (int(informs[0].arguments[-1]) == 0):
-                    return 0
+                x_device_status = list(set([i.arguments[-2] for i in informs if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
+                if len(x_device_status) == 1:
+                    Aqf.equals(x_device_status[0], status, "Confirm that all X-Engines report device-status {}.".format(status))
                 else:
-                    return False
+                    Aqf.failed('All X-Engines are not reporting device-status {}'.format(status))
 
         # configure the same port multicast destination to an unused address,
         # effectively dropping that data.
-
         def write_new_ip(host, ip_new, ip_old):
             try:
                 ip_new = ip2int(ip_new)
@@ -3338,36 +3289,51 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed("Failed to read %s sensor" % (host.host))
 
-        fhost = self.fhosts[random.randrange(len(self.fhosts))]
-        # xhost = self.xhosts[random.randrange(len(self.xhosts))]
+        # TODO: This code connects directly to the SKARAB using casperfpga.
+        # change to use kcpcmd
+        fhosts = self.fhosts.split(',')
+        xhosts = self.xhosts.split(',')
+        fhost = fhosts[random.randrange(len(fhosts))]
+        xhost = xhosts[random.randrange(len(xhosts))]
+        bitstream = self.corr_fix.corr_config['fengine']['bitstream']
+        import casperfpga, logging
+        dummy_logger = logging.getLogger()
+        dummy_logger.level = logging.ERROR
+        try:
+            fhost_fpga = casperfpga.CasperFpga(fhost, logger=dummy_logger)
+            fhost_fpga.get_system_information(bitstream)
+        except Exception as e:
+            self.Failed('Could not connect to fhost: {}'.format(e))
+            return False
         ip_new = "239.101.2.250"
-
         self.Step(
             "Randomly selected %s host that is being used to produce the test "
-            "data product on which to trigger the link error." % (fhost.host)
+            "data product on which to trigger the link error." % (fhost_fpga.host)
         )
-        current_ip = get_host_ip(fhost)
+        current_ip = get_host_ip(fhost_fpga)
         if not current_ip:
-            self.Failed("Failed to retrieve multicast destination address of %s" % fhost.host)
+            self.Failed("Failed to retrieve multicast destination address of %s" % fhost_fpga.host)
         elif current_ip != ip_new:
-            self.Passed("Current multicast destination address for %s: %s." % (fhost.host,
+            self.Passed("Current multicast destination address for %s: %s." % (fhost_fpga.host,
                 current_ip))
         else:
-            self.Failed("Multicast destination address of %s" % (fhost.host))
+            self.Failed("Multicast destination address of %s not as expected." % (fhost_fpga.host))
 
-        self.Note("Debug code")
         # report_lru_status(self, xhost, get_lru_status)
-        # get_spead_data(self)
-
-        # write_new_ip(fhost, ip_new, current_ip)
-        # time.sleep(30 / 2)
+        get_spead_data(self)
+        write_new_ip(fhost_fpga, ip_new, current_ip)
+        self.Step('Waiting 30 seconds for device status sensors to change.')
+        time.sleep(30)
+        get_xeng_status(self, status='warn')
+        get_spead_data(self)
+        self.Step('Restoring the multicast destination from %s to the original %s' % (
+                   ip_new, current_ip))
+        write_new_ip(fhost_fpga, current_ip, ip_new)
+        self.Step('Waiting 30 seconds for device status sensors to change.')
+        time.sleep(30)
+        get_xeng_status(self, status='nominal')
         # report_lru_status(self, xhost, get_lru_status)
-        # get_spead_data(self)
 
-        # self.Step('Restoring the multicast destination from %s to the original %s' % (
-        #     human_readable_ip(ip_new), human_readable_ip(current_ip)))
-
-        # write_new_ip(fhost, current_ip, ip_new, get_host_ip, human_readable_ip)
         # report_lru_status(self, xhost, get_lru_status)
         # get_spead_data(self)
         #

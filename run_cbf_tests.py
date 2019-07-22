@@ -39,8 +39,6 @@ from report_generator.report import Report
 # List all core test python module dependencies
 _core_dependencies = ["corr2", "casperfpga", "spead2", "katcp"]
 
-_revision = "1.0"
-_array_release = "3"
 
 
 def option_parser():
@@ -217,6 +215,24 @@ def option_parser():
         action="store_true",
         default=False,
         help="Do pip install update and install latest packages",
+    )
+
+    parser.add_argument(
+        "--revision",
+        dest="revision",
+        action="store",
+        type=str,
+        default="1.0",
+        help="Document revision",
+    )
+
+    parser.add_argument(
+        "--release_type",
+        dest="release_type",
+        action="store",
+        type=str,
+        default="Functional Release",
+        help="Release name/type",
     )
 
     # parser.add_argument("--jenkins",
@@ -487,7 +503,6 @@ def generate_sphinx_docs(settings):
     katreport_dir = settings.get("katreport_dir", "katreport_dir")
     katreport_path = os.path.join(base_dir, katreport_dir)
     log_file = "/dev/null"
-
     # QTP Index data file
     _Index_QTP = """
     .. toctree::
@@ -565,52 +580,77 @@ def generate_sphinx_docs(settings):
         return
     else:
         logger.info("Generating LATEX/PDF document from reST")
+        try:
+            documented_instrument = settings.get("system_type", "Unknown").split('_')[0]
+        except:
+            documented_instrument = "" 
+
         document_data = {
-            "project": "MeerKAT Correlator-Beamformer Array Release %s Qualification Test "
-            % _array_release,
-            "documented_instrument": settings.get("system_type", "Unknown"),
-            "array_release": _array_release,
+            "project": "MeerKAT Correlator-Beamformer %s Qualification Test "
+            % settings.get("release_type"),
+            "documented_instrument": documented_instrument,
+            "array_release": settings.get("release_type"),
             "document_number": {
-                "QTP": "M1200-0000-054 ",
-                "QTR": "M1200-0000-055",
+                "QTP": "M1200-0000-059 ",
+                "QTR": "M1200-0000-060",
+                "bc8n856M1k": [
+                    "M1200-0000-060-01",
+                    "4 Antenna System running in Wideband Coarse (1K) mode",
+                ],
                 "bc8n856M4k": [
-                    "M1200-0000-055-1",
-                    "4 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
+                    "M1200-0000-060-02",
+                    "4 Antenna System running in Wideband Coarse (4K) mode", 
                 ],
                 "bc8n856M32k": [
-                    "M1200-0000-055-2",
+                    "M1200-0000-060-03",
                     "4 Antenna System running in Wideband Fine (32K) mode",
                 ],
+                "bc16n856M1k": [
+                    "M1200-0000-060-07",
+                    "8 Antenna System running in Wideband Coarse (1K) mode",
+                ],
                 "bc16n856M4k": [
-                    "M1200-0000-055-3",
-                    "8 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
+                    "M1200-0000-060-08",
+                    "8 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc16n856M32k": [
-                    "M1200-0000-055-4",
+                    "M1200-0000-060-09",
                     "8 Antenna System running in Wideband Fine (32K) mode",
                 ],
+                "bc32n856M1k": [
+                    "M1200-0000-060-10",
+                    "16 Antenna System running in Wideband Coarse (1K) mode",
+                ],
                 "bc32n856M4k": [
-                    "M1200-0000-55-5",
-                    "16 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
+                    "M1200-0000-060-11",
+                    "16 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc32n856M32k": [
-                    "M1200-0000-55-6",
+                    "M1200-0000-060-12",
                     "16 Antenna System running in Wideband Fine (32K) mode",
                 ],
+                "bc64n856M1k": [
+                    "M1200-0000-060-13",
+                    "32 Antenna System running in Wideband Coarse (1K) mode",
+                ],
                 "bc64n856M4k": [
-                    "M1200-0000-55-7",
-                    "32 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
+                    "M1200-0000-060-14",
+                    "32 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc64n856M32k": [
-                    "M1200-0000-55-8",
+                    "M1200-0000-060-15",
                     "32 Antenna System running in Wideband Fine (32K) mode",
                 ],
+                "bc128n856M1k": [
+                    "M1200-0000-060-04",
+                    "64 Antenna System running in Wideband Coarse (1K) mode",
+                ],
                 "bc128n856M4k": [
-                    "M1200-0000-55-9",
-                    "64 Antenna System running in Wideband Coarse (4K) mode" " with a beamformer",
+                    "M1200-0000-060-05",
+                    "64 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc128n856M32k": [
-                    "M1200-0000-55-10",
+                    "M1200-0000-060-06",
                     "64 Antenna System running in Wideband Fine (32K) mode",
                 ],
             },
@@ -662,11 +702,18 @@ def generate_sphinx_docs(settings):
                 document_data["document_type"].keys()[0],
                 document_data["document_type"].values()[0],
             )
-            _document_num = document_data.get("document_number", "Unknown").get(
-                document_data.get("document_type", "Unknown").keys()[0]
-            )
-            _document_rel = _revision
-            latex_file = max(glob.iglob(cover_page_dir + "/*.tex"), key=os.path.getctime)
+            _doc_type_short = document_data.get("document_type", "Unknown").keys()[0]
+            _document_num = document_data.get("document_number", "Unknown").get(_doc_type_short)
+            _document_rel = settings.get("revision")
+            if _doc_type_short == 'QTP':
+                cmd = ["cp", cover_page_dir + "/Cover_Page_qtp.tex", cover_page_dir + "/Cover_Page.tex"]
+            else:
+                cmd = ["cp", cover_page_dir + "/Cover_Page_qtr.tex", cover_page_dir + "/Cover_Page.tex"]
+            if settings.get("log_level") == "DEBUG":
+                status = run_command(settings, cmd)
+            else:
+                status = run_command(settings, cmd, log_file)
+            latex_file = cover_page_dir + "/Cover_Page.tex"
             orig_names = ["Doctype", "DocNumber", "DocRevision", "DocumentTitle"]
             if settings.get("gen_qtr", False):
                 logger.debug("Making fixes for QTR on Cover page")
@@ -902,8 +949,8 @@ def run_nose_test(settings):
             cmd.append(arg)
         # Run with --logging-level WARN if logging-level not passed in with nose_args
     # Let the output log be written into the katreport_dir
-    # WARNING just for testing ipython
-    #cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
+    # For testing in ipython uncomment this line
+    cmd.append(" 2>&1 | tee %s/output.log" % (katreport_dir))
     logger.info("Running nosetests with following command: %s" % cmd)
     return run_command(settings, cmd, shell=True)
 
