@@ -6076,15 +6076,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return dsim_spectra_time
 
         dsim_set_success = self.set_input_levels(awgn_scale=0.0, cw_scale=0.0, freq=0,
-            fft_shift=0, gain="32767+0j")
+            fft_shift=0, gain="65535+0j")
         self.dhost.outputs.out_1.scale_output(0)
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
         
-        import IPython;IPython.embed()
-        return
-
         out_func = []
         num_pulse_caps = 400
         print_modulus = num_pulse_caps / 10
