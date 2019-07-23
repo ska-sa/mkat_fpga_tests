@@ -370,9 +370,11 @@ class TestProcedure:
         11. Check that VACC output is at < 99% of maximum value, if fails then it is probably over-ranging.
         12. Check that ripple within 80% of cut-off frequency channel is < 1.5 dB
         13. Measure the power difference between the middle of the center and the middle of the next adjacent bins and confirm that is > -53dB
-        14. Check that response at channel-edges are -3 dB relative to the channel centre at selected freq, actual source frequency
+        14. Check that response at channel-edges are -6 dB relative to the channel centre at selected freq, actual source frequency
         15. Check that relative response at the low band-edge is within the range of -6 +- 1% relative to channel centre response.
         16. Check that relative response at the high band-edge is within the range of -6 +- 1% relative to channel centre response.
+        17. Measure pass bandwidth between center bins of adjacent channels and confirm that the 53dB attenuation bandwidth is less than twice the measured passband.
+        18. Save channelisation and efficiency data.
         """
         return _description
 
@@ -543,6 +545,7 @@ class TestProcedure:
         10. Measure/record the filterbank spectral response from a channel from the output of the beamformer
         11. Determine the Half Power Bandwidth as well as the Noise Equivalent Bandwidth for each swept channel
         12. Compute the efficiency as the ratio of Half Power Bandwidth to the Noise Equivalent Bandwidth: efficiency = HPBW/NEBW
+        13. Save efficiency data.
         """
         return _description
 
