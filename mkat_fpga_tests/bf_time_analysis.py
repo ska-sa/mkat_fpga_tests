@@ -52,7 +52,7 @@ def dB2pow(val_dB):
 # %% Analyse beam data function
 
 
-def analyse_beam_data(
+def analyse_beam_data(self,
     bf_raw,
     skarab_or_roach=True,
     do_save=False,
@@ -105,16 +105,16 @@ def analyse_beam_data(
     fft_shift = cbf_settings[0]
     re_quant_gain = cbf_settings[1]
 
-    # print out setup info
+    # self.Note(out setup info
     dsim_freq = dsim_baseband_freq + bandwidth
-    print "D-sim baseband frequency: %f [Hz]" % dsim_baseband_freq
-    print "D-sim frequency: %f [MHz]" % (dsim_freq / 1e6)
-    print "D-sim cw scale: %f" % (dsim_cw_scale)
-    print "D-sim noise scale: %f" % (dsim_noise_scale)
-    print "fft shift: ", fft_shift
+    self.Note("D-sim baseband frequency: %f [Hz]" % dsim_baseband_freq)
+    self.Note("D-sim frequency: %f [MHz]" % (dsim_freq / 1e6))
+    self.Note("D-sim cw scale: %f" % (dsim_cw_scale))
+    self.Note("D-sim noise scale: %f" % (dsim_noise_scale))
+    self.Note("fft shift: ", fft_shift)
     fft_shift_stages = bin(int(fft_shift)).count("1")
-    print "fftshift stages: ", fft_shift_stages
-    print "re-quant_gain: ", re_quant_gain
+    self.Note("fftshift stages: ", fft_shift_stages)
+    self.Note("re-quant_gain: ", re_quant_gain)
 
     dn0 = np.asarray(bf_raw[:chans_to_use, :])
     Feng_data = dn0[:, :, :]
@@ -126,16 +126,16 @@ def analyse_beam_data(
 
     try:
         nsamp_use = range(0, len(t0_or[:spectra_use]))
-        print "spectra_use no. samples in range"
+        self.Note("spectra_use no. samples in range")
     except BaseException:
         nsamp_use = range(0, len(t0_or))
-        print "spectra_use no. samples not in in range, using full spectra length"
+        self.Note("spectra_use no. samples not in in range, using full spectra length")
 
-    print "choosing approximately %.5f seconds of data (NB, this is the extent of the data file)" % (
+    self.Note("choosing approximately %.5f seconds of data (NB, this is the extent of the data file)" % (
         len(nsamp_use) * t0_or[1]
-    )
-    print "total spectra samples: %d " % len(nsamp_use)
-    print "total spectra time: %.4f [seconds]" % (len(nsamp_use) * t0_or[1])
+    ))
+    self.Note("total spectra samples: %d " % len(nsamp_use))
+    self.Note("total spectra time: %.4f [seconds]" % (len(nsamp_use) * t0_or[1]))
 
     t0 = t0_or[nsamp_use]
     dn_lim0 = copy.deepcopy(Feng_data[:, nsamp_use, :])
@@ -143,26 +143,26 @@ def analyse_beam_data(
     dn_lim_imag0 = copy.deepcopy(dn_lim0[:, :, 1])
     dn_lim_cmplx0 = np.zeros([len(dn_lim0[:, 0, 0]), len(dn_lim0[0, :, 0])])
 
-    # print out info
+    # self.Note(out info
     Bw = np.float(bandwidth / 1e6)
-    print "-Bandwidth [MHz] ", Bw
+    self.Note("-Bandwidth [MHz] ", Bw)
 
     # F_b = np.float(1284)
     F_b = np.float(Bw / 2.0 + Bw)
-    print "-F centre beamformer frequency [MHz] ", F_b
+    self.Note("-F centre beamformer frequency [MHz] ", F_b)
 
     Sg = dsim_freq / 1e6
-    print "-Simulated (Dsim) SG Signal generator frequency [MHz] ", Sg
+    self.Note("-Simulated (Dsim) SG Signal generator frequency [MHz] ", Sg)
 
     freqs_or = tmp = np.linspace(bandwidth, sample_clock - ch_bw, n_chans)
     bw_each = np.average(np.diff(tmp))
-    print "-Channel bandwidth [KHz] ", bw_each
+    self.Note("-Channel bandwidth [KHz] ", bw_each)
     freqs = np.arange(bandwidth, bandwidth + ((len(dn_lim_cmplx0[:, 0])) * (bw_each)), bw_each)
 
     idx_cnt_channel = np.argmin(np.abs(freqs - (Sg * 1e6)))
-    print "centre channel number integer", idx_cnt_channel
+    self.Note("centre channel number integer", idx_cnt_channel)
 
-    # Calculate and print the expected in channel tone frequeencies
+    # Calculate and self.Note(the expected in channel tone frequeencies
     channel = (Sg - Bw) * n_chans / Bw + 0.5
 
     base_f_minus_one_half = Sg - Bw - (np.floor(channel) - 1.5) * (Bw) / n_chans
@@ -173,16 +173,16 @@ def analyse_beam_data(
     base_f_plus_one = Sg - Bw - (np.floor(channel) + 1) * (Bw) / n_chans
     base_f_plus_one_half = Sg - Bw - (np.floor(channel) + 1.5) * (Bw) / n_chans
 
-    print "centre freq channel number full, ", channel
-    print "################################"
+    self.Note("centre freq channel number full, ", channel)
+    self.Note("################################")
 
-    print "base_f_minus_one_half channel [kHz]___: ", base_f_minus_one_half * 1e3
-    print "base_f_minus_one channel [kHz]________: ", base_f_minus_one * 1e3
-    print "base_f_minus_half channel [kHz]_______: ", base_f_minus_half * 1e3
-    print "base_f channel [kHz]__________________: ", base_f * 1e3
-    print "base_f_plus_half channel [kHz]________: ", base_f_plus_half * 1e3
-    print "base_f_plus_one channel [kHz]_________: ", base_f_plus_one * 1e3
-    print "base_f_plus_one_half channel [kHz]____: ", base_f_plus_one_half * 1e3
+    self.Note("base_f_minus_one_half channel [kHz]___: ", base_f_minus_one_half * 1e3)
+    self.Note("base_f_minus_one channel [kHz]________: ", base_f_minus_one * 1e3)
+    self.Note("base_f_minus_half channel [kHz]_______: ", base_f_minus_half * 1e3)
+    self.Note("base_f channel [kHz]__________________: ", base_f * 1e3)
+    self.Note("base_f_plus_half channel [kHz]________: ", base_f_plus_half * 1e3)
+    self.Note("base_f_plus_one channel [kHz]_________: ", base_f_plus_one * 1e3)
+    self.Note("base_f_plus_one_half channel [kHz]____: ", base_f_plus_one_half * 1e3)
 
     # % creating the complex matrix
     # create complex beamformer output data for H pol
@@ -228,7 +228,7 @@ def analyse_beam_data(
 
     # find the channel where the tone is most likely to be present
     max_channel = np.argmax(np.abs(dn_lim_cmplx0).sum(axis=1))
-    print "tone is located at channel number: ", max_channel
+    self.Note("tone is located at channel number: ", max_channel)
     dn_lim_cmplx0_copy = dn_lim_cmplx0  # create copy of data for reset purposes
 
     # %
@@ -286,20 +286,20 @@ def analyse_beam_data(
         test_sig_after_reorder = np.fliplr(test_sig_after_reorder)
         if cond:
             if np.array_equal(test_sig, test_sig_after_reorder):
-                print "True:  re-order correct"
+                self.Note("True:  re-order correct")
             else:
-                print "False:  re-order incorrect"
+                self.Note("False:  re-order incorrect")
 
         # create reconstituted data
         reconstituted = 1 * (dn_lim_cmplx0 + np.conjugate(dn_lim_cmplx0))
 
         if idx_cnt_channel != max_channel:
-            print "expected cw tone channel NOT equal to achieved, channel offset by: %d" % np.abs(
+            self.Note("expected cw tone channel NOT equal to achieved, channel offset by: %d" % np.abs(
                 idx_cnt_channel - max_channel
-            )
+            ))
             idx_cnt_channel = max_channel  # mod for checking roach data SS 19 Jan 2018
         else:
-            print "expected cw tone channel equal to achieved"
+            self.Note("expected cw tone channel equal to achieved")
 
         # identify centre, adjacent left and adjacent right locations
         cnt_l = idx_cnt_channel - 1
@@ -454,7 +454,7 @@ def analyse_beam_data(
         fs_txt = 8
         y_lim = [-80, 50]
         fs = 1 / (t0_or[1] - t0_or[0])
-        print "fs = ", fs
+        self.Note("fs = ", fs)
         fc = 0  # fs/2.; #0
         y_ticks = np.arange(-100, 10, 20)
 

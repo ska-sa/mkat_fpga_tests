@@ -469,12 +469,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(
+                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 n_chans = self.n_chans_selected
                 awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
                 cw_start_scale = cw_scale + 0.3
-                if cw_start_scale > 1.0:
+                if "32k" in self.instrument:
+                    cw_start_scale = 1.0
+                elif cw_start_scale > 1.0:
                     cw_start_scale = 1.0
                 self._test_linearity(
                     test_channel=100, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
@@ -616,7 +619,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #     self.Failed(self.errmsg)
 
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.31")
@@ -689,7 +691,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-    # TODO Add these to critical tests
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.28")
@@ -785,11 +786,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._bf_efficiency()
-            else:
-                Aqf.failed(self.errmsg)
+            self.Note("Test not performed.")
+            #instrument_success = self.set_instrument()
+            #if instrument_success:
+            #    self._bf_efficiency()
+            #else:
+            #    Aqf.failed(self.errmsg)
 
     @array_release_x
     @beamforming
@@ -1598,7 +1600,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             try:
                 # CBF-REQ-0126
-                pass_bw_min_max = np.argwhere((np.abs(plot_data) >= 3.0) & (np.abs(plot_data) <= 3.3))
+                #TODO work out the spacing between crossing points
+                #pass_bw_min_max = np.argwhere((np.abs(plot_data) >= 3.0) & (np.abs(plot_data) <= 3.3))
+                pass_bw_min_max = chan_spacing
                 pass_bw = float(np.abs(actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[-1]]))
 
                 att_bw_min_max = [
@@ -2209,7 +2213,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Confirm that all baselines are present in correlator output."
         Aqf.is_true(all(baseline_is_present.values()), msg)
         for i in range(self.data_retries):  
-            test_data = self.get_real_clean_dump()
+            test_data = self.get_real_clean_dump(discard=3)
             if test_data is not False:
                 z_baselines = zero_baselines(test_data["xeng_raw"])
                 if not(z_baselines): break
@@ -3291,6 +3295,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # TODO: This code connects directly to the SKARAB using casperfpga.
         # change to use kcpcmd
+        self.fhosts, self.xhosts = (self.get_hosts("fhost"), self.get_hosts("xhost"))
         fhosts = self.fhosts.split(',')
         xhosts = self.xhosts.split(',')
         fhost = fhosts[random.randrange(len(fhosts))]
@@ -5093,7 +5098,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
                                 self.logger.warning("Missed heaps = {}".format(missed_heaps))
                                 self.logger.warning(
-                                    "Beam captured missed more than %s%% heaps. Retrying..." % (
+                                    "Beam capture missed more than %s%% heaps. Retrying..." % (
                                         perc * 100))
                                 missed_err = True
                         # Good capture, continue
@@ -5675,6 +5680,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # Setting DSIM to generate off center bin CW time sequence
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        awgn_scale = awgn_scale*2
         _capture_time = 0.1
         freq = ch_list[cw_ch] + center_bin_offset_freq
 
@@ -5746,10 +5752,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 missed_perc = missed_heaps.size / part.size
                 perc = 0.50
                 if missed_perc > perc:
-                    self.Progress("Missed heap percentage = {}%%".format(missed_perc * 100))
-                    self.Progress("Missed heaps = {}".format(missed_heaps))
-                    self.logger.warning("Beam captured missed more than %s%% heaps. Retrying..." % (perc * 100))
-                    self.Failed("Beam captured missed more than %s%% heaps. Retrying..." % (perc * 100))
+                    self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
+                    self.logger.warning("Missed heaps = {}".format(missed_heaps))
+                    self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
             # Print missed heaps
             idx = start_substream
             for part in flags:
@@ -5772,11 +5777,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
             bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
 
-            np.save("skarab_bf_data_plus.np", bf_raw)
+            fn = "/".join([self._katreport_dir, r"beamforming_timeseries_data"])
+            np.save(fn, bf_raw)
             # return True
             from bf_time_analysis import analyse_beam_data
 
-            analyse_beam_data(
+            analyse_beam_data(self,
                 bf_raw,
                 dsim_settings=[freq, cw_scale, awgn_scale],
                 cbf_settings=[fft_shift, gain],
@@ -6003,7 +6009,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if missed_perc > perc:
                         self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
                         self.logger.warning("Missed heaps = {}".format(missed_heaps))
-                        self.logger.warning("Beam captured missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
                         return None, None
             # Print missed heaps
             idx = start_substream
@@ -6048,10 +6054,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Digitiser simulator local clock factor of 8 slower
             # (FPGA clock = sample clock / 8).
 
-            load_timestamp = load_timestamp / 8.0
-            if not load_timestamp.is_integer():
-                self.Failed("Timestamp received in accumulation not divisible" " by 8: {:.15f}".format(
-                    load_timestamp))
+            #load_timestamp = load_timestamp / 8.0
+            #if not load_timestamp.is_integer():
+            #    self.Failed("Timestamp received in accumulation not divisible" " by 8: {:.15f}".format(
+            #        load_timestamp))
             load_timestamp = int(load_timestamp)
             load_ts_lsw = load_timestamp & (reg_size_max-1)
             load_ts_msw = load_timestamp >> reg_size
@@ -6087,51 +6093,66 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Failed("Failed to configure digitise simulator levels")
             return False
 
-        num_pulse_caps = 40
+        num_pulse_caps = 200
+        #num_pulse_caps = 100
         # pulse_step must be divisible by 8. Not neccessary anymore?
         if "1k" in self.instrument:
-            pulse_step = 16
+            pulse_step = 8
         elif "4k" in self.instrument:
             pulse_step = 8
         elif "32k" in self.instrument:
             pulse_step = 16*32
-        load_lead_time = 0.015 
-        points_around_trg = 1024
+        load_lead_time = 0.025
+        points_around_trg = 511
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
         if not load_lead_ts.is_integer():
             self.Failed("Load lead timestamp is not divisible by 8. Check ticks_between_spectra")
-        # Get reference beam capture to determine timestamp boundaries.
-        bf_raw, bf_flags, bf_ts, _in_wgts = self.capture_beam_data(
-                    beam, beam_dict=beam_dict, ingest_kcp_client=ingest_kcp_client
-                )
-        spectra_ref_mcount = bf_ts[-1]
-        if not (spectra_ref_mcount / 8.0).is_integer():
-            self.Failed("Spectra reference mcount is not divisible" " by 8: {:.15f}".format(
-                        spectra_ref_mcount))
-
         beam_retries = 5
         while beam_retries > 0:
-            future_ts_array = []
-            # Start a beam capture, set pulses and capture data 
-            _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
-            for pulse_cap in range(num_pulse_caps):
-                if pulse_cap == 0:
-                    curr_ts = get_dsim_mcount(spectra_ref_mcount)
-                else:
-                    while curr_ts < future_ts:
-                        curr_ts = get_dsim_mcount(spectra_ref_mcount)
-                future_ts = load_lead_ts + curr_ts + pulse_step*pulse_cap
-                future_ts_array.append(future_ts)
-                load_dsim_impulse(future_ts)
-            time.sleep(0.5)
-            bf_raw, bf_ts = get_beam_data()
-            if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
-                break
-            else:
-                self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
-                self.Note('Retrying beam cap')
+            # Get reference beam capture to determine timestamp boundaries.
+            bf_raw, bf_flags, bf_ts, _in_wgts = self.capture_beam_data(
+                        beam, beam_dict=beam_dict, ingest_kcp_client=ingest_kcp_client
+                    )
+            try:
+                spectra_ref_mcount = bf_ts[-1]
+            except IndexError:
                 beam_retries -= 1
+                self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+            else:
+                if not (spectra_ref_mcount / 8.0).is_integer():
+                    self.Failed("Spectra reference mcount is not divisible" " by 8: {:.15f}".format(
+                                spectra_ref_mcount))
+
+                future_ts_array = []
+                # Start a beam capture, set pulses and capture data 
+                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+                for pulse_cap in range(num_pulse_caps):
+                    if pulse_cap == 0:
+                        curr_ts = get_dsim_mcount(spectra_ref_mcount)
+                    else:
+                        while curr_ts < future_ts:
+                            curr_ts = get_dsim_mcount(spectra_ref_mcount)
+                    future_ts = load_lead_ts + curr_ts + pulse_step*pulse_cap
+                    future_ts_array.append(future_ts)
+                    load_dsim_impulse(future_ts)
+                time.sleep(0.5)
+                bf_raw, bf_ts = get_beam_data()
+                if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
+                    break
+                else:
+                    self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                    beam_retries -= 1
+        if beam_retries == 0:
+            self.Failed('Could not capture beam data.')
+            try:
+                if ingest_kcp_client:
+                    ingest_kcp_client.stop()
+            except BaseException:
+                pass
+            self.stop_katsdpingest_docker()
+            return False
+
         trgt_spectra_idx = []
         for ts in future_ts_array:
             try:
@@ -6141,13 +6162,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Check all timestamps makes sense
         ts_steps_found = [bf_ts[trgt_spectra_idx[x]]/8 - future_ts_array[x] for x in range(len(trgt_spectra_idx))]
         if False in set(np.equal(np.diff(ts_steps_found), -1*pulse_step)):
-            self.Failed("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
+            self.logger.warning("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
         if False in set(np.greater(np.diff(trgt_spectra_idx), points_around_trg)):
             self.Failed("Not enough spectra around target to find response: {}".format(np.diff(trgt_spectra_idx)))
 
         out_func = []
         for i, trgt_spectra in enumerate(trgt_spectra_idx):
-            for j in range(trgt_spectra - points_around_trg, trgt_spectra + points_around_trg):
+            for j in range(trgt_spectra - points_around_trg, trgt_spectra + 1):
                 spectra_mean_val = np.sum(np.abs(complexise(bf_raw[strt_ch:stop_ch, j, :]))) / (stop_ch - strt_ch)
                 spectra_ts = bf_ts[j]
                 ts_delta = int(spectra_ts) - future_ts_array[i]*8

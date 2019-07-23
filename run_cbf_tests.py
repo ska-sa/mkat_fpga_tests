@@ -791,8 +791,8 @@ def generate_sphinx_docs(settings):
         if status:
             logger.error("there was an error on copying ./%s to %s" % (katreport_dir, build_dir))
         else:
-            logger.debug("Cleaning up %s directory" % docs_dir)
-            run_command(settings, ["git", "checkout", "--", docs_dir], log_file)
+            #logger.debug("Cleaning up %s directory" % docs_dir)
+            #run_command(settings, ["git", "checkout", "--", docs_dir], log_file)
             logger.info("******Done generating the document!!!******")
 
 
