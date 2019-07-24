@@ -5578,8 +5578,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
             running_instrument = self.instrument
             assert running_instrument is not False
-            msg = "Running instrument currently does not have beamforming capabilities."
-            assert not running_instrument.endswith("32k"), msg
             self.Step("Discontinue any capturing of %s and %s, if active." % (beams[0], beams[1]))
             reply, informs = self.katcp_req.capture_start(beams[0], timeout=60)
             self.assertTrue(reply.reply_ok())
@@ -6146,6 +6144,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if beam_retries == 0:
             self.Failed('Could not capture beam data.')
             try:
+                # Restore DSIM
+                self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
                 if ingest_kcp_client:
                     ingest_kcp_client.stop()
             except BaseException:
@@ -6184,6 +6184,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Failed('Could not find pulse within {} spectra'.format(points_around_trg))
             # Close any KAT SDP ingest nodes
             try:
+                # Restore DSIM
+                self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
                 if ingest_kcp_client:
                     ingest_kcp_client.stop()
             except BaseException:
@@ -6223,6 +6225,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 #
 #        # Close any KAT SDP ingest nodes
         try:
+            # Restore DSIM
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
             if ingest_kcp_client:
                 ingest_kcp_client.stop()
         except BaseException:
