@@ -474,14 +474,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if instrument_success:
                 n_chans = self.n_chans_selected
                 awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-                cw_start_scale = cw_scale + 0.3
-                if "32k" in self.instrument:
-                    cw_start_scale = 1.0
-                elif cw_start_scale > 1.0:
+                cw_start_scale = 1 - awgn_scale
+                gain = complex(gain)*1.3
+                if cw_start_scale > 1.0:
                     cw_start_scale = 1.0
                 self._test_linearity(
                     test_channel=100, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
-                    gain=gain, fft_shift=fft_shift, max_steps=14
+                    gain=gain, fft_shift=fft_shift, max_steps=20
                 )
             else:
                 self.Failed(self.errmsg)
@@ -793,7 +792,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #else:
             #    Aqf.failed(self.errmsg)
 
-    @array_release_x
+    #@array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
     @instrument_1k
@@ -1372,11 +1371,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "CBF-REQ-0043 and CBF-REQ-0053 Confirm that the number of calculated channel "
             "frequency step is within requirement."
         )
-        msg = "Verify that the calculated channel frequency (%s Hz)step size is between %s and " "%s Hz" % (
-            chan_spacing,
-            req_chan_spacing / 2,
-            req_chan_spacing,
-        )
+        msg = ("Verify that the calculated channel frequency step ({:.3f} kHz) is between {} and {} Hz"
+               "".format(chan_spacing/1000, req_chan_spacing / 2, req_chan_spacing))
         Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
 
         self.Step(
@@ -1599,31 +1595,93 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 cutoff=-cutoff,
             )
             try:
-                # CBF-REQ-0126
-                #TODO work out the spacing between crossing points
-                #pass_bw_min_max = np.argwhere((np.abs(plot_data) >= 3.0) & (np.abs(plot_data) <= 3.3))
-                pass_bw_min_max = chan_spacing
-                pass_bw = float(np.abs(actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[-1]]))
+                no_of_responses = 3
+                channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(no_of_responses)]
+                def find_channel_crossing(chs=channel_response_list, side='low'):
+                    if side == 'low':
+                        high_idx = 1
+                        low_idx = 0
+                    else:
+                        high_idx = 2
+                        low_idx = 1
+                    band_diff = chs[high_idx] - chs[low_idx]
+                    search_strt = np.argmin(band_diff)
+                    search_stop = np.argmax(band_diff)
+                    offset = np.argmin(np.abs(band_diff[search_strt:search_stop]))
+                    return offset+search_strt 
+                low_cross_idx = find_channel_crossing(channel_response_list, "low")
+                hig_cross_idx = find_channel_crossing(channel_response_list, "high")
+                # Find real channel spacing, if center falls between indexes calc accordingly
+                cent_to_cross_idx = (hig_cross_idx - low_cross_idx)/2
+                if isinstance(cent_to_cross_idx, int):
+                    cent_on_idx = True
+                else:
+                    cent_on_idx = False
+                cent_to_cross_idx = int(cent_to_cross_idx)
+                cent_idx = low_cross_idx + cent_to_cross_idx
+                left_idx = low_cross_idx - cent_to_cross_idx
+                rght_idx = hig_cross_idx + cent_to_cross_idx
+                if cent_on_idx:
+                    cent_freq = actual_test_freqs[cent_idx]
+                    left_freq = actual_test_freqs[left_idx]
+                    rght_freq = actual_test_freqs[rght_idx]
+                else:
+                    cent_freq = (actual_test_freqs[cent_idx+1] + actual_test_freqs[cent_idx])/2
+                    left_freq = (actual_test_freqs[left_idx-1] + actual_test_freqs[left_idx])/2
+                    rght_freq = (actual_test_freqs[rght_idx+1] + actual_test_freqs[rght_idx])/2
+                left_ch_spacing = cent_freq - left_freq
+                rght_ch_spacing = rght_freq - cent_freq
+                if left_ch_spacing != rght_ch_spacing:
+                    self.Failed('Channel spacing between 3 test channels are not equal. '
+                                'Centre to low = {} and centre to high = {}.'
+                                ''.format(left_ch_spacing, rght_ch_spacing))
+                measured_ch_spacing = left_ch_spacing
+                self.Note("Measured channel spacing = {:.3f} kHz, "
+                          "expected channel spacing from sensors = {:.3f} kHz."
+                          "".format(measured_ch_spacing/1000, chan_spacing/1000))
+                crossover_ch_bw = actual_test_freqs[hig_cross_idx] - actual_test_freqs[low_cross_idx]
+                self.Note("Measured cross-over point bandwidth = {:.3f} kHz"
+                          "".format(crossover_ch_bw/1000))
 
-                att_bw_min_max = [
-                    np.argwhere(plot_data == i)[0][0]
-                    for i in plot_data
-                    if (abs(i) >= (cutoff - 1)) and (abs(i) <= (cutoff + 1))
-                ]
-                att_bw = actual_test_freqs[att_bw_min_max[-1]] - actual_test_freqs[att_bw_min_max[0]]
+                low_cross_dbfs = plot_data[low_cross_idx]
+                high_cross_dbfs = plot_data[hig_cross_idx]
+                self.Note("Low  band channel cross-over point at {:.3f} dBfs.".format(low_cross_dbfs))
+                self.Note("High band channel cross-over point at {:.3f} dBfs.".format(high_cross_dbfs))
+
+                # CBF-REQ-0126
+                #pass_bw_min_max = np.argwhere((np.abs(plot_data) >= 3.0) & (np.abs(plot_data) <= 3.3))
+                #pass_bw = float(np.abs(actual_test_freqs[pass_bw_min_max[0]] - actual_test_freqs[pass_bw_min_max[-1]]))
+                pass_bw = crossover_ch_bw
+
+
+                att_bw_min_max = np.where(np.abs(plot_data) < cutoff)[0]
+                # Find center of response, ignore possible sidelobes
+                try:
+                    idxs = np.where(np.diff(att_bw_min_max)>1)[0]
+                    start_main = np.argmax(np.diff(idxs))
+                    main_idxs = idxs[start_main:start_main+2]
+                    att_bw_min_max = att_bw_min_max[main_idxs[0]+1:main_idxs[-1]+1]
+                except:
+                    # Array was contiguous
+                    pass
+                low_idx = att_bw_min_max[0]-1
+                high_idx = att_bw_min_max[-1]+1
+
+                att_bw = actual_test_freqs[high_idx] - actual_test_freqs[low_idx]
+                self.Note("-{} dB bandwith calculated at {:.3f} dBfs (low side) and {:.3f} dBfs (high side)."
+                          "".format(cutoff, plot_data[low_idx], plot_data[high_idx]))
 
             except Exception:
-                msg = (
-                    "Could not compute if, CBF performs channelisation such that the 53dB "
-                    "attenuation bandwidth is less/equal to 2x the pass bandwidth"
-                )
-                self.Note(msg, exc_info=True)
+                msg = ("Could not compute cross-over point bandwith or -{}dB attenuation bandwith. "
+                       "CBF-REQ-0126 could not be verified.".format(cutoff))
+                self.Failed(msg, exc_info=True)
+                import IPython;IPython.embed()
             else:
                 msg = (
-                    "The CBF shall perform channelisation such that the 53dB attenuation bandwidth(%s)"
-                    "is less/equal to 2x the pass bandwidth(%s)" % (att_bw, pass_bw)
+                        "The CBF shall perform channelisation such that the 53dB attenuation bandwidth {:.3f} kHz "
+                        "is less/equal to 2x the pass bandwidth {:.3f}".format(att_bw/1000, pass_bw/1000)
                 )
-                Aqf.is_true(att_bw >= pass_bw, msg)
+                Aqf.is_true(att_bw <= pass_bw*2, msg)
 
             # Get responses for central 80% of channel
             df = self.cam_sensors.delta_f
@@ -1699,46 +1757,55 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
             )
 
-            # Get frequency samples closest channel fc and crossover points
-            co_low_freq = expected_fc - df / 2
-            co_high_freq = expected_fc + df / 2
+            # The following is replaced by crossover point calculation and reporting
+            ## Get frequency samples closest channel fc and crossover points
+            #co_low_freq = expected_fc - df / 2
+            #co_high_freq = expected_fc + df / 2
 
-            def get_close_result(freq):
-                ind = np.argmin(np.abs(actual_test_freqs - freq))
-                source_freq = actual_test_freqs[ind]
-                response = chan_responses[ind, test_chan]
-                return ind, source_freq, response
+            #def get_close_result(freq):
+            #    ind = np.argmin(np.abs(actual_test_freqs - freq))
+            #    source_freq = actual_test_freqs[ind]
+            #    response = chan_responses[ind, test_chan]
+            #    return ind, source_freq, response
 
-            fc_ind, fc_src_freq, fc_resp = get_close_result(expected_fc)
-            co_low_ind, co_low_src_freq, co_low_resp = get_close_result(co_low_freq)
-            co_high_ind, co_high_src_freq, co_high_resp = get_close_result(co_high_freq)
-            # [CBF-REQ-0047] CBF channelisation frequency resolution requirement
-            self.Step(
-                "Confirm that the response at channel-edges are -3 dB "
-                "relative to the channel centre at {:.3f} Hz, actual source freq "
-                "{:.3f} Hz".format(expected_fc, fc_src_freq)
-            )
+            #fc_ind, fc_src_freq, fc_resp = get_close_result(expected_fc)
+            #co_low_ind, co_low_src_freq, co_low_resp = get_close_result(co_low_freq)
+            #co_high_ind, co_high_src_freq, co_high_resp = get_close_result(co_high_freq)
+            ## [CBF-REQ-0047] CBF channelisation frequency resolution requirement
+            #self.Step(
+            #    "Confirm that the response at channel-edges are -3 dB "
+            #    "relative to the channel centre at {:.3f} Hz, actual source freq "
+            #    "{:.3f} Hz".format(expected_fc, fc_src_freq)
+            #)
 
-            desired_cutoff_resp = -6  # dB
-            acceptable_co_var = 0.1  # dB, TODO 2015-12-09 NM: thumbsuck number
-            co_mid_rel_resp = 10 * np.log10(fc_resp)
-            co_low_rel_resp = 10 * np.log10(co_low_resp)
-            co_high_rel_resp = 10 * np.log10(co_high_resp)
+            #desired_cutoff_resp = -6  # dB
+            #acceptable_co_var = 0.1  # dB, TODO 2015-12-09 NM: thumbsuck number
+            #co_mid_rel_resp = 10 * np.log10(fc_resp)
+            #co_low_rel_resp = 10 * np.log10(co_low_resp)
+            #co_high_rel_resp = 10 * np.log10(co_high_resp)
 
-            co_lo_band_edge_rel_resp = co_mid_rel_resp - co_low_rel_resp
-            co_hi_band_edge_rel_resp = co_mid_rel_resp - co_high_rel_resp
+            #co_lo_band_edge_rel_resp = co_mid_rel_resp - co_low_rel_resp
+            #co_hi_band_edge_rel_resp = co_mid_rel_resp - co_high_rel_resp
 
-            low_rel_resp_accept = np.abs(desired_cutoff_resp + acceptable_co_var)
-            hi_rel_resp_accept = np.abs(desired_cutoff_resp - acceptable_co_var)
+            #low_rel_resp_accept = np.abs(desired_cutoff_resp + acceptable_co_var)
+            #hi_rel_resp_accept = np.abs(desired_cutoff_resp - acceptable_co_var)
+            # Not a requirement anymore, just report
+            #low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
+            #Aqf.step(
+            #    "The relative response at the low band-edge: "
+            #    "(-{co_lo_band_edge_rel_resp} dB @ {co_low_freq} Hz, actual source freq "
+            #    "{co_low_src_freq}) relative to channel centre response.".format(**locals()),
+            #)
+            ##low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
+            #Aqf.step(
+            #    "The relative response at the high band-edge: "
+            #    "(-{co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq "
+            #    "{co_high_src_freq}) relative to channel centre response.".format(**locals()),
+            #)
+            #cutoff_edge = np.abs((co_lo_band_edge_rel_resp + co_hi_band_edge_rel_resp) / 2)
+            crossover = (low_cross_dbfs + high_cross_dbfs)/2
 
-            cutoff_edge = np.abs((co_lo_band_edge_rel_resp + co_hi_band_edge_rel_resp) / 2)
-
-            no_of_responses = 3
-            num_samples = len(requested_test_freqs)
-            center = int(num_samples/2)
-            left = center - samples_per_chan
-            right = center + samples_per_chan
-            center_bin = [left, center, right]
+            center_bin = [left_idx, cent_idx, rght_idx]
             y_axis_limits = (-90, 1)
             legends = [
                 "Channel {} / Sample {} \n@ {:.3f} MHz".format(
@@ -1747,9 +1814,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 for i, v in zip(range(no_of_responses), center_bin)
             ]
             # center_bin.append('Channel spacing: {:.3f}kHz'.format(856e6 / self.n_chans_selected / 1e3))
-            center_bin.append("Channel spacing: {:.3f}kHz".format(chan_spacing / 1e3))
+            center_bin.append("Channel spacing: {:.3f}kHz".format(measured_ch_spacing / 1e3))
 
-            channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(no_of_responses)]
             csv_filename = "/".join([self._katreport_dir, r"wideband_channelisation_response_data.csv"])
             np.savetxt(csv_filename, channel_response_list, delimiter=",")
             plot_title = "PFB Channel Response"
@@ -1760,7 +1826,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "{}/{},with channelisation spacing of {:.3f}kHz within tolerance of 1%, with "
                 "the digitiser simulator configured to generate a continuous wave, with cw scale:"
                 " {}, awgn scale: {}, Eq gain: {} and FFT shift: {}".format(
-                    test_chan, test_baseline, bls_to_test, chan_spacing / 1e3, cw_scale, awgn_scale, gain, fft_shift
+                    test_chan, test_baseline, bls_to_test, measured_ch_spacing / 1e3, cw_scale, awgn_scale, gain, fft_shift
                 )
             )
 
@@ -1770,24 +1836,45 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 plot_title,
                 normalise=True,
                 caption=caption,
-                cutoff=-cutoff_edge,
+                crossover=crossover,
                 vlines=center_bin,
                 xlabel="Sample Steps",
                 ylimits=y_axis_limits,
             )
 
             self.Step(
-                "Measure the power difference between the middle of the center and the middle of "
-                "the next adjacent bins and confirm that is > -%sdB" % cutoff
+                "Measure the attenuation between the middle of the center bin and the middle of "
+                "adjacent bins and confirm that is > %sdB" % cutoff
             )
-            for bin_num, chan_resp in enumerate(channel_response_list, 1):
-                power_diff = np.max(loggerise(chan_resp)) - cutoff
-                msg = "Confirm that the power difference (%.2fdB) in bin %s is more than %sdB" % (
-                    power_diff,
-                    bin_num,
-                    -cutoff,
-                )
-                Aqf.less(power_diff, -cutoff, msg)
+            if cent_on_idx:
+                cent_pwr  = plot_data[cent_idx]
+                left_pwr  = plot_data[left_idx]
+                rght_pwr  = plot_data[rght_idx]
+            else:
+                cent_pwr  = (plot_data[cent_idx+1] + plot_data[cent_idx])/2
+                left_pwr  = (plot_data[left_idx-1] + plot_data[left_idx])/2
+                rght_pwr  = (plot_data[rght_idx+1] + plot_data[rght_idx])/2
+            power_diff = np.abs(cent_pwr - left_pwr)
+            msg = ("Attenuation between channel centre and at centre of low channnel is {:.1f} dB"
+                   "".format(power_diff))
+            #Aqf.more(power_diff, cutoff, msg)
+            self.Note(msg)
+            power_diff = np.abs(cent_pwr - rght_pwr)
+            msg = ("Attenuation between channel centre and at centre of high channnel is {:.1f} dB"
+                   "".format(power_diff))
+            self.Note(msg)
+            #Aqf.more(power_diff, cutoff, msg)
+            
+
+            #TODO This does not make a useful measurement?
+            #for bin_num, chan_resp in enumerate(channel_response_list, 1):
+            #    power_diff = np.max(loggerise(chan_resp)) - cutoff
+            #    msg = "Confirm that the power difference (%.2fdB) in bin %s is more than %sdB" % (
+            #        power_diff,
+            #        bin_num,
+            #        -cutoff,
+            #    )
+            #    Aqf.less(power_diff, -cutoff, msg)
 
             # Plot Central PFB channel response with ylimit 0 to -6dB
             y_axis_limits = (-7, 1)
@@ -1812,19 +1899,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 ylimits=y_axis_limits,
             )
             
-            # Not a requirement anymore, just report
-            #low_rel_resp_accept <= co_lo_band_edge_rel_resp <= hi_rel_resp_accept,
-            Aqf.step(
-                "The relative response at the low band-edge: "
-                "(-{co_lo_band_edge_rel_resp} dB @ {co_low_freq} Hz, actual source freq "
-                "{co_low_src_freq}) relative to channel centre response.".format(**locals()),
-            )
-            #low_rel_resp_accept <= co_hi_band_edge_rel_resp <= hi_rel_resp_accept,
-            Aqf.step(
-                "The relative response at the high band-edge: "
-                "(-{co_hi_band_edge_rel_resp} dB @ {co_high_freq} Hz, actual source freq "
-                "{co_high_src_freq}) relative to channel centre response.".format(**locals()),
-            )
 
     def _test_sfdr_peaks(self, required_chan_spacing, no_channels, cutoff=53, plots_debug=False, log_power=True):
 
@@ -7822,20 +7896,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
         #                scale_factor_timestamp)
         # substreams = self.cam_sensors.get_value('n_xengs')
-
         ch_list = self.cam_sensors.ch_center_freqs
+        center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
+        freq_offset = ch_list[1]*center_bin_offset
 
-        def get_cw_val(cw_scale, noise_scale, gain, fft_shift, test_channel, inp, f_offset=50000):
-            self.Step(
-                "Digitiser simulator configured to generate a continuous wave, "
-                "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
-                    cw_scale, noise_scale, gain, fft_shift
-                )
-            )
+        def get_cw_val(output_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp, pon=True):
+            if pon:
+                self.Step("Dsim output scale: {}".format(output_scale))
+            freq =ch_list[test_channel]
+            freq = freq + freq_offset
             dsim_set_success = self.set_input_levels(
                 awgn_scale=noise_scale,
                 cw_scale=cw_scale,
-                freq=ch_list[test_channel] + f_offset,
+                output_scale=output_scale,
+                freq=freq,
                 fft_shift=fft_shift,
                 gain=gain,
             )
@@ -7865,25 +7939,30 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         inp = random.choice(self.cam_sensors.input_labels)
         Aqf.hop("Sampling input {}".format(inp))
         cw_scale = cw_start_scale
-        cw_delta = 0.1
+        dsim_scale = 1.0
+        dsim_delta = 0.1
         threshold = 10 * np.log10(pow(2, 30))
         curr_val = threshold
-        Aqf.hop("Finding starting cw input scale...")
-        max_cnt = max_steps
-        while (curr_val >= threshold) and max_cnt:
-            prev_val = curr_val
-            curr_val = get_cw_val(cw_scale, noise_scale, gain, fft_shift, test_channel, inp)
-            cw_scale -= cw_delta
-            if cw_scale < 0:
-                max_cnt = 0
-                cw_scale = 0
-            else:
-                max_cnt -= 1
-        cw_start_scale = cw_scale + cw_delta
-        Aqf.hop("Starting cw input scale set to {}".format(cw_start_scale))
-        cw_scale = cw_start_scale
+        #Aqf.hop("Finding starting digitiser simulator scale...")
+        #max_cnt = max_steps
+        #while (curr_val >= threshold) and max_cnt:
+        #    prev_val = curr_val
+        #    curr_val = get_cw_val(dsim_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp)
+        #    dsim_scale -= dsim_delta
+        #    if dsim_scale < 0:
+        #        max_cnt = 0
+        #        dsim__scale = 0
+        #    else:
+        #        max_cnt -= 1
+        #dsim_start_scale = dsim_scale + dsim_delta
+        dsim_start_scale = dsim_scale
+        self.Step("Dsim generating CW: cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
+                  cw_scale, noise_scale, gain, fft_shift))
+        Aqf.hop("Testing channel {}".format(test_channel))
+        dsim_scale = dsim_start_scale
         output_power = []
         x_val_array = []
+        x_val_array_db = []
         # Find closes point to this power to place linear expected line.
         exp_step = 6
         exp_y_lvl = 70
@@ -7895,30 +7974,35 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         min_cnt_val = 3
         min_cnt = min_cnt_val
         max_cnt = max_steps
+        prev_val = get_cw_val(dsim_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp, False)
         while min_cnt and max_cnt:
-            curr_val = get_cw_val(cw_scale, noise_scale, gain, fft_shift, test_channel, inp)
+            curr_val = get_cw_val(dsim_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp)
             if exp_y_lvl_lwr < curr_val < exp_y_lvl_upr:
                 exp_y_val = curr_val
-                exp_x_val = 20 * np.log10(cw_scale)
+                exp_x_val = 20 * np.log10(dsim_scale)
             step = curr_val - prev_val
             if curr_val == 0:
                 break
-            if np.abs(step) < 0.2:
+            if np.abs(step) < 0.1:
                 min_cnt -= 1
             else:
                 min_cnt = min_cnt_val
-            x_val_array.append(20 * np.log10(cw_scale))
-            self.Step("CW power = {}dB, Step = {}dB, channel = {}".format(curr_val, step, test_channel))
+            x_val_array_db.append(20 * np.log10(dsim_scale))
+            x_val_array.append(dsim_scale)
+            self.Step("Channel power = {:.3f} dB, Delta = {:.3f} dB".format(curr_val, step))
             prev_val = curr_val
             output_power.append(curr_val)
-            cw_scale = cw_scale / 2
+            if dsim_scale < 0.2:
+                dsim_scale = dsim_scale / 2
+            else:
+                dsim_scale = dsim_scale - 0.1
             max_cnt -= 1
         output_power = np.array(output_power)
         output_power_max = output_power.max()
         output_power = output_power - output_power_max
         exp_y_val = exp_y_val - output_power_max
 
-        plt_filename = "{}_cbf_response_{}_{}_{}.png".format(self._testMethodName, gain, noise_scale, cw_start_scale)
+        plt_filename = "{}_cbf_lin_response_{}_{}_{}.png".format(self._testMethodName, gain, noise_scale, cw_scale)
         plt_title = "CBF Response (Linearity Test)"
         caption = (
             "Digitiser Simulator start scale: {}, end scale: {}. Scale "
@@ -7928,11 +8012,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         m = 1
         c = exp_y_val - m * exp_x_val
         y_exp = []
-        for x in x_val_array:
+        for x in x_val_array_db:
             y_exp.append(m * x + c)
-        # import IPython;IPython.embed()
         aqf_plot_xy(
-            zip(([x_val_array, output_power], [x_val_array, y_exp]), ["Response", "Expected"]),
+            zip(([x_val_array_db, output_power], [x_val_array_db, y_exp]), ["Response", "Expected"]),
             plt_filename,
             plt_title,
             caption,

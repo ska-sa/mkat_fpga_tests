@@ -125,6 +125,7 @@ def aqf_plot_channels(
     plot_type="channel",
     hline_strt_idx=0,
     cutoff=None,
+    crossover=None,
     show=False,
     xvals=None,
 ):
@@ -269,8 +270,8 @@ def aqf_plot_channels(
                 add_hxline(cutoff, msg)
 
                 #cutoff = cutoff * 2
-                msg = "Channel Crossover: {:.3f}dB".format(-6)
-                add_hxline(-6, msg)
+                #msg = "Channel Crossover: {:.3f}dB".format(-6)
+                #add_hxline(-6, msg)
             elif int(cutoff) == -6:
                 msg = "Average band-edge: {:.3f}dB".format(cutoff)
                 add_hxline(cutoff, msg)
@@ -283,6 +284,9 @@ def aqf_plot_channels(
         if cutoff:
             msg = "CBF channel isolation: -53dB"
             add_hxline(-53, msg)
+    if crossover:
+        msg = "Channel Crossover: {:.3f} dBfs".format(crossover)
+        add_hxline(crossover, msg)
 
     if plot_title:
         plt.title(plot_title)
@@ -509,9 +513,12 @@ def aqf_plot_xy(
 
     plt.grid(True)
     dotted_line = False
-    linestyle = "solid"
+    #linestyle = "solid"
+    linestyle = "-"
     for plot_data, legend in data:
         kwargs = {}
+        kwargs["marker"] = 'x'
+        kwargs["markersize"] = 7
         if legend:
             has_legend = True
             kwargs["label"] = legend

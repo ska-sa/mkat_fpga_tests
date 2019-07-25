@@ -818,7 +818,7 @@ class UtilsClass(object):
         #gain = '{}+{}'.format(gain_real,gain_imag)
         return float(awgn_scale), float(cw_scale), gain, int(fft_shift)
 
-    def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, fft_shift=None,
+    def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, output_scale=None, fft_shift=None,
                         gain=None, cw_src=0, corr_noise=True):
         """
         Set the digitiser simulator (dsim) output levels, FFT shift
@@ -840,11 +840,17 @@ class UtilsClass(object):
                 source 0 or 1
         Return: Bool
         """
+        # Select dsim mux
+        self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+        self.dhost.registers.src_sel_cntrl.write(src_sel_1=0)
+        # Zero everything
         self.dhost.noise_sources.noise_corr.set(scale=0)
         self.dhost.noise_sources.noise_0.set(scale=0)
         self.dhost.noise_sources.noise_1.set(scale=0)
         self.dhost.sine_sources.sin_0.set(frequency=0, scale=0)
         self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
+        self.dhost.outputs.out_0.scale_output(1.0)
+        self.dhost.outputs.out_1.scale_output(1.0)
         time.sleep(0.1)
         if cw_scale is not None:
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
@@ -856,6 +862,10 @@ class UtilsClass(object):
             else:
                 self.dhost.noise_sources.noise_0.set(scale=awgn_scale)
                 self.dhost.noise_sources.noise_1.set(scale=awgn_scale)
+
+        if output_scale is not None:
+            self.dhost.outputs.out_0.scale_output(output_scale)
+            self.dhost.outputs.out_1.scale_output(output_scale)
 
         def set_fft_shift(self):
             try:
