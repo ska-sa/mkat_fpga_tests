@@ -444,6 +444,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Test is being qualified by CBF.V.3.30")
 
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
@@ -460,6 +461,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.A.IF")
@@ -475,7 +477,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_chans = self.n_chans_selected
                 awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
                 cw_start_scale = 1 - awgn_scale
-                gain = complex(gain)*1.3
+                gain = complex(gain)*1.2
                 if cw_start_scale > 1.0:
                     cw_start_scale = 1.0
                 self._test_linearity(
@@ -487,7 +489,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
 
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.4")
@@ -792,7 +793,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #else:
             #    Aqf.failed(self.errmsg)
 
-    #@array_release_x
+    @array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
     @instrument_1k
@@ -1632,7 +1633,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 left_ch_spacing = cent_freq - left_freq
                 rght_ch_spacing = rght_freq - cent_freq
                 if left_ch_spacing != rght_ch_spacing:
-                    self.Failed('Channel spacing between 3 test channels are not equal. '
+                    self.Note('Channel spacing between 3 test channels are not equal. '
                                 'Centre to low = {} and centre to high = {}.'
                                 ''.format(left_ch_spacing, rght_ch_spacing))
                 measured_ch_spacing = left_ch_spacing
@@ -3011,7 +3012,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return actual_phases_list
 
             expected_phases = get_expected_phases()
-            actual_phases = get_actual_phases()
+            for i in range(self.data_retries):
+                actual_phases = get_actual_phases()
+                if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+                    self.logger.error("Phases are all zero, retrying capture. TODO debug why this is neccessary.")
+                elif not actual_phases:
+                    self.logger.error("Phases not captured, retrying capture. TODO debug why this is neccessary.")
+                else:
+                    break
 
             try:
                 if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
@@ -3401,15 +3409,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # report_lru_status(self, xhost, get_lru_status)
         get_spead_data(self)
         write_new_ip(fhost_fpga, ip_new, current_ip)
-        self.Step('Waiting 30 seconds for device status sensors to change.')
-        time.sleep(30)
+        self.Step('Waiting 60 seconds for device status sensors to change.')
+        time.sleep(60)
         get_xeng_status(self, status='warn')
         get_spead_data(self)
         self.Step('Restoring the multicast destination from %s to the original %s' % (
                    ip_new, current_ip))
         write_new_ip(fhost_fpga, current_ip, ip_new)
-        self.Step('Waiting 30 seconds for device status sensors to change.')
-        time.sleep(30)
+        self.Step('Waiting 60 seconds for device status sensors to change.')
+        time.sleep(60)
         get_xeng_status(self, status='nominal')
         # report_lru_status(self, xhost, get_lru_status)
 
@@ -7564,6 +7572,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             filename = "{}/{}.png".format(self.logs_path, self._testMethodName)
             Aqf.matplotlib_fig(filename, caption=cap, autoscale=True)
+            plt.clf()
+            plt.close()
 
         try:
             pfb_data = np.loadtxt(csv_filename, delimiter=",", unpack=False)
@@ -7971,7 +7981,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         exp_y_lvl_upr = exp_y_lvl + exp_y_dlt
         exp_y_val = 0
         exp_x_val = 0
-        min_cnt_val = 3
+        min_cnt_val = 5
         min_cnt = min_cnt_val
         max_cnt = max_steps
         prev_val = get_cw_val(dsim_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp, False)
