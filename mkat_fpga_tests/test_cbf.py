@@ -1676,7 +1676,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 msg = ("Could not compute cross-over point bandwith or -{}dB attenuation bandwith. "
                        "CBF-REQ-0126 could not be verified.".format(cutoff))
                 self.Failed(msg, exc_info=True)
-                import IPython;IPython.embed()
             else:
                 msg = (
                         "The CBF shall perform channelisation such that the 53dB attenuation bandwidth {:.3f} kHz "
@@ -5175,7 +5174,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         for part in flags:
                             missed_heaps = np.where(part > 0)[0]
                             missed_perc = missed_heaps.size / part.size
-                            perc = 0.60
+                            perc = 0.80
                             if missed_perc > perc:
                                 self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
                                 self.logger.warning("Missed heaps = {}".format(missed_heaps))
@@ -6176,14 +6175,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         num_pulse_caps = 200
         #num_pulse_caps = 100
         # pulse_step must be divisible by 8. Not neccessary anymore?
-        if "1k" in self.instrument:
-            pulse_step = 8
-        elif "4k" in self.instrument:
-            pulse_step = 8
-        elif "32k" in self.instrument:
-            pulse_step = 16*32
-        load_lead_time = 0.025
-        points_around_trg = 511
+        #if "1k" in self.instrument:
+        #    pulse_step = 8
+        #elif "4k" in self.instrument:
+        #    pulse_step = 8
+        #elif "32k" in self.instrument:
+        #    #pulse_step = 16*32
+        pulse_step = 8
+        load_lead_time = 0.035
+        points_around_trg = 1023
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
         if not load_lead_ts.is_integer():
