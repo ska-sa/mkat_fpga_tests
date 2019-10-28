@@ -368,6 +368,8 @@ class UtilsClass(object):
         # Put into an ordered list
         in_wgts = {}
         beam_pol = beam[-1]
+        #TODO: sullayman capture
+        #beam_pol = 'v'
         if beam_dict:
             for key in beam_dict:
                 if key.find(beam_pol) != -1:

@@ -103,6 +103,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             Aqf.Failed(errmsg)
             sys.exit(errmsg)
 
+        #TODO sullayman capture
+        #return
         errmsg = "Failed to instantiate the dsim, investigate"
         try:
             self.dhost = self.corr_fix.dhost
@@ -192,8 +194,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         acc_timeout = 60
         self.errmsg = None
         # Reset digitiser simulator to all Zeros
-        init_dsim_sources(self.dhost)
-        self.addCleanup(init_dsim_sources, self.dhost)
+        #TODO Remove
+        #init_dsim_sources(self.dhost)
+        #self.addCleanup(init_dsim_sources, self.dhost)
 
         try:
             self.Step("Confirm running instrument, else start a new instrument")
@@ -5341,7 +5344,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
             # Set beamformer quantiser gain for selected beam to 1 quant gain (TODO: was revesed at one point. To check but it should be fine now)
-            bq_gain = self.set_beam_quant_gain(beam, 1)
+            # TODO: Quant testing, normally 1
+            #bq_gain = self.set_beam_quant_gain(beam, 1)
+            bq_gain = self.set_beam_quant_gain(beam, 0.1)
             # Generating a dictionary to contain beam weights
             beam_dict = {}
             act_wgts = {}
@@ -5376,6 +5381,89 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return False
             beam_data.append(d)
             beam_lbls.append(l)
+
+            # Characterise quantiser gain application:
+            self.Step("Characterising beam quantiser gain application.")
+            self.Step(
+                "Step beam quantiser gain and plot the mean value for all channels "
+                "against expected value.")
+            self.Step("Expected value calculated by multiplying reference value with quantiser gain.")
+            qgain = 0.05
+            mean_vals = []
+            exp_mean_vals = []
+            qgain_lbls = []
+
+            retry_cnt = 0
+            while qgain <= 1.2:
+                #qgain = round(qgain, 1)
+
+                # Set quant for reference input, the rest are all zero
+                # TODO: check that this actually checks that the correct weight has been set
+                self.logger.info(
+                    "Confirm that beam quantiser gain has been set to {}".format(
+                        qgain)
+                )
+                try:
+                    act_qgain = self.set_beam_quant_gain(beam, qgain)
+                    retry_cnt = 0
+                except AssertionError:
+                    retry_cnt += 1
+                    self.Failed("Quant gain not successfully set: {}".format(reply))
+                    if retry_cnt == 5:
+                        self.Failed("Quant could not be set after 5 retries... Exiting test.")
+                        return False
+                    continue
+                except Exception:
+                    retry_cnt += 1
+                    errmsg = "Test failed"
+                    self.Error(errmsg, exc_info=True)
+                    if retry_cnt == 5:
+                        self.Failed("Quant could not be set after 5 retries... Exiting test.")
+                        return False
+                    continue
+                else:
+                    self.Passed("Beam quantiser gain set to {}".format(act_qgain))
+
+                # Get mean beam data
+                try:
+                    cap_data, act_wgts = get_beam_data(beam, avg_only=True)
+                    cap_mean = np.mean(cap_data)
+                    exp_mean = rl * act_qgain
+                    mean_vals.append(cap_mean)
+                    exp_mean_vals.append(exp_mean)
+                    qgain_lbls.append(qgain)
+                    self.Progress(
+                        "Captured mean value = {:.2f}, Calculated mean value "
+                        "(using reference value) = {:.2f}".format(cap_mean, exp_mean)
+                    )
+                except Exception as e:
+                    errmsg = "Failed to retrieve beamformer data: {}".format(e)
+                    self.Failed(errmsg)
+                    return
+                qgain += 0.05
+            # Square the voltage data. This is a hack as aqf_plot expects squared
+            # power data
+            aqf_plot_channels(
+                (
+                    (
+                        mean_vals,
+                        "Captured mean beam output.\nStepping quantiser gain.",
+                    ),
+                    (
+                        exp_mean_vals,
+                        "Value calculated from reference,\nwhere reference measured at\na quantiser gain of 1.",
+                    ),
+                ),
+                plot_filename="{}/{}_quantiser_gain_application_{}.png".format(self.logs_path, self._testMethodName, beam),
+                plot_title=("Beam = {}\n" "Expected vs Actual Mean Beam Output for Input Quantiser Gain.".format(beam)),
+                log_dynamic_range=None,  # 90, log_normalise_to=1,
+                ylabel="Mean Beam Output",
+                xlabel="{} Weight".format(ref_input_label),
+                xvals=qgain_lbls,
+            )
+
+            # Reset quantiser gain to 1
+            bq_gain = self.set_beam_quant_gain(beam, 1)
 
             # Characterise beam weight application:
             self.Step("Characterising beam weight application.")
@@ -5760,7 +5848,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Setting DSIM to generate off center bin CW time sequence
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         awgn_scale = awgn_scale*2
-        _capture_time = 0.1
+        _capture_time = 1
         freq = ch_list[cw_ch] + center_bin_offset_freq
 
         self.Step(
@@ -5775,12 +5863,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Progress(
             "CW scale: {}, Noise scale: {}, eq gain: {}, fft shift: {}".format(cw_scale, awgn_scale, gain, fft_shift)
         )
-        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
-            freq=freq, fft_shift=fft_shift, gain=gain
-        )
-        if not dsim_set_success:
-            self.Failed("Failed to configure digitise simulator levels")
-            return False
+        #dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+        #    freq=freq, fft_shift=fft_shift, gain=gain
+        #)
+        #if not dsim_set_success:
+        #    self.Failed("Failed to configure digitise simulator levels")
+        #    return False
 
         beam_quant_gain = 1.0 / ants
         self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
@@ -5788,6 +5876,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         beam_dict = {}
         beam_pol = beam[-1]
+        beam_pol = 'v'
         for label in labels:
             if label.find(beam_pol) != -1:
                 beam_dict[label] = 0.0
@@ -5804,10 +5893,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
         weight = 1.0
         # beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
-        beam_dict = self.populate_beam_dict(-1, weight, beam_dict)
+        #TODO: remove 
+        #beam_dict = self.populate_beam_dict(-1, weight, beam_dict)
+        import IPython;IPython.embed()
         try:
             # Currently setting weights is broken
-            bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam, beam_dict, capture_time=_capture_time)
+            retry = 10
+            while retry:
+                bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam, beam_dict, capture_time=_capture_time)
+                flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
+                if flags.size == 0:
+                    self.logger.warning("Beam data empty. Capture failed. Retrying...")
+                    self.Failed("Beam data empty. Capture failed. Retrying...")
+                    retry -= 1
+                else:
+                    retry = 0
+
             # bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data( beam, capture_time=0.1)
             # Close any KAT SDP ingest nodes
             self.stop_katsdpingest_docker()
@@ -5858,7 +5959,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             fn = "/".join([self._katreport_dir, r"beamforming_timeseries_data"])
             np.save(fn, bf_raw)
-            # return True
+            #TODO Remove
+            return True
             from bf_time_analysis import analyse_beam_data
 
             analyse_beam_data(self,

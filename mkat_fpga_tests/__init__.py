@@ -67,6 +67,8 @@ class CorrelatorFixture(Logger.LoggingClass):
         self.corr2ini_path = None
         self._correlator = None
         self._dhost = None
+        #TODO sullayman capture
+        #self._dhost = True
         self._katcp_rct = None
         self._katcp_rct_sensor = None
         self._rct = None
@@ -646,6 +648,7 @@ class CorrelatorFixture(Logger.LoggingClass):
         if instrument is not None:
             self.instrument = instrument
         self._correlator = None  # Invalidate cached correlator instance
+        # TODO sullayman capture
         self.logger.info("Confirm DEngine is running before starting correlator")
         if not self.dhost.is_running():
             raise RuntimeError("DEngine: %s not running." % (self.dhost.host))
