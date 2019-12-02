@@ -231,9 +231,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 acc_time = float(reply.arguments[-1])
                 self.Step("Set and confirm accumulation period via CAM interface.")
                 self.Progress("Accumulation time set to {:.3f} seconds".format(acc_time))
-            except Exception:
+            except Exception as e:
                 self.Error("Failed to set accumulation time.", exc_info=True)
-
             init_receiver = False
             if 'self.receiver' not in locals():
                 init_receiver = True
@@ -650,12 +649,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
             instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
-                self._test_delay_tracking()
-                self._test_delay_rate()
+                #self._test_delay_tracking()
+                #self._test_delay_rate()
                 self._test_phase_rate()
-                self._test_phase_offset()
-                self._test_delay_inputs()
-                self.clear_all_delays()
+                #self._test_phase_offset()
+                #self._test_delay_inputs()
+                #self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
 
@@ -2978,7 +2977,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.Error('Error occured during delay tracking test: {}'.format(e), exc_info=True)
 
                     try:
-                        _num_discards = delay_load_lead_intg + 4
+                        _num_discards = delay_load_lead_intg + 5
                         self.Step(
                             "Getting SPEAD accumulation(while discarding %s dumps) containing "
                             "the change in delay(s) on input: %s baseline: %s."
@@ -2988,7 +2987,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         dump = self.receiver.get_clean_dump(discard=_num_discards)
                         if not(self._confirm_delays(delay_coefficients, 
                                                     err_margin = float(self.conf_file["delay_req"]["delay_resolution"]))[0]):
-                            self.Error('Requested delay of {} was not set, check output of logfile.')
+                            self.Error('Requested delay was not set, check output of logfile.')
                         self.logger.info("Done...")
                         assert isinstance(dump, dict)
                         self.Progress(

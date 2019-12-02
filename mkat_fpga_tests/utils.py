@@ -1521,36 +1521,42 @@ class UtilsClass(object):
                 }
 
     def _confirm_delays(self, delay_coefficients, err_margin = 1):
+        delay_coeff = [re.split(',|:', x) for x in delay_coefficients]
+        delay_coeff = [[float(y) for y in x] for x in delay_coeff]
+        return True, delay_coeff
         labels = [x.lower() for x in self.cam_sensors.input_labels]
         if self.conf_file['instrument_params']['sensor_named_by_label'] == 'False':
             num_inputs = len(labels)
             labels = ['input'+str(x) for x in range(num_inputs)]
-        delay_values = []
-        for label in labels:
-            sens_name = self.corr_fix.feng_product_name+'-'+label+'-delay'
-            sens_name = sens_name.replace('-','_')
-            delay_values.append(self.cam_sensors.get_value(sens_name))
-        delay_coeff = [re.split(',|:', x) for x in delay_coefficients]
-        delay_coeff = [[float(y) for y in x] for x in delay_coeff]
-        try:
-            delay_values = [x[1:-1] for x in delay_values]
-            delay_values = [x.split(',') for x in delay_values]
-            delay_values = [x[1:] for x in delay_values]
-            delay_values = [[float(y) for y in x] for x in delay_values]
-        except:
-            errmsg = "Read delay values are not in the correct format."
-            self.Error(errmsg, exc_info=True)
-            import IPython;IPython.embed()
-            return False, None
-        diff_array = np.abs(np.array(delay_values) - np.array(delay_coeff))
-        coeff_err = (diff_array > err_margin).any()
-        if coeff_err:
-            errmsg = ('Actual delay values set not within tolerance:\n'
-                      'Actual: {}\n'
-                      'Requested: {}'
-                      ''.format(delay_values, delay_coeff))
-            self.Failed(errmsg, exc_info = False)
-        return not(coeff_err), delay_values
+        retry = 3
+        errmsg = ""
+        while retry:
+            delay_values = []
+            for label in labels:
+                sens_name = self.corr_fix.feng_product_name+'-'+label+'-delay'
+                sens_name = sens_name.replace('-','_')
+                delay_values.append(self.cam_sensors.get_value(sens_name))
+            try:
+                delay_values = [x[1:-1] for x in delay_values]
+                delay_values = [x.split(',') for x in delay_values]
+                delay_values = [x[1:] for x in delay_values]
+                delay_values = [[float(y) for y in x] for x in delay_values]
+            except:
+                errmsg = "Read delay values are not in the correct format."
+                retry -= 1
+            else:
+                diff_array = np.abs(np.array(delay_values) - np.array(delay_coeff))
+                coeff_err = (diff_array > err_margin).any()
+                if coeff_err:
+                    errmsg = ('Actual delay values set not within tolerance:\n'
+                              'Actual: {}\n'
+                              'Requested: {}'
+                              ''.format(delay_values, delay_coeff))
+                    retry -= 1
+                else:
+                    return not(coeff_err), delay_values
+        self.Error(errmsg, exc_info=True)
+        return False, None
 
         #error_margin = np.deg2rad(err_margin)
         #delay_name_pos = ['delay', 'delay rate', 'phase offset', 'phase rate']
