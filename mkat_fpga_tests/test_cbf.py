@@ -316,7 +316,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             "Actual number of channels captured (channels are captured in partitions): %s" % self.n_chans_selected
                     )
             except Exception as e:
-                self.Error(self.errmsg + {"Exception: {}".format(e)}, exc_info=True)
+                self.Error(self.errmsg)
+                self.Error("Exception: {}".format(e), exc_info=True)
                 return False
             else:
                 # Run system tests before each test is ran
@@ -649,12 +650,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
             instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
-                #self._test_delay_tracking()
-                #self._test_delay_rate()
+                self._test_delay_tracking()
+                self._test_delay_rate()
                 self._test_phase_rate()
-                #self._test_phase_offset()
-                #self._test_delay_inputs()
-                #self.clear_all_delays()
+                self._test_phase_offset()
+                self._test_delay_inputs()
+                self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
 
@@ -2867,8 +2868,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay tracking"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
-        test_source_idx = random.randrange(num_inputs)
-        setup_data = self._delays_setup(test_source_idx=test_source_idx, determine_start_time=False)
+        tst_idx = random.choice(range(1,num_inputs))
+        #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
+        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
         if setup_data:
             delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
             int_time = self.cam_sensors.get_value("int_time")
@@ -2893,6 +2895,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             def get_actual_phases():
                 actual_phases_list = []
+                raw_data = []
                 # chan_responses = []
                 for count, delay in enumerate(test_delays, 1):
                     delays[setup_data["test_source_ind"]] = delay
@@ -3002,11 +3005,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         # # this_freq_response = normalised_magnitude(
                         # #    this_freq_data[:, setup_data['test_source_ind'], :])
                         # # chan_responses.append(this_freq_response)
+                        raw_data.append(dump)
                         data = complexise(dump["xeng_raw"][:, setup_data["baseline_index"], :])
                         phases = np.angle(data)
                         # # actual_channel_responses = zip(test_delays, chan_responses)
                         # # return zip(actual_phases_list, actual_channel_responses)
                         actual_phases_list.append(phases)
+                fn = "/".join([self._katreport_dir, r"delay_tracking_bl_{}.npy".format(setup_data["baseline_index"])])
+                with open(fn, 'w') as f:
+                    np.save(f, raw_data)
                 return actual_phases_list
 
             expected_phases = get_expected_phases()
@@ -3682,7 +3689,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_delay_rate(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay Rate"
         heading(msg)
-        setup_data = self._delays_setup()
+        num_inputs = len(self.cam_sensors.input_labels)
+        tst_idx = random.choice(range(1,num_inputs))
+        #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
+        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
         if setup_data:
             dump_counts = 5
             # delay_rate = ((setup_data['sample_period'] / self.cam_sensors.get_value('int_time']) *
@@ -3704,7 +3714,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
 
             try:
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                fn = "/".join([self._katreport_dir, r"delay_rate_bl_{}.npy".format(setup_data["baseline_index"])])
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
             except TypeError:
                 errmsg = "Could not retrieve actual delay rate data. Aborting test"
@@ -3813,7 +3824,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_phase_rate(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
         heading(msg)
-        setup_data = self._delays_setup()
+        num_inputs = len(self.cam_sensors.input_labels)
+        tst_idx = random.choice(range(1,num_inputs))
+        #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
+        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
         #for i in np.arange(0.1,0.5,0.001):
         #    phase_rate = i
         #    phase_rates = [0] * setup_data["num_inputs"]
@@ -3841,7 +3855,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 % (delay_rate, delay_value, phase_offset, phase_rate)
             )
             try:
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                fn = "/".join([self._katreport_dir, r"phase_rate_bl_{}.npy".format(setup_data["baseline_index"])])
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
 
             except TypeError:
@@ -3974,7 +3989,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_phase_offset(self):
         msg = "CBF Delay and Phase Compensation Functional VR: Phase offset"
         heading(msg)
-        setup_data = self._delays_setup()
+        num_inputs = len(self.cam_sensors.input_labels)
+        tst_idx = random.choice(range(1,num_inputs))
+        #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
+        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
         if setup_data:
             dump_counts = 1
             # phase_offset = (np.pi / 2.0) * np.random.rand() * dump_counts
@@ -3994,7 +4012,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 % (delay_rate, delay_value, phase_offset, phase_rate))
 
             try:
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                fn = "/".join([self._katreport_dir, r"phase_offset_bl_{}.npy".format(setup_data["baseline_index"])])
+                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
                 #TODO Get set phase offset value and calculate expected accordingly
             except TypeError:
@@ -4032,7 +4051,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "applied.".format(delta_expected, delta_actual, phase_resolution_req, phase_offset)
                 )
 
-                Aqf.almost_equals(delta_expected, delta_actual, phase_resolution_req, msg)
+                Aqf.almost_equals(delta_actual, delta_expected, phase_resolution_req, msg)
 
                 Aqf.less(
                     abs_diff,

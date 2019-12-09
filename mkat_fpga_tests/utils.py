@@ -1,6 +1,5 @@
 # import threading
 import base64
-import datetime
 import glob
 import logging
 import operator
@@ -22,6 +21,7 @@ from contextlib import contextmanager
 from inspect import getframeinfo, stack
 from socket import inet_ntoa
 from struct import pack
+from datetime import datetime
 
 import h5py
 import katcp
@@ -102,8 +102,8 @@ class UtilsClass(object):
 
     def clear_all_delays(self):
         """Clears all delays on all fhosts.
-        Param: object
-        Return: Boolean
+            Param: object
+            Return: Boolean
         """
         try:
             no_fengines = self.cam_sensors.get_value("n_fengs")
@@ -140,14 +140,20 @@ class UtilsClass(object):
             #t_apply = dump_timestamp + (num_int * int_time)
             buffer_time = 1
             delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time']) + buffer_time
-            current_time = time.time()
-            t_apply = current_time + delay_load_lead_time
-            t_apply_dumps = math.ceil(delay_load_lead_time / int_time)
+            curr_time = time.time()
+            curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
+            t_apply = curr_time + delay_load_lead_time
+            t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+            self.Step("Current cmc time is {}, delays will be cleared at {}".format(
+                      curr_time_readable,
+                      t_apply_readable)
+            )
             reply, informs = self.corr_fix.katcp_rct.req.delays(self.corr_fix.feng_product_name,
                 t_apply, *delay_coefficients, timeout = 30)
             errmsg = "Delays command could not be executed: {}".format(reply)
             assert reply.reply_ok(), errmsg
             # This is the old method for reading back delays
+            #t_apply_dumps = math.ceil(delay_load_lead_time / int_time)
             # end_time = 0
             # while True:
             #    _give_up -= 1
@@ -182,7 +188,10 @@ class UtilsClass(object):
             start_time = time.time()
             while True:
                 if self._confirm_delays(delay_coefficients, err_margin = 0):
-                    self.logger.info("Delays cleared successfully.")
+                    while (t_apply - curr_time) > 0:
+                        # Keep the que clean while waiting
+                        dump = self.receiver.get_clean_dump()
+                        curr_time = time.time()
                     break
                 elif (time.time() - start_time) > timeout:
                     errmsg = "Delays were not cleared."
@@ -193,8 +202,8 @@ class UtilsClass(object):
         except TypeError:
             self.logger.exception("Object has no attributes")
             return False
-        except Exception:
-            self.logger.exception(errmsg)
+        except Exception as e:
+            self.logger.exception("Exception occured during clearing of delays: {}".format(e))
         return False
 
     def start_katsdpingest_docker(
@@ -1430,7 +1439,7 @@ class UtilsClass(object):
                 # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
-    def _delays_setup(self, test_source_idx=2, determine_start_time=True):
+    def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True):
         # Put some correlated noise on both outputs
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
 
@@ -1450,8 +1459,8 @@ class UtilsClass(object):
         cam_max_load_time = int(self.conf_file["instrument_params"]["cam_max_load_time"])
         source_names = self.cam_sensors.input_labels
         # Get name for test_source_idx
-        test_source = source_names[test_source_idx]
-        ref_source = source_names[0]
+        test_source = source_names[test_source_idx[0]]
+        ref_source = source_names[test_source_idx[1]]
         num_inputs = len(source_names)
         # Number of integrations to load delays in the future
         int_time = self.cam_sensors.get_value("int_time")
@@ -1479,51 +1488,66 @@ class UtilsClass(object):
             # n_accs = self.cam_sensors.get_value('n_accs')]
             # no_chans = range(self.n_chans_selected)
             time_stamp = initial_dump["timestamp"]
+            dump_ts    = initial_dump["dump_timestamp"]
             # ticks_between_spectra = initial_dump['ticks_between_spectra'].value
             # int_time_ticks = n_accs * ticks_between_spectra
-            t_apply = initial_dump["dump_timestamp"] + load_lead_time
-            t_apply_readable = datetime.datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
             curr_time = time.time()
-            curr_time_readable = datetime.datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
-            try:
-                baseline_lookup = self.get_baselines_lookup()
-                # Choose baseline for phase comparison
-                baseline_index = baseline_lookup[(ref_source, test_source)]
-                self.Step("Get list of all the baselines present in the correlator output")
-                self.Progress(
-                    "Selected input and baseline for testing respectively: %s, %s." % (test_source, baseline_index)
-                )
-                if determine_start_time:
-                    self.Progress(
-                        "Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be "
-                        "applied %s integrations/accumulations in the future."
-                        % (t_apply, t_apply_readable, curr_time, curr_time_readable, num_int_delay_load)
-                    )
-            except KeyError:
-                self.Failed("Initial SPEAD accumulation does not contain correct baseline ordering format.")
+            curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
+            # If dump timestamp is behind add to load leadtime
+            load_delta = np.floor(curr_time-dump_ts)/int_time
+            if load_delta < 0:
+                self.Failed("Current CMC time {} is behind dump timestamp {}, re-synchronise instrument.")
                 return False
-            else:
-                return {
-                    "baseline_index": baseline_index,
-                    "baseline_lookup": baseline_lookup,
-                    "initial_dump": initial_dump,
-                    "int_time": int_time,
-                    "network_latency": network_latency,
-                    "num_inputs": num_inputs,
-                    "sample_period": self.cam_sensors.sample_period,
-                    "t_apply": t_apply,
-                    "test_source": test_source,
-                    "test_source_ind": test_source_idx,
-                    "time_stamp": time_stamp,
-                    "sync_epoch": sync_epoch,
-                    "num_int": num_int_delay_load,
-                    "cam_max_load_time": cam_max_load_time,
-                }
+            t_apply = initial_dump["dump_timestamp"] + load_lead_time + load_delta
+            t_apply_readable = datetime.fromtimestamp(t_apply).strftime("%H:%M:%S")
+            baseline_lookup = self.get_baselines_lookup()
+            # Choose baseline for phase comparison
+            swap = False
+            while True:
+                try:
+                    if not swap:
+                        baseline_index = baseline_lookup[(ref_source, test_source)]
+                        break
+                    else:
+                        baseline_index = baseline_lookup[(test_source, ref_source)]
+                        break
+                except KeyError:
+                    if not swap:
+                        swap = True
+                    else:
+                        self.Failed("Initial SPEAD accumulation does not contain correct baseline ordering format.")
+                        return False
+            #self.Step("Get list of all the baselines present in the correlator output")
+            self.Progress(
+                "Selected baseline {} ({},{}) for testing.".format(baseline_index, test_source, ref_source)
+            )
+            if determine_start_time:
+                self.Progress(
+                    "Time to apply delays: %s (%s), Current cmc time: %s (%s), Delays will be "
+                    "applied %s integrations/accumulations in the future."
+                    % (t_apply, t_apply_readable, curr_time, curr_time_readable, num_int_delay_load)
+                )
+            return {
+                "baseline_index": baseline_index,
+                "baseline_lookup": baseline_lookup,
+                "initial_dump": initial_dump,
+                "int_time": int_time,
+                "network_latency": network_latency,
+                "num_inputs": num_inputs,
+                "sample_period": self.cam_sensors.sample_period,
+                "t_apply": t_apply,
+                "test_source": test_source,
+                "test_source_ind": test_source_idx[0],
+                "time_stamp": time_stamp,
+                "sync_epoch": sync_epoch,
+                "num_int": num_int_delay_load,
+                "cam_max_load_time": cam_max_load_time,
+            }
 
     def _confirm_delays(self, delay_coefficients, err_margin = 1):
         delay_coeff = [re.split(',|:', x) for x in delay_coefficients]
         delay_coeff = [[float(y) for y in x] for x in delay_coeff]
-        return True, delay_coeff
+        #return True, delay_coeff
         labels = [x.lower() for x in self.cam_sensors.input_labels]
         if self.conf_file['instrument_params']['sensor_named_by_label'] == 'False':
             num_inputs = len(labels)
@@ -1614,7 +1638,7 @@ class UtilsClass(object):
 
 
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, 
-                         max_wait_dumps=30):
+                         max_wait_dumps=30, save_filename = None):
         try:
             self.Step("Request Fringe/Delay(s) Corrections via CAM interface.")
             load_strt_time = time.time()
@@ -1732,6 +1756,10 @@ class UtilsClass(object):
                 self.Error(errmsg, exc_info=True)
             else:
                 fringe_dumps.append(dump)
+
+        if save_filename:
+            with open(save_filename, 'w') as f:
+                np.save(f, fringe_dumps)
 
         chan_resp = []
         phases = []
@@ -1857,7 +1885,7 @@ class UtilsClass(object):
             time_gaps = np.where(ts_diff > time_gap)
             for idx in time_gaps[0]:
                 ts = time_stamps[idx]
-                diff_time = datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d_%H:%M")
+                diff_time = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d_%H:%M")
                 diff = ts_diff[idx]
                 self.Step("Time gap of {}s found at {} in PDU samples.".format(diff, diff_time))
             # Convert power column to floats and build new array
@@ -1905,8 +1933,8 @@ class UtilsClass(object):
                     time_slice = []
                     name_found = []
             if rolled_up_samples:
-                start_time = datetime.datetime.fromtimestamp(rolled_up_samples[0][0]).strftime("%Y-%m-%d %H:%M:%S")
-                end_time = datetime.datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime("%Y-%m-%d %H:%M:%S")
+                start_time = datetime.fromtimestamp(rolled_up_samples[0][0]).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = datetime.fromtimestamp(rolled_up_samples[-1][0]).strftime("%Y-%m-%d %H:%M:%S")
                 ru_smpls = np.asarray(rolled_up_samples)
                 tot_power = ru_smpls[:, 1:4].sum(axis=1)
                 self.Step("Compile Power consumption report while running SFDR test.")
