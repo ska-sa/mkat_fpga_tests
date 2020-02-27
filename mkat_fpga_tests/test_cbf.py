@@ -341,11 +341,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument(
                     acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]),
-                    stop_channels = 100)#self.selected_channels[1])
+                    stop_channels = self.selected_channels[1])
             if instrument_success:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-                test_chan = 100
+                #TODO: Narrowband testing to select correct channel
+                #test_chan = 16769
                 heading("CBF Channelisation Wideband Coarse L-band")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
@@ -1414,9 +1415,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
         )
         aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1))
-
-
-
 
         self.Step(
             "Sweep the digitiser simulator over the centre frequencies of at "
@@ -3692,134 +3690,142 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         num_inputs = len(self.cam_sensors.input_labels)
         tst_idx = random.choice(range(1,num_inputs))
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
-        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
-        if setup_data:
-            dump_counts = 5
-            # delay_rate = ((setup_data['sample_period'] / self.cam_sensors.get_value('int_time']) *
-            # np.random.rand() * (dump_counts - 3))
-            # delay_rate = 3.98195128768e-09
-            # _rate = get_delay_bounds(self.corr_fix.correlator).get('min_delay_rate')
-            delay_rate = 0.7 * (self.cam_sensors.sample_period / self.cam_sensors.get_value("int_time"))
-            delay_value = 0
-            phase_offset = 0
-            phase_rate = 0
-            load_time = setup_data["t_apply"]
-            delay_rates = [0] * setup_data["num_inputs"]
-            delay_rates[setup_data["test_source_ind"]] = delay_rate
-            delay_coefficients = ["0,{}:0,0".format(fr) for fr in delay_rates]
-            self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
-            self.Progress(
-                "Delay Rate: %s, Delay Value: %s, Phase Offset: %s, Phase Rate: %s "
-                % (delay_rate, delay_value, phase_offset, phase_rate)
-            )
-
-            try:
-                fn = "/".join([self._katreport_dir, r"delay_rate_bl_{}.npy".format(setup_data["baseline_index"])])
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
-                actual_phases = [phases for phases, response in actual_data]
-            except TypeError:
-                errmsg = "Could not retrieve actual delay rate data. Aborting test"
-                self.Error(errmsg, exc_info=True)
-                return
-            else:
-                expected_phases = self._get_expected_data(
-                    setup_data, dump_counts, delay_coefficients, actual_phases)
-
-                no_chans = range(self.n_chans_selected)
-                plot_units = "ns/s"
-                plot_title = "Calculated delay rate {}{} [.7(sample period/integration time)]".format(
-                    delay_rate * 1e9, plot_units)
-                plot_filename = "{}/{}_delay_rate.png".format(self.logs_path, self._testMethodName)
-                caption = (
-                    "Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n"
-                    "Note: Dashed line indicates expected value and solid line indicates "
-                    "actual values received from SPEAD accumulation."
+        #for mult in [-0.1, -0.5, -1, -1.5, -2, -2.5, -3]:
+        for mult in [0.1, 0.5, 1, 1.5, 2, 2.5, 3]:
+            setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
+            if setup_data:
+                dump_counts = 5
+                # delay_rate = ((setup_data['sample_period'] / self.cam_sensors.get_value('int_time']) *
+                # np.random.rand() * (dump_counts - 3))
+                # delay_rate = 3.98195128768e-09
+                # _rate = get_delay_bounds(self.corr_fix.correlator).get('min_delay_rate')
+                delay_rate = mult * (self.cam_sensors.sample_period / self.cam_sensors.get_value("int_time"))
+                sampling_period = self.cam_sensors.sample_period
+                #delay_value = 3 * sampling_period
+                delay_value = 0
+                phase_offset = 0
+                phase_rate = 0
+                load_time = setup_data["t_apply"]
+                delay_rates = [0] * setup_data["num_inputs"]
+                delay_rates[setup_data["test_source_ind"]] = delay_rate
+                delay_coefficients = ["{},{}:0,0".format(delay_value,fr) for fr in delay_rates]
+                self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
+                self.Progress(
+                    "Delay Rate: %s, Delay Value: %s, Phase Offset: %s, Phase Rate: %s "
+                    % (delay_rate, delay_value, phase_offset, phase_rate)
                 )
 
-                msg = "Observe the change in the phase slope, and confirm the phase change is as expected."
-                self.Step(msg)
-                actual_phases_ = np.unwrap(actual_phases)
-                degree = 1.0
-                radians = (degree / 360) * np.pi * 2
-                decimal = len(str(degree).split(".")[-1])
-                expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
-                expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
-                for i in range(0, len(expected_phases_) - 1):
-                    delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
-                    delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
-                    # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-                    abs_diff = np.abs(delta_expected - delta_actual)
-                    msg = (
-                        "Confirm that if difference (radians) between expected({:.3f}) "
-                        "phases and actual({:.3f}) phases are 'Almost Equal' "
-                        "within {} degree when delay rate of {} is applied.".format(
-                            delta_expected, delta_actual, degree, delay_rate
-                        )
+                try:
+                    fn = "/".join([self._katreport_dir, r"delay_rate_bl_{}_{}.npy".format(setup_data["baseline_index"], str(delay_rate))])
+                    actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
+                    actual_phases = [phases for phases, response in actual_data]
+                except TypeError:
+                    errmsg = "Could not retrieve actual delay rate data. Aborting test"
+                    self.Error(errmsg, exc_info=True)
+                    return
+                else:
+                    expected_phases = self._get_expected_data(
+                        setup_data, dump_counts, delay_coefficients, actual_phases, save_filename=fn)
+
+                    no_chans = range(self.n_chans_selected)
+                    plot_units = "ns/s"
+                    plot_title = "Calculated delay rate {}{} [{} x (sample period/integration time)]".format(
+                        delay_rate * 1e9, plot_units, mult)
+                    plot_filename = "{}/{}_delay_rate.png".format(self.logs_path, self._testMethodName)
+                    caption = (
+                        "Actual vs Expected Unwrapped Correlation Phase [Delay Rate].\n"
+                        "Note: Dashed line indicates expected value and solid line indicates "
+                        "actual values received from SPEAD accumulation."
                     )
-                    Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
 
-                    msg = (
-                        "Confirm that the maximum difference ({:.3f} "
-                        "degree/{:.3f} rad) between expected phase and actual phase "
-                        "between integrations is less than {} degree.".format(
-                            np.rad2deg(abs_diff), abs_diff, degree)
+                    msg = "Observe the change in the phase slope, and confirm the phase change is as expected."
+                    self.Step(msg)
+                    actual_phases_ = np.unwrap(actual_phases)
+                    degree = 1.0
+                    radians = (degree / 360) * np.pi * 2
+                    decimal = len(str(degree).split(".")[-1])
+                    expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
+                    expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
+                    for i in range(0, len(expected_phases_) - 1):
+                        delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
+                        delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
+                        # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
+                        abs_diff = np.abs(delta_expected - delta_actual)
+                        msg = (
+                            "Confirm that if difference (radians) between expected({:.3f}) "
+                            "phases and actual({:.3f}) phases are 'Almost Equal' "
+                            "within {} degree when delay rate of {} is applied.".format(
+                                delta_expected, delta_actual, degree, delay_rate
+                            )
+                        )
+                        Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
+
+                        msg = (
+                            "Confirm that the maximum difference ({:.3f} "
+                            "degree/{:.3f} rad) between expected phase and actual phase "
+                            "between integrations is less than {} degree.".format(
+                                np.rad2deg(abs_diff), abs_diff, degree)
+                        )
+                        Aqf.less(abs_diff, radians, msg)
+
+                        try:
+                            abs_error = np.max(actual_phases_[i] - expected_phases_[i])
+                        except ValueError:
+                            abs_error = np.max(actual_phases_[i] - expected_phases_[i][: len(actual_phases_[i])])
+                        msg = (
+                            "Confirm that the absolute maximum difference ({:.3f} "
+                            "degree/{:.3f} rad) between expected phase and actual phase "
+                            "is less than {} degree.".format(np.rad2deg(abs_error), abs_error, degree)
+                        )
+                        Aqf.less(abs_error, radians, msg)
+
+                        try:
+                            delta_actual_s = delta_actual - (delta_actual % degree)
+                            delta_expected_s = delta_expected - (delta_expected % degree)
+                            np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+
+                        except AssertionError:
+                            self.Step(
+                                "Difference  between expected({:.3f}) "
+                                "phases and actual({:.3f}) phases are "
+                                "'Not almost equal' within {} degree when delay rate "
+                                "of {} is applied.".format(delta_expected, delta_actual, degree, delay_rate)
+                            )
+                            caption = (
+                                "Difference expected({:.3f}) and actual({:.3f})"
+                                " phases are not equal within {} degree when delay rate of {} "
+                                "is applied.".format(delta_expected, delta_actual, degree, delay_rate)
+                            )
+
+                            actual_phases_i = (delta_actual, actual_phases[i])
+                            if len(expected_phases[i]) == 2:
+                                expected_phases_i = (delta_expected, expected_phases[i][-1])
+                            else:
+                                expected_phases_i = (delta_expected, expected_phases[i])
+                            aqf_plot_phase_results(
+                                no_chans,
+                                actual_phases_i,
+                                expected_phases_i,
+                                plot_filename="{}/{}_{}_delay_rate.png".format(self.logs_path, self._testMethodName, i),
+                                plot_title="Delay Rate:\nActual vs Expected Phase Response",
+                                plot_units=plot_units,
+                                caption=caption,
+                            )
+
+                    aqf_plot_phase_results(
+                        no_chans,
+                        actual_phases,
+                        expected_phases,
+                        plot_filename,
+                        plot_title,
+                        plot_units,
+                        caption,
+                        dump_counts,
                     )
-                    Aqf.less(abs_diff, radians, msg)
-
-                    try:
-                        abs_error = np.max(actual_phases_[i] - expected_phases_[i])
-                    except ValueError:
-                        abs_error = np.max(actual_phases_[i] - expected_phases_[i][: len(actual_phases_[i])])
-                    msg = (
-                        "Confirm that the absolute maximum difference ({:.3f} "
-                        "degree/{:.3f} rad) between expected phase and actual phase "
-                        "is less than {} degree.".format(np.rad2deg(abs_error), abs_error, degree)
-                    )
-                    Aqf.less(abs_error, radians, msg)
-
-                    try:
-                        delta_actual_s = delta_actual - (delta_actual % degree)
-                        delta_expected_s = delta_expected - (delta_expected % degree)
-                        np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-
-                    except AssertionError:
-                        self.Step(
-                            "Difference  between expected({:.3f}) "
-                            "phases and actual({:.3f}) phases are "
-                            "'Not almost equal' within {} degree when delay rate "
-                            "of {} is applied.".format(delta_expected, delta_actual, degree, delay_rate)
-                        )
-                        caption = (
-                            "Difference expected({:.3f}) and actual({:.3f})"
-                            " phases are not equal within {} degree when delay rate of {} "
-                            "is applied.".format(delta_expected, delta_actual, degree, delay_rate)
-                        )
-
-                        actual_phases_i = (delta_actual, actual_phases[i])
-                        if len(expected_phases[i]) == 2:
-                            expected_phases_i = (delta_expected, expected_phases[i][-1])
-                        else:
-                            expected_phases_i = (delta_expected, expected_phases[i])
-                        aqf_plot_phase_results(
-                            no_chans,
-                            actual_phases_i,
-                            expected_phases_i,
-                            plot_filename="{}/{}_{}_delay_rate.png".format(self.logs_path, self._testMethodName, i),
-                            plot_title="Delay Rate:\nActual vs Expected Phase Response",
-                            plot_units=plot_units,
-                            caption=caption,
-                        )
-
-                aqf_plot_phase_results(
-                    no_chans,
-                    actual_phases,
-                    expected_phases,
-                    plot_filename,
-                    plot_title,
-                    plot_units,
-                    caption,
-                    dump_counts,
-                )
+                    mag_plots = []
+                    for dump in raw_captures:
+                        mag_plots.append((normalised_magnitude(dump['xeng_raw'][:,setup_data["baseline_index"],:]), None))
+                    aqf_plot_channels(mag_plots, plot_filename, log_dynamic_range=90, caption=caption)
 
     def _test_phase_rate(self):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
@@ -3856,7 +3862,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             try:
                 fn = "/".join([self._katreport_dir, r"phase_rate_bl_{}.npy".format(setup_data["baseline_index"])])
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
+                actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
 
             except TypeError:
@@ -4013,7 +4019,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             try:
                 fn = "/".join([self._katreport_dir, r"phase_offset_bl_{}.npy".format(setup_data["baseline_index"])])
-                actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
+                actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
                 #TODO Get set phase offset value and calculate expected accordingly
             except TypeError:
@@ -4237,7 +4243,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "will be set to zero" % (_name.title(), _values, input_source)
                     )
                     try:
-                        actual_data = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
+                        actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients)
                     except TypeError:
                         self.Error("Failed to set the delays/phases", exc_info=True)
                     else:

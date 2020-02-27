@@ -1769,9 +1769,9 @@ class UtilsClass(object):
             chan_resp.append(freq_response)
             data = complexise(dval[:, setup_data["baseline_index"], :])
             phases.append(np.angle(data))
-        return zip(phases, chan_resp)
+        return zip(phases, chan_resp), fringe_dumps
 
-    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases):
+    def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases, save_filename=None):
         def calc_actual_delay(setup_data):
             no_ch = self.cam_sensors.get_value("n_chans")
             first_dump = np.unwrap(actual_phases[0])
@@ -1847,6 +1847,11 @@ class UtilsClass(object):
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts + 1, setup_data))[1:]
         result = delay_data + fringe_data
         wrapped_results = (result + np.pi) % (2 * np.pi) - np.pi
+        if save_filename:
+            save_filename = save_filename[:-4] + "_exp.npy"
+            print('saving file = {}'.format(save_filename))
+            with open(save_filename, 'w') as f:
+                np.save(f, wrapped_results)
 
         if (fringe_offset or fringe_rate) != 0:
             fringe_phase = [np.abs((np.min(phase) + np.max(phase)) / 2.0) for phase in fringe_data]
