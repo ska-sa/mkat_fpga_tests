@@ -3,7 +3,7 @@ ansicolors
 argcomplete
 bitstring
 bokeh
-breathe
+breathe==0.7.0
 chainmap
 coloredlogs
 coverage
@@ -13,6 +13,7 @@ dpkt
 fabric
 flake8
 flake8-html
+gitpython
 h5py
 idna>=2.5
 iniparse
