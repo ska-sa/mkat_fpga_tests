@@ -1665,14 +1665,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     pass
                 low_idx = att_bw_min_max[0]-1
                 high_idx = att_bw_min_max[-1]+1
+                if low_idx < 0:
+                    low_idx = 0
+                if high_idx >= len(actual_test_freqs):
+                    high_idx = len(actual_test_freqs) - 1
 
                 att_bw = actual_test_freqs[high_idx] - actual_test_freqs[low_idx]
                 self.Note("-{} dB bandwith calculated at {:.3f} dBfs (low side) and {:.3f} dBfs (high side)."
                           "".format(cutoff, plot_data[low_idx], plot_data[high_idx]))
 
-            except Exception:
+            except Exception as e:
                 msg = ("Could not compute cross-over point bandwith or -{}dB attenuation bandwith. "
-                       "CBF-REQ-0126 could not be verified.".format(cutoff))
+                        "CBF-REQ-0126 could not be verified. Exception: {}".format(cutoff))
                 self.Failed(msg, exc_info=True)
             else:
                 msg = (
@@ -3381,8 +3385,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # TODO: This code connects directly to the SKARAB using casperfpga.
         # change to use kcpcmd
         self.fhosts, self.xhosts = (self.get_hosts("fhost"), self.get_hosts("xhost"))
-        fhosts = self.fhosts.split(',')
-        xhosts = self.xhosts.split(',')
+        fhosts = self.fhosts
+        xhosts = self.xhosts
         fhost = fhosts[random.randrange(len(fhosts))]
         xhost = xhosts[random.randrange(len(xhosts))]
         bitstream = self.corr_fix.corr_config['fengine']['bitstream']
