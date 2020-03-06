@@ -445,7 +445,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Test is being qualified by CBF.V.3.30")
 
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
@@ -462,7 +461,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.A.IF")
@@ -629,7 +627,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(start_receiver = False)
+            instrument_success = self.set_instrument()
             if instrument_success:
                 self._test_delays_control()
                 self.clear_all_delays()
@@ -637,6 +635,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -3056,63 +3055,86 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     decimal = len(str(degree).split(".")[-1])
                     try:
                         for i, delay in enumerate(test_delays):
-                            delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
-                            delta_expected = np.max(expected_phases_[i]) - np.min(expected_phases_[i])
-                            abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-                            # abs_diff = np.abs(delta_expected - delta_actual)
-                            msg = (
-                                "Confirm that if difference expected({:.5f}) "
-                                "and actual({:.5f}) phases are equal at delay {:.5f}ns within "
-                                "{} degree.".format(delta_expected, delta_actual, delay * 1e9, degree)
-                            )
-                            Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
+                            # This checking does not really make sense:
+                            # TODO: But difference between integrations should possibly be checked
+                            #delta_actual = np.max(actual_phases[i]) - np.min(actual_phases[i])
+                            #delta_expected = np.max(expected_phases_[i]) - np.min(expected_phases_[i])
+                            #abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
+                            ## abs_diff = np.abs(delta_expected - delta_actual)
+                            #msg = (
+                            #    "Confirm that difference expected({:.5f}) "
+                            #    "and actual({:.5f}) phases are equal at delay {:.5f}ns within "
+                            #    "{} degree.".format(delta_expected, delta_actual, delay * 1e9, degree)
+                            #)
+                            #Aqf.almost_equals(delta_expected, delta_actual, degree, msg)
+
+                            #Aqf.less(
+                            #    abs_diff,
+                            #    degree,
+                            #    "Confirm that the maximum difference ({:.3f} degree/"
+                            #    " {:.3f} rad) between expected phase and actual phase between "
+                            #    "integrations is less than {} degree.\n".format(abs_diff, np.deg2rad(abs_diff), degree),
+                            #)
+                            delta_phase = actual_phases[i] - expected_phases_[i]
+                            # Replace first value with average as DC component might skew results
+                            delta_phase = [np.average(delta_phase)] + delta_phase[1:]
+                            max_diff     = np.max(np.abs(delta_phase))
+                            max_diff_deg = np.rad2deg(max_diff)
 
                             Aqf.less(
-                                abs_diff,
+                                max_diff_deg,
                                 degree,
-                                "Confirm that the maximum difference ({:.3f} degree/"
-                                " {:.3f} rad) between expected phase and actual phase between "
-                                "integrations is less than {} degree.\n".format(abs_diff, np.deg2rad(abs_diff), degree),
+                                "Maximum difference ({:.3f} degrees "
+                                "{:.3f} rad) between expected phase "
+                                "and actual phase less than {} degree."
+                                "".format(max_diff_deg, max_diff, degree),
                             )
-                            try:
-                                delta_actual_s = delta_actual - (delta_actual % degree)
-                                delta_expected_s = delta_expected - (delta_expected % degree)
-                                np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-                            except AssertionError:
-                                msg = (
-                                    "Difference expected({:.5f}) phases"
-                                    " and actual({:.5f}) phases are 'Not almost equal' "
-                                    "within {} degree when delay of {}ns is applied.".format(
-                                        delta_expected, delta_actual, degree, delay * 1e9
-                                    )
+                            if i > 0:
+                                plot_filename="{}/{}_acc_{}_delay_tracking_error_vector.png".format(
+                                    self.logs_path, self._testMethodName, i
                                 )
-                                self.Step(msg)
+                                caption = "Offset between expected and measured phase (error vector)."
+                                aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, log_dynamic_range=None, plot_type="error_vector")
+                            #TODO: Perhaps add this back in:
+                            #try:
+                            #    delta_actual_s = delta_actual - (delta_actual % degree)
+                            #    delta_expected_s = delta_expected - (delta_expected % degree)
+                            #    np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+                            #except AssertionError:
+                            #    msg = (
+                            #        "Difference expected({:.5f}) phases"
+                            #        " and actual({:.5f}) phases are 'Not almost equal' "
+                            #        "within {} degree when delay of {}ns is applied.".format(
+                            #            delta_expected, delta_actual, degree, delay * 1e9
+                            #        )
+                            #    )
+                            #    self.Step(msg)
 
-                                caption = (
-                                    "The figure above shows, The difference between expected({:.5f}) "
-                                    "phases and actual({:.5f}) phases are 'Not almost equal' within {} "
-                                    "degree when a delay of {:.5f}s is applied. Therefore CBF-REQ-0128 and"
-                                    ", CBF-REQ-0187 are not verified.".format(
-                                        delta_expected, delta_actual, degree, delay
-                                    )
-                                )
+                            #    caption = (
+                            #        "The figure above shows, The difference between expected({:.5f}) "
+                            #        "phases and actual({:.5f}) phases are 'Not almost equal' within {} "
+                            #        "degree when a delay of {:.5f}s is applied. Therefore CBF-REQ-0128 and"
+                            #        ", CBF-REQ-0187 are not verified.".format(
+                            #            delta_expected, delta_actual, degree, delay
+                            #        )
+                            #    )
 
-                                actual_phases_i = (delta_actual, actual_phases[i])
-                                if len(expected_phases[i]) == 2:
-                                    expected_phases_i = (delta_expected, expected_phases[i][-1])
-                                else:
-                                    expected_phases_i = (delta_expected, expected_phases[i])
-                                aqf_plot_phase_results(
-                                    no_chans,
-                                    actual_phases_i,
-                                    expected_phases_i,
-                                    plot_filename="{}/{}_{}_delay_tracking.png".format(
-                                        self.logs_path, self._testMethodName, i
-                                    ),
-                                    plot_title=("Delay offset:\n" "Actual vs Expected Phase Response"),
-                                    plot_units=plot_units,
-                                    caption=caption,
-                                )
+                            #    actual_phases_i = (delta_actual, actual_phases[i])
+                            #    if len(expected_phases[i]) == 2:
+                            #        expected_phases_i = (delta_expected, expected_phases[i][-1])
+                            #    else:
+                            #        expected_phases_i = (delta_expected, expected_phases[i])
+                            #    aqf_plot_phase_results(
+                            #        no_chans,
+                            #        actual_phases_i,
+                            #        expected_phases_i,
+                            #        plot_filename="{}/{}_{}_delay_tracking.png".format(
+                            #            self.logs_path, self._testMethodName, i
+                            #        ),
+                            #        plot_title=("Delay offset:\n" "Actual vs Expected Phase Response"),
+                            #        plot_units=plot_units,
+                            #        caption=caption,
+                            #    )
 
                         for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
                             msg = (
@@ -3133,8 +3155,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     msg,
                                     degree,
                                 )
-                    except Exception:
-                        self.Error("Error occurred, this shouldnt happen", exc_info=True)
+                    except Exception as e:
+                        self.Error("Error occurred: {}".format(e), exc_info=True)
                         return
             except Exception:
                 self.Error("Error occurred, this shouldnt happen", exc_info=True)
@@ -3746,75 +3768,95 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Step(msg)
                     actual_phases_ = np.unwrap(actual_phases)
                     degree = 1.0
-                    radians = (degree / 360) * np.pi * 2
                     decimal = len(str(degree).split(".")[-1])
                     expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                     expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
                     for i in range(0, len(expected_phases_) - 1):
-                        delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
-                        delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
-                        # abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
-                        abs_diff = np.abs(delta_expected - delta_actual)
-                        msg = (
-                            "Confirm that if difference (radians) between expected({:.3f}) "
-                            "phases and actual({:.3f}) phases are 'Almost Equal' "
-                            "within {} degree when delay rate of {} is applied.".format(
-                                delta_expected, delta_actual, degree, delay_rate
-                            )
+                        delta_phase = actual_phases_[i] - expected_phases_[i]
+                        # Replace first value with average as DC component might skew results
+                        delta_phase = [np.average(delta_phase)] + delta_phase[1:]
+                        max_diff     = np.max(np.abs(delta_phase))
+                        max_diff_deg = np.rad2deg(max_diff)
+
+                        Aqf.less(
+                            max_diff_deg,
+                            degree,
+                            "Maximum difference ({:.3f} degrees "
+                            "{:.3f} rad) between expected phase "
+                            "and actual phase less than {} degree."
+                            "".format(max_diff_deg, max_diff, degree),
                         )
-                        Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
-
-                        msg = (
-                            "Confirm that the maximum difference ({:.3f} "
-                            "degree/{:.3f} rad) between expected phase and actual phase "
-                            "between integrations is less than {} degree.".format(
-                                np.rad2deg(abs_diff), abs_diff, degree)
-                        )
-                        Aqf.less(abs_diff, radians, msg)
-
-                        try:
-                            abs_error = np.max(actual_phases_[i] - expected_phases_[i])
-                        except ValueError:
-                            abs_error = np.max(actual_phases_[i] - expected_phases_[i][: len(actual_phases_[i])])
-                        msg = (
-                            "Confirm that the absolute maximum difference ({:.3f} "
-                            "degree/{:.3f} rad) between expected phase and actual phase "
-                            "is less than {} degree.".format(np.rad2deg(abs_error), abs_error, degree)
-                        )
-                        Aqf.less(abs_error, radians, msg)
-
-                        try:
-                            delta_actual_s = delta_actual - (delta_actual % degree)
-                            delta_expected_s = delta_expected - (delta_expected % degree)
-                            np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
-
-                        except AssertionError:
-                            self.Step(
-                                "Difference  between expected({:.3f}) "
-                                "phases and actual({:.3f}) phases are "
-                                "'Not almost equal' within {} degree when delay rate "
-                                "of {} is applied.".format(delta_expected, delta_actual, degree, delay_rate)
+                        if i > 0:
+                            plot_filename="{}/{}_acc_{}_delay_rate_error_vector.png".format(
+                                self.logs_path, self._testMethodName, i
                             )
-                            caption = (
-                                "Difference expected({:.3f}) and actual({:.3f})"
-                                " phases are not equal within {} degree when delay rate of {} "
-                                "is applied.".format(delta_expected, delta_actual, degree, delay_rate)
-                            )
+                            caption = "Offset between expected and measured phase (error vector)."
+                            aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, log_dynamic_range=None, plot_type="error_vector")
+                        # Old method of checking
+                        #delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
+                        #delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
+                        ## abs_diff = np.rad2deg(np.abs(delta_expected - delta_actual))
+                        #abs_diff = np.abs(delta_expected - delta_actual)
+                        #msg = (
+                        #    "Confirm that if difference (radians) between expected({:.3f}) "
+                        #    "phases and actual({:.3f}) phases are 'Almost Equal' "
+                        #    "within {} degree when delay rate of {} is applied.".format(
+                        #        delta_expected, delta_actual, degree, delay_rate
+                        #    )
+                        #)
+                        #Aqf.almost_equals(delta_expected, delta_actual, radians, msg)
 
-                            actual_phases_i = (delta_actual, actual_phases[i])
-                            if len(expected_phases[i]) == 2:
-                                expected_phases_i = (delta_expected, expected_phases[i][-1])
-                            else:
-                                expected_phases_i = (delta_expected, expected_phases[i])
-                            aqf_plot_phase_results(
-                                no_chans,
-                                actual_phases_i,
-                                expected_phases_i,
-                                plot_filename="{}/{}_{}_delay_rate.png".format(self.logs_path, self._testMethodName, i),
-                                plot_title="Delay Rate:\nActual vs Expected Phase Response",
-                                plot_units=plot_units,
-                                caption=caption,
-                            )
+                        #msg = (
+                        #    "Confirm that the maximum difference ({:.3f} "
+                        #    "degree/{:.3f} rad) between expected phase and actual phase "
+                        #    "between integrations is less than {} degree.".format(
+                        #        np.rad2deg(abs_diff), abs_diff, degree)
+                        #)
+                        #Aqf.less(abs_diff, radians, msg)
+
+                        #try:
+                        #    abs_error = np.max(actual_phases_[i] - expected_phases_[i])
+                        #except ValueError:
+                        #    abs_error = np.max(actual_phases_[i] - expected_phases_[i][: len(actual_phases_[i])])
+                        #msg = (
+                        #    "Confirm that the absolute maximum difference ({:.3f} "
+                        #    "degree/{:.3f} rad) between expected phase and actual phase "
+                        #    "is less than {} degree.".format(np.rad2deg(abs_error), abs_error, degree)
+                        #)
+                        #Aqf.less(abs_error, radians, msg)
+
+                        #try:
+                        #    delta_actual_s = delta_actual - (delta_actual % degree)
+                        #    delta_expected_s = delta_expected - (delta_expected % degree)
+                        #    np.testing.assert_almost_equal(delta_actual_s, delta_expected_s, decimal=decimal)
+
+                        #except AssertionError:
+                        #    self.Step(
+                        #        "Difference  between expected({:.3f}) "
+                        #        "phases and actual({:.3f}) phases are "
+                        #        "'Not almost equal' within {} degree when delay rate "
+                        #        "of {} is applied.".format(delta_expected, delta_actual, degree, delay_rate)
+                        #    )
+                        #    caption = (
+                        #        "Difference expected({:.3f}) and actual({:.3f})"
+                        #        " phases are not equal within {} degree when delay rate of {} "
+                        #        "is applied.".format(delta_expected, delta_actual, degree, delay_rate)
+                        #    )
+
+                        #    actual_phases_i = (delta_actual, actual_phases[i])
+                        #    if len(expected_phases[i]) == 2:
+                        #        expected_phases_i = (delta_expected, expected_phases[i][-1])
+                        #    else:
+                        #        expected_phases_i = (delta_expected, expected_phases[i])
+                        #    aqf_plot_phase_results(
+                        #        no_chans,
+                        #        actual_phases_i,
+                        #        expected_phases_i,
+                        #        plot_filename="{}/{}_{}_delay_rate.png".format(self.logs_path, self._testMethodName, i),
+                        #        plot_title="Delay Rate:\nActual vs Expected Phase Response",
+                        #        plot_units=plot_units,
+                        #        caption=caption,
+                        #    )
 
                     aqf_plot_phase_results(
                         no_chans,
@@ -3827,6 +3869,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         dump_counts,
                     )
                     mag_plots = []
+                    caption = "Response of accumulations to which delays were applied."
+                    plot_filename="{}/{}_delay_rate_response.png".format(
+                        self.logs_path, self._testMethodName
+                    )
                     for dump in raw_captures:
                         mag_plots.append((normalised_magnitude(dump['xeng_raw'][:,setup_data["baseline_index"],:]), None))
                     aqf_plot_channels(mag_plots, plot_filename, log_dynamic_range=90, caption=caption)
@@ -3918,12 +3964,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             '{:.3f} deg / {:.3f} rad of the expected phase.'
                              ''.format(np.rad2deg(phase_resolution_req), phase_resolution_req ))
                     for i, err in enumerate(phase_err_max):
-                        msg = ('Accumulation {}: Mean phase: {:.3f}, expected phase: {:.3f}. '
-                               'Offset: {:.3f} radians.'
-                               ''.format(i, 
-                                         actual_phases_[i].mean(), 
-                                         expected_phases_slice[i].mean(),
-                                         err))
+                        #msg = ('Accumulation {}: Mean phase: {:.3f}, expected phase: {:.3f}. '
+                        #       'Offset: {:.3f} radians.'
+                        #       ''.format(i, 
+                        #                 actual_phases_[i].mean(), 
+                        #                 expected_phases_slice[i].mean(),
+                        #                 err))
+                        msg = ('Accumulation {} maximum phase offset from '
+                               'expected: {:.3f} radians.'
+                               ''.format(i, err))
                         Aqf.less(np.abs(err), phase_resolution_req, msg)
                 except IndexError:
                     import IPython;IPython.embed()

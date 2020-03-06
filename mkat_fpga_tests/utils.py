@@ -775,19 +775,19 @@ class UtilsClass(object):
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain".format(profile)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knb_fft_shift".format(profile)]
                 elif "1k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale{}".format(profile, int_time)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale{}".format(profile, int_time)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain{}".format(profile, int_time)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
                 elif "4k" in self.instrument:                                     
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale{}".format(profile, int_time)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale{}".format(profile, int_time)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain{}".format(profile, int_time)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
                 elif "32k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale{}".format(profile, int_time)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale{}".format(profile, int_time)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain{}".format(profile, int_time)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
                 else:
                     msg = "Instrument not found: {}".format(self.instrument)
@@ -800,24 +800,24 @@ class UtilsClass(object):
                 #Aqf.note(msg)
                 try: 
                     if "107M32k" in self.instrument:
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale_0_5".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale_0_5".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain".format(profile)]
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain_0_5".format(profile)]
                         fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knb_fft_shift".format(profile)]
                     elif "1k" in self.instrument:
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale_0_5".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale_0_5".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain".format(profile)]
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain_0_5".format(profile)]
                         fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
                     elif "4k" in self.instrument:                                     
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale_0_5".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale_0_5".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain".format(profile)]
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain_0_5".format(profile)]
                         fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
                     elif "32k" in self.instrument:
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale_0_5".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale_0_5".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain".format(profile)]
+                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
+                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain_0_5".format(profile)]
                         fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
                 except KeyError:
                     msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file.'.format(int_time))
@@ -1433,10 +1433,10 @@ class UtilsClass(object):
                 self.Note("The following number of sensors (%s) have `ERRORS`: %s" % (
                     len(_errored_sensors_.split(',')), _errored_sensors_))
                 # print('Following sensors have ERRORS: %s' % _errored_sensors_)
-            if _warning_sensors_:
-                self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
-                    len(_warning_sensors_.split(',')), _warning_sensors_))
-                # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
+            #if _warning_sensors_:
+            #    self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
+            #        len(_warning_sensors_.split(',')), _warning_sensors_))
+            #    # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
     def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True):
