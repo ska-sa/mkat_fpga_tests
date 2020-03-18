@@ -115,8 +115,9 @@ class CorrRx(threading.Thread, LoggingClass):
             self.sync_time = float(sensors.get("sync-time", 0))
             self.scale_factor_timestamp = float(sensors.get("scale-factor-timestamp", 0))
             self.bls_ordering = sensors.get("{}-bls-ordering".format(product_name))
-        except Exception:
-            msg = "Failed to connect to katcp and retrieve sensors values"
+        except Exception as e:
+            import IPython;IPython.embed()
+            msg = "Failed to connect to katcp and retrieve sensors values. Exception: {}".format(e)
             self.logger.exception(msg)
             raise RuntimeError(msg)
         else:
@@ -315,7 +316,7 @@ class CorrRx(threading.Thread, LoggingClass):
         #     latency of the pipeline, but assume 3 to be on the safe side)
         #memory_pool_heaps = ring_heaps + max_heaps + stream_xengs * (active_frames + 5)
         #memory_pool_heaps = max_heaps + stream_xengs * (active_frames)
-        memory_pool_heaps = 60 #max_heaps + stream_xengs
+        memory_pool_heaps = 70 #max_heaps + stream_xengs
         memory_pool = spead2.MemoryPool(2**14, heap_data_size + 2**9,
                                         memory_pool_heaps, memory_pool_heaps)
 

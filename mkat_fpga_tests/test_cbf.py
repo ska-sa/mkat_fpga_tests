@@ -143,8 +143,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     SET_DSIM_EPOCH = self._dsim_set = True
                 except AssertionError as e:
                     self.Error(e, exe_info=True)
-                except Exception:
-                    self.Error(errmsg, exc_info=True)
+                except Exception as e:
+                    self.Error('{}'.format(e), exc_info=True)
 
     # This needs proper testing
     def tearDown(self):
@@ -183,6 +183,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
+        # TODO: Seem neccessary because sensors have not settled, investigate
+        time.sleep(60)
             #self.logger.info("Sleeping for 10 seconds to clean up memory.")
             #time.sleep(10)
 
@@ -202,8 +204,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "Currently running instrument %s-%s as per /etc/corr" % (
                     self.corr_fix.array_name,
                     self.instrument))
-            if start_receiver:
-                self._systems_tests()
+            #TODO: Add receiver back in
+            #if start_receiver:
+            #    self._systems_tests()
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
             self.Error(errmsg, exc_info=True)
@@ -321,7 +324,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return False
             else:
                 # Run system tests before each test is ran
-                self.addCleanup(self._systems_tests)
+                #TODO: Add systems test back in
+                #self.addCleanup(self._systems_tests)
                 self.addCleanup(self.corr_fix.stop_x_data)
                 #if init_receiver:
                 #    self.addCleanup(self.receiver.stop)
@@ -329,6 +333,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.addCleanup(gc.collect)
         return True
 
+    @subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -388,6 +393,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    @subset
     @array_release_x
     @slow
     @instrument_1k
@@ -445,6 +451,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Test is being qualified by CBF.V.3.30")
 
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
@@ -793,7 +800,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #else:
             #    Aqf.failed(self.errmsg)
 
-    @array_release_x
+    #@array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
     @instrument_1k
@@ -2288,7 +2295,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Confirm that all baselines are present in correlator output."
         Aqf.is_true(all(baseline_is_present.values()), msg)
         for i in range(self.data_retries):  
-            test_data = self.get_real_clean_dump(discard=3)
+            test_data = self.get_real_clean_dump()
             if test_data is not False:
                 z_baselines = zero_baselines(test_data["xeng_raw"])
                 if not(z_baselines): break
@@ -3717,7 +3724,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         tst_idx = random.choice(range(1,num_inputs))
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
         #for mult in [-0.1, -0.5, -1, -1.5, -2, -2.5, -3]:
-        for mult in [0.1, 0.5, 1, 1.5, 2, 2.5, 3]:
+        for mult in [0.1, 0.5, 1, 1.5, 2]:
             setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
             if setup_data:
                 dump_counts = 5
@@ -3943,6 +3950,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # This is needed if a subset of channels were captured.
                 # TODO: if captured channels does not start a 0 this slice is incorrect. To Fix
                 try:
+                    import IPython; IPython.embed()
                     expected_phases_slice = expected_phases_[:,:actual_phases_.shape[1]]
                     phase_err      = actual_phases_ - expected_phases_slice
                     phase_err_max  = np.max(phase_err, axis=1)
@@ -6249,18 +6257,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Failed("Failed to configure digitise simulator levels")
             return False
 
-        num_pulse_caps = 200
+        num_pulse_caps = 100
         #num_pulse_caps = 100
         # pulse_step must be divisible by 8. Not neccessary anymore?
-        #if "1k" in self.instrument:
-        #    pulse_step = 8
-        #elif "4k" in self.instrument:
-        #    pulse_step = 8
-        #elif "32k" in self.instrument:
-        #    #pulse_step = 16*32
-        pulse_step = 8
+        if "1k" in self.instrument:
+            pulse_step = 8
+        elif "4k" in self.instrument:
+            pulse_step = 8
+        elif "32k" in self.instrument:
+            pulse_step = 16*8
         load_lead_time = 0.035
-        points_around_trg = 1023
+        points_around_trg = 800
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
         if not load_lead_ts.is_integer():
@@ -6293,7 +6300,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     future_ts = load_lead_ts + curr_ts + pulse_step*pulse_cap
                     future_ts_array.append(future_ts)
                     load_dsim_impulse(future_ts)
-                time.sleep(0.5)
+                time.sleep(1)
                 bf_raw, bf_ts = get_beam_data()
                 if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
                     break

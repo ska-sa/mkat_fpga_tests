@@ -770,9 +770,9 @@ class UtilsClass(object):
         if (profile in ('noise','cw')):
             try:
                 if "107M32k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale{}".format(profile, int_time)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale{}".format(profile, int_time)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain{}".format(profile, int_time)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knb_fft_shift".format(profile)]
                 elif "1k" in self.instrument:
                     awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
