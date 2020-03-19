@@ -605,7 +605,13 @@ class UtilsClass(object):
         Retrieve gain of all inputs via sensors
         """
         try:
-            reply, informs = self.katcp_req.sensor_value()
+            for i in range(4):
+                try:
+                    reply, informs = self.katcp_req.sensor_value()
+                    self.assertTrue(reply.reply_ok())
+                    break
+                except AssertionError:
+                    pass
             assert reply.reply_ok()
         except Exception:
             return

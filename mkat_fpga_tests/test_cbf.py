@@ -263,8 +263,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
                     if stop_channels:
                         pass
-                    elif n_ants == 64 and n_chans == 4096:
-                        stop_channels = 2047
+                    #elif n_ants == 64 and n_chans == 4096:
+                    #    stop_channels = 2047
                     elif n_chans == 1024:
                         stop_channels = 1023
                     else:
@@ -3328,14 +3328,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             Aqf.wait(60, msg)
 
             self.Step("Check if all F-engines contain(s) PFB errors/warnings")
-            for i in range(3):
+            for i in range(self.data_retries):
                 try:
                     reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-                except BaseException:
-                    reply, informs = self.katcp_req.sensor_value()
-                self.assertTrue(reply.reply_ok())
-        except Exception:
-            msg = "Failed to retrieve sensor values via CAM interface"
+                    self.assertTrue(reply.reply_ok())
+                    break
+                except AssertionError:
+                    pass
+                #except BaseException:
+                #    reply, informs = self.katcp_req.sensor_value()
+            self.assertTrue(reply.reply_ok())
+        except Exception as e:
+            msg = "Failed to retrieve sensor values via CAM interface: {}".format(e)
             self.Error(msg, exc_info=True)
             return
         else:
