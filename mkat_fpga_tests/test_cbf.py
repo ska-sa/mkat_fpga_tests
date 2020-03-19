@@ -108,6 +108,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.dhost = self.corr_fix.dhost
             if not isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost):
                 raise AssertionError(errmsg)
+            #TODO: this needs to be modified for UHF and Sband
+            self.dsim_factor = (float(self.conf_file["instrument_params"]["sample_freq"]) 
+                                / 
+                                self.cam_sensors.get_value("scale_factor_timestamp"))
+
         except Exception:
             self.Error(errmsg, exc_info=True)
             sys.exit(errmsg)
@@ -183,10 +188,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
-        # TODO: Seem neccessary because sensors have not settled, investigate
-        time.sleep(60)
-            #self.logger.info("Sleeping for 10 seconds to clean up memory.")
-            #time.sleep(10)
+            self.logger.info("Sleeping for 30 seconds to clean up memory.")
+            time.sleep(30)
 
 
     def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
@@ -281,7 +284,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.errmsg = "Failed to create SPEAD data receiver"
                     self.assertIsInstance(self.receiver, CorrRx), self.errmsg
                     #start_thread_with_cleanup(self, self.receiver, timeout=10, start_timeout=1)
+                    self.logger.info("Starting receiver.")
                     self.receiver.start()
+                    self.logger.info("Receiver start method returned.")
                     retry_count = 10
                     while retry_count > 0:
                         if self.receiver.isAlive() == False:
@@ -351,15 +356,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 #TODO: Narrowband testing to select correct channel
-                #test_chan = 16769
+                test_chan = 5000
                 heading("CBF Channelisation Wideband Coarse L-band")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
                 num_discards = 3
-                if "32k" in self.instrument:
+                if "107M32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
-                        req_chan_spacing=31250, num_discards=num_discards
+                        req_chan_spacing=3265.38, num_discards=num_discards,
+                        narrow_band = "full"
+                    )
+                elif "54M32k" in self.instrument:
+                    self._test_channelisation(
+                        test_chan, no_channels=n_chans,
+                        req_chan_spacing=1632.69, num_discards=num_discards,
+                        narrow_band = "half"
+                    )
+                elif "32k" in self.instrument:
+                    self._test_channelisation(
+                        test_chan, no_channels=n_chans,
+                        req_chan_spacing=30000, num_discards=num_discards
                     )
                 elif "4k" in self.instrument:
                     self._test_channelisation(
@@ -1312,11 +1329,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                       Test Methods                            #
     #################################################################
 
-    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=5, samples_per_chan=128):
+    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=5, samples_per_chan=128, narrow_band = None):
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
-        # [CBF-REQ-0053]
-        min_bandwithd_req = 770e6
+        if narrow_band == 'full':
+            # [CBF-REQ-0236]
+            min_bandwidth_req = 107e6
+        elif narrow_band == 'half':
+            # [CBF-REQ-0236]
+            min_bandwidth_req = 53.5e6
+        else:
+            # [CBF-REQ-0053]
+            min_bandwidth_req = 770e6
+        nominal_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") * self.dsim_factor
         # [CBF-REQ-0126] CBF channel isolation
         cutoff = 53  # dB
         # Placeholder of actual frequencies that the signal generator produces
@@ -1356,14 +1381,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #           'to the number of frequency channels as calculated: {}'.format(
         #              no_channels))
         self.Step(
-            "The CBF, when configured to produce the Imaging data product set and Wideband "
-            "Fine resolution channelisation, shall channelise a total bandwidth of >= %s" % (
-                min_bandwithd_req)
+            "The CBF, when configured to produce the Imaging data product set "
+            "shall channelise a total bandwidth of >= %s" % (
+                min_bandwidth_req)
         )
         Aqf.is_true(
-            self.cam_sensors.get_value("bandwidth") >= min_bandwithd_req,
+            nominal_bw >= min_bandwidth_req,
             "Channelise total bandwidth {}Hz shall be >= {}Hz.".format(
-                self.cam_sensors.get_value("bandwidth"), min_bandwithd_req
+                nominal_bw, min_bandwidth_req
             ),
         )
         # TODO (MM) 2016-10-27, As per JM
@@ -1373,21 +1398,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Maybe we should be reporting this as a fraction of total sampling rate rather than
         # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
         # chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
-        chan_spacing = self.cam_sensors.get_value("bandwidth") / self.cam_sensors.get_value("n_chans")
+        chan_spacing = round(nominal_bw / self.cam_sensors.get_value("n_chans"),2)
         chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
-        self.Step(
-            "CBF-REQ-0043 and CBF-REQ-0053 Confirm that the number of calculated channel "
-            "frequency step is within requirement."
-        )
-        msg = ("Verify that the calculated channel frequency step ({:.3f} kHz) is between {} and {} Hz"
-               "".format(chan_spacing/1000, req_chan_spacing / 2, req_chan_spacing))
-        Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
+        self.Step("CBF-REQ-0043, 0053, 0226, 0227 and 0236 Confirm channel spacing.")
+        msg = ("Verify that the calculated channel frequency step ({:.3f} kHz) is equal or less than {} kHz"
+               "".format(chan_spacing/1000., req_chan_spacing/1000.))
+        if chan_spacing <= req_chan_spacing:
+            ch_spacing_res = True
+        else:
+            ch_spacing_res = False
+        Aqf.is_true(ch_spacing_res, msg)
 
         self.Step(
             "CBF-REQ-0046 and CBF-REQ-0047 Confirm that the channelisation spacing and "
             "confirm that it is within the maximum tolerance."
         )
-        msg = "Channelisation spacing is within maximum tolerance of 1% of the " "channel spacing."
+        msg = "Channelisation frequency is within maximum tolerance of 1% of the channel spacing."
         Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
         one_more = True
         for i in range(self.data_retries):  
@@ -1969,7 +1995,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         dsim_set_success = self.set_input_levels(
             awgn_scale=awgn_scale,
             cw_scale=cw_scale,
-            freq=self.cam_sensors.get_value("bandwidth") / 2.0,
+            freq=self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / 2.0,
             fft_shift=fft_shift,
             gain=gain,
         )
@@ -1991,7 +2017,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #           'determine the number of channels and processing bandwidth: '
             #           '{}Hz.'.format(self.cam_sensors.get_value('bandwidth')))
             # chan_spacing = (self.cam_sensors.get_value('bandwidth') / np.shape(initial_dump['xeng_raw'])[0])
-            chan_spacing = self.cam_sensors.get_value("bandwidth") / self.cam_sensors.get_value("n_chans")
+            chan_spacing = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / self.cam_sensors.get_value("n_chans")
             # [CBF-REQ-0043]
             calc_channel = (required_chan_spacing / 2) <= chan_spacing <= required_chan_spacing
             self.Step("Confirm that the number of calculated channel frequency step is within requirement.")
@@ -2196,7 +2222,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         dsim_set_success = self.set_input_levels(
             awgn_scale=awgn_scale,
-            freq=self.cam_sensors.get_value("bandwidth") / 2.0,
+            freq=self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / 2.0,
             fft_shift=fft_shift,
             gain=gain,
         )
@@ -3049,7 +3075,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "indicates actual values received from SPEAD accumulation."
                     )
                     plot_filename = "{}/{}_test_delay_tracking.png".format(self.logs_path, self._testMethodName)
-                    plot_units = "secs"
+                    plot_units = "ns/s"
 
                     aqf_plot_phase_results(
                         no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption
@@ -3488,7 +3514,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_vacc(self, test_chan, chan_index=None, acc_time=0.998):
         """Test vector accumulator"""
         # Choose a test frequency around the centre of the band.
-        test_freq = self.cam_sensors.get_value("bandwidth") / 2.0
+        test_freq = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / 2.0
 
         test_input = self.cam_sensors.input_labels[0]
         eq_scaling = 30
@@ -4668,7 +4694,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.assertTrue(reply.reply_ok())
 
                 # Get instrument parameters
-                bw = self.cam_sensors.get_value("bandwidth")
+                bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
                 nr_ch = self.cam_sensors.get_value("n_chans")
                 ants = self.cam_sensors.get_value("n_ants")
                 ch_list = self.cam_sensors.ch_center_freqs
@@ -5038,7 +5064,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.assertTrue(reply.reply_ok())
 
             # Get instrument parameters
-            bw = self.cam_sensors.get_value("bandwidth")
+            bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
             nr_ch = self.cam_sensors.get_value("n_chans")
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
@@ -5751,7 +5777,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.assertTrue(reply.reply_ok())
 
             # Get instrument parameters
-            bw = self.cam_sensors.get_value("bandwidth")
+            bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
             nr_ch = self.cam_sensors.get_value("n_chans")
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
@@ -6011,7 +6037,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             sync_time = self.cam_sensors.get_value("sync_time")
 
             # Get instrument parameters
-            bw = self.cam_sensors.get_value("bandwidth")
+            bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
             nr_ch = self.cam_sensors.get_value("n_chans")
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
@@ -6414,7 +6440,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except Exception:
             self.Failed(e)
             return
-        bw = self.cam_sensors.get_value("bandwidth")
+        bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
         ch_list = self.cam_sensors.ch_center_freqs
         nr_ch = self.n_chans_selected
 
@@ -7342,7 +7368,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         cw_chan_set = int(self.n_chans_selected * 3 / 4)
         cw_freq = channel_list[cw_chan_set]
         dsim_clk_factor = 1.712e9 / self.cam_sensors.sample_period
-        bandwidth = self.cam_sensors.get_value("bandwidth")
+        bandwidth = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
         # eff_freq = (cw_freq + bandwidth) * dsim_clk_factor
         channel_bandwidth = self.cam_sensors.delta_f
         input_labels = self.cam_sensors.input_labels
@@ -7422,7 +7448,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Get baseline 0 data, i.e. auto-corr of m000h
             test_baseline = 0
             # [CBF-REQ-0053]
-            min_bandwithd_req = 770e6
+            min_bandwidth_req = 770e6
             # Channel magnitude responses for each frequency
             chan_responses = []
             last_source_freq = None
@@ -7470,12 +7496,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
 
                 Aqf.is_true(
-                    self.cam_sensors.get_value("bandwidth") >= min_bandwithd_req,
+                    self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") >= min_bandwidth_req,
                     "Channelise total bandwidth {}Hz shall be >= {}Hz.".format(
-                        self.cam_sensors.get_value("bandwidth"), min_bandwithd_req
+                        self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth"), min_bandwidth_req
                     ),
                 )
-                chan_spacing = self.cam_sensors.get_value("bandwidth") / n_chans
+                chan_spacing = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / n_chans
                 chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
                 self.Step("Confirm that the number of calculated channel " "frequency step is within requirement.")
                 msg = "Verify that the calculated channel " "frequency ({} Hz)step size is between {} and {} Hz".format(
@@ -7679,7 +7705,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         chan_responses = 10 * np.log10(np.abs(np.asarray(chan_responses)))
         try:
             n_chans = int(self.cam_sensors.get_value("n_chans"))
-            binwidth = self.cam_sensors.get_value("bandwidth") / (n_chans - 1)
+            binwidth = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / (n_chans - 1)
             efficiency_calc(requested_test_freqs, chan_responses, binwidth)
         except Exception:
             msg = "Could not compute the data, rerun test"

@@ -80,13 +80,14 @@ class CorrRx(threading.Thread, LoggingClass):
             if not is_connected:
                 client.stop()
                 raise RuntimeError("Could not connect to katcp, timed out.")
-
+            self.logger.info("Requesting sensors via katcp with a 60 second timeout.")
             reply, informs = client.blocking_request(
-                katcp.Message.request("sensor-value"), timeout=5
+                katcp.Message.request("sensor-value"), timeout=60
             )
             assert reply.reply_ok()
             client.stop()
             client = None
+            self.logger.info("Sensor values received.")
 
             sensors_required = [
                 "n-ants",
@@ -116,8 +117,13 @@ class CorrRx(threading.Thread, LoggingClass):
             self.scale_factor_timestamp = float(sensors.get("scale-factor-timestamp", 0))
             self.bls_ordering = sensors.get("{}-bls-ordering".format(product_name))
         except Exception as e:
-            import IPython;IPython.embed()
-            msg = "Failed to connect to katcp and retrieve sensors values. Exception: {}".format(e)
+            if 'client' in locals():
+                if client != None:
+                    client.stop()
+            if 'reply' in locals():
+                msg = "Ok not received from katcp: reply: {}, informs: {}".format(reply, informs)
+            else:
+                msg = "Failed to connect to katcp and retrieve sensors values. Exception: {}".format(e)
             self.logger.exception(msg)
             raise RuntimeError(msg)
         else:
@@ -286,8 +292,6 @@ class CorrRx(threading.Thread, LoggingClass):
         if timeout is not None:
             self.running_event.wait(timeout)
         self.logger.info("SPEAD receiver started")
-
-
 
     def _spead_stream(self, active_frames=3):
         """

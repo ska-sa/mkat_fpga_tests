@@ -769,7 +769,7 @@ class UtilsClass(object):
         int_time = '_'+ int_time[0] + '_' + int_time[1]
         if (profile in ('noise','cw')):
             try:
-                if "107M32k" in self.instrument:
+                if ("107M32k" or "54M32k") in self.instrument:
                     awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale".format(profile)]
                     cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale".format(profile)]
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain{}".format(profile, int_time)]
@@ -2087,17 +2087,18 @@ class GetSensors(object):
     def ch_center_freqs(self):
         """
         Calculates the center frequencies of all channels.
-        First channel center frequency is 0.
-        Second element can be used as the channel bandwidth
+        First channel center frequency is 0 or start of narrow band band.
+        Second element can be used as the channel bandwidth, for narrowband = [1]-[0]
 
         Return
         ---------
         List: channel center frequencies
         """
-        n_chans = float(self.get_value("n_chans"))
-        bandwidth = float(self.get_value("bandwidth"))
+        center_f  = float(self.get_value("antenna_channelised_voltage_center_freq"))
+        bandwidth = float(self.get_value("antenna_channelised_voltage_bandwidth"))
+        n_chans   = float(self.get_value("n_chans"))
         ch_bandwidth = bandwidth / n_chans
-        f_start = 0.0  # Center freq of the first channel
+        f_start = center_f - (bandwidth/2.) # Center freq of the first channel
         return f_start + np.arange(n_chans) * ch_bandwidth
 
     @property
@@ -2139,6 +2140,7 @@ class GetSensors(object):
         of points are specified.
 
         """
+        
         assert samples_per_chan > 0
         assert chans_around > 0
         assert 0 <= chan < self.get_value("n_chans")

@@ -154,7 +154,7 @@ class CorrelatorFixture(Logger.LoggingClass):
             try:
                 self._dhost = FpgaDsimHost(
                     self.dsim_conf["host"], config=self.dsim_conf, transport=SkarabTransport,
-                    logger=self.logger
+                    #logger=self.logger
                     )
                 self._dhost.get_system_information(filename=self.dsim_conf['bitstream'])
             except Exception:
