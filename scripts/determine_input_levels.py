@@ -124,7 +124,7 @@ if __name__ == "__main__":
     try:
         while True:
             quant_snap = np.abs(f.get_quant_snapshots()['inp000x'])
-            print('Quantiser magnitude for channels 990 to 1010:\n{}'.format(quant_snap[990:1011]))
+            print('Quantiser magnitude for channels 95 to 105:\n{}'.format(quant_snap[95:106]))
             print('PFB status: {}'.format(f.get_pfb_status()))
             print('ADC status:\n{}'.format(f.get_adc_status()))
             time.sleep(1)

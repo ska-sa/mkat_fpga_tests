@@ -189,7 +189,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
             self.logger.info("Sleeping for 30 seconds to clean up memory.")
-            time.sleep(30)
+            #time.sleep(30)
 
 
     def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
@@ -1447,6 +1447,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
         )
         aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1))
+        return
 
         self.Step(
             "Sweep the digitiser simulator over the centre frequencies of at "
