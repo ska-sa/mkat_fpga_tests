@@ -2104,7 +2104,7 @@ class GetSensors(object):
         bandwidth = float(self.get_value("antenna_channelised_voltage_bandwidth"))
         n_chans   = float(self.get_value("n_chans"))
         ch_bandwidth = bandwidth / n_chans
-        f_start = center_f - (bandwidth/2.) # Center freq of the first channel
+        f_start = center_f - (bandwidth/2.)+ch_bandwidth # Center freq of the first channel
         return f_start + np.arange(n_chans) * ch_bandwidth
 
     @property
