@@ -227,6 +227,8 @@ def aqf_plot_channels(
         else:
             if plot_type == "eff":
                 ylbl = "Efficiency [%]"
+            elif plot_type == "error_vector_rad":
+                ylbl = "Phase error in radians"
             elif plot_type == "error_vector":
                 ylbl = "Phase error in degrees"
             else:
