@@ -4528,7 +4528,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 corr2_version = "".join([i for i in corr2_version.split(".") if len(i) == 7])
                 corr2_link = "https://github.com/ska-sa/%s/commit/%s" % (corr2_name, corr2_version)
             except Exception:
-                corr2_link = "Not Version Controlled at this time."
+                corr2_link = "https://github.com/ska-sa/%s/commit/%s" % (corr2_name, corr2_version)
 
             casper_name = casperfpga.__name__
             casper_version = casperfpga.__version__
@@ -4538,7 +4538,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 casper_version = "".join([i for i in casper_version.split(".") if len(i) == 7])
                 casper_link = "https://github.com/ska-sa/%s/commit/%s" % (casper_name, casper_version)
             except Exception:
-                casper_link = "Not Version Controlled at this time."
+                casper_link = "https://github.com/ska-sa/%s/commit/%s" % (casper_name, casper_version)
 
             katcp_name = katcp.__name__
             katcp_version = katcp.__version__
@@ -4618,15 +4618,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 for inform in informs:
                     if [s for s in inform.arguments if "xengine-firmware" in s]:
-                        _hash = inform.arguments[-1].split(" ")
-                        _hash = "".join([i.replace("[", "").replace("]", "") for i in _hash if 40 < len(i) < 42])
-                        self.Progress("%s: %s" % (inform.arguments[0], _hash))
-                        self.Progress("X/B-ENGINE (CBF) : M1200-0067")
+                        #_hash = inform.arguments[-1].split(" ")
+                        #_hash = "".join([i.replace("[", "").replace("]", "") for i in _hash if 40 < len(i) < 42])
+                        #self.Progress("%s: %s" % (inform.arguments[0], _hash))
+                        self.Progress("X/B-ENGINE (CBF) - M1200-0067:")
+                        self.Progress(": ".join(inform.arguments))
                     elif [s for s in inform.arguments if "fengine-firmware" in s]:
-                        _hash = inform.arguments[-1].split(" ")
-                        _hash = "".join([i.replace("[", "").replace("]", "") for i in _hash if 40 < len(i) < 42])
-                        self.Progress("%s: %s" % (inform.arguments[0], _hash))
-                        self.Progress("F-ENGINE (CBF) : M1200-0064")
+                        #_hash = inform.arguments[-1].split(" ")
+                        #_hash = "".join([i.replace("[", "").replace("]", "") for i in _hash if 40 < len(i) < 42])
+                        #self.Progress("%s: %s" % (inform.arguments[0], _hash))
+                        self.Progress("F-ENGINE (CBF) - M1200-0064:")
+                        self.Progress(": ".join(inform.arguments))
+                    elif [s for s in inform.arguments if "bengine-firmware" in s]:
+                        pass
                     else:
                         self.Progress(": ".join(inform.arguments))
                 self.Progress("CMC KATCP_C : M1200-0047")
