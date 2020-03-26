@@ -775,11 +775,16 @@ class UtilsClass(object):
         int_time = '_'+ int_time[0] + '_' + int_time[1]
         if (profile in ('noise','cw')):
             try:
-                if ("107M32k" or "54M32k") in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale".format(profile)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knb_fft_shift".format(profile)]
+                if "54M32k" in self.instrument:
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_fft_shift".format(profile)]
+                elif "107M32k" in self.instrument:
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_fft_shift".format(profile)]
                 elif "1k" in self.instrument:
                     awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
                     cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
@@ -801,34 +806,9 @@ class UtilsClass(object):
                     self.Failed(msg)
                     return False
             except KeyError:
-                msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file. Profile for 0.5 seconds used'.format(int_time))
-                self.logger.error(msg)
-                #Aqf.note(msg)
-                try: 
-                    if "107M32k" in self.instrument:
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knb_awgn_scale".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knb_cw_scale".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knb_gain_0_5".format(profile)]
-                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knb_fft_shift".format(profile)]
-                    elif "1k" in self.instrument:
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain_0_5".format(profile)]
-                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
-                    elif "4k" in self.instrument:                                     
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain_0_5".format(profile)]
-                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
-                    elif "32k" in self.instrument:
-                        awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
-                        cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
-                        gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain_0_5".format(profile)]
-                        fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
-                except KeyError:
-                    msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file.'.format(int_time))
-                    self.Failed(msg)
-                    return False
+                msg = ('Profile values for integration time {} does not exist. Fix site_test_conf file.'.format(int_time))
+                self.Failed(msg)
+                return False
         else:
             msg = "Profile selected does not exist: {}".format(profile)
             self.logger.exception(msg)
@@ -2104,7 +2084,7 @@ class GetSensors(object):
         bandwidth = float(self.get_value("antenna_channelised_voltage_bandwidth"))
         n_chans   = float(self.get_value("n_chans"))
         ch_bandwidth = bandwidth / n_chans
-        f_start = center_f - (bandwidth/2.)+ch_bandwidth # Center freq of the first channel
+        f_start = center_f - (bandwidth/2.) # Center freq of the first channel
         return f_start + np.arange(n_chans) * ch_bandwidth
 
     @property

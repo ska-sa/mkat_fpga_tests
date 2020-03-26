@@ -23,7 +23,8 @@ if __name__ == '__main__':
     chan_32k = float(2**15)
     sample_freq = float(args.sample_freq)
     nom_smpl_freq = float(args.nominal_sample_freq)
-    nb_bw = 107e6 * sample_freq/nom_smpl_freq
+    nb_bw_f = 107e6 * sample_freq/nom_smpl_freq
+    nb_bw_h = 53.5e6 * sample_freq/nom_smpl_freq
     if args.narrow_band_centre_freq == None:
         nb_c_f = sample_freq/4
     else:
@@ -33,7 +34,8 @@ if __name__ == '__main__':
     freqs_1k  = np.arange(chan_1k)*sample_freq/2/chan_1k
     freqs_4k  = np.arange(chan_4k)*sample_freq/2/chan_4k
     freqs_32k = np.arange(chan_32k)*sample_freq/2/chan_32k
-    freqs_32k_nb = (np.arange(chan_32k)*nb_bw/chan_32k) + (nb_c_f - nb_bw/2)
+    freqs_32k_nb_f = (np.arange(chan_32k)*nb_bw_f/chan_32k) + (nb_c_f - nb_bw_f/2)
+    freqs_32k_nb_h = (np.arange(chan_32k)*nb_bw_h/chan_32k) + (nb_c_f - nb_bw_h/2)
 
     print ('Sample frequency set to: {} Hz'.format(sample_freq))
     try:
@@ -49,6 +51,10 @@ if __name__ == '__main__':
     except IndexError:
         pass
     try:
-        print ('32k narrow band center frequency for channel {}: {} Hz'.format(args.channel, freqs_32k_nb[args.channel]))
+        print ('32k narrow band full center frequency for channel {}: {} Hz'.format(args.channel, freqs_32k_nb_f[args.channel]))
+    except IndexError:
+        pass
+    try:
+        print ('32k narrow band half center frequency for channel {}: {} Hz'.format(args.channel, freqs_32k_nb_h[args.channel]))
     except IndexError:
         pass

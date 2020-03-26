@@ -189,7 +189,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
             self.logger.info("Sleeping for 30 seconds to clean up memory.")
-            #time.sleep(30)
+            time.sleep(30)
 
 
     def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
@@ -344,7 +344,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @instrument_4k
     @aqf_vr("CBF.V.3.30")
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
-    def test_channelisation_wideband_course(self):
+    def test_channelisation(self):
         Aqf.procedure(TestProcedure.Channelisation)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -357,10 +357,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 #TODO: Narrowband testing to select correct channel
                 test_chan = 15000
+                #test_chan = 100
                 heading("CBF Channelisation Wideband Coarse L-band")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
-                num_discards = 3
+                num_discards = 2
                 if "107M32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, no_channels=n_chans,
@@ -799,7 +800,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-    @array_release_x
+    #@array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -1329,7 +1330,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                       Test Methods                            #
     #################################################################
 
-    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=5, samples_per_chan=128, narrow_band = None):
+    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=5, samples_per_chan=64, narrow_band = None):
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         if narrow_band == 'full':
@@ -1453,6 +1454,30 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "least all the channels that fall within the complete L-band"
         )
         failure_count = 0
+        int_time = self.cam_sensors.get_value("int_time")
+
+        
+        #TODO: Hack, rather move this to the requested freq method
+        middle_idx = int(len(requested_test_freqs)/2)
+        start = requested_test_freqs[middle_idx]
+        self.dhost.sine_sources.sin_0.set(frequency=start, scale=cw_scale)
+        set_middle_freq = self.dhost.sine_sources.sin_0.frequency
+        curr_setf = set_middle_freq
+        #Find the dsim set step size
+        for i in range(20):
+            currf = start+i
+            self.dhost.sine_sources.sin_0.set(frequency=currf, scale=cw_scale)
+            setf = self.dhost.sine_sources.sin_0.frequency
+            if setf != curr_setf:
+                dsim_step = setf-curr_setf
+                curr_setf = setf
+        ave_f_step = np.average(np.diff(requested_test_freqs))
+        real_f_step = dsim_step*round(ave_f_step/dsim_step)
+        half_band = real_f_step*middle_idx
+        strt_band = set_middle_freq - half_band
+        stop_band = set_middle_freq + half_band
+        requested_test_freqs = np.arange(strt_band, stop_band, real_f_step)
+
         for i, freq in enumerate(requested_test_freqs):
             _msg = "Getting channel response for freq {} @ {}: {:.3f} MHz.".format(
                 i + 1, len(requested_test_freqs), freq / 1e6
@@ -1468,7 +1493,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
             # self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
-
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
             if this_source_freq == last_source_freq:
@@ -1496,55 +1520,71 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(_errmsg)
                     return False
             else:
-                # No of spead heap discards relevant to vacc
-                int_time = self.cam_sensors.get_value("int_time")
-                discards = 0
-                max_wait_dumps = 10
-                while True:
-                    try:
-                        queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
-                        self.assertIsInstance(queued_dump, dict)
-                        deng_timestamp = float(self.dhost.registers.sys_clkcounter.read().get("timestamp"))
-                        self.assertIsInstance(deng_timestamp, float)
-                    except Exception:
-                        errmsg = "Could not retrieve clean queued accumulation for freq(%s @ %s: " "%s MHz)." % (
-                            i + 1,
-                            len(requested_test_freqs),
-                            freq / 1e6,
-                        )
-                        self.Error(errmsg, exc_info=True)
-                        break
-                    else:
-                        timestamp_diff = np.abs(queued_dump["dump_timestamp"] - deng_timestamp)
-                        #print colored(timestamp_diff, 'red')
-                        if timestamp_diff < (num_discards*int_time)*2:
-                            msg = (
-                                "Received correct accumulation timestamp: %s, relevant to "
-                                "DEngine timestamp: %s (Difference %.2f)"
-                                % (queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
-                            )
-                            self.logger.info(_msg)
-                            self.logger.info(msg)
-                            break
+                ## No of spead heap discards relevant to vacc
+                #discards = 0
+                #max_wait_dumps = 10
+                #while True:
+                #    try:
+                #        a = time.time()
+                #        queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
+                #        print (time.time()-a)
+                #        self.assertIsInstance(queued_dump, dict)
+                #        deng_timestamp = float(self.dhost.registers.sys_clkcounter.read().get("timestamp"))
+                #        self.assertIsInstance(deng_timestamp, float)
+                #    except Exception:
+                #        errmsg = "Could not retrieve clean queued accumulation for freq(%s @ %s: " "%s MHz)." % (
+                #            i + 1,
+                #            len(requested_test_freqs),
+                #            freq / 1e6,
+                #        )
+                #        self.Error(errmsg, exc_info=True)
+                #        break
+                #    else:
+                #        timestamp_diff = np.abs(queued_dump["dump_timestamp"] - deng_timestamp)
+                #        print colored(timestamp_diff, 'red')
+                #        if timestamp_diff < (num_discards*int_time)*2:
+                #            msg = (
+                #                "Received correct accumulation timestamp: %s, relevant to "
+                #                "DEngine timestamp: %s (Difference %.2f)"
+                #                % (queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
+                #            )
+                #            self.logger.info(_msg)
+                #            self.logger.info(msg)
+                #            break
 
-                        if discards > max_wait_dumps:
-                            errmsg = (
-                                "Could not get accumulation with correct timestamp within %s "
-                                "accumulation periods." % max_wait_dumps
-                            )
-                            self.Failed(errmsg)
-                            if discards > 10:
-                                return
-                            break
-                        else:
-                            msg = (
-                                "Discarding subsequent dumps (%s) with dump timestamp (%s) "
-                                "and DEngine timestamp (%s) with difference of %s."
-                                % (discards, queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
-                            )
-                            self.logger.info(msg)
-                        deng_timestamp = None
-                    discards += 1
+                #        if discards > max_wait_dumps:
+                #            errmsg = (
+                #                "Could not get accumulation with correct timestamp within %s "
+                #                "accumulation periods." % max_wait_dumps
+                #            )
+                #            self.Failed(errmsg)
+                #            if discards > 10:
+                #                return
+                #            break
+                #        else:
+                #            msg = (
+                #                "Discarding subsequent dumps (%s) with dump timestamp (%s) "
+                #                "and DEngine timestamp (%s) with difference of %s."
+                #                % (discards, queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
+                #            )
+                #            self.logger.info(msg)
+                #        deng_timestamp = None
+                #    discards += 1
+                try:
+                    #queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
+                    queued_dump = self.receiver.get_clean_dump(discard=0)
+                    self.assertIsInstance(queued_dump, dict)
+                    #deng_timestamp = float(self.dhost.registers.sys_clkcounter.read().get("timestamp"))
+                    #self.assertIsInstance(deng_timestamp, float)
+                except Exception:
+                    errmsg = "Could not retrieve clean queued accumulation for freq(%s @ %s: " "%s MHz)." % (
+                        i + 1,
+                        len(requested_test_freqs),
+                        freq / 1e6,
+                    )
+                    self.Error(errmsg, exc_info=True)
+                    return
+                self.logger.info(_msg)
 
                 this_freq_data = queued_dump["xeng_raw"]
                 this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
@@ -1594,6 +1634,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Convert the lists to numpy arrays for easier working
         actual_test_freqs = np.array(actual_test_freqs)
         chan_responses = np.array(chan_responses)
+        fn = "/".join([self._katreport_dir, r"channelisation_raw_data.npz"])
+        with open(fn, 'w') as f:
+            np.savez(f, test_freqs=actual_test_freqs, response=chan_responses)
         df = self.cam_sensors.delta_f
         try:
             rand_chan_response = len(chan_responses[random.randrange(len(chan_responses))])
@@ -1850,7 +1893,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # center_bin.append('Channel spacing: {:.3f}kHz'.format(856e6 / self.n_chans_selected / 1e3))
             center_bin.append("Channel spacing: {:.3f}kHz".format(measured_ch_spacing / 1e3))
 
-            csv_filename = "/".join([self._katreport_dir, r"wideband_channelisation_response_data.csv"])
+            csv_filename = "/".join([self._katreport_dir, r"channelisation_response_data.csv"])
             np.savetxt(csv_filename, channel_response_list, delimiter=",")
             plot_title = "PFB Channel Response"
             plot_filename = "{}/{}_adjacent_channels.png".format(self.logs_path, self._testMethodName)
@@ -1863,6 +1906,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_chan, test_baseline, bls_to_test, measured_ch_spacing / 1e3, cw_scale, awgn_scale, gain, fft_shift
                 )
             )
+            print('crossover = {}'.format(crossover))
+            print('center_bin = {}'.format(center_bin))
 
             aqf_plot_channels(
                 zip(channel_response_list, legends),
@@ -3980,7 +4025,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # This is needed if a subset of channels were captured.
                 # TODO: if captured channels does not start a 0 this slice is incorrect. To Fix
                 try:
-                    import IPython; IPython.embed()
                     expected_phases_slice = expected_phases_[:,:actual_phases_.shape[1]]
                     phase_err      = actual_phases_ - expected_phases_slice
                     phase_err_max  = np.max(phase_err, axis=1)
@@ -6295,9 +6339,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         elif "4k" in self.instrument:
             pulse_step = 8
         elif "32k" in self.instrument:
-            pulse_step = 16*8
+            #pulse_step = 16*8
+            pulse_step = 128*8
         load_lead_time = 0.035
-        points_around_trg = 800
+        #points_around_trg = 800
+        points_around_trg = 2000
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
         if not load_lead_ts.is_integer():
@@ -6412,8 +6458,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             xlabel="Sample Offset from Impulse",
             ylabel="Average Beam Response",
         )
-
-
+        import IPython;IPython.embed()
 #
 #            # Pass data through a smoothing filter
 #            #import scipy
