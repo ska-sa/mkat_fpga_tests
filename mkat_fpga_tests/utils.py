@@ -1835,7 +1835,7 @@ class UtilsClass(object):
         wrapped_results = (result + np.pi) % (2 * np.pi) - np.pi
         if save_filename:
             save_filename = save_filename[:-4] + "_exp.npy"
-            print('saving file = {}'.format(save_filename))
+            Aqf.hop('Saving raw delay data: {}'.format(save_filename.split('/')[-1]))
             with open(save_filename, 'w') as f:
                 np.save(f, wrapped_results)
 
