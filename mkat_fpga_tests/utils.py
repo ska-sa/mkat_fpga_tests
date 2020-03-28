@@ -1425,9 +1425,13 @@ class UtilsClass(object):
             #    # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
-    def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True):
+    def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True,
+                      awgn_scale_override=None,
+                      gain_override=None):
         # Put some correlated noise on both outputs
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
+        if awgn_scale_override: awgn_scale = awgn_scale_override
+        if gain_override: gain = gain_override
 
         self.Step("Configure digitiser simulator to generate Gaussian noise.")
         self.Progress(
@@ -1462,14 +1466,15 @@ class UtilsClass(object):
         else:
             self.Passed("Cleared all previously applied delays prior to test.")
 
-        self.Step("Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.")
+        self.logger.info("Retrieve initial SPEAD accumulation, in-order to calculate all relevant parameters.")
         try:
-            initial_dump = self.receiver.get_clean_dump()
+            #initial_dump = self.receiver.get_clean_dump()
+            initial_dump = self.get_real_clean_dump()
         except Queue.Empty:
             errmsg = "Could not retrieve clean SPEAD accumulation: Queue might be Empty."
             self.Failed(errmsg, exc_info=True)
         else:
-            self.Progress("Successfully retrieved initial spead accumulation")
+            self.logger.info("Successfully retrieved initial spead accumulation")
             sync_epoch = self.cam_sensors.get_value("sync_epoch")
             # n_accs = self.cam_sensors.get_value('n_accs')]
             # no_chans = range(self.n_chans_selected)
@@ -1480,7 +1485,9 @@ class UtilsClass(object):
             curr_time = time.time()
             curr_time_readable = datetime.fromtimestamp(curr_time).strftime("%H:%M:%S")
             # If dump timestamp is behind add to load leadtime
-            load_delta = np.floor(curr_time-dump_ts)/int_time
+            # TODO: this might have caused delay tracking inaccuracy, take server time out of the calc
+            #load_delta = np.floor(curr_time-dump_ts)/int_time
+            load_delta = (int((curr_time-dump_ts)/int_time)+1)*int_time
             if load_delta < 0:
                 self.Failed("Current CMC time {} is behind dump timestamp {}, re-synchronise instrument.")
                 return False
@@ -1626,7 +1633,7 @@ class UtilsClass(object):
     def _get_actual_data(self, setup_data, dump_counts, delay_coefficients, 
                          max_wait_dumps=30, save_filename = None):
         try:
-            self.Step("Request Fringe/Delay(s) Corrections via CAM interface.")
+            self.logger.info("Request Fringe/Delay(s) Corrections via CAM interface.")
             load_strt_time = time.time()
             reply, _informs = self.katcp_req.delays(self.corr_fix.feng_product_name,
                 setup_data["t_apply"], *delay_coefficients, timeout=30)
@@ -1725,12 +1732,13 @@ class UtilsClass(object):
                             num_discards, dump["dump_timestamp"],
                             setup_data["t_apply"], time_diff, time.time())
                     )
-                    if num_discards <= 2:
-                        self.Progress(msg)
-                    elif num_discards == 3:
-                        self.Progress("...")
-                    elif time_diff < 3:
-                        self.Progress(msg)
+                    self.Progress(msg)
+                    #if num_discards <= 2:
+                    #    self.Progress(msg)
+                    #elif num_discards == 3:
+                    #    self.Progress("...")
+                    #elif time_diff < 3:
+                    #    self.Progress(msg)
 
         for i in range(dump_counts):
             self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))

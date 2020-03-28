@@ -520,8 +520,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))#, stop_channels=100)
             if instrument_success:
-                #num_discard = 5
-                num_discard = 3
+                num_discard = 5
                 self._test_product_baselines()
                 self._test_back2back_consistency()
                 self._test_freq_scan_consistency(num_discard = num_discard)
@@ -656,7 +655,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-
     @subset
     @array_release_x
     @generic_test
@@ -670,13 +668,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #instrument_success = self.set_instrument(acc_time=(0.5
             #    if self.cam_sensors.sensors.n_ants.get_value() == 4
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
-            instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
+            inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
+
+            if "32k" in inst:
+                instrument_success = self.set_instrument(4)
+            elif "4k" in inst:
+                instrument_success = self.set_instrument(2)
+            elif "1k" in inst:
+                instrument_success = self.set_instrument(1)
+            else:
+                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
-                #self._test_delay_tracking()
-                #self._test_delay_rate()
+                self._test_delay_tracking()
+                self._test_delay_rate()
                 self._test_phase_rate()
-                #self._test_phase_offset()
-                #self._test_delay_inputs()
+                self._test_phase_offset()
+                self._test_delay_inputs()
                 self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
@@ -1903,8 +1910,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_chan, test_baseline, bls_to_test, measured_ch_spacing / 1e3, cw_scale, awgn_scale, gain, fft_shift
                 )
             )
-            print('crossover = {}'.format(crossover))
-            print('center_bin = {}'.format(center_bin))
 
             aqf_plot_channels(
                 zip(channel_response_list, legends),
@@ -2605,10 +2610,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             msg = ("Subsequent SPEAD accumulations are identical.")
             if not Aqf.equals(len(dumps_comp), 0, msg):
-                print (np.where(dumps_data[0] != dumps_data[1]))
+                Aqf.failed(np.where(dumps_data[0] != dumps_data[1]))
                 legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
                 plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
-                plot_title = "Frequency Response {} @ {:.3f}MHz".format(test_chan, this_source_freq / 1e6)
+                plot_title = "Frequency Response {} @ {:.3f}MHz".format(chan, this_source_freq / 1e6)
                 caption = (
                     "Comparison of back-to-back SPEAD accumulations with digitiser simulator "
                     "configured to generate periodic wave ({:.3f}Hz with FFT-length {}) "
@@ -3790,7 +3795,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 msg = "Confirm that instrument switching to %s " "time is less than one minute" % instrument
                 Aqf.less(final_time, minute, msg)
 
-    def _test_delay_rate(self):
+    def _test_delay_rate(self, awgn_scale=None, gain=None):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay Rate"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
@@ -3798,9 +3803,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
         #for mult in [-0.1, -0.5, -1, -1.5, -2, -2.5, -3]:
         for mult in [0.1, 0.5, 1, 1.5, 2]:
-            setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
+            setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False,
+                                            awgn_scale_override=awgn_scale,
+                                            gain_override=gain)
             if setup_data:
-                dump_counts = 5
+                dump_counts = 4
                 # delay_rate = ((setup_data['sample_period'] / self.cam_sensors.get_value('int_time']) *
                 # np.random.rand() * (dump_counts - 3))
                 # delay_rate = 3.98195128768e-09
@@ -3815,7 +3822,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 delay_rates = [0] * setup_data["num_inputs"]
                 delay_rates[setup_data["test_source_ind"]] = delay_rate
                 delay_coefficients = ["{},{}:0,0".format(delay_value,fr) for fr in delay_rates]
-                self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
                 self.Progress(
                     "Delay Rate: %s, Delay Value: %s, Phase Offset: %s, Phase Rate: %s "
                     % (delay_rate, delay_value, phase_offset, phase_rate)
@@ -3975,9 +3981,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         if setup_data:
             dump_counts = 5
-            _rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
-            phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 0.4
+            #_rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
+            #phase_rate = (np.pi / 8.0) / _rand_gen
+            phase_rate = 1
             delay_value = 0
             delay_rate = 0
             phase_offset = 0
@@ -3986,7 +3992,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             phase_rates[setup_data["test_source_ind"]] = phase_rate
             delay_coefficients = ["0,0:0,{}".format(fr) for fr in phase_rates]
 
-            self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
             self.Progress(
                 "Delay Rate: %s seconds/second, Delay Value: %s radians, "
                 "Phase Offset: %s radians, Phase Rate: %s radians/second"
@@ -4129,7 +4134,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         #        caption=caption,
                         #    )
                 plot_units = "rads"
-                plot_title = "Randomly generated phase rate {:1.3f} rad/s".format(phase_rate)
+                plot_title = "Phase rate {:1.3f} rad/s".format(phase_rate)
                 plot_filename = "{}/{}_phase_rate.png".format(self.logs_path, self._testMethodName)
                 caption = (
                     "Actual vs Expected Unwrapped Correlation Phase [Phase Rate].\n"
@@ -4138,7 +4143,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
 
                 aqf_plot_phase_results(
-                    no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption
+                    no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption,
+                    dump_counts=dump_counts
                 )
 
     def _test_phase_offset(self):
@@ -4161,7 +4167,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             phase_offsets[setup_data["test_source_ind"]] = phase_offset
             delay_coefficients = ["0,0:{},0".format(fo) for fo in phase_offsets]
 
-            self.Step("Calculate the parameters to be used for setting Phase(s)/Delay(s).")
             self.Progress(
                 "Delay Rate: %s, Delay Value: %s, Phase Offset: %s, Phase Rate: %s "
                 % (delay_rate, delay_value, phase_offset, phase_rate))
@@ -5505,6 +5510,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
+            #TODO different levels for beamforming and delay tests
+            awgn_scale = awgn_scale*2
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -7501,174 +7508,175 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     def _test_efficiency(self):
 
-        csv_filename = "/".join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
 
-        def get_samples():
+        # Removed this code because the efficiency data is to be saved in the channelisation test. 
+        # Will print error if file does not exist
+        #def get_samples():
 
-            n_chans = self.cam_sensors.get_value("n_chans")
-            test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-            requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=101, chans_around=2)
-            expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
-            # Get baseline 0 data, i.e. auto-corr of m000h
-            test_baseline = 0
-            # [CBF-REQ-0053]
-            min_bandwidth_req = 770e6
-            # Channel magnitude responses for each frequency
-            chan_responses = []
-            last_source_freq = None
-            print_counts = 3
-            req_chan_spacing = 250e3
+        #    n_chans = self.cam_sensors.get_value("n_chans")
+        #    test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
+        #    requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=101, chans_around=2)
+        #    expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
+        #    # Get baseline 0 data, i.e. auto-corr of m000h
+        #    test_baseline = 0
+        #    # [CBF-REQ-0053]
+        #    min_bandwidth_req = 770e6
+        #    # Channel magnitude responses for each frequency
+        #    chan_responses = []
+        #    last_source_freq = None
+        #    print_counts = 3
+        #    req_chan_spacing = 250e3
 
-            awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-            self.Step(
-                "Digitiser simulator configured to generate a continuous wave, "
-                "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
-                    cw_scale, awgn_scale, gain, fft_shift
-                )
-            )
-            dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
-                freq=expected_fc, fft_shift=fft_shift, gain=gain
-            )
-            if not dsim_set_success:
-                self.Failed("Failed to configure digitise simulator levels")
-                return False
-            try:
-                self.Step(
-                    "Randomly select a frequency channel to test. Capture an initial correlator "
-                    "SPEAD accumulation, determine the number of frequency channels"
-                )
-                initial_dump = self.receiver.get_clean_dump()
-                self.assertIsInstance(initial_dump, dict)
-            except Exception:
-                errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
-                self.Error(errmsg, exc_info=True)
-                self.Failed(errmsg)
-            else:
+        #    awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        #    self.Step(
+        #        "Digitiser simulator configured to generate a continuous wave, "
+        #        "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
+        #            cw_scale, awgn_scale, gain, fft_shift
+        #        )
+        #    )
+        #    dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+        #        freq=expected_fc, fft_shift=fft_shift, gain=gain
+        #    )
+        #    if not dsim_set_success:
+        #        self.Failed("Failed to configure digitise simulator levels")
+        #        return False
+        #    try:
+        #        self.Step(
+        #            "Randomly select a frequency channel to test. Capture an initial correlator "
+        #            "SPEAD accumulation, determine the number of frequency channels"
+        #        )
+        #        initial_dump = self.receiver.get_clean_dump()
+        #        self.assertIsInstance(initial_dump, dict)
+        #    except Exception:
+        #        errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
+        #        self.Error(errmsg, exc_info=True)
+        #        self.Failed(errmsg)
+        #    else:
 
-                bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
-                self.Progress(
-                    "Randomly selected frequency channel to test: {} and "
-                    "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
-                )
-                Aqf.equals(
-                    np.shape(initial_dump["xeng_raw"])[0],
-                    self.n_chans_selected,
-                    "Confirm that the number of channels in the SPEAD accumulation, is equal "
-                    "to the number of frequency channels as calculated: {}".format(
-                        np.shape(initial_dump["xeng_raw"])[0]
-                    ),
-                )
+        #        bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
+        #        self.Progress(
+        #            "Randomly selected frequency channel to test: {} and "
+        #            "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
+        #        )
+        #        Aqf.equals(
+        #            np.shape(initial_dump["xeng_raw"])[0],
+        #            self.n_chans_selected,
+        #            "Confirm that the number of channels in the SPEAD accumulation, is equal "
+        #            "to the number of frequency channels as calculated: {}".format(
+        #                np.shape(initial_dump["xeng_raw"])[0]
+        #            ),
+        #        )
 
-                Aqf.is_true(
-                    self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") >= min_bandwidth_req,
-                    "Channelise total bandwidth {}Hz shall be >= {}Hz.".format(
-                        self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth"), min_bandwidth_req
-                    ),
-                )
-                chan_spacing = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / n_chans
-                chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
-                self.Step("Confirm that the number of calculated channel " "frequency step is within requirement.")
-                msg = "Verify that the calculated channel " "frequency ({} Hz)step size is between {} and {} Hz".format(
-                    chan_spacing, req_chan_spacing / 2, req_chan_spacing
-                )
-                Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
+        #        Aqf.is_true(
+        #            self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") >= min_bandwidth_req,
+        #            "Channelise total bandwidth {}Hz shall be >= {}Hz.".format(
+        #                self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth"), min_bandwidth_req
+        #            ),
+        #        )
+        #        chan_spacing = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / n_chans
+        #        chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
+        #        self.Step("Confirm that the number of calculated channel " "frequency step is within requirement.")
+        #        msg = "Verify that the calculated channel " "frequency ({} Hz)step size is between {} and {} Hz".format(
+        #            chan_spacing, req_chan_spacing / 2, req_chan_spacing
+        #        )
+        #        Aqf.in_range(chan_spacing, req_chan_spacing / 2, req_chan_spacing, msg)
 
-                self.Step(
-                    "Confirm that the channelisation spacing and confirm that it is " "within the maximum tolerance."
-                )
-                msg = "Channelisation spacing is within maximum tolerance of 1% of the " "channel spacing."
-                Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
+        #        self.Step(
+        #            "Confirm that the channelisation spacing and confirm that it is " "within the maximum tolerance."
+        #        )
+        #        msg = "Channelisation spacing is within maximum tolerance of 1% of the " "channel spacing."
+        #        Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
 
-            self.Step(
-                "Sweep the digitiser simulator over the centre frequencies of at "
-                "least all the channels that fall within the complete L-band"
-            )
+        #    self.Step(
+        #        "Sweep the digitiser simulator over the centre frequencies of at "
+        #        "least all the channels that fall within the complete L-band"
+        #    )
 
-            for i, freq in enumerate(requested_test_freqs):
-                if i < print_counts:
-                    self.Progress(
-                        "Getting channel response for freq {} @ {}: {:.3f} MHz.".format(
-                            i + 1, len(requested_test_freqs), freq / 1e6
-                        )
-                    )
-                elif i == print_counts:
-                    self.Progress("." * print_counts)
-                elif i >= (len(requested_test_freqs) - print_counts):
-                    self.Progress(
-                        "Getting channel response for freq {} @ {}: {:.3f} MHz.".format(
-                            i + 1, len(requested_test_freqs), freq / 1e6
-                        )
-                    )
-                else:
-                    self.logger.debug(
-                        "Getting channel response for freq %s @ %s: %s MHz."
-                        % (i + 1, len(requested_test_freqs), freq / 1e6)
-                    )
+        #    for i, freq in enumerate(requested_test_freqs):
+        #        if i < print_counts:
+        #            self.Progress(
+        #                "Getting channel response for freq {} @ {}: {:.3f} MHz.".format(
+        #                    i + 1, len(requested_test_freqs), freq / 1e6
+        #                )
+        #            )
+        #        elif i == print_counts:
+        #            self.Progress("." * print_counts)
+        #        elif i >= (len(requested_test_freqs) - print_counts):
+        #            self.Progress(
+        #                "Getting channel response for freq {} @ {}: {:.3f} MHz.".format(
+        #                    i + 1, len(requested_test_freqs), freq / 1e6
+        #                )
+        #            )
+        #        else:
+        #            self.logger.debug(
+        #                "Getting channel response for freq %s @ %s: %s MHz."
+        #                % (i + 1, len(requested_test_freqs), freq / 1e6)
+        #            )
 
-                self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
-                this_source_freq = self.dhost.sine_sources.sin_0.frequency
+        #        self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+        #        this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
-                if this_source_freq == last_source_freq:
-                    self.logger.debug(
-                        "Skipping channel response for freq %s @ %s: %s MHz.\n"
-                        "Digitiser frequency is same as previous." % (i + 1, len(requested_test_freqs), freq / 1e6)
-                    )
-                    continue  # Already calculated this one
-                else:
-                    last_source_freq = this_source_freq
+        #        if this_source_freq == last_source_freq:
+        #            self.logger.debug(
+        #                "Skipping channel response for freq %s @ %s: %s MHz.\n"
+        #                "Digitiser frequency is same as previous." % (i + 1, len(requested_test_freqs), freq / 1e6)
+        #            )
+        #            continue  # Already calculated this one
+        #        else:
+        #            last_source_freq = this_source_freq
 
-                try:
-                    this_freq_dump = self.receiver.get_clean_dump()
-                    # self.receiver.get_clean_dump()
-                    self.assertIsInstance(this_freq_dump, dict)
-                except AssertionError:
-                    self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
-                    return False
-                else:
-                    # No of spead heap discards relevant to vacc
-                    discards = 0
-                    max_wait_dumps = 100
-                    deng_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
-                    while True:
-                        try:
-                            queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
-                            self.assertIsInstance(queued_dump, dict)
-                        except Exception:
-                            self.Error("Could not retrieve clean accumulation.", exc_info=True)
-                        else:
-                            timestamp_diff = np.abs(queued_dump["dump_timestamp"] - deng_timestamp)
-                            if timestamp_diff < 0.5:
-                                msg = (
-                                    "Received correct accumulation timestamp: %s, relevant to "
-                                    "DEngine timestamp: %s (Difference %.2f)"
-                                    % (queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
-                                )
-                                self.logger.info(msg)
-                                break
+        #        try:
+        #            this_freq_dump = self.receiver.get_clean_dump()
+        #            # self.receiver.get_clean_dump()
+        #            self.assertIsInstance(this_freq_dump, dict)
+        #        except AssertionError:
+        #            self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
+        #            return False
+        #        else:
+        #            # No of spead heap discards relevant to vacc
+        #            discards = 0
+        #            max_wait_dumps = 100
+        #            deng_timestamp = self.dhost.registers.sys_clkcounter.read().get("timestamp")
+        #            while True:
+        #                try:
+        #                    queued_dump = self.receiver.data_queue.get(timeout=DUMP_TIMEOUT)
+        #                    self.assertIsInstance(queued_dump, dict)
+        #                except Exception:
+        #                    self.Error("Could not retrieve clean accumulation.", exc_info=True)
+        #                else:
+        #                    timestamp_diff = np.abs(queued_dump["dump_timestamp"] - deng_timestamp)
+        #                    if timestamp_diff < 0.5:
+        #                        msg = (
+        #                            "Received correct accumulation timestamp: %s, relevant to "
+        #                            "DEngine timestamp: %s (Difference %.2f)"
+        #                            % (queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
+        #                        )
+        #                        self.logger.info(msg)
+        #                        break
 
-                            if discards > max_wait_dumps:
-                                errmsg = (
-                                    "Could not get accumulation with correct timestamp within %s "
-                                    "accumulation periods." % max_wait_dumps
-                                )
-                                self.Failed(errmsg)
-                                break
-                            else:
-                                msg = (
-                                    "Discarding subsequent dumps (%s) with dump timestamp (%s) "
-                                    "and DEngine timestamp (%s) with difference of %s."
-                                    % (discards, queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
-                                )
-                                self.logger.info(msg)
-                        discards += 1
+        #                    if discards > max_wait_dumps:
+        #                        errmsg = (
+        #                            "Could not get accumulation with correct timestamp within %s "
+        #                            "accumulation periods." % max_wait_dumps
+        #                        )
+        #                        self.Failed(errmsg)
+        #                        break
+        #                    else:
+        #                        msg = (
+        #                            "Discarding subsequent dumps (%s) with dump timestamp (%s) "
+        #                            "and DEngine timestamp (%s) with difference of %s."
+        #                            % (discards, queued_dump["dump_timestamp"], deng_timestamp, timestamp_diff)
+        #                        )
+        #                        self.logger.info(msg)
+        #                discards += 1
 
-                    this_freq_response = normalised_magnitude(queued_dump["xeng_raw"][:, test_baseline, :])
-                    chan_responses.append(this_freq_response)
+        #            this_freq_response = normalised_magnitude(queued_dump["xeng_raw"][:, test_baseline, :])
+        #            chan_responses.append(this_freq_response)
 
-            chan_responses = np.array(chan_responses)
-            requested_test_freqs = np.asarray(requested_test_freqs)
-            csv_filename = "/".join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
-            np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs), delimiter=",")
+        #    chan_responses = np.array(chan_responses)
+        #    requested_test_freqs = np.asarray(requested_test_freqs)
+        #    csv_filename = "/".join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
+        #    np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs), delimiter=",")
 
         def efficiency_calc(f, P_dB, binwidth, debug=False):
             # Adapted from SSalie
@@ -7683,8 +7691,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             _f_, _P_dB_ = f, P_dB
             _f10_ = np.linspace(f[0], f[-1], len(f) * 10)  # up-sample 10x
             # CHANGED: slightly better than np.interp(_f10_, f, P_dB) e.g. for poorly sampled data
-            P_dB = scipy.interpolate.interp1d(f, P_dB, "quadratic", bounds_error=False)(_f10_)
-            f = _f10_
+            #P_dB = scipy.interpolate.interp1d(f, P_dB, "quadratic", bounds_error=False)(_f10_)
+            #f = _f10_
+            P_dB -= scipy.signal.medfilt(P_dB, 3).max()
+            f = f - f[P_dB>-6].mean()
 
             # Measure critical bandwidths
             f_HPBW = f[P_dB >= -3.0]
@@ -7750,18 +7760,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             plt.close()
 
         try:
+            csv_filename = "/".join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
             pfb_data = np.loadtxt(csv_filename, delimiter=",", unpack=False)
             self.Step("Retrieved channelisation (Frequencies and Power_dB) data results from CSV file")
         except IOError:
-            try:
-                get_samples()
-                csv_file = max(glob.iglob(csv_filename), key=os.path.getctime)
-                assert "CBF" in csv_file
-                pfb_data = np.loadtxt(csv_file, delimiter=",", unpack=False)
-            except Exception:
-                msg = "Failed to load CBF_Efficiency_Data.csv file"
-                self.Error(msg, exc_info=True)
-                return
+            msg = "Failed to load CBF_Efficiency_Data.csv file, run channelisation test first"
+            self.Error(msg, exc_info=True)
+            return
+            # If the file is not present then the test does not run
+            #try:
+            #    get_samples()
+            #    csv_file = max(glob.iglob(csv_filename), key=os.path.getctime)
+            #    assert "CBF" in csv_file
+            #    pfb_data = np.loadtxt(csv_file, delimiter=",", unpack=False)
+            #except Exception:
+            #    msg = "Failed to load CBF_Efficiency_Data.csv file"
+            #    self.Error(msg, exc_info=True)
+            #    return
 
         chan_responses, requested_test_freqs = pfb_data[:, 0][1:], pfb_data[:, 1][1:]
         # Summarize isn't clever enough to cope with the spurious spike in first sample
