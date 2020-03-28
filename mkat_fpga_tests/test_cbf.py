@@ -189,7 +189,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
             self.logger.info("Sleeping for 30 seconds to clean up memory.")
-            #time.sleep(30)
+            time.sleep(30)
 
 
     def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
@@ -3980,10 +3980,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #return
 
         if setup_data:
-            dump_counts = 5
+            dump_counts = 4
             #_rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
             #phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 1
+            phase_rate = 0.3
             delay_value = 0
             delay_rate = 0
             phase_offset = 0
