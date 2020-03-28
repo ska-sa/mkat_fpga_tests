@@ -682,7 +682,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self._test_delay_tracking()
                 self._test_delay_rate()
                 self._test_phase_rate()
-                self._test_phase_offset()
+                self._test_phase_offset(gain_multiplier=2)
                 self._test_delay_inputs()
                 self.clear_all_delays()
             else:
@@ -4147,13 +4147,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     dump_counts=dump_counts
                 )
 
-    def _test_phase_offset(self):
+    def _test_phase_offset(self, awgn_scale_override=None, gain_override=None, gain_multiplier=None):
         msg = "CBF Delay and Phase Compensation Functional VR: Phase offset"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
         tst_idx = random.choice(range(1,num_inputs))
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
-        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
+        setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False,
+                                        awgn_scale_override=awgn_scale_override,
+                                        gain_override=gain_override,
+                                        gain_multiplier=gain_multiplier)
+
         if setup_data:
             dump_counts = 1
             # phase_offset = (np.pi / 2.0) * np.random.rand() * dump_counts

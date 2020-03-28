@@ -1427,11 +1427,13 @@ class UtilsClass(object):
 
     def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True,
                       awgn_scale_override=None,
-                      gain_override=None):
+                      gain_override=None,
+                      gain_multiplier = None):
         # Put some correlated noise on both outputs
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
         if awgn_scale_override: awgn_scale = awgn_scale_override
         if gain_override: gain = gain_override
+        if gain_multiplier: gain = complex(gain)*gain_multiplier
 
         self.Step("Configure digitiser simulator to generate Gaussian noise.")
         self.Progress(
