@@ -681,6 +681,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if instrument_success:
                 self._test_delay_tracking()
                 self._test_delay_rate()
+                #self._test_delay_rate(delay_rate_mult=[2], awgn_scale=0.02, gain=600)
                 self._test_phase_rate()
                 self._test_phase_offset(gain_multiplier=2)
                 self._test_delay_inputs()
@@ -2594,20 +2595,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 dumps_data = []
                 chan_responses = []
                 # Clear cue and wait for one integration period
-                dump = self.get_real_clean_dump(discard=1)
+                dump = self.get_real_clean_dump(discard=1, quiet=True)
                 if dump is not False:
                     for dump_no in range(2):
-                        this_freq_dump = self.get_real_clean_dump()
+                        this_freq_dump = self.get_real_clean_dump(quiet=True)
                         if this_freq_dump is not False:
                             this_freq_data = this_freq_dump["xeng_raw"]
                             dumps_data.append(this_freq_data)
                             this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
                             chan_responses.append(this_freq_response)
                         else:
-                            return False
-                    dumps_comp = (np.where(dumps_data[0] != dumps_data[1])[0])
-                    if len(dumps_comp) == 0: break
+                            break
+                    try:
+                        dumps_comp = (np.where(dumps_data[0] != dumps_data[1])[0])
+                        if len(dumps_comp) == 0: break
+                    except:
+                        pass
 
+            if i == self.data_retries-1:
+                errmsg = "SPEAD data not received."
+                self.Error(errmsg, exc_info=True)
+                return False
             msg = ("Subsequent SPEAD accumulations are identical.")
             if not Aqf.equals(len(dumps_comp), 0, msg):
                 Aqf.failed(np.where(dumps_data[0] != dumps_data[1]))
@@ -3795,14 +3803,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 msg = "Confirm that instrument switching to %s " "time is less than one minute" % instrument
                 Aqf.less(final_time, minute, msg)
 
-    def _test_delay_rate(self, awgn_scale=None, gain=None):
+    def _test_delay_rate(self, delay_rate_mult = [0.1, 0.5, 1, 1.5, 2],
+                         awgn_scale=None,
+                         gain=None):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay Rate"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
         tst_idx = random.choice(range(1,num_inputs))
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
         #for mult in [-0.1, -0.5, -1, -1.5, -2, -2.5, -3]:
-        for mult in [0.1, 0.5, 1, 1.5, 2]:
+        for mult in delay_rate_mult:
             setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False,
                                             awgn_scale_override=awgn_scale,
                                             gain_override=gain)
