@@ -1745,6 +1745,7 @@ class UtilsClass(object):
         for i in range(dump_counts):
             self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))
             try:
+                print( self.cam_sensors.get_value("int_time"))
                 dump = self.receiver.data_queue.get()
                 self.assertIsInstance(dump, dict)
             except Exception:
@@ -1841,7 +1842,9 @@ class UtilsClass(object):
 
         delay_data = np.array((gen_delay_data(delay, delay_rate, dump_counts + 1, setup_data)))[1:]
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts + 1, setup_data))[1:]
-        result = delay_data + fringe_data
+        decimation_factor = float(self.cam_sensors.get_value("decimation_factor"))
+        delay_data = delay_data/decimation_factor
+        result = (delay_data + fringe_data)
         wrapped_results = (result + np.pi) % (2 * np.pi) - np.pi
         # Cut the selected channel slice
         wrapped_results = wrapped_results[:,self.start_channel:self.stop_channel]

@@ -359,7 +359,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             if instrument_success:
                 n_chans = self.n_chans_selected
-                if ("107M32k" or "54M32k" in inst) and (self.start_channel == 0):
+                if (("107M32k" in inst) or ("54M32k" in inst)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
@@ -504,7 +504,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 n_chans = self.n_chans_selected
-                if ("107M32k" or "54M32k" in inst) and (self.start_channel == 0):
+                if (("107M32k" in inst) or ("54M32k" in inst)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
@@ -534,7 +534,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             #TODO: Change test to check only channels, not to start receiver with different size
-            if "107M32k" or "54M32k" in inst:
+            if ("107M32k" in inst) or ("54M32k" in inst):
                 check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                 check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                 instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]),
@@ -694,7 +694,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
             check_strt_ch = None
             check_stop_ch = None
-            if "107M32k" or "54M32k" in inst:
+            if ("107M32k" in inst) or ("54M32k" in inst):
                 instrument_success = self.set_instrument(4)
                 # If the full band is capture, set the part of band that should be checked
                 if self.start_channel == 0 and self.stop_channel == 32768:
@@ -711,7 +711,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if instrument_success:
                 self._test_delay_tracking(check_strt_ch,check_stop_ch)
                 self._test_delay_rate(check_strt_ch,check_stop_ch)
-                #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[1], awgn_scale=0.02, gain=500)
+                #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[1])#, awgn_scale=0.02, gain=500)
                 self._test_phase_rate(check_strt_ch, check_stop_ch)
                 self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
                 self._test_delay_inputs(check_strt_ch, check_stop_ch)
