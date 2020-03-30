@@ -1843,6 +1843,8 @@ class UtilsClass(object):
         fringe_data = np.array(gen_fringe_data(fringe_offset, fringe_rate, dump_counts + 1, setup_data))[1:]
         result = delay_data + fringe_data
         wrapped_results = (result + np.pi) % (2 * np.pi) - np.pi
+        # Cut the selected channel slice
+        wrapped_results = wrapped_results[:,self.start_channel:self.stop_channel]
         if save_filename:
             save_filename = save_filename[:-4] + "_exp.npy"
             Aqf.hop('Saving raw delay data: {}'.format(save_filename.split('/')[-1]))

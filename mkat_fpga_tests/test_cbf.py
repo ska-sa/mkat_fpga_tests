@@ -91,9 +91,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.assertIsInstance(self.katcp_req_sensors, katcp.resource_client.AttrMappingProxy)
             self.Note("Connecting to katcp client on %s" % self.corr_fix.katcp_client)
             self.cam_sensors = GetSensors(self.corr_fix)
-            # Note this is to be used for channelisation tests and subsequent efficiency calculation
-            self.selected_channels = [int(self.conf_file["instrument_params"].get("start_channels")),
-                                      int(self.conf_file["instrument_params"].get("stop_channels"))]
         except AttributeError:
             errmsg = "Is the instrument up??"
             Aqf.failed(errmsg)
@@ -189,10 +186,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
             self.logger.info("Sleeping for 30 seconds to clean up memory.")
-            time.sleep(30)
+            #time.sleep(30)
 
 
-    def set_instrument(self, acc_time=None, stop_channels=None, start_receiver=True, **kwargs):
+    def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
         #self.receiver = None
         acc_timeout = 60
         self.errmsg = None
@@ -258,27 +255,29 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     katcp_ip = self.corr_fix.katcp_client
                     katcp_port = int(self.corr_fix.katcp_rct.port)
                     self.Step("Connected to katcp on %s" % katcp_ip)
-                    # ToDo maybe select stop channels depending on the no of ants
-                    # This logic can be improved
-                    start_channels = int(self.conf_file["instrument_params"].get("start_channels", 0))
-                    if stop_channels:
-                        pass
-                    #elif n_ants == 64 and n_chans == 4096:
-                    #    stop_channels = 2047
-                    elif n_chans == 1024:
-                        stop_channels = 1023
-                    else:
-                        stop_channels = int(self.conf_file["instrument_params"].get("stop_channels", 2047))
+                    if not(start_channel):
+                        start_channel = int(self.conf_file["instrument_params"].get("start_channel", 0))
+                    if not(stop_channel):
+                        stop_channel = int(self.conf_file["instrument_params"].get("stop_channel", 1024))
+                    if stop_channel > n_chans:
+                        self.logger.warning('Stop channels in config file is higher that available '
+                                            'for this instrument. Setting to {}'.format(n_chans))
+                        stop_channel = n_chans
+                        
+                    #elif n_ants == 64 and n_chans == 32768:
+                    #    stop_channel = int(self.conf_file["instrument_params"].get("stop_channel", 2047))
+                    #else:
+                    #    stop_channel = n_chans
                     self.Note(
                         "Requesting SPEAD receiver to capture %s channels from %s to %s on port %s."
-                        % (stop_channels - start_channels + 1, start_channels, stop_channels, data_output_port)
+                        % (stop_channel - start_channel + 1, start_channel, stop_channel, data_output_port)
                     )
                     self.receiver = CorrRx(
                         product_name=self.corr_fix.xeng_product_name,
                         katcp_ip=katcp_ip,
                         katcp_port=katcp_port,
                         port=data_output_port,
-                        channels=(start_channels, stop_channels),
+                        channels=(start_channel, stop_channel),
                     )
                     self.receiver.setName("CorrRx Thread")
                     self.errmsg = "Failed to create SPEAD data receiver"
@@ -320,8 +319,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.n_chans_selected = int(_test_dump.get("n_chans_selected",
                         self.cam_sensors.get_value("n_chans"))
                     )
+                    self.start_channel = int(_test_dump.get("start_channel",0))
+                    self.stop_channel  = int(_test_dump.get("stop_channel",
+                        self.cam_sensors.get_value("n_chans"))
+                    )
                     self.Note(
-                            "Actual number of channels captured (channels are captured in partitions): %s" % self.n_chans_selected
+                            "Actual number of channels captured (channels are captured in partitions): %s." % self.n_chans_selected
+                    )
+                    self.Note(
+                            "Capturing from channel {} to {}.".format(self.start_channel, self.stop_channel)
                     )
             except Exception as e:
                 self.Error(self.errmsg)
@@ -349,42 +355,45 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument(
-                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]),
-                    stop_channels = self.selected_channels[1])
+                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
+            )
             if instrument_success:
                 n_chans = self.n_chans_selected
-                test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-                #TODO: Narrowband testing to select correct channel
-                #test_chan = 15000
+                if ("107M32k" or "54M32k" in inst) and (self.start_channel == 0):
+                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                else:
+                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
                 heading("CBF Channelisation Wideband Coarse L-band")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
                 num_discards = 2
                 if "107M32k" in self.instrument:
                     self._test_channelisation(
-                        test_chan, no_channels=n_chans,
+                        test_chan, 
                         req_chan_spacing=3265.38, num_discards=num_discards,
                         narrow_band = "full"
                     )
                 elif "54M32k" in self.instrument:
                     self._test_channelisation(
-                        test_chan, no_channels=n_chans,
+                        test_chan,
                         req_chan_spacing=1632.69, num_discards=num_discards,
                         narrow_band = "half"
                     )
                 elif "32k" in self.instrument:
                     self._test_channelisation(
-                        test_chan, no_channels=n_chans,
+                        test_chan,
                         req_chan_spacing=30000, num_discards=num_discards
                     )
                 elif "4k" in self.instrument:
                     self._test_channelisation(
-                        test_chan, no_channels=n_chans,
+                        test_chan,
                         req_chan_spacing=250e3, num_discards=num_discards
                     )
                 elif "1k" in self.instrument:
                     self._test_channelisation(
-                        test_chan, no_channels=n_chans,
+                        test_chan,
                         req_chan_spacing=1000e3, num_discards=num_discards
                     )
             else:
@@ -495,13 +504,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 n_chans = self.n_chans_selected
+                if ("107M32k" or "54M32k" in inst) and (self.start_channel == 0):
+                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                else:
+                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
                 awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
                 cw_start_scale = 1 - awgn_scale
                 gain = complex(gain)*1.2
                 if cw_start_scale > 1.0:
                     cw_start_scale = 1.0
                 self._test_linearity(
-                    test_channel=100, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
+                    test_channel=test_chan, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
                     gain=gain, fft_shift=fft_shift, max_steps=20
                 )
             else:
@@ -518,7 +533,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))#, stop_channels=100)
+            #TODO: Change test to check only channels, not to start receiver with different size
+            if "107M32k" or "54M32k" in inst:
+                check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]),
+                        start_channel=check_strt_ch,
+                        stop_channel=check_stop_ch)
+            else:
+                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 num_discard = 5
                 self._test_product_baselines()
@@ -669,8 +692,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    if self.cam_sensors.sensors.n_ants.get_value() == 4
             #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
             inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
-
-            if "32k" in inst:
+            check_strt_ch = None
+            check_stop_ch = None
+            if "107M32k" or "54M32k" in inst:
+                instrument_success = self.set_instrument(4)
+                # If the full band is capture, set the part of band that should be checked
+                if self.start_channel == 0 and self.stop_channel == 32768:
+                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+            elif "32k" in inst:
                 instrument_success = self.set_instrument(4)
             elif "4k" in inst:
                 instrument_success = self.set_instrument(2)
@@ -679,11 +709,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
-                self._test_delay_tracking()
-                self._test_delay_rate()
-                self._test_phase_rate()
-                self._test_phase_offset(gain_multiplier=2)
-                self._test_delay_inputs()
+                self._test_delay_tracking(check_strt_ch,check_stop_ch)
+                self._test_delay_rate(check_strt_ch,check_stop_ch)
+                #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[1], awgn_scale=0.02, gain=500)
+                self._test_phase_rate(check_strt_ch, check_stop_ch)
+                self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
+                self._test_delay_inputs(check_strt_ch, check_stop_ch)
                 self.clear_all_delays()
             else:
                 self.Failed(self.errmsg)
@@ -1334,7 +1365,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                       Test Methods                            #
     #################################################################
 
-    def _test_channelisation(self, test_chan=1500, no_channels=None, req_chan_spacing=None, num_discards=5, samples_per_chan=100, narrow_band = None):
+    def _test_channelisation(self, test_chan=1500, req_chan_spacing=None, num_discards=5, samples_per_chan=60, narrow_band = None):
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         if narrow_band == 'full':
@@ -1354,6 +1385,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Channel magnitude responses for each frequency
         chan_responses = []
         last_source_freq = None
+        # Test channel relative to selected channels
+        test_chan_rel = test_chan - self.start_channel
 
         print_counts = 3
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
@@ -1381,10 +1414,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "Randomly selected frequency channel to test: {} and "
             "selected baseline {} / {} to test.".format(test_chan, test_baseline, bls_to_test)
         )
-        # Aqf.equals(4096, no_channels,
-        #           'Confirm that the number of channels in the SPEAD accumulation, is equal '
-        #           'to the number of frequency channels as calculated: {}'.format(
-        #              no_channels))
         self.Step(
             "The CBF, when configured to produce the Imaging data product set "
             "shall channelise a total bandwidth of >= %s" % (
@@ -1420,25 +1449,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         )
         msg = "Channelisation frequency is within maximum tolerance of 1% of the channel spacing."
         Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
-        one_more = True
         for i in range(self.data_retries):  
             initial_dump = self.get_real_clean_dump()
             if initial_dump is not False:
                 initial_freq_response = normalised_magnitude(initial_dump["xeng_raw"][:, test_baseline, :])
-                where_is_the_tone = np.argmax(initial_freq_response)
+                where_is_the_tone = np.argmax(initial_freq_response) + self.start_channel
                 max_tone_val = np.max(initial_freq_response)
-                if not(one_more): break
-                if where_is_the_tone == test_chan and one_more:
-                    one_more = False
+                if where_is_the_tone == test_chan: break
             self.logger.warning("CW not found, retrying capture.")
         # 1) I think the channelisation tests might still be saturating.
         # Could you include a dBFS peak value in the output?
         # (take the peak auto correlation output value and divide it by the number of accumulations;
         # you should get a value in the range 0-16129).
+        # TODO: check for saturation
         value = np.max(magnetise(initial_dump["xeng_raw"][:, test_baseline, :]))
         valuedBFS = 20*np.log10(abs(value)/n_accs)
         self.Note(
-            "Single peak found at channel %s, with max power of %.5f(%.5fdB)"
+            "Single peak found at channel %s, with max power of %.5f (%.5f dB)"
             % (where_is_the_tone, max_tone_val, 10 * np.log10(max_tone_val))
         )
         plt_filename = "{}/{}_overall_channel_resolution_Initial_capture.png".format(
@@ -1451,8 +1478,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "generate a continuous wave, with cw scale: %s, awgn scale: %s, Eq gain: %s "
             "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
         )
-        aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1))
-
+        aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1), 
+                          start_channel=self.start_channel)
         self.Step(
             "Sweep the digitiser simulator over the centre frequencies of at "
             "least all the channels that fall within the complete L-band"
@@ -1653,9 +1680,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
         else:
             csv_filename = "/".join([self._katreport_dir, r"CBF_Efficiency_Data.csv"])
-            np.savetxt(csv_filename, zip(chan_responses[:, test_chan], requested_test_freqs), delimiter=",")
+            np.savetxt(csv_filename, zip(chan_responses[:, test_chan_rel], requested_test_freqs), delimiter=",")
             plt_filename = "{}/{}_Channel_Response.png".format(self.logs_path, self._testMethodName)
-            plot_data = loggerise(chan_responses[:, test_chan], dynamic_range=90, normalise=True, no_clip=True)
+            plot_data = loggerise(chan_responses[:, test_chan_rel], dynamic_range=90, normalise=True, no_clip=True)
             plt_caption = (
                 "Frequency channel {} @ {}MHz response vs source frequency and "
                 "selected baseline {} / {} to test.".format(test_chan, expected_fc / 1e6, test_baseline, bls_to_test)
@@ -1674,7 +1701,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             try:
                 no_of_responses = 3
-                channel_response_list = [chan_responses[:, test_chan + i - 1] for i in range(no_of_responses)]
+                channel_response_list = [chan_responses[:, test_chan_rel + i - 1] for i in range(no_of_responses)]
                 def find_channel_crossing(chs=channel_response_list, side='low'):
                     if side == 'low':
                         high_idx = 1
@@ -1775,7 +1802,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Plot channel response for central 80% of channel
             graph_name_central = "{}/{}_central.png".format(self.logs_path, self._testMethodName)
             plot_data_central = loggerise(
-                central_chan_responses[:, test_chan], dynamic_range=90, normalise=True, no_clip=True
+                central_chan_responses[:, test_chan_rel], dynamic_range=90, normalise=True, no_clip=True
             )
 
             n_chans = self.n_chans_selected
@@ -1802,7 +1829,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             fault_freqs = []
             fault_channels = []
             for i, freq in enumerate(central_chan_test_freqs):
-                max_chan = np.argmax(np.abs(central_chan_responses[i]))
+                max_chan = np.argmax(np.abs(central_chan_responses[i])) + self.start_channel
                 if max_chan != test_chan:
                     fault_freqs.append(freq)
                     fault_channels.append(max_chan)
@@ -1822,14 +1849,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
 
             Aqf.less(
-                np.max(np.abs(central_chan_responses[:, test_chan])),
+                np.max(np.abs(central_chan_responses[:, test_chan_rel])),
                 0.99,
                 "Confirm that the VACC output is at < 99% of maximum value, if fails "
                 "then it is probably over-ranging.",
             )
 
-            max_central_chan_response = np.max(10 * np.log10(central_chan_responses[:, test_chan]))
-            min_central_chan_response = np.min(10 * np.log10(central_chan_responses[:, test_chan]))
+            max_central_chan_response = np.max(10 * np.log10(central_chan_responses[:, test_chan_rel]))
+            min_central_chan_response = np.min(10 * np.log10(central_chan_responses[:, test_chan_rel]))
             chan_ripple = max_central_chan_response - min_central_chan_response
             acceptable_ripple_lt = 1.5
             Aqf.hop(
@@ -2540,6 +2567,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             log_normalise_to=1,
                             caption=_caption,
                             ylimits=(-0.1, np.max(plot_data) + 0.1),
+                            start_channel=self.start_channel
                         )
 
                     # Sum of all baselines powers expected to be non zeros
@@ -2594,19 +2622,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 dumps_data = []
                 chan_responses = []
                 # Clear cue and wait for one integration period
-                dump = self.get_real_clean_dump(discard=1)
+                dump = self.get_real_clean_dump(discard=1, quiet=True)
                 if dump is not False:
                     for dump_no in range(2):
-                        this_freq_dump = self.get_real_clean_dump()
+                        this_freq_dump = self.get_real_clean_dump(quiet=True)
                         if this_freq_dump is not False:
                             this_freq_data = this_freq_dump["xeng_raw"]
                             dumps_data.append(this_freq_data)
                             this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
                             chan_responses.append(this_freq_response)
                         else:
-                            return False
-                    dumps_comp = (np.where(dumps_data[0] != dumps_data[1])[0])
-                    if len(dumps_comp) == 0: break
+                            break
+                    try:
+                        dumps_comp = (np.where(dumps_data[0] != dumps_data[1])[0])
+                        if len(dumps_comp) == 0: break
+                    except:
+                        pass
+
+            if i == self.data_retries-1:
+                errmsg = "SPEAD data not received."
+                self.Error(errmsg, exc_info=True)
+                return False
 
             msg = ("Subsequent SPEAD accumulations are identical.")
             if not Aqf.equals(len(dumps_comp), 0, msg):
@@ -2745,6 +2781,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             zip(chan_responses, legends),
                             plot_filename="{}/{}_chan_resp.png".format(self.logs_path, self._testMethodName),
                             caption=caption,
+                            start_channel=self.start_channel,
                         )
 
     def _test_restart_consistency(self, instrument, no_channels):
@@ -2945,7 +2982,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 plot_title = "CBF restart consistency channel response {}".format(test_chan)
                 aqf_plot_channels(zip(channel_responses, legends), plot_filename, plot_title, caption=caption)
 
-    def _test_delay_tracking(self):
+    def _test_delay_tracking(self, check_strt_ch=None, check_stop_ch=None):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay tracking"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
@@ -2960,6 +2997,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             no_chans = range(self.n_chans_selected)
             sampling_period = self.cam_sensors.sample_period
             test_delays = [0, sampling_period, 1.5 * sampling_period, 1.9 * sampling_period]
+            dump_counts = len(test_delays)
             test_delays_ns = map(lambda delay: delay * 1e9, test_delays)
             # num_inputs = len(self.cam_sensors.input_labels)
             delays = [0] * setup_data["num_inputs"]
@@ -2968,9 +3006,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             def get_expected_phases():
                 expected_phases = []
                 for delay in test_delays:
-                    # phases = self.cam_sensors.ch_center_freqs * 2 * np.pi * delay
                     phases = self.cam_sensors.ch_center_freqs * 2 * np.pi * delay
+                    # For Narrowband remove the phase offset (because the center of the band is selected)
+                    phases = phases - phases[0]
                     phases -= np.max(phases) / 2.0
+                    phases = phases[self.start_channel:self.stop_channel]
                     expected_phases.append(phases)
                 return zip(test_delays_ns, expected_phases)
 
@@ -3061,7 +3101,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.Error('Error occured during delay tracking test: {}'.format(e), exc_info=True)
 
                     try:
-                        _num_discards = delay_load_lead_intg + 5
+                        _num_discards = delay_load_lead_intg + 4
                         self.Step(
                             "Getting SPEAD accumulation(while discarding %s dumps) containing "
                             "the change in delay(s) on input: %s baseline: %s."
@@ -3123,9 +3163,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     plot_filename = "{}/{}_test_delay_tracking.png".format(self.logs_path, self._testMethodName)
                     plot_units = "ns/s"
+                    if self.start_channel != 0:
+                        start_channel = self.start_channel
+                    else:
+                        start_channel = None
                     aqf_plot_phase_results(
-                        no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption
-                    )
+                        no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption, 
+                        dump_counts, start_channel=start_channel
+                        )
 
                     nc_sel = self.n_chans_selected
                     expected_phases_ = [phase[:nc_sel] for _rads, phase in expected_phases]
@@ -3155,6 +3200,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             #    "integrations is less than {} degree.\n".format(abs_diff, np.deg2rad(abs_diff), degree),
                             #)
                             delta_phase = actual_phases[i] - expected_phases_[i]
+                            # Cut slice to check if check_strt_ch set
+                            plot_start_ch = self.start_channel
+                            if check_strt_ch and check_stop_ch:
+                                delta_phase = delta_phase[check_strt_ch:check_stop_ch]
+                                plot_start_ch = check_strt_ch
                             # Replace first value with average as DC component might skew results
                             delta_phase = [np.average(delta_phase)] + delta_phase[1:]
                             max_diff     = np.max(np.abs(delta_phase))
@@ -3175,7 +3225,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 caption = ("Offset vector between expected and measured phase (error vector). "
                                            "This plot is generated by subtacting the measured phase from the "
                                            "expected phase for a delay rate of {:1.2e} ns/s".format(delay))
-                                aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, log_dynamic_range=None, plot_type="error_vector")
+                                aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, 
+                                                  log_dynamic_range=None, plot_type="error_vector",
+                                                  start_channel=plot_start_ch)
                             #TODO: Perhaps add this back in:
                             #try:
                             #    delta_actual_s = delta_actual - (delta_actual % degree)
@@ -3217,6 +3269,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             #        caption=caption,
                             #    )
 
+                        # Cut slice to check if check_strt_ch set
+                        strt_idx = 5
+                        stop_idx = -5
+                        if check_strt_ch and check_stop_ch:
+                            strt_idx = check_strt_ch
+                            stop_idx = check_stop_ch
                         for delay, count in zip(test_delays[1:], range(1, len(expected_phases))):
                             msg = (
                                 "Confirm that when a delay of {} clock "
@@ -3227,20 +3285,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             )
                             try:
                                 Aqf.array_abs_error(
-                                    actual_phases[count][5:-5], expected_phases_[count][5:-5], msg, degree
+                                    actual_phases[count][strt_idx:stop_idx], expected_phases_[count][strt_idx:stop_idx], msg, degree
                                 )
                             except Exception:
                                 Aqf.array_abs_error(
-                                    actual_phases[count][5:-5],
-                                    expected_phases_[count][5 : -5 + len(actual_phases[count])],
+                                    actual_phases[count][start_idx:stop_idx],
+                                    expected_phases_[count][start_idx : stop_idx + len(actual_phases[count])],
                                     msg,
                                     degree,
                                 )
                     except Exception as e:
                         self.Error("Error occurred: {}".format(e), exc_info=True)
                         return
-            except Exception:
-                self.Error("Error occurred, this shouldnt happen", exc_info=True)
+            except Exception as e:
+                self.Error("Error occurred: {}".format(e), exc_info=True)
                 return
 
     def _test_sensor_values(self):
@@ -3795,14 +3853,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 msg = "Confirm that instrument switching to %s " "time is less than one minute" % instrument
                 Aqf.less(final_time, minute, msg)
 
-    def _test_delay_rate(self, awgn_scale=None, gain=None):
+    def _test_delay_rate(self, check_strt_ch=None, check_stop_ch=None,
+                         delay_rate_mult=[0.1, 0.5, 1, 1.5, 2],
+                         awgn_scale=None, 
+                         gain=None):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Delay Rate"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
         tst_idx = random.choice(range(1,num_inputs))
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
         #for mult in [-0.1, -0.5, -1, -1.5, -2, -2.5, -3]:
-        for mult in [0.1, 0.5, 1, 1.5, 2]:
+        for mult in delay_rate_mult:
             setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False,
                                             awgn_scale_override=awgn_scale,
                                             gain_override=gain)
@@ -3850,6 +3911,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
                     for i in range(0, len(expected_phases_)):
                         delta_phase = actual_phases_[i] - expected_phases_[i]
+                        # Cut slice to check if check_strt_ch set
+                        plot_start_ch = self.start_channel
+                        if check_strt_ch and check_stop_ch:
+                            delta_phase = delta_phase[check_strt_ch:check_stop_ch]
+                            plot_start_ch = check_strt_ch
                         # Replace first value with average as DC component might skew results
                         delta_phase = [np.average(delta_phase)] + delta_phase[1:]
                         max_diff     = np.max(np.abs(delta_phase))
@@ -3869,7 +3935,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         caption = ("Offset vector between expected and measured phase (error vector). "
                                    "This plot is generated by subtacting the measured phase from the "
                                    "expected phase for accumulation {} with a delay rate of {:1.2e} ns/s".format(i, delay_rate))
-                        aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, log_dynamic_range=None, plot_type="error_vector")
+                        aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, log_dynamic_range=None, 
+                                          plot_type="error_vector",
+                                          start_channel=plot_start_ch)
                         # Old method of checking
                         #delta_expected = np.abs(np.max(expected_phases_[i + 1] - expected_phases_[i]))
                         #delta_actual = np.abs(np.max(actual_phases_[i + 1] - actual_phases_[i]))
@@ -3954,6 +4022,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         plot_units,
                         caption,
                         dump_counts,
+                        start_channel=self.start_channel,
                     )
                     mag_plots = []
                     caption = "Response of accumulations to which delays were applied."
@@ -3962,9 +4031,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     for dump in raw_captures:
                         mag_plots.append((normalised_magnitude(dump['xeng_raw'][:,setup_data["baseline_index"],:]), None))
-                    aqf_plot_channels(mag_plots, plot_filename, log_dynamic_range=90, caption=caption)
+                    aqf_plot_channels(mag_plots, plot_filename, log_dynamic_range=90, caption=caption, start_channel=self.start_channel)
 
-    def _test_phase_rate(self):
+    def _test_phase_rate(self, check_strt_ch=None, check_stop_ch=None):
         msg = "CBF Delay and Phase Compensation Functional VR: -- Phase rate"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
@@ -4021,15 +4090,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 msg = "Observe the change in the phase, and confirm the phase change is as expected."
                 self.Step(msg)
-                # This is needed if a subset of channels were captured.
-                # TODO: if captured channels does not start a 0 this slice is incorrect. To Fix
                 try:
-                    expected_phases_slice = expected_phases_[:,:actual_phases_.shape[1]]
-                    phase_err      = actual_phases_ - expected_phases_slice
-                    phase_err_max  = np.max(phase_err, axis=1)
+                    #expected_phases_slice = expected_phases_[:,:actual_phases_.shape[1]]
+                    phase_err      = actual_phases_ - expected_phases_
                     phase_step_act = np.diff(actual_phases_, axis=0)
-                    phase_step_exp = np.diff(expected_phases_slice, axis=0)
+                    phase_step_exp = np.diff(expected_phases_, axis=0)
                     phase_step_err = phase_step_act - phase_step_exp
+                    # Cut slice to check if check_strt_ch set
+                    plot_start_ch = self.start_channel
+                    if check_strt_ch and check_stop_ch:
+                        phase_err = phase_err[:,check_strt_ch:check_stop_ch]
+                        phase_step_err = phase_step_err[:,check_strt_ch:check_stop_ch]
+                        plot_start_ch = check_strt_ch
+                    phase_err_max      = np.max(phase_err, axis=1)
                     phase_step_err_max = np.max(phase_step_err, axis=1)
                     Aqf.step('Check that the phase step per accumulation is within '
                             '{:.3f} deg / {} radians of the expected step ({:.3f} radians) '
@@ -4064,11 +4137,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         caption = ("Offset vector between expected and measured phase (error vector). "
                                    "This plot is generated by subtacting the measured phase from the "
                                    "expected phase for phase offset = {:.3f} radians".format(ph_offset))
-                        aqf_plot_channels(phase_err[i], plot_filename, caption=caption, log_dynamic_range=None, plot_type="error_vector_rad")
+                        aqf_plot_channels(phase_err[i], plot_filename, caption=caption, log_dynamic_range=None, 
+                                          plot_type="error_vector_rad",
+                                          start_channel=plot_start_ch)
 
-
-                except IndexError:
-                    import IPython;IPython.embed()
+                except Exception as e:
+                    self.Error(e, exc_info=True)
 
                 #for i in range(0, len(expected_phases_) - 1):
                 #    try:
@@ -4144,10 +4218,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 aqf_plot_phase_results(
                     no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption,
-                    dump_counts=dump_counts
+                    dump_counts=dump_counts, start_channel=self.start_channel
                 )
 
-    def _test_phase_offset(self, awgn_scale_override=None, gain_override=None, gain_multiplier=None):
+    def _test_phase_offset(self, check_strt_ch=None, check_stop_ch=None,
+                           awgn_scale_override=None, 
+                           gain_override=None, 
+                           gain_multiplier=None):
         msg = "CBF Delay and Phase Compensation Functional VR: Phase offset"
         heading(msg)
         num_inputs = len(self.cam_sensors.input_labels)
@@ -4202,6 +4279,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 phase_resolution_req = float(self.conf_file["delay_req"]["phase_resolution"])
                 actual_phases_ = np.unwrap(actual_phases)
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
+                if check_strt_ch and check_stop_ch:
+                    actual_phases_   = actual_phases_[:,check_strt_ch:check_stop_ch]
+                    expected_phases_ = expected_phases_[:,check_strt_ch:check_stop_ch]
                 msg = "Observe a step change in the phase, and confirm the phase change is as expected."
                 self.Step(msg)
                 #for i in range(1, len(expected_phases) - 1):
@@ -4269,10 +4349,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 #import IPython;IPython.embed()
                 aqf_plot_phase_results(
-                    no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption, dump_counts
+                    no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption, 
+                    dump_counts,
+                    start_channel=self.start_channel
                 )
 
-    def _test_delay_inputs(self):
+    def _test_delay_inputs(self, check_strt_ch=None, check_stop_ch=None):
         """
         CBF Delay Compensation/LO Phase stopping polynomial:
         Delay applied to the correct input
@@ -4296,9 +4378,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             test_delay_val = random.randrange(self.cam_sensors.sample_period, step=0.83e-10, int=float)
             # test_delay_val = self.cam_sensors.sample_period  # Pi
             expected_phases = self.cam_sensors.ch_center_freqs * 2 * np.pi * test_delay_val
+            # For Narrowband remove the phase offset (because the center of the band is selected)
+            expected_phases = expected_phases - expected_phases[0]
             expected_phases -= np.max(expected_phases) / 2.0
-            cap_chans = self.receiver.channels
-            expected_phases = expected_phases[cap_chans[0]:cap_chans[1]+1]
+            expected_phases = expected_phases[self.start_channel:self.stop_channel]
             delays = [0] * num_inputs
             # Get index for input to delay
             test_source_idx = input_labels.index(delayed_input)
@@ -4335,6 +4418,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "Getting SPEAD accumulation containing "
                     "the change in delay(s) on input: %s." % (test_source_idx)
                 )
+                #TODO: figure out when the delay is applied and use less dumps
                 dump = self.receiver.get_clean_dump(discard=9)
             except Exception:
                 self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
@@ -4348,10 +4432,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     b_line_phase = np.angle(complexise(b_line_dump))
                     # np.deg2rad(1) = 0.017 ie error should be withing 2 decimals
                     b_line_phase_max = round(np.max(b_line_phase), 2)
+                    strt_idx = 5
+                    stop_idx = -5
+                    if check_strt_ch and check_stop_ch:
+                        strt_idx = check_strt_ch
+                        stop_idx = check_stop_ch
                     if (delayed_input in b_line[0]) and b_line[0] != (delayed_input, delayed_input):
                         msg = "Confirm baseline(s) {} expected delay.".format(b_line[0])
                         Aqf.array_abs_error(
-                            np.abs(b_line_phase[5:-5]), np.abs(expected_phases[5:-5]), msg, phase_resolution_req
+                            np.abs(b_line_phase[strt_idx:stop_idx]), np.abs(expected_phases[strt_idx:stop_idx]), msg, phase_resolution_req
                         )
                     else:
                         # TODO Readdress this failure and calculate

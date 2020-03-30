@@ -48,6 +48,7 @@ def aqf_plot_phase_results(
     caption="",
     dump_counts=5,
     show=False,
+    start_channel=None,
 ):
     """
         Gets actual and expected phase plots.
@@ -100,6 +101,16 @@ def aqf_plot_phase_results(
     plt.legend()
     fig1 = plt.gcf()  # Get Current Figure
 
+    if start_channel:
+        tick_locs = plt.xticks()[0]
+        label_len = len(tick_locs)
+        tick_delta = tick_locs[1]-tick_locs[0]
+        start_label = start_channel - tick_delta
+        new_labels = np.linspace(start_label, start_label+(tick_delta*label_len), label_len, endpoint=False)
+        new_text_labels = [str(x) for x in new_labels]
+        ax = plt.gca()
+        ax.set_xticklabels(new_text_labels)
+
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:
         plt.show()
@@ -128,6 +139,7 @@ def aqf_plot_channels(
     crossover=None,
     show=False,
     xvals=None,
+    start_channel=None,
 ):
     """
         Simple magnitude plot of a channelised result
@@ -348,6 +360,17 @@ def aqf_plot_channels(
         plt.legend(
             fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
         ).set_alpha(0.5)
+
+    if start_channel:
+        tick_locs = plt.xticks()[0]
+        label_len = len(tick_locs)
+        tick_delta = tick_locs[1]-tick_locs[0]
+        start_label = start_channel - tick_delta
+        new_labels = np.linspace(start_label, start_label+(tick_delta*label_len), label_len, endpoint=False)
+        new_text_labels = [str(x) for x in new_labels]
+        ax = plt.gca()
+        ax.set_xticklabels(new_text_labels)
+
 
     Aqf.matplotlib_fig(plot_filename, caption=caption)
     if show:

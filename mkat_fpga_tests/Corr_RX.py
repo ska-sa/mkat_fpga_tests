@@ -247,6 +247,8 @@ class CorrRx(threading.Thread, LoggingClass):
                     rvs["dump_timestamp_readable"] = _dump_timestamp_readable
                     rvs["xeng_raw"] = rv[1]
                     rvs["n_chans_selected"] = abs(self.stop_channel - self.strt_channel)
+                    rvs["start_channel"] = self.strt_channel
+                    rvs["stop_channel"] = self.stop_channel
                     self.logger.info("Current dump timestamp: %s and n_chans: %s" % (
                         _dump_timestamp_readable, rvs["n_chans_selected"]))
         return rvs
