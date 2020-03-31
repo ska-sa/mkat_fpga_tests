@@ -504,15 +504,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 n_chans = self.n_chans_selected
+                awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
                 if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                    gain = complex(gain)*1
+                elif '4k' in self.instrument:
+                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
+                    gain = complex(gain)*1.2
+                elif '1k' in self.instrument:
+                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
+                    gain = complex(gain)*1
                 else:
                     test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
-                awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+                    gain = complex(gain)*1.2
                 cw_start_scale = 1 - awgn_scale
-                gain = complex(gain)*1.2
                 if cw_start_scale > 1.0:
                     cw_start_scale = 1.0
                 self._test_linearity(
