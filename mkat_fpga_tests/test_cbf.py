@@ -359,7 +359,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             if instrument_success:
                 n_chans = self.n_chans_selected
-                if (("107M32k" in inst) or ("54M32k" in inst)) and (self.start_channel == 0):
+                if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
@@ -504,7 +504,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 n_chans = self.n_chans_selected
-                if (("107M32k" in inst) or ("54M32k" in inst)) and (self.start_channel == 0):
+                if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
@@ -534,6 +534,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             #TODO: Change test to check only channels, not to start receiver with different size
+            inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
             if ("107M32k" in inst) or ("54M32k" in inst):
                 check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                 check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
