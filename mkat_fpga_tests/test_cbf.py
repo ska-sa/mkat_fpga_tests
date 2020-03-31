@@ -617,18 +617,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                if "32k" in self.instrument:
-                    self.Step(
-                        "Testing maximum channels to %s due to quantiser snap-block and "
-                        "system performance limitations." % self.n_chans_selected
-                    )
-                chan_index = self.n_chans_selected
-                n_chans = self.cam_sensors.get_value("n_chans")
+                n_chans = self.n_chans_selected
+                if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
+                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                else:
+                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
                 n_ants = int(self.cam_sensors.get_value("n_ants"))
-                test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 self._test_vacc(
                     test_chan,
-                    chan_index,
                     acc_time=(0.998
                         if self.cam_sensors.get_value("n_ants") == 4
                         else 2 * n_ants / 32.0))
@@ -3629,15 +3627,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if i.arguments[-2].lower() != "nominal":
                         self.Note(" contains a ".join(i.arguments[2:-1]))
 
-    def _test_vacc(self, test_chan, chan_index=None, acc_time=0.998):
+    def _test_vacc(self, test_chan, acc_time=0.998):
         """Test vector accumulator"""
-        # Choose a test frequency around the centre of the band.
-        test_freq = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / 2.0
-
         test_input = self.cam_sensors.input_labels[0]
         eq_scaling = 30
         acc_times = [acc_time / 2, acc_time]
         # acc_times = [acc_time/2, acc_time, acc_time*2]
+        n_chans_selected = self.n_chans_selected
         n_chans = self.cam_sensors.get_value("n_chans")
         try:
             #TODO: Why is this not a sensor anymore?
@@ -3655,12 +3651,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         delta_acc_t = self.cam_sensors.fft_period * internal_accumulations
         test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
-        test_freq_channel = abs(
-            np.argmin(np.abs(self.cam_sensors.ch_center_freqs[:chan_index] - test_freq)) - test_chan
-        )
-        self.Step("Selected test input {} and test frequency channel {}".format(test_input, test_freq_channel))
-        eqs = np.zeros(n_chans, dtype=np.complex)
-        eqs[test_freq_channel] = eq_scaling
+        import IPython;IPython.embed()
+        # Do not get the point of all of this...
+        # Choose a test frequency around the centre of the band.
+        #test_freq = self.cam_sensors.get_value("antenna_channelised_voltage_center_freq")
+        #test_freq_channel = abs(
+        #    np.argmin(
+        #        np.abs(self.cam_sensors.ch_center_freqs[self.start_channel:self.start_channel+n_chans] - test_freq)) - test_chan
+        #)
+        test_freq = self.cam_sensors.ch_center_freqs[test_chan]
+        self.Step("Selected test input {} and test frequency channel {}".format(test_input, test_chan))
+        eqs = np.zeros(n_chans), dtype=np.complex)
+        eqs[test_chan] = eq_scaling
         self.restore_initial_equalisations()
         try:
             reply, _informs = self.katcp_req.gain(test_input, *list(eqs))
@@ -3703,13 +3705,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         else:
             quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
             if chan_index:
-                quantiser_spectrum = quantiser_spectrum[:chan_index]
+                quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
             # Check that the spectrum is not zero in the test channel
             # Aqf.is_true(quantiser_spectrum[test_freq_channel] != 0,
             # 'Check that the spectrum is not zero in the test channel')
             # Check that the spectrum is zero except in the test channel
             Aqf.is_true(
-                np.all(quantiser_spectrum[0:test_freq_channel] == 0),
+                np.all(quantiser_spectrum[0:test_chan] == 0),
                 ("Confirm that the spectrum is zero except in the test channel:"
                  " [0:test_freq_channel]"),
             )
@@ -4063,7 +4065,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             dump_counts = 4
             #_rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
             #phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 0.25
+            phase_rate = 0.2
             delay_value = 0
             delay_rate = 0
             phase_offset = 0
