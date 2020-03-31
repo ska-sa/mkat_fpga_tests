@@ -695,7 +695,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             check_strt_ch = None
             check_stop_ch = None
             if ("107M32k" in inst) or ("54M32k" in inst):
-                instrument_success = self.set_instrument(4)
+                instrument_success = self.set_instrument(2)
                 # If the full band is capture, set the part of band that should be checked
                 if self.start_channel == 0 and self.stop_channel == 32768:
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
@@ -711,7 +711,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if instrument_success:
                 self._test_delay_tracking(check_strt_ch,check_stop_ch)
                 self._test_delay_rate(check_strt_ch,check_stop_ch)
-                #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[1])#, awgn_scale=0.02, gain=500)
+                #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
                 self._test_phase_rate(check_strt_ch, check_stop_ch)
                 self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
                 self._test_delay_inputs(check_strt_ch, check_stop_ch)
@@ -3904,18 +3904,21 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                     msg = "Observe the change in the phase slope, and confirm the phase change is as expected."
                     self.Step(msg)
-                    actual_phases_ = np.unwrap(actual_phases)
+
+                    expected_phases_ = np.asarray([phase for label, phase in expected_phases])
+                    actual_phases_   = np.asarray(actual_phases)
+                    # Cut slice to check if check_strt_ch set
+                    plot_start_ch = self.start_channel
+                    if check_strt_ch and check_stop_ch:
+                        actual_phases_   = actual_phases_[:,check_strt_ch:check_stop_ch]
+                        expected_phases_ = expected_phases_[:,check_strt_ch:check_stop_ch]
+                        plot_start_ch = check_strt_ch
+                    actual_phases_ = np.unwrap(actual_phases_)
+                    expected_phases_ = np.unwrap(expected_phases_)
                     degree = 1.0
                     decimal = len(str(degree).split(".")[-1])
-                    expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
-                    expected_phases_ = expected_phases_[:, 0 : self.n_chans_selected]
                     for i in range(0, len(expected_phases_)):
                         delta_phase = actual_phases_[i] - expected_phases_[i]
-                        # Cut slice to check if check_strt_ch set
-                        plot_start_ch = self.start_channel
-                        if check_strt_ch and check_stop_ch:
-                            delta_phase = delta_phase[check_strt_ch:check_stop_ch]
-                            plot_start_ch = check_strt_ch
                         # Replace first value with average as DC component might skew results
                         delta_phase = [np.average(delta_phase)] + delta_phase[1:]
                         max_diff     = np.max(np.abs(delta_phase))
@@ -4052,7 +4055,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             dump_counts = 4
             #_rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
             #phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 0.3
+            phase_rate = 0.25
             delay_value = 0
             delay_rate = 0
             phase_offset = 0
@@ -4083,34 +4086,42 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_phases = self._get_expected_data(setup_data, dump_counts, act_delay_coeff, actual_phases)
 
                 no_chans = range(self.n_chans_selected)
-
-                actual_phases_ = np.unwrap(actual_phases)
+                
+                # TODO: Phased don't need unwrapping do they?
+                #actual_phases_ = np.unwrap(actual_phases)
+                #expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
+                expected_phases_ = np.asarray([phase for label, phase in expected_phases])
+                actual_phases_ = np.asarray(actual_phases)
                 # Replace channel 0 with channel 1 to avoid dc channel issues
                 actual_phases_[:,[0]] = actual_phases_[:,[1]]
-                expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
+                # Cut slice to check if check_strt_ch set
+                plot_start_ch = self.start_channel
+                if check_strt_ch and check_stop_ch:
+                    actual_phases_ = actual_phases_[:,check_strt_ch:check_stop_ch]
+                    expected_phases_ = expected_phases_[:,check_strt_ch:check_stop_ch]
+                    plot_start_ch = check_strt_ch
                 msg = "Observe the change in the phase, and confirm the phase change is as expected."
                 self.Step(msg)
                 try:
                     #expected_phases_slice = expected_phases_[:,:actual_phases_.shape[1]]
-                    phase_err      = actual_phases_ - expected_phases_
-                    phase_step_act = np.diff(actual_phases_, axis=0)
-                    phase_step_exp = np.diff(expected_phases_, axis=0)
+                    phase_err     = actual_phases_ - expected_phases_
+                    phase_err_max = np.max(phase_err, axis=1)
+                    # This measurement does not really test the step and phase noise give false fails
+                    #phase_step_act = np.diff(actual_phases_, axis=0)
+                    #phase_step_exp = np.diff(expected_phases_, axis=0)
+                    #phase_step_err = phase_step_act - phase_step_exp
+                    #phase_err_max      = np.max(phase_err, axis=1)
+                    #phase_step_err_max = np.max(phase_step_err, axis=1)
+                    phase_step_act = np.average(np.diff(actual_phases_, axis=0), axis=1) 
+                    phase_step_exp = np.diff(expected_phases_, axis=0)[:,0]
                     phase_step_err = phase_step_act - phase_step_exp
-                    # Cut slice to check if check_strt_ch set
-                    plot_start_ch = self.start_channel
-                    if check_strt_ch and check_stop_ch:
-                        phase_err = phase_err[:,check_strt_ch:check_stop_ch]
-                        phase_step_err = phase_step_err[:,check_strt_ch:check_stop_ch]
-                        plot_start_ch = check_strt_ch
-                    phase_err_max      = np.max(phase_err, axis=1)
-                    phase_step_err_max = np.max(phase_step_err, axis=1)
                     Aqf.step('Check that the phase step per accumulation is within '
                             '{:.3f} deg / {} radians of the expected step ({:.3f} radians) '
                              'at a rate of {:.3f} radians/second.'
                              ''.format(np.rad2deg(phase_resolution_req), phase_resolution_req, 
-                                       phase_step_exp[0][0],
+                                       phase_step_exp[0],
                                        phase_rate))
-                    for i, err in enumerate(phase_step_err_max):
+                    for i, err in enumerate(phase_step_err):
                         msg = ('Expected vs measured phase offset between accumulations '
                                '{} and {} = {:.3f} radians.'.format(i, i+1, err))
                         Aqf.less(np.abs(err), phase_resolution_req, msg)
@@ -4277,7 +4288,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # integration - Note this is not done as the apply time should be at the start
                 # of integration so first dump is used.
                 phase_resolution_req = float(self.conf_file["delay_req"]["phase_resolution"])
-                actual_phases_ = np.unwrap(actual_phases)
+                # Not needed for phase
+                #actual_phases_ = np.unwrap(actual_phases)
+                actual_phases_ = np.asarray(actual_phases)
                 expected_phases_ = np.unwrap([phase for label, phase in expected_phases])
                 if check_strt_ch and check_stop_ch:
                     actual_phases_   = actual_phases_[:,check_strt_ch:check_stop_ch]

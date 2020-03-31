@@ -1745,7 +1745,6 @@ class UtilsClass(object):
         for i in range(dump_counts):
             self.Progress("Getting subsequent SPEAD accumulation {}.".format(i + 1))
             try:
-                print( self.cam_sensors.get_value("int_time"))
                 dump = self.receiver.data_queue.get()
                 self.assertIsInstance(dump, dict)
             except Exception:
