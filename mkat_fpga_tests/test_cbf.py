@@ -621,9 +621,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                    #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                    test_chan = random.choice(range(n_chans)[check_strt_ch:])
                 else:
                     test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
+                # Quantiser snapshot only works below half the band
+                test_chan = 15000
                 n_ants = int(self.cam_sensors.get_value("n_ants"))
                 self._test_vacc(
                     test_chan,
@@ -3630,7 +3633,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_vacc(self, test_chan, acc_time=0.998):
         """Test vector accumulator"""
         test_input = self.cam_sensors.input_labels[0]
-        eq_scaling = 30
+        eq_scaling = 3
         acc_times = [acc_time / 2, acc_time]
         # acc_times = [acc_time/2, acc_time, acc_time*2]
         n_chans_selected = self.n_chans_selected
@@ -3651,7 +3654,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         delta_acc_t = self.cam_sensors.fft_period * internal_accumulations
         test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
-        import IPython;IPython.embed()
         # Do not get the point of all of this...
         # Choose a test frequency around the centre of the band.
         #test_freq = self.cam_sensors.get_value("antenna_channelised_voltage_center_freq")
@@ -3661,7 +3663,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #)
         test_freq = self.cam_sensors.ch_center_freqs[test_chan]
         self.Step("Selected test input {} and test frequency channel {}".format(test_input, test_chan))
-        eqs = np.zeros(n_chans), dtype=np.complex)
+        eqs = np.zeros((n_chans), dtype=np.complex)
         eqs[test_chan] = eq_scaling
         self.restore_initial_equalisations()
         try:
@@ -3703,9 +3705,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
             return
         else:
+            import IPython;IPython.embed()
             quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
-            if chan_index:
-                quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
+            quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
             # Check that the spectrum is not zero in the test channel
             # Aqf.is_true(quantiser_spectrum[test_freq_channel] != 0,
             # 'Check that the spectrum is not zero in the test channel')
@@ -3713,12 +3715,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             Aqf.is_true(
                 np.all(quantiser_spectrum[0:test_chan] == 0),
                 ("Confirm that the spectrum is zero except in the test channel:"
-                 " [0:test_freq_channel]"),
+                 " [0:test_channel]"),
             )
             Aqf.is_true(
-                np.all(quantiser_spectrum[test_freq_channel + 1 :] == 0),
+                np.all(quantiser_spectrum[test_chan + 1 :] == 0),
                 ("Confirm that the spectrum is zero except in the test channel:"
-                 " [test_freq_channel+1:]"),
+                 " [test_channel+1:]"),
             )
             self.Step(
                 "FFT Window [{} samples] = {:.3f} micro seconds, Internal Accumulations = {}, "
@@ -3751,6 +3753,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     no_accs = internal_accumulations * vacc_accumulations
                     expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
+                    expected_response = expected_response[self.start_channel:self.stop_channel]
                     try:
                         dump = self.receiver.get_clean_dump()
                         assert isinstance(dump, dict)
@@ -3774,14 +3777,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         plot_filename = "{}/{}_chan_resp_{}_vacc.png".format(
                             self.logs_path, self._testMethodName, int(vacc_accumulations)
                         )
-                        plot_title = "Vector Accumulation Length: channel %s" % test_freq_channel
+                        plot_title = "Vector Accumulation Length: channel %s" % test_chan
                         msg = (
                             "Confirm that the accumulator actual response is "
                             "equal to the expected response for {} accumulation length".format(vacc_accumulations)
                         )
 
                         if not Aqf.array_abs_error(
-                            expected_response[:chan_index], actual_response_mag[:chan_index], msg
+                            expected_response, actual_response_mag, msg
                         ):
                             aqf_plot_channels(
                                 actual_response_mag,
