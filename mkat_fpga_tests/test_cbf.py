@@ -369,33 +369,39 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
                 # TODO: automate this by checking how long data takes to travel through integrations
-                num_discards = 4
+                num_discards = int(self.conf_file["instrument_params"]["num_channelisation_discards"])
+                smpl_per_ch  = int(self.conf_file["instrument_params"]["num_channelisation_samples"])
                 if "107M32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, 
                         req_chan_spacing=3265.38, num_discards=num_discards,
-                        narrow_band = "full"
+                        samples_per_chan=smpl_per_ch,
+                        narrow_band="full"
                     )
                 elif "54M32k" in self.instrument:
                     self._test_channelisation(
                         test_chan,
                         req_chan_spacing=1632.69, num_discards=num_discards,
-                        narrow_band = "half"
+                        samples_per_chan=smpl_per_ch,
+                        narrow_band="half"
                     )
                 elif "32k" in self.instrument:
                     self._test_channelisation(
                         test_chan,
-                        req_chan_spacing=30000, num_discards=num_discards
+                        req_chan_spacing=30000, num_discards=num_discards,
+                        samples_per_chan=smpl_per_ch,
                     )
                 elif "4k" in self.instrument:
                     self._test_channelisation(
                         test_chan,
-                        req_chan_spacing=250e3, num_discards=num_discards
+                        req_chan_spacing=250e3, num_discards=num_discards,
+                        samples_per_chan=smpl_per_ch,
                     )
                 elif "1k" in self.instrument:
                     self._test_channelisation(
                         test_chan,
-                        req_chan_spacing=1000e3, num_discards=num_discards
+                        req_chan_spacing=1000e3, num_discards=num_discards,
+                        samples_per_chan=smpl_per_ch,
                     )
             else:
                 self.Failed(self.errmsg)
