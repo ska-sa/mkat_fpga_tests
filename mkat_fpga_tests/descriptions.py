@@ -346,7 +346,7 @@ class TestProcedure:
     @property
     def Channelisation(self):
         _description = """
-        **Channelisation Wideband Coarse/Fine L-band**
+        **Channelisation Coarse/Fine**
 
         1. Configure a digitiser simulator to be used as input source to F-Engines
         2. Configure a digitiser simulator to generate continuous wave

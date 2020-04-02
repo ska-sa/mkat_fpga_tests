@@ -248,7 +248,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     data_output_ip, data_output_port = self.cam_sensors.get_value(
                         self.corr_fix.xeng_product_name.replace("-", "_") + "_destination"
                     ).split(":")
-                    self.Step(
+                    self.logger.info(
                         "Starting SPEAD receiver listening on %s:%s, CBF output product: %s"
                         % (data_output_ip, data_output_port, self.corr_fix.xeng_product_name)
                     )
@@ -365,10 +365,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
                 else:
                     test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
-                heading("CBF Channelisation Wideband Coarse L-band")
+                heading("CBF Channelisation")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
-                num_discards = 2
+                # TODO: automate this by checking how long data takes to travel through integrations
+                num_discards = 4
                 if "107M32k" in self.instrument:
                     self._test_channelisation(
                         test_chan, 
@@ -424,23 +425,34 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @instrument_4k
     @aqf_vr("CBF.V.3.30")
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
-    def test_channelisation_wideband_course_sfdr_peaks(self):
+    def test_channelisation_sfdr_peaks(self):
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                n_chans = self.n_chans_selected
-                heading("CBF Channelisation Wideband Coarse SFDR L-band")
+                heading("CBF Channelisation SFDR")
+                # If sfdr_ch_to_test is specified in the config file use that
+                # otherwise test all the selected channels
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
-                    self.n_chans_selected))
-                if "32k" in self.instrument:
-                    self._test_sfdr_peaks(required_chan_spacing=31250, no_channels=n_ch_to_test)  # Hz
+                    None))
+                check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel"))
+                check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel"))
+                if "107M32k" in self.instrument:
+                    self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test,
+                        check_strt_ch=check_strt_ch,
+                        check_stop_ch=check_stop_ch)
+                elif "54M32k" in self.instrument:
+                    self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test,
+                        check_strt_ch=check_strt_ch,
+                        check_stop_ch=check_stop_ch)
+                elif "32k" in self.instrument:
+                    self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test)  # Hz
                 elif "4k" in self.instrument:
-                    self._test_sfdr_peaks(required_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
+                    self._test_sfdr_peaks(req_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
                 elif "1k" in self.instrument:
-                    self._test_sfdr_peaks(required_chan_spacing=1000e3, no_channels=n_ch_to_test)  # Hz
+                    self._test_sfdr_peaks(req_chan_spacing=1000e3, no_channels=n_ch_to_test)  # Hz
             else:
                 self.Failed(self.errmsg)
 
@@ -617,16 +629,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
+                center_ch = int(self.cam_sensors.get_value("n_chans")/2)
                 n_chans = self.n_chans_selected
                 if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                    # Quantiser snapshot only works below half the band
                     #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                    test_chan = random.choice(range(n_chans)[check_strt_ch:])
+                    test_chan = random.choice(range(n_chans)[check_strt_ch:center_ch])
                 else:
-                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
-                # Quantiser snapshot only works below half the band
-                test_chan = 15000
+                    #test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
+                    test_chan = random.choice(range(self.start_channel, center_ch))
                 n_ants = int(self.cam_sensors.get_value("n_ants"))
                 self._test_vacc(
                     test_chan,
@@ -1799,6 +1812,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "is less/equal to 2x the pass bandwidth {:.3f} kHz".format(att_bw/1000, pass_bw/1000)
                 )
                 Aqf.is_true(att_bw <= pass_bw*2, msg)
+                import IPython;IPython.embed()
 
             # Get responses for central 80% of channel
             df = self.cam_sensors.delta_f
@@ -2017,7 +2031,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             
 
-    def _test_sfdr_peaks(self, required_chan_spacing, no_channels, cutoff=53, plots_debug=False, log_power=True):
+    def _test_sfdr_peaks(self, req_chan_spacing, no_channels=None, 
+                         check_strt_ch=None, check_stop_ch=None,
+                         cutoff=53, plots_debug=False, log_power=True):
 
         """Test channel spacing and out-of-channel response
 
@@ -2055,9 +2071,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         max_channels = []
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
-
         # Checking for all channels.
-        n_chans = self.n_chans_selected
+        n_chans = self.cam_sensors.get_value("n_chans")
+
         msg = (
             "This tests confirms that the correct channels have the peak response to each"
             " frequency and that no other channels have significant relative power, while logging "
@@ -2069,8 +2085,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         self.Step(
-            "Digitiser simulator configured to generate a continuous wave, "
-            "with cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
+            "Dsim cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
                 cw_scale, awgn_scale, gain, fft_shift
             )
         )
@@ -2086,7 +2101,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Failed("Failed to configure digitise simulator levels")
             return False
 
-        self.Step(
+        self.logger.info(
             "Capture an initial correlator SPEAD accumulation, determine the "
             "number of frequency channels.")
         try:
@@ -2100,39 +2115,64 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #           'determine the number of channels and processing bandwidth: '
             #           '{}Hz.'.format(self.cam_sensors.get_value('bandwidth')))
             # chan_spacing = (self.cam_sensors.get_value('bandwidth') / np.shape(initial_dump['xeng_raw'])[0])
-            chan_spacing = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / self.cam_sensors.get_value("n_chans")
             # [CBF-REQ-0043]
-            calc_channel = (required_chan_spacing / 2) <= chan_spacing <= required_chan_spacing
-            self.Step("Confirm that the number of calculated channel frequency step is within requirement.")
-            msg = ("Confirm that the calculated channel frequency step size is between {} and "
-                   "{} Hz".format(required_chan_spacing / 2, required_chan_spacing))
-            Aqf.is_true(calc_channel, msg)
+            nominal_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") * self.dsim_factor
+            chan_spacing = round(nominal_bw / n_chans, 2)
+            chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
+            self.Step("CBF-REQ-0043, 0053, 0226, 0227 and 0236 Confirm channel spacing.")
+            msg = ("Verify that the calculated channel frequency step ({:.3f} kHz) is equal or less than {} kHz"
+                   "".format(chan_spacing/1000., req_chan_spacing/1000.))
+            if chan_spacing <= req_chan_spacing:
+                ch_spacing_res = True
+            else:
+                ch_spacing_res = False
+            Aqf.is_true(ch_spacing_res, msg)
 
         self.Step(
-            "Sweep a digitiser simulator tone over the all channels that fall within the "
-            "complete L-band.")
+            "Sweep a digitiser simulator tone over channels that fall within the band.")
         channel_response_lst = []
-        print_counts = 4
+        
+        if check_strt_ch:
+            start_ch = check_strt_ch
+        else:
+            start_ch = self.start_channel
+            # skip DC channel since dsim puts out zeros for freq=0
+            if start_ch == 0: start_ch = 1
 
-        start_chan = 1  # skip DC channel since dsim puts out zeros for freq=0
-        failure_count = 0
-        # if self.n_chans_selected != self.cam_sensors.get_value('n_chans'):
-        #    _msg = 'Due to system performance the test will sweep a limited number (ie %s) of channels' % (
-        #        self.n_chans_selected)
-        #    self.Note(_msg)
-        #    channel_freqs = self.cam_sensors.ch_center_freqs[start_chan:self.n_chans_selected]
-        # else:
-        channel_freqs = self.cam_sensors.ch_center_freqs[start_chan:no_channels]
-
-        for channel, channel_f0 in enumerate(channel_freqs, start_chan):
-            if channel < print_counts:
+        if no_channels:
+            _msg = ("Due to resource time constraints the test will sweep {} channels."
+                    "".format(no_channels)
+            )
+            self.Note(_msg)
+            end_ch = start_ch + no_channels
+        elif (self.n_chans_selected != n_chans):
+            _msg = ("Due to performance constraints the test will sweep {} channels."
+                    "".format(no_channels)
+            )
+            self.Note(_msg)
+            end_ch = start_ch + self.n_chans_selected
+        else:
+            if check_end_ch:
+                end_ch = check_end_ch
+            else:
+                end_ch = n_chans
+        channel_freqs = self.cam_sensors.ch_center_freqs[start_ch:end_ch]
+        print_counts = 3
+        # List of channels to be plotted
+        n_chans_tested = end_ch - start_ch
+        middle = (end_ch - n_chans_tested//2)
+        start =  (middle - n_chans_tested//4)
+        end =    (end_ch - n_chans_tested//4)
+        chans_to_plot = (start,middle,end)
+        for channel, channel_f0 in enumerate(channel_freqs, start_ch):
+            if channel < print_counts + start_ch:
                 self.Progress(
                     "Getting channel response for freq %s @ %s: %.3f MHz."
                     % (channel, len(channel_freqs), channel_f0 / 1e6)
                 )
-            elif channel == print_counts:
+            elif channel == print_counts + start_ch:
                 self.Progress("...")
-            elif channel > (len(channel_freqs) - print_counts):
+            elif channel >= (len(channel_freqs)+start_ch - print_counts):
                 self.Progress(
                     "Getting channel response for freq %s @ %s: %.3f MHz."
                     % (channel, len(channel_freqs), channel_f0 / 1e6)
@@ -2149,58 +2189,56 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
-            try:
-                this_freq_dump = self.receiver.get_clean_dump()
-                self.assertIsInstance(this_freq_dump, dict)
-            except AssertionError:
+            for i in range(self.data_retries):  
+                this_freq_dump = self.get_real_clean_dump(discard=5)
+                if this_freq_dump is not False:
+                    break
                 self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
-                if failure_count >= 5:
-                    _errmsg = "Giving up the test, failed to capture accumulations after 5 tries."
-                    self.Failed(_errmsg)
-                    failure_count = 0
-                    return False
-                failure_count += 1
-            else:
-                this_freq_data = this_freq_dump["xeng_raw"]
-                this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
-                # List of channels to be plotted
-                chans_to_plot = (n_chans // 10, n_chans // 2, 9 * n_chans // 10)
-                if channel in chans_to_plot:
-                    channel_response_lst.append(this_freq_response)
+                return False
+            this_freq_data = this_freq_dump["xeng_raw"]
+            this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
+            if channel in chans_to_plot:
+                channel_response_lst.append(this_freq_response)
 
-                max_chan = np.argmax(this_freq_response)
-                max_channels.append(max_chan)
-                # Find responses that are more than -cutoff relative to max
-                new_cutoff = np.max(loggerise(this_freq_response)) + cutoff
-                unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
-                extra_responses = [
-                    i
-                    for i, resp in enumerate(loggerise(this_freq_response))
-                    if i != max_chan and resp >= unwanted_cutoff
-                ]
+            max_chan = np.argmax(this_freq_response)
+            # TODO: figure out if pipelining test could work
+            #print max_chan
+            max_channels.append(max_chan)
+            # Find responses that are more than -cutoff relative to max
+            new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
+            # TODO: Figure out what this was all about
+            # unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
+            extra_responses = [
+                i
+                for i, resp in enumerate(loggerise(this_freq_response))
+                #if i != max_chan and resp >= unwanted_cutoff
+                if i != max_chan and resp >= new_cutoff
+            ]
+            if len(extra_responses) != 0:
+                extra_peaks.append((channel,extra_responses,this_freq_response))
 
-                plt_title = "Frequency response at {}".format(channel)
-                plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path,
-                    self._testMethodName, channel)
-                if extra_responses:
-                    msg = "Weirdly found an extra responses on channel %s" % (channel)
-                    self.Note(msg)
-                    plt_title = "Extra responses found around {}".format(channel)
-                    plt_filename = "{}_extra_responses.png".format(self._testMethodName)
-                    plots_debug = True
+            # TODO: add plots back in if spurious channels or channels above cutoff found
+            #plt_title = "Frequency response at {}".format(channel)
+            #plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path,
+            #    self._testMethodName, channel)
+            #if extra_responses:
+            #    msg = "Weirdly found an extra responses on channel %s" % (channel)
+            #    self.Note(msg)
+            #    plt_title = "Extra responses found around {}".format(channel)
+            #    plt_filename = "{}_extra_responses.png".format(self._testMethodName)
+            #    plots_debug = True
 
-                extra_peaks.append(extra_responses)
-                if plots_debug:
-                    plots_debug = False
-                    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
-                    aqf_plot_channels(
-                        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
-                        hlines=new_cutoff
-                    )
+            #if plots_debug:
+            #    plots_debug = False
+            #    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
+            #    aqf_plot_channels(
+            #        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
+            #        hlines=new_cutoff
+            #    )
 
         for channel, channel_resp in zip(chans_to_plot, channel_response_lst):
             plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path, self._testMethodName, channel)
-            test_freq_mega = channel_freqs[channel] / 1e6
+            test_freq_mega = self.cam_sensors.ch_center_freqs[channel] / 1e6
             plt_title = "Frequency response at {} @ {:.3f} MHz".format(channel, test_freq_mega)
             caption = (
                 "An overall frequency response at channel {} @ {:.3f}MHz, "
@@ -2212,15 +2250,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             new_cutoff = np.max(loggerise(channel_resp)) - cutoff
             aqf_plot_channels(
-                channel_resp, plt_filename, plt_title, log_dynamic_range=90, caption=caption, hlines=new_cutoff
+                channel_resp, plt_filename, plt_title, log_dynamic_range=90, caption=caption, 
+                hlines=new_cutoff,
+                start_channel=self.start_channel
             )
 
-        channel_range = range(start_chan, len(max_channels) + start_chan)
-        self.Step("Check that the correct channels have the peak response to each frequency")
-        msg = (
-            "Confirm that the correct channel(s) (eg expected channel %s vs actual channel %s) "
-            "have the peak response to each frequency" % (channel_range[1], max_channels[1])
-        )
+        channel_range = range(start_ch, len(max_channels) + start_ch)
+        msg = ("Check that the correct channels have the peak response to each frequency")
 
         if max_channels == channel_range:
             self.Passed(msg)
@@ -2228,9 +2264,40 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             Aqf.array_almost_equal(max_channels[1:], channel_range[1:], msg)
 
         msg = "Confirm that no other channels response more than -%s dB.\n" % cutoff
-        if extra_peaks == [[]] * len(max_channels):
+        
+        if extra_peaks == []:
             self.Passed(msg)
         else:
+            print_count = 5
+            for channel, peaks, response in extra_peaks:
+                if print_count > 1:
+                    self.Note("Found {} channels with power more than -{} dB "
+                              "from peak in channel {}.".format(len(peaks), cutoff, channel))
+                    print_count -= 1
+                    plt_filename = ("{}/{}_channel_{}_err_resp.png"
+                                    ''.format(self.logs_path, self._testMethodName, channel)
+                    )
+                    test_freq_mega = self.cam_sensors.ch_center_freqs[channel] / 1e6
+                    plt_title = "Frequency response at {} @ {:.3f} MHz".format(channel, test_freq_mega)
+                    caption = (
+                        "Frequency response around channel {} @ {:.3f}MHz, "
+                        "when digitiser simulator is configured to generate a continuous wave, "
+                        "with cw scale: {}. awgn scale: {}, eq gain: {}, fft shift: {}".format(
+                            channel, test_freq_mega, cw_scale, awgn_scale, gain, fft_shift
+                        )
+                    )
+                    new_cutoff = np.max(loggerise(channel_resp)) - cutoff
+                    aqf_plot_channels(
+                        response[channel-4:channel+5], plt_filename, plt_title, log_dynamic_range=90, 
+                        caption=caption, 
+                        hlines=new_cutoff,
+                    )
+
+                elif print_count == 1:
+                    self.Note('More channels found with spurious peaks.')
+                    print_count -= 1
+                else:
+                    pass
             self.logger.debug("Expected: %s\n\nGot: %s" % (extra_peaks, [[]] * len(max_channels)))
             self.Failed(msg)
         if power_logger:
@@ -3507,7 +3574,35 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     host.host.upper()))
                 return
 
-        def get_xeng_status(self, status='warn'):
+        def get_xeng_status(self, status='warn', timeout = 180):
+
+            #curr_time = time.time()
+            #timeout_t = curr_time + timeout
+            #while (time.time() < timeout_t):
+            #    try:
+            #        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            #        self.assertTrue(reply.reply_ok())
+            #    except Exception:
+            #        msg = "Failed to retrieve sensor values via CAM interface"
+            #        self.Error(msg, exc_info=True)
+            #        return False
+            #    else:
+            #        x_device_status = list(set([i.arguments[-2] for i in informs 
+            #            if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
+
+            #        if len(x_device_status) == 1:
+            #            if x_device_status[0] == status:
+            #                msg = ("Confirm that all X-Engines report device-status {}."
+            #                       "".format(status))
+            #                Aqf.equals(x_device_status[0], status, msg)
+            #                return True
+            #            else:
+            #                import IPython;IPython.embed()
+            #                #time.sleep(10)
+            #        else:
+            #            time.sleep(10)
+            #Aqf.failed('All X-Engines are not reporting device-status {}'.format(status))
+            #return False
             
             try:
                 reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
@@ -3515,11 +3610,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             except Exception:
                 msg = "Failed to retrieve sensor values via CAM interface"
                 self.Error(msg, exc_info=True)
-                return
+                return False
             else:
-                x_device_status = list(set([i.arguments[-2] for i in informs if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
+                x_device_status = list(set([i.arguments[-2] for i in informs 
+                    if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
+
                 if len(x_device_status) == 1:
-                    Aqf.equals(x_device_status[0], status, "Confirm that all X-Engines report device-status {}.".format(status))
+                    msg = ("Confirm that all X-Engines report device-status {}."
+                           "".format(status))
+                    Aqf.equals(x_device_status[0], status, msg)
                 else:
                     Aqf.failed('All X-Engines are not reporting device-status {}'.format(status))
 
@@ -3590,16 +3689,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # report_lru_status(self, xhost, get_lru_status)
         get_spead_data(self)
         write_new_ip(fhost_fpga, ip_new, current_ip)
-        self.Step('Waiting 60 seconds for device status sensors to change.')
-        time.sleep(60)
+        self.Step('Waiting until device status sensors report WARN.')
+        time.sleep(30)
         get_xeng_status(self, status='warn')
+        #start_time = time.time()
+        #result = get_xeng_status(self, status='warn')
+        #if result:
+        #    self.Note('Sensors took {} seconds to change to WARN.'
+        #              ''.format(int(time.time() - start_time)))
         get_spead_data(self)
         self.Step('Restoring the multicast destination from %s to the original %s' % (
                    ip_new, current_ip))
         write_new_ip(fhost_fpga, current_ip, ip_new)
-        self.Step('Waiting 60 seconds for device status sensors to change.')
-        time.sleep(60)
+        self.Step('Waiting until device status sensors report NOMINAL.')
+        time.sleep(30)
         get_xeng_status(self, status='nominal')
+        #start_time = time.time()
+        #result = get_xeng_status(self, status='nominal')
+        #if result:
+        #    self.Note('Sensors took {} seconds to change to WARN.'
+        #              ''.format(int(time.time() - start_time)))
         # report_lru_status(self, xhost, get_lru_status)
 
         # report_lru_status(self, xhost, get_lru_status)
@@ -3630,14 +3739,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if i.arguments[-2].lower() != "nominal":
                         self.Note(" contains a ".join(i.arguments[2:-1]))
 
-    def _test_vacc(self, test_chan, acc_time=0.998):
+    def _test_vacc(self, test_chan, acc_time=0.998, cut_half_channels=True):
         """Test vector accumulator"""
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        awgn_scale=0
+        cw_scale = cw_scale/2
+        dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, 
+                                                 fft_shift=fft_shift, gain=gain)
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
         test_input = self.cam_sensors.input_labels[0]
-        eq_scaling = 3
+        eq_scaling = complex(gain)
         acc_times = [acc_time / 2, acc_time]
         # acc_times = [acc_time/2, acc_time, acc_time*2]
         n_chans_selected = self.n_chans_selected
         n_chans = self.cam_sensors.get_value("n_chans")
+        center_ch = int(n_chans/2)
         try:
             #TODO: Why is this not a sensor anymore?
             #internal_accumulations = int(self.cam_sensors.get_value("xeng_acc_len"))
@@ -3654,43 +3772,31 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         delta_acc_t = self.cam_sensors.fft_period * internal_accumulations
         test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
-        # Do not get the point of all of this...
-        # Choose a test frequency around the centre of the band.
-        #test_freq = self.cam_sensors.get_value("antenna_channelised_voltage_center_freq")
-        #test_freq_channel = abs(
-        #    np.argmin(
-        #        np.abs(self.cam_sensors.ch_center_freqs[self.start_channel:self.start_channel+n_chans] - test_freq)) - test_chan
-        #)
         test_freq = self.cam_sensors.ch_center_freqs[test_chan]
-        self.Step("Selected test input {} and test frequency channel {}".format(test_input, test_chan))
+        self.Step("Selected test input {} and test channel {} @ {:.3f} Mhz"
+                  "".format(test_input, test_chan, test_freq/1e6))
         eqs = np.zeros((n_chans), dtype=np.complex)
         eqs[test_chan] = eq_scaling
         self.restore_initial_equalisations()
         try:
             reply, _informs = self.katcp_req.gain(test_input, *list(eqs))
             self.assertTrue(reply.reply_ok())
-            Aqf.hop("Gain successfully set on input %s via CAM interface." % test_input)
+            Aqf.hop("Gain set to {} with an input cw scale of {}.".format(gain, cw_scale))
         except Exception:
             errmsg = "Gains/Eq could not be set on input %s via CAM interface" % test_input
             self.Error(errmsg, exc_info=True)
 
         self.Step(
-            "Configured Digitiser simulator output(cw0 @ {:.3f}MHz) to be periodic in "
-            "FFT-length: {} in order for each FFT to be identical".format(test_freq / 1e6, n_chans * 2)
+            "Configure Dsim output to be periodic to FFT-length: {}.".format(n_chans * 2)
         )
+        self.Note("Each FFT window will be identical.")
 
-        cw_scale = 0.125
-        # The re-quantiser outputs signed int (8bit), but the snapshot code
-        # normalises it to floats between -1:1. Since we want to calculate the
-        # output of the vacc which sums integers, denormalise the snapshot
-        # output back to ints.
-        # q_denorm = 128
-        # quantiser_spectrum = get_quant_snapshot(self, test_input) * q_denorm
         try:
             # Make dsim output periodic in FFT-length so that each FFT is identical
             self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=cw_scale, repeat_n=n_chans * 2)
             self.dhost.sine_sources.sin_1.set(frequency=test_freq, scale=cw_scale, repeat_n=n_chans * 2)
             assert self.dhost.sine_sources.sin_0.repeat == n_chans * 2
+            time.sleep(1)
         except AssertionError:
             errmsg = "Failed to make the DEng output periodic in FFT-length so that each FFT is identical"
             self.Error(errmsg, exc_info=True)
@@ -3705,31 +3811,39 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
             return
         else:
-            import IPython;IPython.embed()
             quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
-            quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
-            # Check that the spectrum is not zero in the test channel
-            # Aqf.is_true(quantiser_spectrum[test_freq_channel] != 0,
-            # 'Check that the spectrum is not zero in the test channel')
-            # Check that the spectrum is zero except in the test channel
-            Aqf.is_true(
-                np.all(quantiser_spectrum[0:test_chan] == 0),
-                ("Confirm that the spectrum is zero except in the test channel:"
-                 " [0:test_channel]"),
-            )
-            Aqf.is_true(
-                np.all(quantiser_spectrum[test_chan + 1 :] == 0),
-                ("Confirm that the spectrum is zero except in the test channel:"
-                 " [test_channel+1:]"),
-            )
-            self.Step(
-                "FFT Window [{} samples] = {:.3f} micro seconds, Internal Accumulations = {}, "
-                "One VACC accumulation = {}s".format(
-                    n_chans * 2, self.cam_sensors.fft_period * 1e6, internal_accumulations, delta_acc_t
-                )
-            )
+            if cut_half_channels:
+                quantiser_spectrum = quantiser_spectrum[self.start_channel:center_ch]
+            else:
+                quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
 
-            chan_response = []
+            quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
+            if (quant_check.shape[0] == 1):
+                Aqf.equals(quant_check[0], test_chan, "Tone found in correct channel.")
+            elif (quant_check.shape[0] == 0):
+                Aqf.failed("No tone found in quantiser output.")
+                return
+            else:
+                Aqf.failed("More than one value found in quantiser "
+                           "@ channels: {}".format(quant_check))
+                return
+
+            # The re-quantiser outputs signed int (8bit), but the snapshot code
+            # normalises it using binary 8.7 scaling. Since we want to calculate the
+            # output of the vacc which sums integers, denormalise the snapshot
+            # output back to ints. Then convert to power
+            quant_value = np.abs(quantiser_spectrum[test_chan])
+            quant_power = (quant_value*2**7)**2
+            self.Note("Quantiser test channel voltage magnitude (represented in binary "
+                      "8.7): {:.4f}".format(quant_value))
+            self.Note("Converted to power and scaled by 2**7: {}".format(quant_power))
+
+            self.Note("One FFT Window ({} samples) takes {:.3f} micro seconds."
+                      "".format(n_chans*2, self.cam_sensors.fft_period*1e6)
+            )
+            self.Note("After {} internal accumulations one VACC accumulation takes "
+                      "{:.3f} ms".format(internal_accumulations, delta_acc_t*1e3)
+            )
             for vacc_accumulations, acc_time in zip(test_acc_lens, acc_times):
                 try:
                     reply = self.katcp_req.accumulation_length(acc_time, timeout=60)
@@ -3746,54 +3860,31 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         vacc_accumulations,
                         accum_len,
                         1,
-                        "Confirm that vacc length was set successfully with"
-                        " {}, which equates to an accumulation time of {:.6f}s".format(
-                            vacc_accumulations, vacc_accumulations * delta_acc_t
-                        ),
+                        ("VACC length set to {}, equals an accumulation time of {:.3f}s"
+                         .format(vacc_accumulations, vacc_accumulations * delta_acc_t)),
                     )
                     no_accs = internal_accumulations * vacc_accumulations
-                    expected_response = np.abs(quantiser_spectrum) ** 2 * no_accs
-                    expected_response = expected_response[self.start_channel:self.stop_channel]
+                    expected_response = quant_power * no_accs
                     try:
                         dump = self.receiver.get_clean_dump()
+                        baselines = self.get_baselines_lookup()
+                        bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
+                        if cut_half_channels:
+                            data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:center_ch]
+                        else:
+                            data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
                     except Exception:
                         errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                         self.Error(errmsg, exc_info=True)
                     else:
-                        actual_response = complexise(dump["xeng_raw"][:, 0, :])
-                        actual_response_ = loggerise(dump["xeng_raw"][:, 0, :])
-                        actual_response_mag = normalised_magnitude(dump["xeng_raw"][:, 0, :])
-                        chan_response.append(actual_response_mag)
+                        actual_response = np.abs(complexise(data)[test_chan])
+                        self.Note('Received channel magnitude: {}'.format(actual_response))
                         # Check that the accumulator response is equal to the expected response
-                        caption = (
-                            "Accumulators actual response is equal to the expected response for {} "
-                            "accumulation length with a periodic cw tone every {} samples"
-                            " at frequency of {:.3f} MHz with scale {}.".format(
-                                test_acc_lens, n_chans * 2, test_freq / 1e6, cw_scale
-                            )
-                        )
+                        msg = ("Quantiser value matches accumulated output after scaling.")
+                        tol = 0.0001
+                        Aqf.almost_equals(actual_response, expected_response, tol, msg)
 
-                        plot_filename = "{}/{}_chan_resp_{}_vacc.png".format(
-                            self.logs_path, self._testMethodName, int(vacc_accumulations)
-                        )
-                        plot_title = "Vector Accumulation Length: channel %s" % test_chan
-                        msg = (
-                            "Confirm that the accumulator actual response is "
-                            "equal to the expected response for {} accumulation length".format(vacc_accumulations)
-                        )
-
-                        if not Aqf.array_abs_error(
-                            expected_response, actual_response_mag, msg
-                        ):
-                            aqf_plot_channels(
-                                actual_response_mag,
-                                plot_filename,
-                                plot_title,
-                                log_normalise_to=0,
-                                normalise=0,
-                                caption=caption,
-                            )
 
     def _test_product_switch(self, instrument):
         self.Step(
@@ -4701,7 +4792,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 spead2_link = "https://github.com/ska-sa/%s/releases/tag/v%s" % (spead2_name, spead2_version)
 
             try:
-                bitstream_dir = self.corr_fix.configd.get("xengine").get("bitstream")
+                bitstream_dir = self.corr_fix.corr_config.get("xengine").get("bitstream")
                 mkat_dir, _ = os.path.split(os.path.split(os.path.dirname(os.path.realpath(bitstream_dir)))[0])
                 _, mkat_name = os.path.split(mkat_dir)
                 assert mkat_name
@@ -5073,7 +5164,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         test_input = random.choice(self.cam_sensors.input_labels)
         self.Step("Randomly selected input to test: %s" % (test_input))
         n_chans = self.cam_sensors.get_value("n_chans")
-        rand_ch = random.choice(range(n_chans)[: self.n_chans_selected])
+        # TODO: set channel randomly in selected range
+        #rand_ch = random.choice(range(n_chans)[: self.n_chans_selected])
+        rand_ch = int(self.n_chans_selected/2 + self.start_channel)
         gain_vector = [nominal_gain] * n_chans
         try:
             reply, informs = self.katcp_req.gain(test_input, nominal_gain)

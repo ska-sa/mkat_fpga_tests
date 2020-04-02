@@ -821,7 +821,7 @@ class UtilsClass(object):
         #gain_real = gain_real / 2
         #gain_real = round(gain_real,1)
         #gain = '{}+{}'.format(gain_real,gain_imag)
-        return float(awgn_scale), float(cw_scale), gain, int(fft_shift)
+        return float(awgn_scale), float(cw_scale), gain, fft_shift
 
     def set_input_levels(self, awgn_scale=None, cw_scale=None, freq=None, output_scale=None, fft_shift=None,
                         gain=None, cw_src=0, corr_noise=True):
