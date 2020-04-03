@@ -2357,7 +2357,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
 
             aqf_plot_channels(
-                band_shape_sweep_vals, plt_filename, plt_title, log_dynamic_range=90, caption=caption, 
+                band_shape_sweep_vals, plt_filename, plt_title, log_dynamic_range=None, caption=caption, 
                 ylabel="dBFS from VACC max",
             )
 
@@ -2378,10 +2378,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             print_count = 5
             for channel, peaks, response in extra_peaks:
                 if print_count > 1:
+                    blanked_resp = loggerise(response)
+                    ch_max_val = blanked_resp[channel]
+                    blanked_resp[channel] = np.average(blanked_resp)
+                    max_spurious_ch = np.argmax(blanked_resp)
+                    max_spurious_val = blanked_resp[max_spurious_ch] - ch_max_val
+                    new_cutoff = ch_max_val - cutoff
                     self.Note("Found {} channels with power more than -{} dB "
                               "from peak in channel {}.".format(len(peaks), cutoff, channel))
-                    self.Note("Maximum out of channel power found = -{} dBFS from VACC max "
-                              "".format(np.max(peaks)))
+                    self.Note("Maximum spurious channel: {} at {} db from CW max."
+                              "".format(max_spurious_ch, max_spurious_val))
                     print_count -= 1
                     plt_filename = ("{}/{}_channel_{}_err_resp.png"
                                     ''.format(self.logs_path, self._testMethodName, channel)
@@ -2395,7 +2401,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             channel, test_freq_mega, cw_scale, awgn_scale, gain, fft_shift
                         )
                     )
-                    new_cutoff = np.max(loggerise(response)) - cutoff
                     aqf_plot_channels(
                         response[channel-4:channel+5], plt_filename, plt_title, log_dynamic_range=90, 
                         caption=caption, 
@@ -2419,7 +2424,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self._process_power_log(start_timestamp, power_log_file)
             except Exception:
                 self.Error("Failed to read/decode the PDU log.", exc_info=True)
-        import IPython;IPython.embed()
 
     def _test_spead_verify(self):
         """This test verifies if a cw tone is only applied to a single input 0,
