@@ -2024,7 +2024,7 @@ class GetSensors(object):
         self.req = corr_fix.katcp_rct.req
         self.sensors = corr_fix.katcp_rct.sensor
 
-    def get_value(self, _name):
+    def get_value(self, _name, exact=False):
         """
         Get sensor Value(s)
 
@@ -2035,9 +2035,14 @@ class GetSensors(object):
         Return
         ---------
         List or Str or None: sensor value"""
-        if any(_name in s for s in dir(self.sensors)):
-            _attribute = [s for s in dir(self.sensors) if _name in s][0]
-            return getattr(self.sensors, _attribute).get_value()
+        if exact:
+            for s in dir(self.sensors):
+                if s == _name:
+                    return getattr(self.sensors, s).get_value()
+        else:
+            if any(_name in s for s in dir(self.sensors)):
+                _attribute = [s for s in dir(self.sensors) if _name in s][0]
+                return getattr(self.sensors, _attribute).get_value()
 
     @property
     def input_labels(self):

@@ -443,16 +443,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # otherwise test all the selected channels
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
                     None))
-                check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel"))
-                check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel"))
                 if "107M32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test,
-                        check_strt_ch=check_strt_ch,
-                        check_stop_ch=check_stop_ch)
+                    self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test)
                 elif "54M32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test,
-                        check_strt_ch=check_strt_ch,
-                        check_stop_ch=check_stop_ch)
+                    self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test)
                 elif "32k" in self.instrument:
                     self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test)  # Hz
                 elif "4k" in self.instrument:
@@ -1651,37 +1645,37 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 actual_test_freqs.append(this_source_freq)
                 chan_responses.append(this_freq_response)
 
-            # Plot an overall frequency response at the centre frequency just as
-            # a sanity check
+            ## Plot an overall frequency response at the centre frequency just as
+            ## a sanity check
 
-            if np.abs(freq - expected_fc) < 0.1:
-                plt_filename = "{}/{}_overall_channel_resolution.png".format(self.logs_path, self._testMethodName)
-                plt_title = "Overall frequency response at {} at {:.3f}MHz.".format(test_chan, this_source_freq / 1e6)
-                max_peak = np.max(loggerise(this_freq_response))
-                self.Note(
-                    "Single peak found at channel %s, with max power of %s (%fdB) midway "
-                    "channelisation, to confirm if there is no offset."
-                    % (np.argmax(this_freq_response), np.max(this_freq_response), max_peak)
-                )
-                new_cutoff = max_peak - cutoff
-                y_axis_limits = (-100, 1)
-                caption = (
-                    "An overall frequency response at the centre frequency, and ({:.3f}dB) "
-                    "and selected baseline {} / {} to test. CBF channel isolation [max channel"
-                    " peak ({:.3f}dB) - ({}dB) cut-off] when "
-                    "digitiser simulator is configured to generate a continuous wave, with "
-                    "cw scale: {}, awgn scale: {}, Eq gain: {} and FFT shift: {}".format(
-                        new_cutoff, test_baseline, bls_to_test, max_peak, cutoff, cw_scale, awgn_scale, gain, fft_shift
-                    )
-                )
-                aqf_plot_channels(
-                    this_freq_response,
-                    plt_filename,
-                    plt_title,
-                    caption=caption,
-                    ylimits=y_axis_limits,
-                    cutoff=new_cutoff,
-                )
+            #if np.abs(freq - expected_fc) < 0.1:
+            #    plt_filename = "{}/{}_overall_channel_resolution.png".format(self.logs_path, self._testMethodName)
+            #    plt_title = "Overall frequency response at {} at {:.3f}MHz.".format(test_chan, this_source_freq / 1e6)
+            #    max_peak = np.max(loggerise(this_freq_response))
+            #    self.Note(
+            #        "Single peak found at channel %s, with max power of %s (%fdB) midway "
+            #        "channelisation, to confirm if there is no offset."
+            #        % (np.argmax(this_freq_response), np.max(this_freq_response), max_peak)
+            #    )
+            #    new_cutoff = max_peak - cutoff
+            #    y_axis_limits = (-100, 1)
+            #    caption = (
+            #        "An overall frequency response at the centre frequency, and ({:.3f}dB) "
+            #        "and selected baseline {} / {} to test. CBF channel isolation [max channel"
+            #        " peak ({:.3f}dB) - ({}dB) cut-off] when "
+            #        "digitiser simulator is configured to generate a continuous wave, with "
+            #        "cw scale: {}, awgn scale: {}, Eq gain: {} and FFT shift: {}".format(
+            #            new_cutoff, test_baseline, bls_to_test, max_peak, cutoff, cw_scale, awgn_scale, gain, fft_shift
+            #        )
+            #    )
+            #    aqf_plot_channels(
+            #        this_freq_response,
+            #        plt_filename,
+            #        plt_title,
+            #        caption=caption,
+            #        ylimits=y_axis_limits,
+            #        cutoff=new_cutoff,
+            #    )
 
         if not where_is_the_tone == test_chan:
             self.Note(
@@ -2038,7 +2032,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             
 
     def _test_sfdr_peaks(self, req_chan_spacing, no_channels=None, 
-                         check_strt_ch=None, check_stop_ch=None,
                          cutoff=53, plots_debug=False, log_power=True):
 
         """Test channel spacing and out-of-channel response
@@ -2053,6 +2046,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         ----------
         required_chan_spacing: float
         no_channels: int
+            if no_channels is None all channels will be used
         cutoff : float
             Responses in other channels must be at least `-cutoff` dB below the response
             of the channel with centre frequency corresponding to the source frequency
@@ -2074,11 +2068,100 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Placeholder of actual frequencies that the signal generator produces
         actual_test_freqs = []
         # Channel no with max response for each frequency
-        max_channels = []
+        max_channels_errors = []
         # Channel responses higher than -cutoff dB relative to expected channel
         extra_peaks = []
+        # Band Shape Sweep
+        band_shape_sweep_vals = []
+        band_shape_chans = []
+        band_shape_ch_freq = []
+        band_shape_resp = []
         # Checking for all channels.
         n_chans = self.cam_sensors.get_value("n_chans")
+        full_bw = self.cam_sensors.get_value("bandwidth", exact=True)
+        volt_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
+
+        # Get test frequencies, if all channels are not being received a band shape sweep 
+        # will not be done. If narrowband is being tested select frequencies across the 
+        # full band to do a band shape sweep. If a band shape sweep is to be done and 
+        # a narrow band instrument is selected frequencies must be chosen to fall across 
+        # the full band and not just the channelised voltage band.
+        # All channels not selected, do not perform a band shape sweep:
+        if n_chans != self.n_chans_selected:
+            _msg = ("Due to performance constraints the test will sweep through {} channels."
+                    "".format(no_channels)
+            )
+            self.Note(_msg)
+            band_shape_sweep = False
+            if no_channels:
+                sel_chs = np.linspace(self.start_channel, self.stop_channel, 
+                        no_channels, endpoint=False, dtype='int16')
+            else:
+                sel_chs = np.arange(self.start_channel,self.stop_channel)
+            channel_freqs = np.asarray(
+                [self.cam_sensors.ch_center_freqs[i] for i in sel_chs[1:]])
+            test_ch_and_freqs = zip(sel_chs[1:], channel_freqs)
+            # This variable is for band shape sweep but put a copy
+            # here so it exists when called
+            bss_inc_c_and_f = np.asarray(test_ch_and_freqs[:])
+        else:
+            if no_channels:
+                _msg = ("Due to resource time constraints the test will sweep through {} channels."
+                        "".format(no_channels)
+                )
+                self.Note(_msg)
+            # Perform a band shape sweep in addition to normal sweep
+            # If full_bw is more than the channelised voltage bandwidth a narrowband
+            # instrument is under test and frequencies outside the channelised voltage
+            # band must be chosen
+            band_shape_sweep = True
+            # narrow band
+            if full_bw != volt_bw:
+                ch_bw = self.cam_sensors.ch_center_freqs[1]- self.cam_sensors.ch_center_freqs[0]
+                center_f = self.cam_sensors.get_value("antenna_channelised_voltage_center_freq")
+                n_ch_nb_fullbw = int(full_bw/ch_bw)
+                f_start = center_f - (full_bw/2.) # Center freq of the first channel
+                ch_center_freqs_nbfull = f_start + np.arange(n_ch_nb_fullbw) * ch_bw
+                if no_channels:
+                    sel_chs = np.linspace(0,len(ch_center_freqs_nbfull), 
+                            no_channels, endpoint=False, dtype='int32')
+                    channel_freqs = np.asarray([ch_center_freqs_nbfull[i] for i in sel_chs[1:]])
+                    test_ch_and_freqs = zip(sel_chs[1:], channel_freqs)
+                else:
+                    channel_freqs = ch_center_freqs_nbfull[:]
+                    test_ch_and_freqs = zip(np.arange(len(channel_freqs)), channel_freqs)
+                # Band shape sweep channels that must also be used for channel
+                # frequency SFDR test, for narrowband use channels specified in
+                # config file
+                check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel"))
+                check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel"))
+                chk_strt_f = self.cam_sensors.ch_center_freqs[check_strt_ch]
+                chk_stop_f = self.cam_sensors.ch_center_freqs[check_stop_ch]
+                bss_inc_freqs = channel_freqs[((channel_freqs >= chk_strt_f) & 
+                                               (channel_freqs <= chk_stop_f))]
+                # Find narrowband channels numbers for frequencies that will be used 
+                # during channel frequency SFDR test
+                nb_test_chans = [np.argwhere(x == self.cam_sensors.ch_center_freqs)[0][0] 
+                        for x in bss_inc_freqs]
+                bss_inc_c_and_f = np.asarray(zip(nb_test_chans, bss_inc_freqs))
+                if len(nb_test_chans) != len(bss_inc_freqs):
+                    Aqf.failed("Frequency and channel calculations do not make sense. "
+                               "Bandwidth or channel sensor or coding error.")
+                    return     
+            else:
+                channel_freqs = self.cam_sensors.ch_center_freqs
+                if no_channels:
+                    sel_chs = np.linspace(0,len(channel_freqs), 
+                            no_channels, endpoint=False, dtype='int32')
+                    channel_freqs = [channel_freqs[i] for i in sel_chs[1:]]
+                    test_ch_and_freqs = zip(sel_chs[1:], channel_freqs)
+                else:
+                    test_ch_and_freqs = zip(np.arange(n_chans), channel_freqs)
+                # For wideband include all channels in channel frequency SFDR test
+                bss_inc_c_and_f = (test_ch_and_freqs[:])
+        if test_ch_and_freqs[0][1] == 0:
+            # skip DC channel since dsim puts out zeros for freq=0
+            test_ch_and_freqs = test_ch_and_freqs[1:]
 
         msg = (
             "This tests confirms that the correct channels have the peak response to each"
@@ -2099,7 +2182,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         dsim_set_success = self.set_input_levels(
             awgn_scale=awgn_scale,
             cw_scale=cw_scale,
-            freq=self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / 2.0,
+            freq=volt_bw/2.0,
             fft_shift=fft_shift,
             gain=gain,
         )
@@ -2137,48 +2220,31 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step(
             "Sweep a digitiser simulator tone over channels that fall within the band.")
         channel_response_lst = []
-        
-        if check_strt_ch:
-            start_ch = check_strt_ch
-        else:
-            start_ch = self.start_channel
-            # skip DC channel since dsim puts out zeros for freq=0
-            if start_ch == 0: start_ch = 1
-
-        if no_channels:
-            _msg = ("Due to resource time constraints the test will sweep {} channels."
-                    "".format(no_channels)
-            )
-            self.Note(_msg)
-            end_ch = start_ch + no_channels
-        elif (self.n_chans_selected != n_chans):
-            _msg = ("Due to performance constraints the test will sweep {} channels."
-                    "".format(no_channels)
-            )
-            self.Note(_msg)
-            end_ch = start_ch + self.n_chans_selected
-        else:
-            if check_end_ch:
-                end_ch = check_end_ch
-            else:
-                end_ch = n_chans
-        channel_freqs = self.cam_sensors.ch_center_freqs[start_ch:end_ch]
-        print_counts = 3
+        num_prints = 3
         # List of channels to be plotted
-        n_chans_tested = end_ch - start_ch
-        middle = (end_ch - n_chans_tested//2)
-        start =  (middle - n_chans_tested//4)
-        end =    (end_ch - n_chans_tested//4)
-        chans_to_plot = (start,middle,end)
-        for channel, channel_f0 in enumerate(channel_freqs, start_ch):
-            if channel < print_counts + start_ch:
+        try:
+            nctst = len(nb_test_chans)
+            ctst  = nb_test_chans[:]
+        except NameError:
+            nctst = len(test_ch_and_freqs)
+            ctst  = np.asarray(test_ch_and_freqs)[:,0]
+        try:
+            middle = ctst[nctst//2]
+            start =  ctst[nctst//4]
+            end =    ctst[nctst - nctst//4]
+            chans_to_plot = (start,middle,end)
+        except IndexError:
+            chans_to_plot = ()
+        print_cnt = 0
+        for channel, channel_f0 in test_ch_and_freqs:
+            if print_cnt < num_prints:
                 self.Progress(
                     "Getting channel response for freq %s @ %s: %.3f MHz."
                     % (channel, len(channel_freqs), channel_f0 / 1e6)
                 )
-            elif channel == print_counts + start_ch:
+            elif print_cnt == num_prints:
                 self.Progress("...")
-            elif channel >= (len(channel_freqs)+start_ch - print_counts):
+            elif print_cnt >= (len(test_ch_and_freqs)-num_prints):
                 self.Progress(
                     "Getting channel response for freq %s @ %s: %.3f MHz."
                     % (channel, len(channel_freqs), channel_f0 / 1e6)
@@ -2188,6 +2254,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "Getting channel response for freq %s @ %s: %s MHz."
                     % (channel, len(channel_freqs), channel_f0 / 1e6)
                 )
+            print_cnt+=1
 
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
             self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
@@ -2203,44 +2270,58 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return False
             this_freq_data = this_freq_dump["xeng_raw"]
             this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
-            if channel in chans_to_plot:
-                channel_response_lst.append(this_freq_response)
 
-            max_chan = np.argmax(this_freq_response)
-            # TODO: figure out if pipelining test could work
-            #print max_chan
-            max_channels.append(max_chan)
-            # Find responses that are more than -cutoff relative to max
-            new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
-            # TODO: Figure out what this was all about
-            # unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
-            extra_responses = [
-                i
-                for i, resp in enumerate(loggerise(this_freq_response))
-                #if i != max_chan and resp >= unwanted_cutoff
-                if i != max_chan and resp >= new_cutoff
-            ]
-            if len(extra_responses) != 0:
-                extra_peaks.append((channel,extra_responses,this_freq_response))
+            if channel_f0 in bss_inc_c_and_f[:,1]:
+                # get channel out of band shape sweep include array
+                ch_idx = np.argwhere(channel_f0 == bss_inc_c_and_f[:,1])[0][0]
+                ch = int(bss_inc_c_and_f[ch_idx][0])
+                if ch in chans_to_plot:
+                    channel_response_lst.append(this_freq_response)
 
-            # TODO: add plots back in if spurious channels or channels above cutoff found
-            #plt_title = "Frequency response at {}".format(channel)
-            #plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path,
-            #    self._testMethodName, channel)
-            #if extra_responses:
-            #    msg = "Weirdly found an extra responses on channel %s" % (channel)
-            #    self.Note(msg)
-            #    plt_title = "Extra responses found around {}".format(channel)
-            #    plt_filename = "{}_extra_responses.png".format(self._testMethodName)
-            #    plots_debug = True
+                max_chan = np.argmax(this_freq_response)
+                # TODO: figure out if pipelining test could work
+                #print max_chan
+                if max_chan != ch:
+                    max_channels_errors.append((max_chan,ch))
 
-            #if plots_debug:
-            #    plots_debug = False
-            #    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
-            #    aqf_plot_channels(
-            #        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
-            #        hlines=new_cutoff
-            #    )
+                # Find responses that are more than -cutoff relative to max
+                new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
+                # TODO: Figure out what this was all about
+                # unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
+                extra_responses = [
+                    i
+                    for i, resp in enumerate(loggerise(this_freq_response))
+                    #if i != max_chan and resp >= unwanted_cutoff
+                    if i != max_chan and resp >= new_cutoff
+                ]
+                if len(extra_responses) != 0:
+                    extra_peaks.append((ch,extra_responses,this_freq_response))
+
+                # TODO: add plots back in if spurious channels or channels above cutoff found
+                #plt_title = "Frequency response at {}".format(channel)
+                #plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path,
+                #    self._testMethodName, channel)
+                #if extra_responses:
+                #    msg = "Weirdly found an extra responses on channel %s" % (channel)
+                #    self.Note(msg)
+                #    plt_title = "Extra responses found around {}".format(channel)
+                #    plt_filename = "{}_extra_responses.png".format(self._testMethodName)
+                #    plots_debug = True
+
+                #if plots_debug:
+                #    plots_debug = False
+                #    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
+                #    aqf_plot_channels(
+                #        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
+                #        hlines=new_cutoff
+                #    )
+
+            if band_shape_sweep:
+                band_shape_sweep_vals.append(np.max(loggerise(this_freq_response)))
+                band_shape_chans.append(channel)
+                band_shape_ch_freq.append(channel_f0)
+                band_shape_resp.append(this_freq_response)
+            
 
         for channel, channel_resp in zip(chans_to_plot, channel_response_lst):
             plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path, self._testMethodName, channel)
@@ -2258,27 +2339,49 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             aqf_plot_channels(
                 channel_resp, plt_filename, plt_title, log_dynamic_range=90, caption=caption, 
                 hlines=new_cutoff,
+                ylabel="dBFS from VACC max",
                 start_channel=self.start_channel
             )
+        if band_shape_sweep:
+            fn = "/".join([self._katreport_dir, r"band_shape_sweep.npz"])
+            with open(fn, 'w') as f:
+                np.savez(f, 
+                        channels = band_shape_chans,
+                        freqs    = band_shape_ch_freq,
+                        response = band_shape_resp
+                )
+            plt_filename = "{}/{}_band_shape_sweep.png".format(self.logs_path, self._testMethodName)
+            plt_title = "Peak responses for CW swept across band"
+            caption = ("A CW was swept across the enire band and the maximum value found in "
+                       "the response plotted at each sample/"
+            )
 
-        channel_range = range(start_ch, len(max_channels) + start_ch)
-        msg = ("Check that the correct channels have the peak response to each frequency")
+            aqf_plot_channels(
+                band_shape_sweep_vals, plt_filename, plt_title, log_dynamic_range=90, caption=caption, 
+                ylabel="dBFS from VACC max",
+            )
 
-        if max_channels == channel_range:
+        if max_channels_errors == []:
+            msg = ("The correct channels have peak responses for each frequency.")
             self.Passed(msg)
         else:
-            Aqf.array_almost_equal(max_channels[1:], channel_range[1:], msg)
+            msg = ("The following channels do not have peak responses where expected: "
+                   "{}".format(max_channels_errors))
+            self.Failed(msg)
 
-        msg = "Confirm that no other channels response more than -%s dB.\n" % cutoff
+        #msg = "Confirm that no other channels response more than -%s dB.\n" % cutoff
         
         if extra_peaks == []:
-            self.Passed(msg)
+            self.Note("No channels found with power greater that {} db from peak values."
+                      "".format(cutoff))
         else:
             print_count = 5
             for channel, peaks, response in extra_peaks:
                 if print_count > 1:
                     self.Note("Found {} channels with power more than -{} dB "
                               "from peak in channel {}.".format(len(peaks), cutoff, channel))
+                    self.Note("Maximum out of channel power found = -{} dBFS from VACC max "
+                              "".format(np.max(peaks)))
                     print_count -= 1
                     plt_filename = ("{}/{}_channel_{}_err_resp.png"
                                     ''.format(self.logs_path, self._testMethodName, channel)
@@ -2292,7 +2395,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             channel, test_freq_mega, cw_scale, awgn_scale, gain, fft_shift
                         )
                     )
-                    new_cutoff = np.max(loggerise(channel_resp)) - cutoff
+                    new_cutoff = np.max(loggerise(response)) - cutoff
                     aqf_plot_channels(
                         response[channel-4:channel+5], plt_filename, plt_title, log_dynamic_range=90, 
                         caption=caption, 
@@ -2304,8 +2407,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     print_count -= 1
                 else:
                     pass
-            self.logger.debug("Expected: %s\n\nGot: %s" % (extra_peaks, [[]] * len(max_channels)))
-            self.Failed(msg)
+            #self.logger.debug("Expected: %s\n\nGot: %s" % (extra_peaks, [[]] * len(max_channels)))
+            #self.Failed(msg)
         if power_logger:
             power_logger.stop()
             start_timestamp = power_logger.start_timestamp
@@ -2316,6 +2419,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self._process_power_log(start_timestamp, power_log_file)
             except Exception:
                 self.Error("Failed to read/decode the PDU log.", exc_info=True)
+        import IPython;IPython.embed()
 
     def _test_spead_verify(self):
         """This test verifies if a cw tone is only applied to a single input 0,
