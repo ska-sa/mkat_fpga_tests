@@ -2386,7 +2386,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     new_cutoff = ch_max_val - cutoff
                     self.Note("Found {} channels with power more than -{} dB "
                               "from peak in channel {}.".format(len(peaks), cutoff, channel))
-                    self.Note("Maximum spurious channel: {} at {} db from CW max."
+                    self.Note("Maximum spurious channel: {} at {:.1f} db from CW max."
                               "".format(max_spurious_ch, max_spurious_val))
                     print_count -= 1
                     plt_filename = ("{}/{}_channel_{}_err_resp.png"
