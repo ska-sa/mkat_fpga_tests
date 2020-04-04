@@ -871,7 +871,7 @@ def run_nose_test(settings):
         # cmd.append("--cover-package=mkat_fpga_tests")
         # cmd.append("--cover-xml")
         # cmd.append("--cover-xml-file={}/coverage.xml".format(katreport_dir))
-        #cmd.append("--with-html")
+        cmd.append("--with-html")
     cmd.append("--with-katreport")
 
     if settings.get("use_core_json") and settings.get("json_file"):

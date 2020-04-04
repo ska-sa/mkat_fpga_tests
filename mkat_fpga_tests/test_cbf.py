@@ -2226,9 +2226,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             nctst = len(test_ch_and_freqs)
             ctst  = np.asarray(test_ch_and_freqs)[:,0]
         try:
-            middle = ctst[nctst//2]
-            start =  ctst[nctst//4]
-            end =    ctst[nctst - nctst//4]
+            middle = int(ctst[nctst//2])
+            start =  int(ctst[nctst//4])
+            end =    int(ctst[nctst - nctst//4])
             chans_to_plot = (start,middle,end)
         except IndexError:
             chans_to_plot = ()
@@ -2336,7 +2336,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             aqf_plot_channels(
                 channel_resp, plt_filename, plt_title, log_dynamic_range=90, caption=caption, 
                 hlines=new_cutoff,
-                ylabel="dBFS from VACC max",
+                ylabel="dBFS relative to VACC max",
                 start_channel=self.start_channel
             )
         if band_shape_sweep:
@@ -2353,9 +2353,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                        "the response plotted at each sample/"
             )
 
-            aqf_plot_channels(
-                band_shape_sweep_vals, plt_filename, plt_title, log_dynamic_range=None, caption=caption, 
-                ylabel="dBFS from VACC max",
+            aqf_plot_band_sweep(
+                band_shape_ch_freq, band_shape_sweep_vals, plt_filename, plt_title, caption=caption, 
             )
 
         if max_channels_errors == []:

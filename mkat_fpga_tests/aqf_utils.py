@@ -415,8 +415,60 @@ def aqf_plot_histogram(
         plt.clf()
 
 
+def aqf_plot_band_sweep(
+    freqs, data, plot_filename, plt_title, caption="",
+    df=None, expected_fc=None, 
+    cutoff=None, show=False, dbFS=True
+):
+    try:
+        fig = plt.plot(freqs, data)[0]
+    except tkinter.TclError:
+        LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
+        return False
+    if df and expected_fc:
+        axes = fig.get_axes()
+        ybound = axes.get_ybound()
+        yb_diff = abs(ybound[1] - ybound[0])
+        # new_ybound = [ybound[0] - yb_diff * 1.1, ybound[1] + yb_diff * 1.1]
+        new_ybound = [ybound[0] * 1.1, ybound[1] * 1.1]
+        new_ybound = [y if y != 0 else yb_diff * 0.05 for y in new_ybound]
+        plt.vlines(expected_fc, *new_ybound, colors="r", label="Channel Fc")
+        plt.vlines(expected_fc - df / 2, *new_ybound, label="Channel min/max")
+        plt.vlines(expected_fc - 0.8 * df / 2, *new_ybound, label="Channel at +-40%", linestyles="--")
+        plt.vlines(expected_fc + df / 2, *new_ybound, label="_Channel max")
+        plt.vlines(expected_fc + 0.8 * df / 2, *new_ybound, label="_Channel at +40%", linestyles="--")
+        plt.title(plt_title)
+        axes.set_ybound(*new_ybound)
+    try:
+        plt.grid(True)
+    except tkinter.TclError:
+        LOGGER.exception("No display on $DISPLAY environment variable, check matplotlib backend")
+        return False
+    else:
+        if dbFS:
+            plt.ylabel("dBFS relative to VACC max")
+        else:
+            plt.ylabel("Channel response [dB]")
+        # TODO Normalise plot to frequency bins
+        plt.xlabel("Frequency (Hz)")
+        if cutoff:
+            msg = "Channel isolation: {:.3f}dB".format(cutoff)
+            plt.axhline(cutoff, color="red", ls="dotted", linewidth=1.5, label=msg)
+
+        # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
+        plt.legend(
+            fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
+        )
+
+        Aqf.matplotlib_fig(plot_filename, caption=caption)
+        if show:
+            plt.show(block=False)
+        plt.cla()
+        plt.clf()
+
 def aqf_plot_and_save(
-    freqs, data, df, expected_fc, plot_filename, plt_title, caption="", cutoff=None, show=False
+    freqs, data, df, expected_fc, plot_filename, plt_title, caption="", 
+    cutoff=None, show=False, dbFS=True
 ):
     try:
         fig = plt.plot(freqs, data)[0]
@@ -442,7 +494,10 @@ def aqf_plot_and_save(
         LOGGER.exception("No display on $DISPLAY environment variable, check matplotlib backend")
         return False
     else:
-        plt.ylabel("dB relative to VACC max")
+        if dbFS:
+            plt.ylabel("dBFS relative to VACC max")
+        else:
+            plt.ylabel("Channel response [dB]")
         # TODO Normalise plot to frequency bins
         plt.xlabel("Frequency (Hz)")
         if cutoff:
