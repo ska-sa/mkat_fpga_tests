@@ -871,7 +871,7 @@ def run_nose_test(settings):
         # cmd.append("--cover-package=mkat_fpga_tests")
         # cmd.append("--cover-xml")
         # cmd.append("--cover-xml-file={}/coverage.xml".format(katreport_dir))
-        cmd.append("--with-html")
+        #cmd.append("--with-html")
     cmd.append("--with-katreport")
 
     if settings.get("use_core_json") and settings.get("json_file"):
@@ -1442,7 +1442,7 @@ if __name__ == "__main__":
     settings["tests_class"] = test_class
     try:
         settings["system_type"] = "".join(get_running_instrument())
-        assert "856M" in settings["system_type"]
+        #assert "856M" in settings["system_type"]
         settings["system_config"] = [": ".join(i.arguments) for i in get_version_list()]
         assert settings["system_config"]
     except TypeError:

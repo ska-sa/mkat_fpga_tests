@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # https://stackoverflow.com/a/44077346
 ###############################################################################
 # SKA South Africa (http://ska.ac.za/)                                        #
@@ -700,7 +699,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -741,7 +739,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
@@ -1812,7 +1810,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "is less/equal to 2x the pass bandwidth {:.3f} kHz".format(att_bw/1000, pass_bw/1000)
                 )
                 Aqf.is_true(att_bw <= pass_bw*2, msg)
-                import IPython;IPython.embed()
 
             # Get responses for central 80% of channel
             df = self.cam_sensors.delta_f
@@ -2158,7 +2155,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     test_ch_and_freqs = zip(np.arange(n_chans), channel_freqs)
                 # For wideband include all channels in channel frequency SFDR test
-                bss_inc_c_and_f = (test_ch_and_freqs[:])
+                bss_inc_c_and_f = np.asarray(test_ch_and_freqs[:])
         if test_ch_and_freqs[0][1] == 0:
             # skip DC channel since dsim puts out zeros for freq=0
             test_ch_and_freqs = test_ch_and_freqs[1:]
@@ -2585,7 +2582,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Confirm that all baselines are present in correlator output."
         Aqf.is_true(all(baseline_is_present.values()), msg)
         for i in range(self.data_retries):  
-            test_data = self.get_real_clean_dump()
+            test_data = self.get_real_clean_dump(discard=5)
             if test_data is not False:
                 z_baselines = zero_baselines(test_data["xeng_raw"])
                 if not(z_baselines): break
