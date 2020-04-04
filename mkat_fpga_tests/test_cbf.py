@@ -5676,7 +5676,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             beam_dict, ingest_kcp_client)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
-                        beam_dict = None
+                        # So this clears the weights and for testing individual beam
+                        # weigths it fails TODO: fix!
+                        #beam_dict = None
                         if (len(in_wgts) == 0) and (isinstance(act_wgts, dict)):
                             in_wgts = act_wgts.copy()
                     except Exception:
@@ -5852,7 +5854,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             #TODO different levels for beamforming and delay tests
-            awgn_scale = awgn_scale*2
+            if ("107M32k" in self.instrument) or ("54M32k" in self.instrument):
+                gain = complex(gain)/2
+            else:
+                awgn_scale = awgn_scale*2
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -6080,7 +6085,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 caption="Captured beamformer data with level adjust after beam-forming gain set.",
                 hlines=exp1,
                 plot_type="bf",
-                hline_strt_idx=1,
+                hline_strt_idx=0,
             )
 
             self.Step("Checking beamformer substream alignment by injecting a CW in each substream.")
