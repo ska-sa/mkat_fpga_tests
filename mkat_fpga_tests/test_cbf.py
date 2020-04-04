@@ -219,7 +219,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if start_receiver:
             try:
                 n_ants = int(self.cam_sensors.get_value("n_ants"))
-                n_chans = int(self.cam_sensors.get_value("n_chans"))
+                n_chans = int(self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"))
                 # This logic can be improved
                 if acc_time:
                     pass
@@ -316,11 +316,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.errmsg = "Getting empty dumps!!!!"
                     self.assertIsInstance(_test_dump, dict, self.errmsg)
                     self.n_chans_selected = int(_test_dump.get("n_chans_selected",
-                        self.cam_sensors.get_value("n_chans"))
+                        self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"))
                     )
                     self.start_channel = int(_test_dump.get("start_channel",0))
                     self.stop_channel  = int(_test_dump.get("stop_channel",
-                        self.cam_sensors.get_value("n_chans"))
+                        self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"))
                     )
                     self.Note(
                             "Actual number of channels captured (channels are captured in partitions): %s." % self.n_chans_selected
@@ -357,13 +357,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
             )
             if instrument_success:
-                n_chans = self.n_chans_selected
-                if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
+                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and 
+                    (self.start_channel == 0)):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
                 else:
-                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
+                    test_chan = random.choice(range(self.start_channel, 
+                        self.start_channel+self.n_chans_selected))
                 heading("CBF Channelisation")
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
@@ -415,7 +417,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
-            if instrument_success and self.cam_sensors.get_value("n_chans") >= 32768:
+            if instrument_success and self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") >= 32768:
                 n_chans = self.n_chans_selected
                 test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
                 heading("CBF Channelisation Wideband Fine L-band")
@@ -466,7 +468,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument()
-            if instrument_success and self.cam_sensors.get_value("n_chans") >= 32768:
+            if instrument_success and self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") >= 32768:
                 heading("CBF Channelisation Wideband Fine SFDR L-band")
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
                     self.n_chans_selected))
@@ -512,31 +514,31 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
             instrument_success = self.set_instrument(
-                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"]))
+                    float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
-                n_chans = self.n_chans_selected
-                awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-                if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
+                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                test_chan = random.choice(range(self.start_channel, 
+                        self.start_channel+self.n_chans_selected))
+                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) 
+                        and (self.start_channel == 0)):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                    gain = complex(gain)*1
-                elif '4k' in self.instrument:
-                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
-                    gain = complex(gain)*1.2
-                elif '1k' in self.instrument:
-                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
-                    gain = complex(gain)*1
-                else:
-                    test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
-                    gain = complex(gain)*1.2
-                cw_start_scale = 1 - awgn_scale
-                if cw_start_scale > 1.0:
-                    cw_start_scale = 1.0
-                self._test_linearity(
-                    test_channel=test_chan, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
-                    gain=gain, fft_shift=fft_shift, max_steps=20
-                )
+                #    gain = complex(gain)*1
+                #elif '4k' in self.instrument:
+                #    gain = complex(gain)*1.2
+                #elif '1k' in self.instrument:
+                #    gain = complex(gain)*1
+                #else:
+                #    gain = complex(gain)*1.2
+                #cw_start_scale = 1 - awgn_scale
+                #if cw_start_scale > 1.0:
+                #    cw_start_scale = 1.0
+                #self._test_linearity(
+                #    test_channel=test_chan, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
+                #    gain=gain, fft_shift=fft_shift, max_steps=20
+                #)
+                self._test_linearity(test_channel=test_chan, max_steps=20)
             else:
                 self.Failed(self.errmsg)
 
@@ -551,21 +553,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            #TODO: Change test to check only channels, not to start receiver with different size
-            inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
-            if ("107M32k" in inst) or ("54M32k" in inst):
-                check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
-                check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]),
-                        start_channel=check_strt_ch,
-                        stop_channel=check_stop_ch)
-            else:
-                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
+            instrument_success = self.set_instrument(
+                    float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
+                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                        and (self.start_channel == 0)):
+                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                else:
+                    test_chan = random.choice(range(self.start_channel, 
+                            self.start_channel+self.n_chans_selected))
                 num_discard = 5
                 self._test_product_baselines()
                 self._test_back2back_consistency()
-                self._test_freq_scan_consistency(num_discard = num_discard)
+                self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -628,16 +631,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except AssertionError:
             instrument_success = self.set_instrument()
             if instrument_success:
-                center_ch = int(self.cam_sensors.get_value("n_chans")/2)
-                n_chans = self.n_chans_selected
-                if (("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0):
+                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                center_ch = int(n_chans/2)
+                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                        and (self.start_channel == 0)):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    # Quantiser snapshot only works below half the band
+                    # TODO Quantiser snapshot only works below half the band
                     #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
                     test_chan = random.choice(range(n_chans)[check_strt_ch:center_ch])
                 else:
-                    #test_chan = random.choice(range(self.start_channel, self.start_channel+n_chans))
+                    #test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
                     test_chan = random.choice(range(self.start_channel, center_ch))
                 n_ants = int(self.cam_sensors.get_value("n_ants"))
                 self._test_vacc(
@@ -782,7 +786,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(start_receiver=False)
             if instrument_success:
                 self._test_network_link_error()
                 #self._test_memory_error()
@@ -1385,7 +1389,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                       Test Methods                            #
     #################################################################
 
-    def _test_channelisation(self, test_chan=1500, req_chan_spacing=None, num_discards=5, samples_per_chan=60, narrow_band = None):
+    def _test_channelisation(self, test_chan=1500, req_chan_spacing=None, 
+            num_discards=5, samples_per_chan=60, narrow_band = None):
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         if narrow_band == 'full':
@@ -1410,7 +1415,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         print_counts = 3
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-        requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=samples_per_chan, chans_around=2)
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        requested_test_freqs = self.cam_sensors.calc_freq_samples(self.dhost, 
+                test_chan, samples_per_chan=samples_per_chan, chans_around=2)
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         # Why is this necessary
         # http://library.nrao.edu/public/memos/ovlbi/OVLBI_038.pdf
@@ -1452,7 +1459,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Maybe we should be reporting this as a fraction of total sampling rate rather than
         # an absolute value? ie 1/4096=2.44140625e-4 I will speak to TA about how to handle this.
         # chan_spacing = 856e6 / np.shape(initial_dump['xeng_raw'])[0]
-        chan_spacing = round(nominal_bw / self.cam_sensors.get_value("n_chans"),2)
+        chan_spacing = round(nominal_bw / self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"),2)
         chan_spacing_tol = [chan_spacing - (chan_spacing * 1 / 100), chan_spacing + (chan_spacing * 1 / 100)]
         self.Step("CBF-REQ-0043, 0053, 0226, 0227 and 0236 Confirm channel spacing.")
         msg = ("Verify that the calculated channel frequency step ({:.3f} kHz) is equal or less than {} kHz"
@@ -1499,7 +1506,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "and FFT shift: %s" % (test_chan, test_baseline, cw_scale, awgn_scale, gain, fft_shift)
         )
         aqf_plot_channels(initial_freq_response, plt_filename, plt_title, caption=caption, ylimits=(-100, 1), 
-                          start_channel=self.start_channel)
+                          start_channel=self.start_channel, 
+                          ylabel = "dbFS relative to VACC max")
         self.Step(
             "Sweep the digitiser simulator over the centre frequencies of at "
             "least all the channels that fall within the complete L-band"
@@ -1718,6 +1726,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 plt_title=plt_title,
                 caption=plt_caption,
                 cutoff=-cutoff,
+                dbFS=False
             )
             try:
                 no_of_responses = 3
@@ -1825,10 +1834,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 central_chan_responses[:, test_chan_rel], dynamic_range=90, normalise=True, no_clip=True
             )
 
-            n_chans = self.n_chans_selected
             caption = (
-                "Channel {} central response vs source frequency on max channels {} and "
-                "selected baseline {} / {} to test.".format(test_chan, n_chans, test_baseline, bls_to_test)
+                "Channel {} central response vs source frequency for "
+                "selected baseline {} / {} to test."
+                "".format(test_chan, test_baseline, bls_to_test)
             )
             plt_title = "Channel {} @ {:.3f} MHz response @ 80%".format(test_chan, expected_fc / 1e6)
 
@@ -1840,6 +1849,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 graph_name_central,
                 plt_title,
                 caption=caption,
+                dbFS=False
             )
 
             self.Step(
@@ -2074,7 +2084,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         band_shape_ch_freq = []
         band_shape_resp = []
         # Checking for all channels.
-        n_chans = self.cam_sensors.get_value("n_chans")
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
         full_bw = self.cam_sensors.get_value("bandwidth", exact=True)
         volt_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
 
@@ -2114,7 +2124,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             band_shape_sweep = True
             # narrow band
             if full_bw != volt_bw:
-                ch_bw = self.cam_sensors.ch_center_freqs[1]- self.cam_sensors.ch_center_freqs[0]
+                ch_bw = self.cam_sensors.ch_center_freqs[1]-self.cam_sensors.ch_center_freqs[0]
                 center_f = self.cam_sensors.get_value("antenna_channelised_voltage_center_freq")
                 n_ch_nb_fullbw = int(full_bw/ch_bw)
                 f_start = center_f - (full_bw/2.) # Center freq of the first channel
@@ -2774,7 +2784,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         """
         heading("Spead Accumulation Back-to-Back Consistency")
         self.Step("Randomly select a channel to test.")
-        n_chans = self.cam_sensors.get_value("n_chans")
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
         test_channels = random.sample(range(n_chans)[: self.n_chans_selected], 20)
         test_baseline = 0  # auto-corr
         self.Progress("Randomly selected test channels: %s" % (test_channels))
@@ -2796,7 +2806,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "Get a reference SPEAD accumulation and confirm that the following accumulation is identical."
         )
         ch_list = self.cam_sensors.ch_center_freqs
-        ch_bw = ch_list[1]
+        ch_bw = ch_list[1]-ch_list[0]
         center_offset = ch_bw*0.1
         for chan in test_channels:
             freq = ch_list[chan] + center_offset
@@ -2851,27 +2861,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     caption=caption,
                 )
 
-    def _test_freq_scan_consistency(self, threshold=1e-1, num_discard = 4):
+    def _test_freq_scan_consistency(self, test_chan, num_discard=4, threshold=1e-1):
         """This test confirms if the identical frequency scans produce equal results."""
         heading("Spead Accumulation Frequency Consistency")
-        self.Step("Randomly select a channel to test.")
-        n_chans = self.cam_sensors.get_value("n_chans")
-        test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         self.Step(
-            "Randomly selected Frequency channel {} @ {:.3f}MHz for testing, and calculate a "
-            "list of frequencies to test".format(test_chan, expected_fc / 1e6)
+            "Randomly selected Frequency channel {} @ {:.3f}MHz for testing."
+            "".format(test_chan, expected_fc / 1e6)
         )
-        requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=3, chans_around=1)
+        requested_test_freqs = self.cam_sensors.calc_freq_samples(self.dhost, 
+                test_chan, samples_per_chan=3, chans_around=1)
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
         chan_responses = []
         scans = []
         initial_max_freq_list = []
-        source_period_in_samples = self.n_chans_selected * 2
+        source_period_in_samples = n_chans * 2
 
         try:
-            test_dump = self.receiver.get_clean_dump(discard = num_discard)
+            test_dump = self.get_real_clean_dump(discard = num_discard)
             assert isinstance(test_dump, dict)
         except Exception:
             errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
@@ -2887,10 +2896,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
             self.Step("Digitiser simulator configured to generate continuous wave")
-            self.Step(
-                "Sweeping the digitiser simulator over the centre frequencies of at "
-                "least all channels that fall within the complete L-band: {} Hz".format(expected_fc)
-            )
+            #TODO: this test does not sweep across the full l-band, should it?
+            #self.Step(
+            #    "Sweeping the digitiser simulator over the centre frequencies of at "
+            #    "least all channels that fall within the complete L-band: {} Hz".format(expected_fc)
+            #)
             for scan_i in range(3):
                 scan_dumps = []
                 frequencies = []
@@ -2898,7 +2908,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 for i, freq in enumerate(requested_test_freqs):
                     if scan_i == 0:
                         Aqf.hop(
-                            "Getting channel response for freq {} @ {}: {} MHz.".format(
+                            "Getting reference channel response for freq {} @ {}: {} MHz.".format(
                                 i + 1, len(requested_test_freqs), freq / 1e6
                             )
                         )
@@ -2909,7 +2919,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
                             #TODO Check if 4 discards are enough.
-                            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
+                            this_freq_dump = self.get_real_clean_dump(discard = num_discard)
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -2919,13 +2929,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             this_freq_data = this_freq_dump["xeng_raw"]
                             initial_max_freq_list.append(initial_max_freq)
                     else:
+                        Aqf.hop(
+                            "Getting comparison {} channel response for freq {} @ {}: {} MHz.".format(
+                                scan_i, i + 1, len(requested_test_freqs), freq / 1e6
+                            )
+                        )
                         self.dhost.sine_sources.sin_0.set(
                             frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples
                         )
                         freq_val = self.dhost.sine_sources.sin_0.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
-                            this_freq_dump = self.receiver.get_clean_dump(discard = num_discard)
+                            this_freq_dump = self.get_real_clean_dump(discard = num_discard)
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -2949,11 +2964,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     # (not n_chan) in the report.
                     max_freq_scan = np.max(np.abs(s1 - s0)) / norm_fac
 
-                    msg = (
-                        "Confirm that identical frequency ({:.3f} MHz) scans between subsequent "
-                        "SPEAD accumulations produce equal results.".format(freq_x / 1e6)
-                    )
-
+                    msg = ("Frequency scans identical between SPEAD "
+                           "accumulations at {:.3f} MHz".format(freq_x / 1e6))
                     if not Aqf.less(np.abs(max_freq_scan), np.abs(np.log10(threshold)), msg):
                         legends = ["Freq scan #{}".format(x) for x in range(len(chan_responses))]
                         caption = (
@@ -2978,9 +2990,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step(self._testMethodDoc)
         threshold = 1.0e1  #
         test_baseline = 0
-        n_chans = self.cam_sensors.get_value("n_chans")
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
         test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-        requested_test_freqs = self.cam_sensors.calc_freq_samples(test_chan, samples_per_chan=3, chans_around=1)
+        requested_test_freqs = self.cam_sensors.calc_freq_samples(
+                self.dhost, test_chan, samples_per_chan=3, chans_around=1)
         expected_fc = self.cam_sensors.ch_center_freqs[test_chan]
         self.Step(
             "Sweeping the digitiser simulator over {:.3f}MHz of the channels that "
@@ -3684,53 +3697,52 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     host.host.upper()))
                 return
 
-        def get_xeng_status(self, status='warn', timeout = 180):
+        def get_xeng_status(self, status='warn', sensor='network-reorder', timeout = 360):
 
-            #curr_time = time.time()
-            #timeout_t = curr_time + timeout
-            #while (time.time() < timeout_t):
-            #    try:
-            #        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-            #        self.assertTrue(reply.reply_ok())
-            #    except Exception:
-            #        msg = "Failed to retrieve sensor values via CAM interface"
-            #        self.Error(msg, exc_info=True)
-            #        return False
-            #    else:
-            #        x_device_status = list(set([i.arguments[-2] for i in informs 
-            #            if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
-
-            #        if len(x_device_status) == 1:
-            #            if x_device_status[0] == status:
-            #                msg = ("Confirm that all X-Engines report device-status {}."
-            #                       "".format(status))
-            #                Aqf.equals(x_device_status[0], status, msg)
-            #                return True
-            #            else:
-            #                import IPython;IPython.embed()
-            #                #time.sleep(10)
-            #        else:
-            #            time.sleep(10)
-            #Aqf.failed('All X-Engines are not reporting device-status {}'.format(status))
-            #return False
-            
-            try:
-                reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-                self.assertTrue(reply.reply_ok())
-            except Exception:
-                msg = "Failed to retrieve sensor values via CAM interface"
-                self.Error(msg, exc_info=True)
-                return False
-            else:
-                x_device_status = list(set([i.arguments[-2] for i in informs 
-                    if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
-
-                if len(x_device_status) == 1:
-                    msg = ("Confirm that all X-Engines report device-status {}."
-                           "".format(status))
-                    Aqf.equals(x_device_status[0], status, msg)
+            curr_time = time.time()
+            timeout_t = curr_time + timeout
+            while (time.time() < timeout_t):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    self.assertTrue(reply.reply_ok())
+                except Exception:
+                    msg = "Failed to retrieve sensor values via CAM interface"
+                    self.Error(msg, exc_info=True)
+                    return False
                 else:
-                    Aqf.failed('All X-Engines are not reporting device-status {}'.format(status))
+                    x_device_status = list(set([i.arguments[-2] for i in informs 
+                        if re.match(r'xhost[0-9]{2}.'+'{}'.format(sensor),
+                                i.arguments[2])]))
+                    if len(x_device_status) == 1:
+                        if x_device_status[0] == status:
+                            msg = ("All X-Engines report {} {}."
+                                   "".format(sensor, status))
+                            Aqf.equals(x_device_status[0], status, msg)
+                            return True
+                        else:
+                            time.sleep(10)
+                    else:
+                        time.sleep(10)
+            Aqf.failed('All X-Engines are not reporting network-reorder {}'.format(status))
+            return False
+            
+            #try:
+            #    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+            #    self.assertTrue(reply.reply_ok())
+            #except Exception:
+            #    msg = "Failed to retrieve sensor values via CAM interface"
+            #    self.Error(msg, exc_info=True)
+            #    return False
+            #else:
+            #    x_device_status = list(set([i.arguments[-2] for i in informs 
+            #        if re.match(r'xhost[0-9]{2}.device-status',i.arguments[2])]))
+
+            #    if len(x_device_status) == 1:
+            #        msg = ("Confirm that all X-Engines report device-status {}."
+            #               "".format(status))
+            #        Aqf.equals(x_device_status[0], status, msg)
+            #    else:
+            #        Aqf.failed('All X-Engines are not reporting device-status {}'.format(status))
 
         # configure the same port multicast destination to an unused address,
         # effectively dropping that data.
@@ -3745,7 +3757,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed("Failed to write new multicast destination on %s" % host.host)
             else:
                 self.Passed(
-                    "Confirm that the multicast destination address for %s has been changed "
+                    "Multicast dest addr for %s changed "
                     "from %s to %s." % (host.host, ip_old, changed_ip)
                 )
 
@@ -3784,8 +3796,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return False
         ip_new = "239.101.2.250"
         self.Step(
-            "Randomly selected %s host that is being used to produce the test "
-            "data product on which to trigger the link error." % (fhost_fpga.host)
+            "Randomly selected f-host %s to trigger a link error." % (fhost_fpga.host)
         )
         current_ip = get_host_ip(fhost_fpga)
         if not current_ip:
@@ -3797,29 +3808,37 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Failed("Multicast destination address of %s not as expected." % (fhost_fpga.host))
 
         # report_lru_status(self, xhost, get_lru_status)
-        get_spead_data(self)
+        # This will check if any of the sensors are nominal
+        # and then continue with the test using that sensor
+        sensors = ('network-reorder.device-status', 'missing-pkts.device-status')
+        for i, sensor in enumerate(sensors):
+            self.Step('Check xengine {} sensors report NOMINAL.'.format(sensor))
+            result = get_xeng_status(self, status='nominal', sensor=sensor)
+            if not result:
+                if i == len(sensors)-1:
+                    aqf.Failed('Sensors are not nominal before test.')
+                    return
+            else:
+                break
+        # TODO Why get spead data?
+        #get_spead_data(self)
         write_new_ip(fhost_fpga, ip_new, current_ip)
-        self.Step('Waiting until device status sensors report WARN.')
-        time.sleep(30)
-        get_xeng_status(self, status='warn')
-        #start_time = time.time()
-        #result = get_xeng_status(self, status='warn')
-        #if result:
-        #    self.Note('Sensors took {} seconds to change to WARN.'
-        #              ''.format(int(time.time() - start_time)))
-        get_spead_data(self)
-        self.Step('Restoring the multicast destination from %s to the original %s' % (
-                   ip_new, current_ip))
+        self.Step('Waiting until {} sensors report WARN.'.format(sensor))
+        start_time = time.time()
+        result = get_xeng_status(self, status='warn', sensor=sensor)
+        if result:
+            self.Note('Sensors took {} seconds to change to WARN.'
+                    ''.format(int(time.time() - start_time)))
+        #get_spead_data(self)
+        self.logger.info('Restoring the multicast destination from %s to the original %s' % (
+                ip_new, current_ip))
         write_new_ip(fhost_fpga, current_ip, ip_new)
-        self.Step('Waiting until device status sensors report NOMINAL.')
-        time.sleep(30)
-        get_xeng_status(self, status='nominal')
-        #start_time = time.time()
-        #result = get_xeng_status(self, status='nominal')
-        #if result:
-        #    self.Note('Sensors took {} seconds to change to WARN.'
-        #              ''.format(int(time.time() - start_time)))
-        # report_lru_status(self, xhost, get_lru_status)
+        self.Step('Waiting until {} sensors report NOMINAL.'.format(sensor))
+        start_time = time.time()
+        result = get_xeng_status(self, status='nominal', sensor=sensor)
+        if result:
+            self.Note('Sensors took {} seconds to change back to NOMINAL.'
+                      ''.format(int(time.time() - start_time)))
 
         # report_lru_status(self, xhost, get_lru_status)
         # get_spead_data(self)
@@ -3864,7 +3883,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         acc_times = [acc_time / 2, acc_time]
         # acc_times = [acc_time/2, acc_time, acc_time*2]
         n_chans_selected = self.n_chans_selected
-        n_chans = self.cam_sensors.get_value("n_chans")
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
         center_ch = int(n_chans/2)
         try:
             #TODO: Why is this not a sensor anymore?
@@ -5031,7 +5050,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return
             else:
                 exp_channels = test_dump["xeng_raw"].shape[0]
-                no_channels = self.cam_sensors.get_value("n_chans")
+                no_channels = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                 # Get baseline 0 data, i.e. auto-corr of m000h
                 test_baseline = 0
                 test_bls = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
@@ -5086,10 +5105,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 # Get instrument parameters
                 bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
-                nr_ch = self.cam_sensors.get_value("n_chans")
+                nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                 ants = self.cam_sensors.get_value("n_ants")
                 ch_list = self.cam_sensors.ch_center_freqs
-                ch_bw = ch_list[1]
+                ch_bw = ch_list[1]-ch_list[0]
                 dsim_factor = float(self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
                     "scale_factor_timestamp"
                 )
@@ -5273,7 +5292,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         source = random.randrange(len(self.cam_sensors.input_labels))
         test_input = random.choice(self.cam_sensors.input_labels)
         self.Step("Randomly selected input to test: %s" % (test_input))
-        n_chans = self.cam_sensors.get_value("n_chans")
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
         # TODO: set channel randomly in selected range
         #rand_ch = random.choice(range(n_chans)[: self.n_chans_selected])
         rand_ch = int(self.n_chans_selected/2 + self.start_channel)
@@ -5458,10 +5477,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Get instrument parameters
             bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
-            nr_ch = self.cam_sensors.get_value("n_chans")
+            nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
-            ch_bw = ch_list[1]
+            ch_bw = ch_list[1] - ch_list[0]
             dsim_factor = float(
                 self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
                 "scale_factor_timestamp"
@@ -6173,10 +6192,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Get instrument parameters
             bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
-            nr_ch = self.cam_sensors.get_value("n_chans")
+            nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
-            ch_bw = ch_list[1]
+            ch_bw = ch_list[1]-ch_list[0]
             dsim_factor = float(self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
                 "scale_factor_timestamp"
             )
@@ -6433,10 +6452,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Get instrument parameters
             bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
-            nr_ch = self.cam_sensors.get_value("n_chans")
+            nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
-            ch_bw = ch_list[1]
+            ch_bw = ch_list[1]-ch_list[0]
             scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
             reg_size = 32
             reg_size_max = pow(2, reg_size)
@@ -7031,9 +7050,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # fft_sliding_window = dump['n_chans'].value * 2 * 8
         # Get number of ticks per dump and ensure it is divisible by 8 (FPGA
         # clock runs 8 times slower)
-        dump_ticks = self.cam_sensors.get_values("int_time") * self.cam_sensors.get_values("adc_sample_rate")
+        dump_ticks = self.cam_sensors.get_values("int_time") * self.cam_sensors.get_value("adc_sample_rate")
         # print dump_ticks
-        dump_ticks = self.cam_sensors.get_values("n_accs") * self.cam_sensors.get_values("n_chans") * 2
+        dump_ticks = self.cam_sensors.get_values("n_accs") * self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") * 2
         # print dump_ticks
         # print ['adc_sample_rate'].value
         # print dump['timestamp']
@@ -7481,7 +7500,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # bw = self.cam_sensors.get_value('bandwidth')
             # nr_ch = self.n_chans_selected
-            ch_bw = self.cam_sensors.ch_center_freqs[1]
+            ch_bw = self.cam_sensors.delta_f
             ch_list = self.cam_sensors.ch_center_freqs
             freq_ch = int(round(cw_freq / ch_bw))
             scale = 1.0
@@ -8105,7 +8124,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         requested_test_freqs = np.asarray(requested_test_freqs)
         chan_responses = 10 * np.log10(np.abs(np.asarray(chan_responses)))
         try:
-            n_chans = int(self.cam_sensors.get_value("n_chans"))
+            n_chans = int(self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"))
             binwidth = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / (n_chans - 1)
             efficiency_calc(requested_test_freqs, chan_responses, binwidth)
         except Exception:
@@ -8407,7 +8426,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             plt_title = "Channel responses for all auto correlation baselines."
             aqf_plot_channels(auto_mag, plot_filename=plt_filename, plot_title=plt_title)
 
-    def _test_linearity(self, test_channel, cw_start_scale, noise_scale, gain, fft_shift, max_steps):
+    def _test_linearity(self, test_channel, max_steps):
         # # Get instrument parameters
         # bw = self.cam_sensors.get_value('bandwidth')
         # nr_ch = self.cam_sensors.get_value('n_chans')
@@ -8417,17 +8436,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
         #                scale_factor_timestamp)
         # substreams = self.cam_sensors.get_value('n_xengs')
-        ch_list = self.cam_sensors.ch_center_freqs
-        center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
-        freq_offset = ch_list[1]*center_bin_offset
 
-        def get_cw_val(output_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp, pon=True):
+        def get_cw_val(pon=True):
             if pon:
                 self.Step("Dsim output scale: {}".format(output_scale))
-            freq =ch_list[test_channel]
+            freq = ch_list[test_channel]
             freq = freq + freq_offset
             dsim_set_success = self.set_input_levels(
-                awgn_scale=noise_scale,
+                awgn_scale=awgn_scale,
                 cw_scale=cw_scale,
                 output_scale=output_scale,
                 freq=freq,
@@ -8439,7 +8455,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return False
 
             try:
-                dump = self.receiver.get_clean_dump(DUMP_TIMEOUT)
+                dump = self.get_real_clean_dump(discard=5)
             except Queue.Empty:
                 errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                 self.Error(errmsg, exc_info=True)
@@ -8457,11 +8473,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 return 10 * np.log10(np.abs(freq_response[test_channel]))
 
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        # Use CW from channelisation tests, but start higher to ensure saturation
+        cw_scale = cw_scale * 2
+        if cw_scale > 1.0: cw_scale = 1.0
+        ch_list = self.cam_sensors.ch_center_freqs
+        center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
+        freq_offset = (ch_list[1]-ch_list[0])*center_bin_offset
         inp = random.choice(self.cam_sensors.input_labels)
         Aqf.hop("Sampling input {}".format(inp))
-        cw_scale = cw_start_scale
-        dsim_scale = 1.0
-        dsim_delta = 0.1
+        output_scale = 1.0
+        output_delta = 0.1
         threshold = 10 * np.log10(pow(2, 30))
         curr_val = threshold
         #Aqf.hop("Finding starting digitiser simulator scale...")
@@ -8476,11 +8498,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #    else:
         #        max_cnt -= 1
         #dsim_start_scale = dsim_scale + dsim_delta
-        dsim_start_scale = dsim_scale
+        output_start_scale = output_scale
         self.Step("Dsim generating CW: cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
-                  cw_scale, noise_scale, gain, fft_shift))
+                  cw_scale, awgn_scale, gain, fft_shift))
         Aqf.hop("Testing channel {}".format(test_channel))
-        dsim_scale = dsim_start_scale
         output_power = []
         x_val_array = []
         x_val_array_db = []
@@ -8495,12 +8516,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         min_cnt_val = 5
         min_cnt = min_cnt_val
         max_cnt = max_steps
-        prev_val = get_cw_val(dsim_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp, False)
+        prev_val = get_cw_val(pon=False)
         while min_cnt and max_cnt:
-            curr_val = get_cw_val(dsim_scale, cw_scale, noise_scale, gain, fft_shift, test_channel, inp)
+            curr_val = get_cw_val()
             if exp_y_lvl_lwr < curr_val < exp_y_lvl_upr:
                 exp_y_val = curr_val
-                exp_x_val = 20 * np.log10(dsim_scale)
+                exp_x_val = 20 * np.log10(output_scale)
             step = curr_val - prev_val
             if curr_val == 0:
                 break
@@ -8508,27 +8529,33 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 min_cnt -= 1
             else:
                 min_cnt = min_cnt_val
-            x_val_array_db.append(20 * np.log10(dsim_scale))
-            x_val_array.append(dsim_scale)
+            x_val_array_db.append(20 * np.log10(output_scale))
+            x_val_array.append(output_scale)
+
             self.Step("Channel power = {:.3f} dB, Delta = {:.3f} dB".format(curr_val, step))
             prev_val = curr_val
             output_power.append(curr_val)
-            if dsim_scale < 0.2:
-                dsim_scale = dsim_scale / 2
+            if output_scale < 0.2:
+                output_scale = output_scale / 2
             else:
-                dsim_scale = dsim_scale - 0.1
+                output_scale = output_scale - output_delta
             max_cnt -= 1
         output_power = np.array(output_power)
-        output_power_max = output_power.max()
+        try:
+            output_power_max = output_power.max()
+        except ValueError:
+            aqf.Failed("Zero power received in expected channel")
+            return
         output_power = output_power - output_power_max
         exp_y_val = exp_y_val - output_power_max
 
-        plt_filename = "{}_cbf_lin_response_{}_{}_{}.png".format(self._testMethodName, gain, noise_scale, cw_scale)
+        plt_filename = "{}_cbf_lin_response_{}_{}_{}.png".format(self._testMethodName, gain, awgn_scale, cw_scale)
         plt_title = "CBF Response (Linearity Test)"
         caption = (
-            "Digitiser Simulator start scale: {}, end scale: {}. Scale "
-            "halved for every step. FFT Shift: {}, Quantiser Gain: {}, "
-            "Noise scale: {}".format(cw_start_scale, cw_scale * 2, fft_shift, gain, noise_scale)
+            "Digitiser Simulator cw scale: {}. Output scale "
+            "dropped by {} down to 0.2 and then halved for every step. "
+            "FFT Shift: {}, Quantiser Gain: {}, "
+            "Noise scale: {}".format(cw_scale, output_delta, fft_shift, gain, awgn_scale)
         )
         m = 1
         c = exp_y_val - m * exp_x_val

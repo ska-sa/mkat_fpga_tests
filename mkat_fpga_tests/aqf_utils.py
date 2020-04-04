@@ -421,7 +421,7 @@ def aqf_plot_band_sweep(
     cutoff=None, show=False, dbFS=True
 ):
     try:
-        fig = plt.plot(freqs, data)[0]
+        fig = plt.plot(np.asarray(freqs)/1e6, data)[0]
     except tkinter.TclError:
         LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
@@ -450,15 +450,16 @@ def aqf_plot_band_sweep(
         else:
             plt.ylabel("Channel response [dB]")
         # TODO Normalise plot to frequency bins
-        plt.xlabel("Frequency (Hz)")
+        plt.xlabel("Frequency (MHz)")
         if cutoff:
             msg = "Channel isolation: {:.3f}dB".format(cutoff)
             plt.axhline(cutoff, color="red", ls="dotted", linewidth=1.5, label=msg)
 
         # plt.figtext(.1, -.125, ' \n'.join(textwrap.wrap(caption)), horizontalalignment='left')
-        plt.legend(
-            fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
-        )
+        if df and expected_fc:
+            plt.legend(
+                fontsize=9, fancybox=True, loc="center left", bbox_to_anchor=(1, 0.8), borderaxespad=0.0
+            )
 
         Aqf.matplotlib_fig(plot_filename, caption=caption)
         if show:
@@ -471,7 +472,7 @@ def aqf_plot_and_save(
     cutoff=None, show=False, dbFS=True
 ):
     try:
-        fig = plt.plot(freqs, data)[0]
+        fig = plt.plot(np.asarray(freqs)/1e6, data)[0]
     except tkinter.TclError:
         LOGGER.exception("No display on $DISPLAY enviroment variable, check matplotlib backend")
         return False
@@ -499,7 +500,7 @@ def aqf_plot_and_save(
         else:
             plt.ylabel("Channel response [dB]")
         # TODO Normalise plot to frequency bins
-        plt.xlabel("Frequency (Hz)")
+        plt.xlabel("Frequency (MHz)")
         if cutoff:
             msg = "Channel isolation: {:.3f}dB".format(cutoff)
             plt.axhline(cutoff, color="red", ls="dotted", linewidth=1.5, label=msg)

@@ -852,6 +852,7 @@ class UtilsClass(object):
         self.dhost.noise_sources.noise_corr.set(scale=0)
         self.dhost.noise_sources.noise_0.set(scale=0)
         self.dhost.noise_sources.noise_1.set(scale=0)
+        self.dhost.sine_sources.sin_corr.set(frequency=0, scale=0)
         self.dhost.sine_sources.sin_0.set(frequency=0, scale=0)
         self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
         self.dhost.outputs.out_0.scale_output(1.0)
@@ -1769,7 +1770,7 @@ class UtilsClass(object):
 
     def _get_expected_data(self, setup_data, dump_counts, delay_coefficients, actual_phases, save_filename=None):
         def calc_actual_delay(setup_data):
-            no_ch = self.cam_sensors.get_value("n_chans")
+            no_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
             first_dump = np.unwrap(actual_phases[0])
             actual_slope = np.polyfit(range(0, no_ch), first_dump, 1)[0] * no_ch
             actual_delay = self.cam_sensors.sample_period * actual_slope / np.pi
@@ -1777,7 +1778,7 @@ class UtilsClass(object):
 
         def gen_delay_vector(delay, setup_data):
             res = []
-            no_ch = self.cam_sensors.get_value("n_chans")
+            no_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
             delay_slope = np.pi * (delay / self.cam_sensors.sample_period)
             c = delay_slope / 2
             for i in range(0, no_ch):
@@ -1807,7 +1808,7 @@ class UtilsClass(object):
             return actual_offset
 
         def gen_fringe_vector(offset, setup_data):
-            return [offset] * self.cam_sensors.get_value("n_chans")
+            return [offset] * self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
 
         def gen_fringe_data(fringe_offset, fringe_rate, dump_counts, setup_data):
             expected_phases = []
@@ -2101,7 +2102,7 @@ class GetSensors(object):
         """
         center_f  = float(self.get_value("antenna_channelised_voltage_center_freq"))
         bandwidth = float(self.get_value("antenna_channelised_voltage_bandwidth"))
-        n_chans   = float(self.get_value("n_chans"))
+        n_chans   = float(self.get_value("antenna_channelised_voltage_n_chans"))
         ch_bandwidth = bandwidth / n_chans
         f_start = center_f - (bandwidth/2.) # Center freq of the first channel
         return f_start + np.arange(n_chans) * ch_bandwidth
@@ -2118,16 +2119,17 @@ class GetSensors(object):
         """
         Get FFT Period
         """
-        return self.sample_period * 2 * float(self.get_value("n_chans"))
+        return self.sample_period * 2 * float(self.get_value("antenna_channelised_voltage_n_chans"))
 
     @property
     def delta_f(self):
         """
         Get Correlator bandwidth
         """
-        return float(self.get_value("bandwidth") / (self.get_value("n_chans") - 1))
+        return float(self.get_value("antenna_channelised_voltage_bandwidth") 
+                / (self.get_value("antenna_channelised_voltage_n_chans") - 1))
 
-    def calc_freq_samples(self, chan, samples_per_chan, chans_around=0):
+    def calc_freq_samples(self, dhost, chan, samples_per_chan, chans_around=0):
         """Calculate frequency points to sweep over a test channel.
 
         Parameters
@@ -2148,9 +2150,9 @@ class GetSensors(object):
         
         assert samples_per_chan > 0
         assert chans_around > 0
-        assert 0 <= chan < self.get_value("n_chans")
-        assert 0 <= chan + chans_around < self.get_value("n_chans")
-        assert 0 <= chan - chans_around < self.get_value("n_chans")
+        assert 0 <= chan < self.get_value("antenna_channelised_voltage_n_chans")
+        assert 0 <= chan + chans_around < self.get_value("antenna_channelised_voltage_n_chans")
+        assert 0 <= chan - chans_around < self.get_value("antenna_channelised_voltage_n_chans")
 
         start_chan = chan - chans_around
         end_chan = chan + chans_around
@@ -2160,8 +2162,33 @@ class GetSensors(object):
         end_freq = self.ch_center_freqs[end_chan] + self.delta_f / 2
         sample_spacing = self.delta_f / (samples_per_chan - 1)
         num_samples = int(np.round((end_freq - start_freq) / sample_spacing)) + 1
-        return np.linspace(start_freq, end_freq, num_samples)
-
+        
+        #Find the dsim set step size
+        start = self.get_value("antenna_channelised_voltage_center_freq")
+        dhost.sine_sources.sin_0.set(frequency=start)
+        curr_setf = dhost.sine_sources.sin_0.frequency
+        for i in range(20):
+            currf = start_freq+i
+            dhost.sine_sources.sin_0.set(frequency=currf)
+            setf = dhost.sine_sources.sin_0.frequency
+            if setf != curr_setf:
+                dsim_step = setf-curr_setf
+                curr_setf = setf
+        #Find actual center frequency
+        req_samples = np.linspace(start_freq, end_freq, 
+                num_samples, endpoint = False)
+        req_step  = np.diff(req_samples)[0]
+        cent_indx = int(num_samples/2)
+        cent_freq = req_samples[cent_indx]
+        real_step = dsim_step*round(req_step/dsim_step)
+        dhost.sine_sources.sin_0.set(frequency=cent_freq)
+        real_freq = dhost.sine_sources.sin_0.frequency
+        first_half = np.asarray([real_freq-x*real_step 
+                for x in range(cent_indx+1)])
+        first_half = np.flip(first_half,0)
+        second_half = np.asarray([real_freq+x*real_step 
+                for x in range(1, num_samples-cent_indx)])
+        return np.concatenate((first_half,second_half))
 
 class CSV_Reader(object):
     """
