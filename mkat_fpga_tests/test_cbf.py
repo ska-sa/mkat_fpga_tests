@@ -185,7 +185,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
             self.logger.info("Sleeping for 30 seconds to clean up memory.")
-            #time.sleep(30)
+            #time.sleep(60)
 
 
     def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
@@ -1726,7 +1726,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 plt_title=plt_title,
                 caption=plt_caption,
                 cutoff=-cutoff,
-                dbFS=False
             )
             try:
                 no_of_responses = 3
@@ -1765,10 +1764,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     rght_freq = (actual_test_freqs[rght_idx+1] + actual_test_freqs[rght_idx])/2
                 left_ch_spacing = cent_freq - left_freq
                 rght_ch_spacing = rght_freq - cent_freq
-                if left_ch_spacing != rght_ch_spacing:
+                if round(left_ch_spacing,2) != round(rght_ch_spacing,2):
                     self.Note('Channel spacing between 3 test channels are not equal. '
-                                'Centre to low = {} and centre to high = {}.'
-                                ''.format(left_ch_spacing, rght_ch_spacing))
+                            'Centre to low = {:.1f} Hz and centre to high = {:.1f} Hz.'
+                            ''.format(left_ch_spacing, rght_ch_spacing))
                 measured_ch_spacing = left_ch_spacing
                 self.Note("Measured channel spacing = {:.3f} kHz, "
                           "expected channel spacing from sensors = {:.3f} kHz."
@@ -1849,7 +1848,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 graph_name_central,
                 plt_title,
                 caption=caption,
-                dbFS=False
             )
 
             self.Step(
@@ -2359,9 +2357,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
             plt_filename = "{}/{}_band_shape_sweep.png".format(self.logs_path, self._testMethodName)
             plt_title = "Peak responses for CW swept across band"
-            caption = ("A CW was swept across the enire band and the maximum value found in "
-                       "the response plotted at each sample/"
-            )
+            caption = ("CW sweep across the entire band using {} points. The maximum value found in "
+                       "the band response is plotted at each sample point.".format(len(channels)))
 
             aqf_plot_band_sweep(
                 band_shape_ch_freq, band_shape_sweep_vals, plt_filename, plt_title, caption=caption, 
@@ -4371,7 +4368,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         msg = ('Accumulation {} maximum phase offset from '
                                'expected: {:.3f} radians.'
                                ''.format(i, err))
-                        Aqf.less(np.abs(err), phase_resolution_req, msg)
+                        Aqf.less(round(np.abs(err),4), phase_resolution_req, msg)
 
                     phase_offset_values = [x[0] for x in expected_phases_]
                     for i, ph_offset in enumerate(phase_offset_values):
@@ -5672,13 +5669,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         return False
                     retries += 1
                     try:
+                        # Save weights so that if the capture must be re-tried 
+                        # weighs does not have to be set again and will be 
+                        # available for referece level calculations
+                        #if retries == 1:
+                        #    beam_pol = beam[-1]
+                        #    saved_wgts = {}
+                        #    if beam_dict:
+                        #        for key in beam_dict:
+                        #            if key.find(beam_pol) != -1:
+                        #                saved_wgts[key] = beam_dict[key]
+
+
                         bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam,
-                            beam_dict, ingest_kcp_client)
+                            beam_dict, ingest_kcp_client, capture_time=2)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
-                        # So this clears the weights and for testing individual beam
-                        # weigths it fails TODO: fix!
-                        #beam_dict = None
+                        beam_dict = None
                         if (len(in_wgts) == 0) and (isinstance(act_wgts, dict)):
                             in_wgts = act_wgts.copy()
                     except Exception:
@@ -5795,6 +5802,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     expected = 0
                 else:
+                    # This happend if a capture was re-tried:
+                    if in_wgts == {}: in_wgts = saved_wgts.copy()
                     delta = 0.2
                     expected = np.sum([inp_ref_lvl * in_wgts[key] for key in in_wgts]) * beam_quant_gain
                     expected = 20 * np.log10(expected)
@@ -5854,10 +5863,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             #TODO different levels for beamforming and delay tests
-            if ("107M32k" in self.instrument) or ("54M32k" in self.instrument):
-                gain = complex(gain)/2
-            else:
-                awgn_scale = awgn_scale*2
+            awgn_scale = awgn_scale*2
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)

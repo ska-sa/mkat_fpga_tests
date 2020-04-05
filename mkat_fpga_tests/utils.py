@@ -53,7 +53,7 @@ LOGGER = _logger.logger
 VACC_FULL_RANGE = float(2 ** 31)
 
 # Katcp default timeout
-cam_timeout = 60
+cam_timeout = 180
 
 
 __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexise", "CSV_Reader",
