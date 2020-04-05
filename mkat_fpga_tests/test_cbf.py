@@ -5149,7 +5149,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if start_substream > (substreams - 1):
                     self.logger.warning = (
                         "Starting substream is larger than substreams available: {}. "
-                        "Fix in test configuration file".format(substeams)
+                        "Fix in test configuration file".format(substreams)
                     )
                     start_substream = substreams - 1
                 if start_substream + n_substrms_to_cap_m > substreams:
@@ -5525,14 +5525,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
-                    "Fix in test configuration file".format(substeams)
+                    "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
                 self.logger.warning = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
-                    "Fix in test configuration file".format(substeams)
+                    "Fix in test configuration file".format(substreams)
                 )
                 n_substrms_to_cap_m = substreams - start_substream
             ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
