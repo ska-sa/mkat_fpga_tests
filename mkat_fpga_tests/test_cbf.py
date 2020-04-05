@@ -557,6 +557,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
                 n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                check_strt_ch = None
+                check_stop_ch = None
                 if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
                         and (self.start_channel == 0)):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
@@ -566,7 +568,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_chan = random.choice(range(self.start_channel, 
                             self.start_channel+self.n_chans_selected))
                 num_discard = 5
-                self._test_product_baselines()
+                self._test_product_baselines(check_strt_ch, check_stop_ch)
                 self._test_back2back_consistency()
                 self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
@@ -2481,7 +2483,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             Aqf.equals(vacc_offset, 1, msg)
             init_dsim_sources(self.dhost)
 
-    def _test_product_baselines(self):
+    def _test_product_baselines(self, check_strt_ch=None, check_stop_ch=None):
         heading("CBF Baseline Correlation Products")
         # Setting DSIM to generate noise
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
@@ -2592,6 +2594,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         Aqf.is_true(all(baseline_is_present.values()), msg)
         for i in range(self.data_retries):  
             test_data = self.get_real_clean_dump(discard=5)
+            if check_strt_ch and check_stop_ch:
+                test_data["xeng_raw"] = test_data["xeng_raw"][check_strt_ch:check_stop_ch,:,:]
             if test_data is not False:
                 z_baselines = zero_baselines(test_data["xeng_raw"])
                 if not(z_baselines): break
@@ -2650,6 +2654,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         read_zero_gains()
         for i in range(self.data_retries):  
             test_data = self.get_real_clean_dump()
+            if check_strt_ch and check_stop_ch:
+                test_data["xeng_raw"] = test_data["xeng_raw"][check_strt_ch:check_stop_ch,:,:]
             if test_data is not False:
                 nz_baselines = nonzero_baselines(test_data["xeng_raw"])
                 if not(nz_baselines): break
@@ -2711,6 +2717,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_z_bls, expected_nz_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
                 for i in range(self.data_retries):  
                     test_dump = self.get_real_clean_dump()
+                    if check_strt_ch and check_stop_ch:
+                        test_dump["xeng_raw"] = (test_dump["xeng_raw"]
+                                [check_strt_ch:check_stop_ch,:,:])
                     if test_dump is not False:
                         test_data = test_dump["xeng_raw"]
                         actual_nz_bls_indices = all_nonzero_baselines(test_data)
