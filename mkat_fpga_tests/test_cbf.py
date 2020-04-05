@@ -2278,50 +2278,51 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             this_freq_data = this_freq_dump["xeng_raw"]
             this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
 
-            if channel_f0 in bss_inc_c_and_f[:,1]:
-                # get channel out of band shape sweep include array
-                ch_idx = np.argwhere(channel_f0 == bss_inc_c_and_f[:,1])[0][0]
-                ch = int(bss_inc_c_and_f[ch_idx][0])
-                if ch in chans_to_plot:
-                    channel_response_lst.append(this_freq_response)
+            if len(bss_inc_c_and_f) != 0:
+                if channel_f0 in bss_inc_c_and_f[:,1]:
+                    # get channel out of band shape sweep include array
+                    ch_idx = np.argwhere(channel_f0 == bss_inc_c_and_f[:,1])[0][0]
+                    ch = int(bss_inc_c_and_f[ch_idx][0])
+                    if ch in chans_to_plot:
+                        channel_response_lst.append(this_freq_response)
 
-                max_chan = np.argmax(this_freq_response)
-                # TODO: figure out if pipelining test could work
-                #print max_chan
-                if max_chan != ch:
-                    max_channels_errors.append((max_chan,ch))
+                    max_chan = np.argmax(this_freq_response)
+                    # TODO: figure out if pipelining test could work
+                    #print max_chan
+                    if max_chan != ch:
+                        max_channels_errors.append((max_chan,ch))
 
-                # Find responses that are more than -cutoff relative to max
-                new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
-                # TODO: Figure out what this was all about
-                # unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
-                extra_responses = [
-                    i
-                    for i, resp in enumerate(loggerise(this_freq_response))
-                    #if i != max_chan and resp >= unwanted_cutoff
-                    if i != max_chan and resp >= new_cutoff
-                ]
-                if len(extra_responses) != 0:
-                    extra_peaks.append((ch,extra_responses,this_freq_response))
+                    # Find responses that are more than -cutoff relative to max
+                    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
+                    # TODO: Figure out what this was all about
+                    # unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
+                    extra_responses = [
+                        i
+                        for i, resp in enumerate(loggerise(this_freq_response))
+                        #if i != max_chan and resp >= unwanted_cutoff
+                        if i != max_chan and resp >= new_cutoff
+                    ]
+                    if len(extra_responses) != 0:
+                        extra_peaks.append((ch,extra_responses,this_freq_response))
 
-                # TODO: add plots back in if spurious channels or channels above cutoff found
-                #plt_title = "Frequency response at {}".format(channel)
-                #plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path,
-                #    self._testMethodName, channel)
-                #if extra_responses:
-                #    msg = "Weirdly found an extra responses on channel %s" % (channel)
-                #    self.Note(msg)
-                #    plt_title = "Extra responses found around {}".format(channel)
-                #    plt_filename = "{}_extra_responses.png".format(self._testMethodName)
-                #    plots_debug = True
+                    # TODO: add plots back in if spurious channels or channels above cutoff found
+                    #plt_title = "Frequency response at {}".format(channel)
+                    #plt_filename = "{}/{}_channel_{}_resp.png".format(self.logs_path,
+                    #    self._testMethodName, channel)
+                    #if extra_responses:
+                    #    msg = "Weirdly found an extra responses on channel %s" % (channel)
+                    #    self.Note(msg)
+                    #    plt_title = "Extra responses found around {}".format(channel)
+                    #    plt_filename = "{}_extra_responses.png".format(self._testMethodName)
+                    #    plots_debug = True
 
-                #if plots_debug:
-                #    plots_debug = False
-                #    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
-                #    aqf_plot_channels(
-                #        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
-                #        hlines=new_cutoff
-                #    )
+                    #if plots_debug:
+                    #    plots_debug = False
+                    #    new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
+                    #    aqf_plot_channels(
+                    #        this_freq_response, plt_filename, plt_title, log_dynamic_range=90,
+                    #        hlines=new_cutoff
+                    #    )
 
             if band_shape_sweep:
                 band_shape_sweep_vals.append(np.max(loggerise(this_freq_response)))
@@ -2360,7 +2361,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             plt_filename = "{}/{}_band_shape_sweep.png".format(self.logs_path, self._testMethodName)
             plt_title = "Peak responses for CW swept across band"
             caption = ("CW sweep across the entire band using {} points. The maximum value found in "
-                       "the band response is plotted at each sample point.".format(len(channels)))
+                       "the band response is plotted at each sample point."
+                       "".format(len(band_shape_chans)))
 
             aqf_plot_band_sweep(
                 band_shape_ch_freq, band_shape_sweep_vals, plt_filename, plt_title, caption=caption, 
