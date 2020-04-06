@@ -771,7 +771,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(start_receiver=False)
             if instrument_success:
                 self._test_fft_overflow()
             else:
@@ -3581,7 +3581,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         heading("Systematic Errors Reporting: FFT Overflow")
         # TODO MM, Simplify the test
         ch_list = self.cam_sensors.ch_center_freqs
-        cw_freq = ch_list[int(self.n_chans_selected / 2)]
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+        cw_freq = ch_list[int(n_chans / 2)]
 
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         self.Step(
@@ -3598,13 +3599,28 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return False
         try:
             self.Step("Get the current FFT Shift before manipulation.")
+            for i in range(self.data_retries):
+                try:
+                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
+                    self.assertTrue(reply.reply_ok())
+                    break
+                except AssertionError:
+                    pass
+                #except BaseException:
+                #    reply, informs = self.katcp_req.sensor_value()
+            self.assertTrue(reply.reply_ok())
+        except Exception as e:
+            msg = "Failed to retrieve sensor values via CAM interface: {}".format(e)
+            self.Error(msg, exc_info=True)
+            return
+        try:
+            self.Step("Get the current FFT Shift before manipulation.")
             fft_shift = int(self.get_fftshift_all())
             assert fft_shift
             self.Progress("Current system FFT Shift: %s" % fft_shift)
         except Exception:
             self.Error("Could not get the F-Engine FFT Shift value", exc_info=True)
             return
-
         try:
             self.Step("Confirm all F-engines do not contain PFB errors/warnings")
             retries = 4
@@ -3618,6 +3634,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if (pfb_status == 'nominal') or (retries == 0):
                     break
                 else:
+                    time.sleep(20)
                     retries -= 1
         except Exception:
             msg = "Failed to retrieve sensor values via CAM interface"
@@ -3646,6 +3663,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.assertTrue(reply.reply_ok())
                     break
                 except AssertionError:
+                    time.sleep(20)
                     pass
                 #except BaseException:
                 #    reply, informs = self.katcp_req.sensor_value()
@@ -5301,15 +5319,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         test_input = random.choice(self.cam_sensors.input_labels)
         self.Step("Randomly selected input to test: %s" % (test_input))
         n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-        # TODO: set channel randomly in selected range
-        #rand_ch = random.choice(range(n_chans)[: self.n_chans_selected])
-        rand_ch = int(self.n_chans_selected/2 + self.start_channel)
+        if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                and (self.start_channel == 0)):
+            check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+            check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+            rand_ch = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+            rel_ch = rand_ch
+        else:
+            rand_ch = random.choice(range(self.start_channel, 
+                    self.start_channel+self.n_chans_selected))
+            rel_ch = rand_ch - self.start_channel
         gain_vector = [nominal_gain] * n_chans
         try:
             reply, informs = self.katcp_req.gain(test_input, nominal_gain)
             self.assertTrue(reply.reply_ok())
         except Exception:
-            self.Failed("Gain correction on %s could not be set to %s.: " "KATCP Reply: %s" % (test_input, nominal_gain, reply))
+            self.Failed("Gain correction on %s could not be set to %s.: "
+                    "KATCP Reply: %s" % (test_input, nominal_gain, reply))
             return False
 
         _discards = 5
@@ -5395,9 +5421,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         #    self.Error('Maximum value found in channel {} which is not the correct channel'.format(np.argmax(response)))
 
                         if fnd_less_one:
-                            resp_diff = response[rand_ch] - min_response[rand_ch]
+                            resp_diff = response[rel_ch] - min_response[rel_ch]
                         else:
-                            resp_diff = response[rand_ch] - prev_resp[rand_ch]
+                            resp_diff = response[rel_ch] - prev_resp[rel_ch]
                         prev_resp = response
                         if abs(resp_diff) < target:
                             msg = (
@@ -5412,7 +5438,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 fnd_less_one = True
                                 min_response = response
                                 upper_req_string = "from initial value of {:.2f} at gain {} ".format(
-                                                       min_response[rand_ch], complex(gain_set))
+                                                       min_response[rel_ch], complex(gain_set))
                             chan_resp.append(response)
                             legends.append("Gain set to %s" % (complex(gain_set)))
                         elif abs(resp_diff) > target:

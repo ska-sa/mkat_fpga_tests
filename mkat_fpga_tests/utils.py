@@ -576,9 +576,17 @@ class UtilsClass(object):
         Retrieve gain of all inputs via sensors
         """
         try:
-            reply, informs = self.katcp_req.sensor_value()
+            for i in range(4):
+                try:
+                    reply, informs = self.katcp_req.sensor_value()
+                    self.assertTrue(reply.reply_ok())
+                    break
+                except AssertionError:
+                    self.logger.warn('Sensors not received, Waiting 20s and retrying')
+                    time.sleep(20)
             assert reply.reply_ok()
-        except Exception:
+        except AssertionError:
+            self.Failed("Failed to retrieve sensors after 4 retries")
             return
         else:
             sensors_required = []
@@ -611,9 +619,11 @@ class UtilsClass(object):
                     self.assertTrue(reply.reply_ok())
                     break
                 except AssertionError:
-                    pass
+                    self.logger.warn('Sensors not received, Waiting 20s and retrying')
+                    time.sleep(20)
             assert reply.reply_ok()
-        except Exception:
+        except AssertionError:
+            self.Failed("Failed to retrieve sensors after 4 retries")
             return
         else:
             sensors_required = []
@@ -1400,12 +1410,25 @@ class UtilsClass(object):
         """Checking system stability before and after use"""
         try:
             self.Step("Checking system sensors integrity.")
-            for i in range(1):
-                try:
-                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
-                except Exception:
-                    reply, informs = self.katcp_req.sensor_value(timeout=30)
-                time.sleep(10)
+            try:
+                for i in range(4):
+                    try:
+                        reply, informs = self.katcp_req.sensor_value()
+                        self.assertTrue(reply.reply_ok())
+                        break
+                    except AssertionError:
+                        self.logger.warn('Sensors not received, Waiting 20s and retrying')
+                        time.sleep(20)
+                assert reply.reply_ok()
+            except AssertionError:
+                self.Failed("Failed to retrieve sensors after 4 retries")
+                return
+            #for i in range(1):
+            #    try:
+            #        reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value(timeout=30)
+            #    except Exception:
+            #        reply, informs = self.katcp_req.sensor_value(timeout=30)
+            #    time.sleep(10)
 
             _errored_sensors_ = ", ".join(
                 sorted(list(set([i.arguments[2] for i in informs if "error" in i.arguments[-2]])))
@@ -1548,14 +1571,15 @@ class UtilsClass(object):
         if self.conf_file['instrument_params']['sensor_named_by_label'] == 'False':
             num_inputs = len(labels)
             labels = ['input'+str(x) for x in range(num_inputs)]
-        retry = 3
+        retry = 5
         errmsg = ""
         while retry:
             delay_values = []
             for label in labels:
                 sens_name = self.corr_fix.feng_product_name+'-'+label+'-delay'
                 sens_name = sens_name.replace('-','_')
-                delay_values.append(self.cam_sensors.get_value(sens_name))
+                delay_value = (self.cam_sensors.get_value(sens_name))
+                delay_values.append(delay_value)
             try:
                 delay_values = [x[1:-1] for x in delay_values]
                 delay_values = [x.split(',') for x in delay_values]
@@ -1575,6 +1599,8 @@ class UtilsClass(object):
                     retry -= 1
                 else:
                     return not(coeff_err), delay_values
+            self.logger.warn('Waiting 60 and retrying because of msg: {}'.format(errmsg))
+            time.sleep(60)
         self.Error(errmsg, exc_info=True)
         return False, None
 
