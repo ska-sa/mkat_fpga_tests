@@ -2286,7 +2286,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if ch in chans_to_plot:
                         channel_response_lst.append(this_freq_response)
 
-                    max_chan = np.argmax(this_freq_response)
+                    max_chan = np.argmax(this_freq_response) + self.start_channel
                     # TODO: figure out if pipelining test could work
                     #print max_chan
                     if max_chan != ch:
