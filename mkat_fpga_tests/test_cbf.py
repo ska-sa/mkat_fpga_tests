@@ -897,7 +897,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @array_release_x
+    #@array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -2286,7 +2286,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if ch in chans_to_plot:
                         channel_response_lst.append(this_freq_response)
 
-                    max_chan = np.argmax(this_freq_response) + self.start_channel
+                    max_chan_rel = np.argmax(this_freq_response)
+                    max_chan     = max_chan_rel + self.start_channel
                     # TODO: figure out if pipelining test could work
                     #print max_chan
                     if max_chan != ch:
@@ -2300,7 +2301,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         i
                         for i, resp in enumerate(loggerise(this_freq_response))
                         #if i != max_chan and resp >= unwanted_cutoff
-                        if i != max_chan and resp >= new_cutoff
+                        if i != max_chan_rel and resp >= new_cutoff
                     ]
                     if len(extra_responses) != 0:
                         extra_peaks.append((ch,extra_responses,this_freq_response))
@@ -2385,11 +2386,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             print_count = 5
             for channel, peaks, response in extra_peaks:
                 if print_count > 1:
+                    rel_ch = channel - self.start_channel
                     blanked_resp = loggerise(response)
-                    ch_max_val = blanked_resp[channel]
-                    blanked_resp[channel] = np.average(blanked_resp)
-                    max_spurious_ch = np.argmax(blanked_resp)
-                    max_spurious_val = blanked_resp[max_spurious_ch] - ch_max_val
+                    ch_max_val = blanked_resp[rel_ch]
+                    blanked_resp[rel_ch] = np.average(blanked_resp)
+                    max_spurious_ch = np.argmax(blanked_resp) + self.start_channel
+                    max_spurious_val = blanked_resp[max_spurious_ch - self.start_channel] - ch_max_val
                     new_cutoff = ch_max_val - cutoff
                     self.Note("Found {} channels with power more than -{} dB "
                               "from peak in channel {}.".format(len(peaks), cutoff, channel))
@@ -2409,7 +2411,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         )
                     )
                     aqf_plot_channels(
-                        response[channel-4:channel+5], plt_filename, plt_title, log_dynamic_range=90, 
+                        response[rel_ch-4:rel_ch+5], plt_filename, plt_title, log_dynamic_range=90, 
                         caption=caption, 
                         hlines=new_cutoff,
                     )
