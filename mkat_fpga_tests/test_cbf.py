@@ -184,8 +184,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Error("Could not stop the receiver, memory leaks might occur.")
             del self.receiver
-            self.logger.info("Sleeping for 30 seconds to clean up memory.")
-            #time.sleep(60)
+            self.logger.info("Sleeping for 60 seconds to clean up memory.")
+            time.sleep(60)
 
 
     def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
@@ -261,7 +261,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if stop_channel > n_chans:
                         self.logger.warning('Stop channels in config file is higher that available '
                                             'for this instrument. Setting to {}'.format(n_chans))
-                        stop_channel = n_chans
+                        stop_channel = n_chans-1
                         
                     #elif n_ants == 64 and n_chans == 32768:
                     #    stop_channel = int(self.conf_file["instrument_params"].get("stop_channel", 2047))
@@ -347,7 +347,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @instrument_1k
     @instrument_4k
     @aqf_vr("CBF.V.3.30")
-    @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053", "CBF-REQ-0226", "CBF-REQ-0227" )
+    @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053", "CBF-REQ-0226", "CBF-REQ-0227", "CBF-REQ-0236" )
     def test_channelisation(self):
         Aqf.procedure(TestProcedure.Channelisation)
         try:
@@ -524,20 +524,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                #    gain = complex(gain)*1
-                #elif '4k' in self.instrument:
-                #    gain = complex(gain)*1.2
-                #elif '1k' in self.instrument:
-                #    gain = complex(gain)*1
-                #else:
-                #    gain = complex(gain)*1.2
-                #cw_start_scale = 1 - awgn_scale
-                #if cw_start_scale > 1.0:
-                #    cw_start_scale = 1.0
-                #self._test_linearity(
-                #    test_channel=test_chan, cw_start_scale=cw_start_scale, noise_scale=awgn_scale,
-                #    gain=gain, fft_shift=fft_shift, max_steps=20
-                #)
                 self._test_linearity(test_channel=test_chan, max_steps=20)
             else:
                 self.Failed(self.errmsg)
@@ -705,6 +691,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -761,7 +748,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.29")
@@ -897,7 +884,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    #@array_release_x
+    @array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -3601,22 +3588,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return False
         try:
             self.Step("Get the current FFT Shift before manipulation.")
-            for i in range(self.data_retries):
-                try:
-                    reply, informs = self.corr_fix.katcp_rct_sensor.req.sensor_value()
-                    self.assertTrue(reply.reply_ok())
-                    break
-                except AssertionError:
-                    pass
-                #except BaseException:
-                #    reply, informs = self.katcp_req.sensor_value()
-            self.assertTrue(reply.reply_ok())
-        except Exception as e:
-            msg = "Failed to retrieve sensor values via CAM interface: {}".format(e)
-            self.Error(msg, exc_info=True)
-            return
-        try:
-            self.Step("Get the current FFT Shift before manipulation.")
             fft_shift = int(self.get_fftshift_all())
             assert fft_shift
             self.Progress("Current system FFT Shift: %s" % fft_shift)
@@ -3636,7 +3607,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if (pfb_status == 'nominal') or (retries == 0):
                     break
                 else:
-                    time.sleep(20)
                     retries -= 1
         except Exception:
             msg = "Failed to retrieve sensor values via CAM interface"
@@ -3644,7 +3614,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return
         else:
             Aqf.equals(pfb_status, "nominal", "Confirm that all F-Engines report nominal PFB status")
-
         try:
             self.Step("Set an FFT shift of 0 on all f-engines, and confirm if system integrity is affected")
             reply, informs = self.katcp_req.fft_shift(0)
@@ -4011,19 +3980,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         "sync attempts.".format(vacc_accumulations)
                     )
                 else:
-                    internal_acc = 2 * internal_accumulations * n_chans
-                    accum_len = int(np.ceil((acc_time * self.cam_sensors.get_value("sample")) / internal_acc))
+                    no_accs = self.cam_sensors.get_value("baseline_correlation_products_n_accs")
+                    exp_no_accs= internal_accumulations * vacc_accumulations
                     Aqf.almost_equals(
-                        vacc_accumulations,
-                        accum_len,
-                        1,
+                        no_accs,
+                        exp_no_accs,
+                        300,
                         ("VACC length set to {}, equals an accumulation time of {:.3f}s"
-                         .format(vacc_accumulations, vacc_accumulations * delta_acc_t)),
+                         .format(no_accs, no_accs * self.cam_sensors.fft_period))
                     )
-                    no_accs = internal_accumulations * vacc_accumulations
                     expected_response = quant_power * no_accs
                     try:
-                        dump = self.receiver.get_clean_dump()
+                        dump = self.get_real_clean_dump(discard=0.2)
                         baselines = self.get_baselines_lookup()
                         bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
@@ -5721,7 +5689,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
 
                         bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam,
-                            beam_dict, ingest_kcp_client, capture_time=2)
+                            beam_dict, ingest_kcp_client, capture_time=1)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
@@ -6753,10 +6721,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if "1k" in self.instrument:
             pulse_step = 8
         elif "4k" in self.instrument:
-            pulse_step = 8
+            pulse_step = 4*8
         elif "32k" in self.instrument:
             pulse_step = 16*8
-        load_lead_time = 0.035
+        #load_lead_time = 0.035
+        load_lead_time = 0.03
         points_around_trg = 800
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
@@ -8486,6 +8455,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # dsim_factor = (float(self.conf_file['instrument_params']['sample_freq'])/
         #                scale_factor_timestamp)
         # substreams = self.cam_sensors.get_value('n_xengs')
+        rel_test_ch = test_channel - self.start_channel
 
         def get_cw_val(pon=True):
             if pon:
@@ -8518,10 +8488,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return False
             data = dump["xeng_raw"]
             freq_response = complexise(data[:, baseline_index, :])
-            if freq_response[test_channel] == 0:
+            if freq_response[rel_test_ch] == 0:
                 return 0
             else:
-                return 10 * np.log10(np.abs(freq_response[test_channel]))
+                return 10 * np.log10(np.abs(freq_response[rel_test_ch]))
 
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         # Use CW from channelisation tests, but start higher to ensure saturation

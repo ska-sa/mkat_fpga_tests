@@ -312,7 +312,7 @@ class UtilsClass(object):
         beam,
         beam_dict=None,
         ingest_kcp_client=None,
-        capture_time=0.1,
+        capture_time=0.4,
         start_only=False,
         stop_only=False,
     ):
@@ -615,11 +615,12 @@ class UtilsClass(object):
         try:
             for i in range(4):
                 try:
-                    reply, informs = self.katcp_req.sensor_value()
+                    reply, informs = self.katcp_req.sensor_value(timeout=cam_timeout)
                     self.assertTrue(reply.reply_ok())
                     break
                 except AssertionError:
-                    self.logger.warn('Sensors not received, Waiting 20s and retrying')
+                    self.logger.warn('Sensors not received, Waiting 20s and retrying: '
+                            '{}'.format(reply))
                     time.sleep(20)
             assert reply.reply_ok()
         except AssertionError:
@@ -720,6 +721,7 @@ class UtilsClass(object):
 
     #TODO This does nothing... check this code
     def restore_initial_equalisations(self):
+        return
         init_eq = self.get_gain_all()
         try:
             reply, informs = self.corr_fix.katcp_rct.req.gain_all(init_eq, timeout=cam_timeout)
@@ -885,9 +887,13 @@ class UtilsClass(object):
 
         def set_fft_shift(self):
             try:
+                start_time = time.time()
                 reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift, timeout=cam_timeout)
+                cmd_time = time.time()-start_time
                 assert reply.reply_ok()
-                LOGGER.info("F-Engines FFT shift set to {} via CAM interface".format(fft_shift))
+                LOGGER.info("F-Engines FFT shift set to {} via CAM interface, "
+                        "cmd took {}s".format(fft_shift, cmd_time))
+
                 return True
             except Exception:
                 LOGGER.exception("Failed to set FFT shift via CAM interface")
@@ -905,12 +911,18 @@ class UtilsClass(object):
             if len(eq_level) != 1:
                 for i, v in source_gain_dict.items():
                     LOGGER.info("Input %s gain set to %s" % (i, v))
+                    start_time = time.time()
                     reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
+                    cmd_time = time.time()-start_time
+                    LOGGER.info("Setting gain levels via loop took {}s".format(cmd_time))
                     assert reply.reply_ok()
             else:
                 eq_level = eq_level[0]
+                start_time = time.time()
                 LOGGER.info("Setting gain levels to all inputs to %s" % (eq_level))
                 reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
+                cmd_time = time.time()-start_time
+                LOGGER.info("Setting gain levels via gain-all took {}s".format(cmd_time))
                 assert reply.reply_ok()
             LOGGER.info("Gains set successfully")
             return True

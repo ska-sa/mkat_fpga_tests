@@ -121,6 +121,7 @@ if __name__ == "__main__":
 
     xhost = c.xhosts[0]
     x = c.xhosts[0]
+    import IPython;IPython.embed()
     try:
         while True:
             quant_snap = np.abs(f.get_quant_snapshots()['inp000x'])
