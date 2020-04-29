@@ -121,11 +121,10 @@ if __name__ == "__main__":
 
     xhost = c.xhosts[0]
     x = c.xhosts[0]
-    import IPython;IPython.embed()
     try:
         while True:
             quant_snap = np.abs(f.get_quant_snapshots()['inp000x'])
-            print('Quantiser magnitude for channels 14995 to 15005:\n{}'.format(quant_snap[14995:15006]))
+            print('Quantiser magnitude for channels 995 to 1005:\n{}'.format(quant_snap[995:1006]))
             print('PFB status: {}'.format(f.get_pfb_status()))
             print('ADC status:\n{}'.format(f.get_adc_status()))
             time.sleep(1)
