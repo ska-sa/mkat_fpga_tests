@@ -2773,19 +2773,70 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
-    def _test_back2back_consistency(self):
+    def _test_back2back_consistency(self, cut_half_channels=True):
         """
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
         """
+
+        def get_expected_acc_val(test_chan, cut_half_channels=True):
+            try:
+                test_input = self.cam_sensors.input_labels[0]
+                reply, informs = self.katcp_req.quantiser_snapshot(test_input)
+                self.assertTrue(reply.reply_ok())
+                informs = informs[0]
+            except Exception:
+                errmsg = (
+                    "Failed to retrieve quantiser snapshot of input %s via "
+                    "CAM Interface: \nReply %s" % (test_input, str(reply).replace("_", " "),))
+                self.logger.info(errmsg)
+                # Quantiser value not found, take expected value as found in baseline 0
+                return 0
+            else:
+                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                center_ch = int(n_chans/2)
+                quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
+                if cut_half_channels:
+                    quantiser_spectrum = quantiser_spectrum[0:center_ch]
+                quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
+                if (quant_check.shape[0] == 1):
+                    if quant_check[0] != test_chan:
+                        Aqf.failed("Tone not in correct channel: {}".format(quant_check[0]))
+                        return False
+                elif (quant_check.shape[0] == 0):
+                    Aqf.failed("No tone found in quantiser output.")
+                    return False
+                else:
+                    Aqf.failed("More than one value found in quantiser "
+                               "@ channels: {}".format(quant_check))
+                    return False
+
+                # The re-quantiser outputs signed int (8bit), but the snapshot code
+                # normalises it using binary 8.7 scaling. Since we want to calculate the
+                # output of the vacc which sums integers, denormalise the snapshot
+                # output back to ints. Then convert to power
+                quant_value = np.abs(quantiser_spectrum[test_chan])
+                quant_power = (quant_value*2**7)**2
+                #self.Note("Quantiser test channel voltage magnitude (represented in binary "
+                #          "8.7): {:.4f}".format(quant_value))
+                #self.Note("Converted to power and scaled by 2**7: {}".format(quant_power))
+                no_accs = self.cam_sensors.get_value("baseline_correlation_products_n_accs")
+                return quant_power * no_accs
+
         heading("Spead Accumulation Back-to-Back Consistency")
         self.Step("Randomly select a channel to test.")
         n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-        test_channels = random.sample(range(n_chans)[: self.n_chans_selected], 20)
-        test_baseline = 0  # auto-corr
+        if cut_half_channels:
+            chan_sel = min(int(n_chans/2), self.n_chans_selected)
+        else:
+            chan_sel = self.n_chans_selected
+        test_channels = random.sample(range(n_chans)[self.start_channel+1:chan_sel], 20)
+        test_channels = sorted(test_channels)
+        #test_baseline = 0  # auto-corr
         self.Progress("Randomly selected test channels: %s" % (test_channels))
-        source_period_in_samples = self.n_chans_selected * 2
+        source_period_in_samples = n_chans * 2
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        cw_scale = cw_scale/2
         # Reset the dsim and set fft_shifts and gains
         dsim_set_success = self.set_input_levels(
             awgn_scale=0, cw_scale=0, freq=0, fft_shift=fft_shift, gain=gain
@@ -2803,16 +2854,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         )
         ch_list = self.cam_sensors.ch_center_freqs
         ch_bw = ch_list[1]-ch_list[0]
-        center_offset = ch_bw*0.1
         for chan in test_channels:
-            freq = ch_list[chan] + center_offset
-            self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples)
-            this_source_freq = self.dhost.sine_sources.sin_0.frequency
+            freq = ch_list[chan]
+            try:
+                # Make dsim output periodic in FFT-length so that each FFT is identical
+                self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=cw_scale, 
+                        repeat_n=source_period_in_samples)
+                assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
+                this_source_freq = self.dhost.sine_sources.sin_corr.frequency
+            except AssertionError:
+                errmsg = ("Failed to make the DEng output periodic in FFT-length so "
+                          "that each FFT is identical, or cw0 does not equal cw1 freq.")
+                self.Error(errmsg, exc_info=True)
+                return False
             Aqf.hop("Getting response for channel {} @ {:.3f} MHz.".format(chan, (this_source_freq / 1e6)))
+            expected_val = get_expected_acc_val(chan, cut_half_channels)
+            if not expected_val:
+                return False
             # Retry if correct data not received. This may be due to congestion on the receiver que
             for i in range(self.data_retries):
                 dumps_data = []
-                chan_responses = []
+                #chan_responses = []
                 # Clear cue and wait for one integration period
                 dump = self.get_real_clean_dump(discard=1, quiet=True)
                 if dump is not False:
@@ -2821,8 +2883,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         if this_freq_dump is not False:
                             this_freq_data = this_freq_dump["xeng_raw"]
                             dumps_data.append(this_freq_data)
-                            this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
-                            chan_responses.append(this_freq_response)
+                            #this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
+                            #chan_responses.append(this_freq_response)
                         else:
                             break
                     try:
@@ -2831,38 +2893,79 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     except:
                         pass
 
-            #if i == self.data_retries-1:
-            #    errmsg = "SPEAD data not received."
-            #    self.Error(errmsg, exc_info=True)
+            if (i == self.data_retries-1) and ("dumps_comp" not in locals()):
+                errmsg = "SPEAD data not received."
+                self.Error(errmsg, exc_info=True)
+                return False
 
             msg = ("Subsequent SPEAD accumulations are identical.")
             if not Aqf.equals(len(dumps_comp), 0, msg):
-                Aqf.failed(np.where(dumps_data[0] != dumps_data[1]))
-            legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
-            plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
-            plot_title = "Frequency Response {} @ {:.3f}MHz".format(chan, this_source_freq / 1e6)
-            caption = (
-                "Comparison of back-to-back SPEAD accumulations with digitiser simulator "
-                "configured to generate periodic wave ({:.3f}Hz with FFT-length {}) "
-                "in order for each FFT to be identical".format(this_source_freq, source_period_in_samples)
-            )
-            aqf_plot_channels(
-                zip(chan_responses, legends),
-                plot_filename,
-                plot_title,
-                log_dynamic_range=90,
-                log_normalise_to=1,
-                normalise=False,
-                caption=caption,
-            )
-            #borked = np.where(dumps_data[0] != dumps_data[1])[1]
-            #a = self.get_baselines_lookup()
-
-            #for bl, idx in a.items():
-            #    if idx in borked:
-            #        print bl
-
-            #import IPython;IPython.embed()
+                Aqf.failed("Channels and baseline indexes where subsequent "
+                        "accumulations are not identical: {}"
+                        .format(np.where(dumps_data[0] != dumps_data[1])[0:2]))
+            #    legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
+            #    plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
+            #    plot_title = "Frequency Response {} @ {:.3f}MHz".format(chan, this_source_freq / 1e6)
+            #    caption = (
+            #        "Comparison of back-to-back SPEAD accumulations with digitiser simulator "
+            #        "configured to generate periodic wave ({:.3f}Hz with FFT-length {}) "
+            #        "in order for each FFT to be identical".format(this_source_freq, source_period_in_samples)
+            #    )
+            #    aqf_plot_channels(
+            #        zip(chan_responses, legends),
+            #        plot_filename,
+            #        plot_title,
+            #        log_dynamic_range=90,
+            #        log_normalise_to=1,
+            #        normalise=False,
+            #        caption=caption,
+            #    )
+            if expected_val == 0:
+                # quantiser snapshot did not work, take expected as value in baseline 0
+                expected_val = np.max(magnetise(dumps_data[0][:,0,:]))
+            failed = False
+            num_print = 2
+            for bline, idx in dict.items(self.get_baselines_lookup()):
+                data = magnetise(dumps_data[0][:,idx,:])
+                leak_check = np.where(data > 0)[0]
+                max_val = data[leak_check[0]]
+                leak_check = leak_check + self.start_channel
+                if (leak_check.shape[0] != 1):
+                    if num_print != 0:
+                        Aqf.failed("More than one value found in baseline {} "
+                                "@ channels: {}".format(bline,leak_check))
+                        num_print -= 1
+                    else:
+                        self.logger.error("More than one value found in baseline {} "
+                                "@ channels: {}".format(bline,leak_check))
+                    failed = True
+                if leak_check[0] != chan:
+                    if num_print != 0:
+                        Aqf.failed("CW found in channel {} for baseline {}, "
+                                "but was expected in channel: {}."
+                                .format(leak_check[0], bline, chan))
+                        num_print -= 1
+                    else:
+                        self.logger.error("CW found in channel {} for baseline {}, "
+                                "but was expected in channel: {}."
+                                .format(leak_check[0], bline, chan))
+                    failed = True
+                if round(max_val,5) != round(expected_val,5):
+                    if num_print != 0:
+                        Aqf.failed("Expected VACC value ({}) is not equal to "
+                                "measured value ({}) for baseline {}."
+                                .format(expected_val, max_val, bline))
+                        num_print -= 1
+                    else:
+                        self.logger.error("Expected VACC value ({}) is not "
+                                "equal to measured value ({}) for baseline {}."
+                                .format(expected_val, max_val, bline))
+                    failed = True
+            if num_print < 1:
+                Aqf.failed('More failures occured, but not printed, check log for output.')
+            if not failed:
+                self.Passed("CW magnitude and location correct for all baselines, "
+                        "no leakage found.")
 
     def _test_freq_scan_consistency(self, test_chan, num_discard=4, threshold=1e-1):
         """This test confirms if the identical frequency scans produce equal results."""
@@ -3945,9 +4048,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         else:
             quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
             if cut_half_channels:
-                quantiser_spectrum = quantiser_spectrum[self.start_channel:center_ch]
-            else:
-                quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
+                #quantiser_spectrum = quantiser_spectrum[self.start_channel:center_ch]
+                quantiser_spectrum = quantiser_spectrum[0:center_ch]
+            #else:
+            #    quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
 
             quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
             if (quant_check.shape[0] == 1):
@@ -4002,14 +4106,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
                         if cut_half_channels:
-                            data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:center_ch]
+                            #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:center_ch]
+                            data = (dump["xeng_raw"][:, bl_idx, :])[0:center_ch]
                         else:
-                            data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
+                            #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
+                            data = (dump["xeng_raw"][:, bl_idx, :])
                     except Exception:
                         errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                         self.Error(errmsg, exc_info=True)
                     else:
-                        actual_response = np.abs(complexise(data)[test_chan])
+                        actual_response = np.abs(complexise(data)[test_chan-self.start_channel])
                         self.Note('Received channel magnitude: {}'.format(actual_response))
                         # Check that the accumulator response is equal to the expected response
                         msg = ("Quantiser value matches accumulated output after scaling.")

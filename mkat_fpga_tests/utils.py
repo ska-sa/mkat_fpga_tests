@@ -78,7 +78,7 @@ class UtilsClass(object):
             until the procedure actually takes as long as an integration.
         """
         time_diff = 0
-        retries = 10
+        retries = 20
         while time_diff < 0.1:
             try:
                 start_time = time.time()
