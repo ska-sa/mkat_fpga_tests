@@ -102,6 +102,7 @@ gprint "Initialisation ${INSTRUMENT} on ${KATCP_HOST_IP}"
 #DATAPORT=$(grep 10gbe_port $CONF_PATH | tail -1 | cut -f 3 -d' ')
 #NUM_INPUTS=$((($(grep ^source_mcast_ips ${CONF_PATH} | grep -o , | wc -l)+1)/2))
 #ARRAY_INPUTS=`repeatStr "${VPOL}+1:${DATAPORT} ${HPOL}+1:${DATAPORT}" $NUM_INPUTS`
+#ARRAY_INPUTS=`repeatStr "${VPOL}+7:${DATAPORT} ${HPOL}+7:${DATAPORT}" $NUM_INPUTS`
 
 VPOL=$(grep -v \#  $CONF_PATH | grep pol0_destination_ips | cut -f 3 -d' ')
 HPOL=$(grep -v \#  $CONF_PATH | grep pol1_destination_ips | cut -f 3 -d' ')

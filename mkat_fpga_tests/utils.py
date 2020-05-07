@@ -555,20 +555,24 @@ class UtilsClass(object):
         return:
         list
         """
-        try:
-            assert hosts
-            reply, informs = self.katcp_req_sensors.sensor_value(sensor)
-            assert reply.reply_ok()
-        except AssertionError:
-            if hosts.startswith("fhost"):
-                engine = self.corr_fix.corr_config.get("fengine")
-            else:
-                engine = self.corr_fix.corr_config.get("xengine")
-            return engine.get("hosts", [])
-        else:
-            informs = eval(informs[0].arguments[-1])
-            informs = dict((val, key) for key, val in informs.iteritems())
-            return [v for i, v in informs.iteritems() if i.startswith(hosts)]
+        for i in range(5):
+            try:
+                assert hosts
+                reply, informs = self.katcp_req_sensors.sensor_value(sensor)
+                assert reply.reply_ok()
+                informs = eval(informs[0].arguments[-1])
+                informs = dict((val, key) for key, val in informs.iteritems())
+                return [v for i, v in informs.iteritems() if i.startswith(hosts)]
+            except SyntaxError:
+                self.logger.warn('{} not populated, Waiting 20s and retrying, '
+                        'on retry {}'.format(sensor,i))
+                time.sleep(20)
+            except AssertionError:
+                if hosts.startswith("fhost"):
+                    engine = self.corr_fix.corr_config.get("fengine")
+                else:
+                    engine = self.corr_fix.corr_config.get("xengine")
+                return engine.get("hosts", [])
 
 
     def get_gain_all(self):
