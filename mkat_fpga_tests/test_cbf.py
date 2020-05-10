@@ -196,6 +196,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Reset digitiser simulator to all Zeros
         init_dsim_sources(self.dhost)
         self.addCleanup(init_dsim_sources, self.dhost)
+        n_ants = int(self.cam_sensors.get_value("n_ants"))
+        n_chans = int(self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"))
 
         try:
             self.Step("Confirm running instrument, else start a new instrument")
@@ -234,8 +236,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error("Failed to set accumulation time.", exc_info=True)
 
         if start_receiver:
-            n_ants = int(self.cam_sensors.get_value("n_ants"))
-            n_chans = int(self.cam_sensors.get_value("antenna_channelised_voltage_n_chans"))
             init_receiver = False
             if 'self.receiver' not in locals():
                 init_receiver = True
@@ -344,6 +344,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.addCleanup(gc.collect)
         return True
 
+    @array_release_x
     @instrument_1k
     @instrument_4k
     @aqf_vr("CBF.V.3.30")
@@ -554,9 +555,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_chan = random.choice(range(self.start_channel, 
                             self.start_channel+self.n_chans_selected))
                 num_discard = 5
-                #self._test_product_baselines(check_strt_ch, check_stop_ch)
+                self._test_product_baselines(check_strt_ch, check_stop_ch)
                 self._test_back2back_consistency()
-                #self._test_freq_scan_consistency(test_chan, num_discard)
+                self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -2835,7 +2836,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #TODO: paramaterise num ch to test
         test_channels = random.sample(range(n_chans)[self.start_channel+1:chan_sel], 20)
         test_channels = sorted(test_channels)
-        test_channels = range(1,512)
+        test_channels = range(1,256)
         #test_baseline = 0  # auto-corr
         self.Progress("Randomly selected test channels: %s" % (test_channels))
         source_period_in_samples = n_chans * 2
@@ -2880,9 +2881,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 dumps_data = []
                 #chan_responses = []
                 # Clear cue and wait for one integration period
-                dump = self.get_real_clean_dump(discard=1, quiet=True)
+                dump = self.get_real_clean_dump(discard=2, quiet=True)
                 if dump is not False:
-                    for dump_no in range(2):
+                    for dump_no in range(6):
                         this_freq_dump = self.get_real_clean_dump(quiet=True)
                         if this_freq_dump is not False:
                             this_freq_data = this_freq_dump["xeng_raw"]
@@ -2892,8 +2893,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         else:
                             break
                     try:
-                        dumps_comp = (np.where(dumps_data[0] != dumps_data[1])[0])
-                        if len(dumps_comp) == 0: break
+                        dumps_comp = np.diff(dumps_data, axis=0)
+                        dumps_comp_max = np.max(dumps_comp)
+                        if dumps_comp_max == 0: break
+                        self.Note('Dumps found to not be equal, trying again')
                     except:
                         pass
 
@@ -2903,10 +2906,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return False
 
             msg = ("Subsequent SPEAD accumulations are identical.")
-            if not Aqf.equals(len(dumps_comp), 0, msg):
+            if not Aqf.equals(dumps_comp_max, 0, msg):
                 Aqf.failed("Channels and baseline indexes where subsequent "
                         "accumulations are not identical: {}"
-                        .format(np.where(dumps_data[0] != dumps_data[1])[0:2]))
+                        .format(np.where(np.sum(dumps_comp, axis=0))[0:2]))
             #    legends = ["dump #{}".format(x) for x in range(len(chan_responses))]
             #    plot_filename = "{}/{}_chan_resp_{}.png".format(self.logs_path, self._testMethodName, i + 1)
             #    plot_title = "Frequency Response {} @ {:.3f}MHz".format(chan, this_source_freq / 1e6)
@@ -2930,8 +2933,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             failed = False
             num_print = 2
             for bline, idx in dict.items(self.get_baselines_lookup()):
-                data = magnetise(dumps_data[0][:,idx,:])
-                leak_check = np.where(data > 0)[0]
+                baseline_dumps_mag = []
+                _dummy = [baseline_dumps_mag.append(magnetise(x[:,idx,:])) for x in dumps_data]
+                leak_check = np.where(np.sum(baseline_dumps_mag, axis=0) > 0)[0]
                 if len(leak_check) == 0:
                     if num_print != 0:
                         Aqf.failed("No tone found for baseline {} @ channel: {}".format(bline, chan))
@@ -2940,7 +2944,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.logger.error("No tone found for baseline {} @ channel: {}".format(bline, chan))
                     failed = True
                 else:
-                    max_val = data[leak_check[0]]
+                    baseline_dumps_chval = np.asarray([np.max(x) for x in baseline_dumps_mag])
                     leak_check = leak_check + self.start_channel
                     if (leak_check.shape[0] != 1):
                         if num_print != 0:
@@ -2951,7 +2955,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             self.logger.error("More than one value found in baseline {} "
                                     "@ channels: {}".format(bline,leak_check))
                         failed = True
-                    if leak_check[0] != chan:
+                    elif leak_check[0] != chan:
                         if num_print != 0:
                             Aqf.failed("CW found in channel {} for baseline {}, "
                                     "but was expected in channel: {}."
@@ -2962,16 +2966,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     "but was expected in channel: {}."
                                     .format(leak_check[0], bline, chan))
                         failed = True
-                    if round(max_val,5) != round(expected_val,5):
+                    check_vacc = np.where(np.round(baseline_dumps_chval,5) != np.round(expected_val,5))[0]
+                    if len(check_vacc) != 0:
                         if num_print != 0:
                             Aqf.failed("Expected VACC value ({}) is not equal to "
-                                    "measured value ({}) for baseline {}."
-                                    .format(expected_val, max_val, bline))
+                                    "measured values for captured accumulations ({}) for baseline {}."
+                                    .format(expected_val, baseline_dumps_chval, bline))
                             num_print -= 1
                         else:
-                            self.logger.error("Expected VACC value ({}) is not "
-                                    "equal to measured value ({}) for baseline {}."
-                                    .format(expected_val, max_val, bline))
+                            self.logger.error("Expected VACC value ({}) is not equal to "
+                                    "measured values for captured accumulations ({}) for baseline {}."
+                                    .format(expected_val, baseline_dumps_chval, bline))
                         failed = True
             if num_print < 1:
                 Aqf.failed('More failures occured, but not printed, check log for output.')
@@ -4812,8 +4817,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     else:
                         # TODO What should the maximum expeced be here?
                         if b_line_phase_max > phase_resolution_req:
-                            if 'ant28x' not in b_line[0]:
-                                import IPython;IPython.embed()
                             desc = (
                                 "Checking baseline {}, index: {}, phase offset found, "
                                 "maximum error value = {} rads".format(b_line[0], b_line_val, b_line_phase_max)
@@ -5816,16 +5819,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
 
                         bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam,
-                            beam_dict, ingest_kcp_client, capture_time=1)
+                            beam_dict, ingest_kcp_client) #, capture_time=1)
                         # Set beamdict to None in case the capture needs to be retried.
                         # The beam weights have already been set.
                         beam_dict = None
                         if (len(in_wgts) == 0) and (isinstance(act_wgts, dict)):
                             in_wgts = act_wgts.copy()
-                    except Exception:
+                    except Exception as e:
                         self.Failed(
                             "Confirm that the Docker container is running and also confirm the "
-                            "igmp version = 2"
+                            "igmp version = 2: {}".format(e)
                         )
                         return False
 
@@ -6007,6 +6010,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
+            time.sleep(1)
 
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
@@ -6236,7 +6240,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Reset quantiser gain
             bq_gain = self.set_beam_quant_gain(beam, 1)
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-            awgn_scale = awgn_scale * 2
+            #awgn_scale = awgn_scale * 2
+            dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
+                freq=0, fft_shift=fft_shift, gain=gain
+            )
+            if not dsim_set_success:
+                self.Failed("Failed to configure digitise simulator levels or set fft shift or gain.")
+                return False
 
             self.Progress(
                 "Digitiser simulator configured to generate a stepping "
@@ -6268,12 +6278,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 cw_ch = strt_ch_idx + int(ch_per_substream / 4)
                 freq = ch_list[cw_ch]
                 dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
-                    freq=freq, fft_shift=fft_shift, gain=gain
-                )
+                        freq=freq)
                 time.sleep(0.5)
                 if not dsim_set_success:
-                    import IPython;IPython.embed()
-                    self.Failed("Failed to configure digitise simulator levels")
+                    self.Failed("Failed to configure digitise simulator levels or set fft shift or gain.")
                     return False
 
                 try:
@@ -6478,7 +6486,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         beam_dict = self.populate_beam_dict(-1, weight, beam_dict)
         try:
             # Currently setting weights is broken
-            bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam, beam_dict, capture_time=_capture_time)
+            bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam, beam_dict)#, capture_time=_capture_time)
             # bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data( beam, capture_time=0.1)
             # Close any KAT SDP ingest nodes
             self.stop_katsdpingest_docker()
@@ -6842,9 +6850,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        time.sleep(1)
 
         num_pulse_caps = 100
-        #num_pulse_caps = 100
         # pulse_step must be divisible by 8. Not neccessary anymore?
         if "1k" in self.instrument:
             pulse_step = 8
@@ -6852,6 +6860,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             pulse_step = 4*8
         elif "32k" in self.instrument:
             pulse_step = 16*8
+        #TODO Figure out betterway to find load lead time
         #load_lead_time = 0.035
         load_lead_time = 0.03
         points_around_trg = 800

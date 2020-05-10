@@ -312,7 +312,7 @@ class UtilsClass(object):
         beam,
         beam_dict=None,
         ingest_kcp_client=None,
-        capture_time=0.4,
+        capture_time=None,
         start_only=False,
         stop_only=False,
     ):
@@ -348,6 +348,25 @@ class UtilsClass(object):
         """
         beamdata_dir = "/ramdisk"
         _timeout = 60
+        if not(capture_time):
+            int_time = self.cam_sensors.get_value("int_time")
+            n_accs = self.cam_sensors.get_value("n_accs")
+            heap_time = 256*int_time/n_accs
+            num_heaps_to_cap = int(
+                    self.corr_fix._test_config_file["beamformer"]
+                    ["number_of_heaps_to_cap"])
+            capture_time = num_heaps_to_cap * heap_time
+
+        min_beam_cap_time = float(
+                self.corr_fix._test_config_file["beamformer"]
+                ["min_beam_capture_time"])
+        max_beam_cap_time = float(
+                self.corr_fix._test_config_file["beamformer"]
+                ["max_beam_capture_time"])
+        if capture_time < min_beam_cap_time: capture_time = min_beam_cap_time
+        if capture_time > max_beam_cap_time: capture_time = max_beam_cap_time
+
+            
 
         # Create a katcp client to connect to katcpingest if one not specified
         if ingest_kcp_client is None:
@@ -889,50 +908,64 @@ class UtilsClass(object):
             self.dhost.outputs.out_0.scale_output(output_scale)
             self.dhost.outputs.out_1.scale_output(output_scale)
 
-        def set_fft_shift(self):
-            try:
-                start_time = time.time()
-                reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift, timeout=cam_timeout)
-                cmd_time = time.time()-start_time
-                assert reply.reply_ok()
-                LOGGER.info("F-Engines FFT shift set to {} via CAM interface, "
-                        "cmd took {}s".format(fft_shift, cmd_time))
-
-                return True
-            except Exception:
-                LOGGER.exception("Failed to set FFT shift via CAM interface")
-                return False
-
-        LOGGER.info("Setting desired FFT-Shift via CAM interface.")
-        if set_fft_shift(self) is not True:
-            LOGGER.error("Failed to set FFT-Shift via CAM interface")
-
-        sources = self.cam_sensors.input_labels
-        source_gain_dict = dict(ChainMap(*[{i: "{}".format(gain)} for i in sources]))
-        try:
-            LOGGER.info("Setting desired gain/eq via CAM interface.")
-            eq_level = list(set(source_gain_dict.values()))
-            if len(eq_level) != 1:
-                for i, v in source_gain_dict.items():
-                    LOGGER.info("Input %s gain set to %s" % (i, v))
+        if fft_shift:
+            self.logger.info("Setting desired FFT-Shift via CAM interface.")
+            retries = 4
+            for i in range(retries):
+                try:
                     start_time = time.time()
-                    reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
+                    reply, _informs = self.corr_fix.katcp_rct.req.fft_shift(fft_shift, timeout=cam_timeout)
                     cmd_time = time.time()-start_time
-                    LOGGER.info("Setting gain levels via loop took {}s".format(cmd_time))
                     assert reply.reply_ok()
-            else:
-                eq_level = eq_level[0]
-                start_time = time.time()
-                LOGGER.info("Setting gain levels to all inputs to %s" % (eq_level))
-                reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
-                cmd_time = time.time()-start_time
-                LOGGER.info("Setting gain levels via gain-all took {}s".format(cmd_time))
-                assert reply.reply_ok()
-            LOGGER.info("Gains set successfully")
-            return True
-        except Exception:
-            LOGGER.exception("Failed to set gain for input.")
-            return False
+                    self.logger.info("F-Engines FFT shift set to {} via CAM interface, "
+                            "cmd took {}s".format(fft_shift, cmd_time))
+                    break
+                except AssertionError:
+                    if i == (retries-1):
+                        self.logger.exception("Failed to set FFT shift after {} retries. "
+                                "reply: {}, informs: {}.".format(i, reply, informs))
+                        return False
+                    else:
+                        self.logger.warn("Failed to set FFT shift, on retry {}. Sleeping 20 seconds."
+                                "reply: {}, informs: {}.".format(i, reply, informs))
+                        time.sleep(20)
+
+        if gain:
+            sources = self.cam_sensors.input_labels
+            source_gain_dict = dict(ChainMap(*[{i: "{}".format(gain)} for i in sources]))
+            retries = 4
+            for i in range(retries):
+                try:
+                    self.logger.info("Setting desired gain/eq via CAM interface.")
+                    eq_level = list(set(source_gain_dict.values()))
+                    if len(eq_level) != 1:
+                        for i, v in source_gain_dict.items():
+                            self.logger.info("Input %s gain set to %s" % (i, v))
+                            start_time = time.time()
+                            reply, informs = self.corr_fix.katcp_rct.req.gain(i, v, timeout=cam_timeout)
+                            cmd_time = time.time()-start_time
+                            LOGGER.info("Setting gain levels via loop took {}s".format(cmd_time))
+                            assert reply.reply_ok()
+                    else:
+                        eq_level = eq_level[0]
+                        start_time = time.time()
+                        self.logger.info("Setting gain levels to all inputs to %s" % (eq_level))
+                        reply, informs = self.corr_fix.katcp_rct.req.gain_all(eq_level, timeout=cam_timeout)
+                        cmd_time = time.time()-start_time
+                        self.logger.info("Setting gain levels via gain-all took {}s".format(cmd_time))
+                        assert reply.reply_ok()
+                    self.logger.info("Gains set successfully")
+                    break
+                except AssertionError:
+                    if i == (retries-1):
+                        self.logger.exception("Failed to set gains after {} retries. "
+                                "reply: {}, informs: {}.".format(i, reply, informs))
+                        return False
+                    else:
+                        self.logger.warn("Failed to set gains, on retry {}. Sleeping 20 seconds."
+                                "reply: {}, informs: {}.".format(i, reply, informs))
+                        time.sleep(20)
+        return True
 
 
     def _test_global_manual(self, ve_num):
