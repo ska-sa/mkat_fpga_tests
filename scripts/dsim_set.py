@@ -56,7 +56,7 @@ if __name__ == '__main__':
     for source in sources_names:
         try:
             sine_source = getattr(dhost.sine_sources, '{}'.format(source))
-            sine_source.set(0, 0)
+            sine_source.set(0, 0, repeat_n=0)
             print("sine source {}, set to {}.".format(sine_source.name,
                                                       sine_source.scale))
         except:

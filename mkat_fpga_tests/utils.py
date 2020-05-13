@@ -908,7 +908,7 @@ class UtilsClass(object):
             self.dhost.outputs.out_0.scale_output(output_scale)
             self.dhost.outputs.out_1.scale_output(output_scale)
 
-        if fft_shift:
+        if fft_shift != None:
             self.logger.info("Setting desired FFT-Shift via CAM interface.")
             retries = 4
             for i in range(retries):
@@ -2635,14 +2635,8 @@ def init_dsim_sources(dhost):
 
     try:
         for sin_source in dhost.sine_sources:
-            sin_source.set(frequency=0, scale=0)
-            assert sin_source.frequency == sin_source.scale == 0
-            try:
-                if sin_source.name != "corr":
-                    sin_source.set(repeat_n=0)
-                    assert sin_source.repeat == 0
-            except Exception:
-                LOGGER.exception("Failed to reset repeat on sin_%s" % sin_source.name)
+            sin_source.set(frequency=0, scale=0, repeat_n=0)
+            assert sin_source.frequency == sin_source.scale == sin_source.repeat == 0
             LOGGER.debug("Digitiser simulator cw source %s reset to Zeros" % sin_source.name)
     except Exception:
         LOGGER.exception("Failed to reset sine sources on dhost.")

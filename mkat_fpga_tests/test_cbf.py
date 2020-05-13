@@ -24,6 +24,7 @@ import time
 import unittest
 import re
 import math
+import hashlib
 from ast import literal_eval as evaluate
 from datetime import datetime
 
@@ -371,7 +372,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # Figure out what this value should really be for different integrations
                 # 3 worked for CMC1 june 2019
                 # TODO: automate this by checking how long data takes to travel through integrations
-                num_discards = int(self.conf_file["instrument_params"]["num_channelisation_discards"])
+                num_discards = int(self.conf_file["instrument_params"]["num_discards"])
                 smpl_per_ch  = int(self.conf_file["instrument_params"]["num_channelisation_samples"])
                 if "107M32k" in self.instrument:
                     self._test_channelisation(
@@ -543,20 +544,32 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             instrument_success = self.set_instrument(
                     float(self.conf_file["instrument_params"]["accumulation_time"]))
             if instrument_success:
+                num_discard = int(self.conf_file["instrument_params"]["num_discards"])
+                num_tst_chs = int(self.conf_file["instrument_params"]["num_ch_to_test"])
+                quant_half_valid = eval(self.conf_file["instrument_params"]["quant_half_valid"])
                 n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                if quant_half_valid:
+                    chan_sel = min(int(n_chans/2), self.n_chans_selected)
+                else:
+                    chan_sel = self.n_chans_selected
                 check_strt_ch = None
                 check_stop_ch = None
                 if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
                         and (self.start_channel == 0)):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                    test_channels = random.sample(range(n_chans)[check_strt_ch:chan_sel], num_tst_chs)
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
                 else:
+                    test_channels = random.sample(range(n_chans)[self.start_channel:chan_sel], num_tst_chs)
                     test_chan = random.choice(range(self.start_channel, 
                             self.start_channel+self.n_chans_selected))
-                num_discard = 5
+                test_channels = sorted(test_channels)
+                # Remove chan 0 to avoid DC issues
+                if test_channels[0] == 0:
+                    test_channels = test_channels[1:]
                 self._test_product_baselines(check_strt_ch, check_stop_ch)
-                self._test_back2back_consistency()
+                self._test_back2back_consistency(test_channels, num_discard)
                 self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
@@ -633,11 +646,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     #test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
                     test_chan = random.choice(range(self.start_channel, center_ch))
                 n_ants = int(self.cam_sensors.get_value("n_ants"))
+                #TODO: figure out why this fails if not using 1 second
                 self._test_vacc(
                     test_chan,
-                    acc_time=(0.998))
-                #if self.cam_sensors.get_value("n_ants") == 4
-                #        else 2 * n_ants / 32.0))
+                    acc_time=(0.998 if self.cam_sensors.get_value("n_ants") == 4
+                            else 2 * n_ants / 32.0))
             else:
                 self.Failed(self.errmsg)
 
@@ -692,7 +705,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -861,7 +873,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert eval(os.getenv('DRY_RUN', 'False'))
         except AssertionError:
-            self.Note("Test not performed.")
+            self.Note("Test not implemented.")
             #instrument_success = self.set_instrument()
             #if instrument_success:
             #    self._bf_efficiency()
@@ -886,6 +898,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    @subset
     @array_release_x
     @beamforming
     @instrument_1k
@@ -2776,7 +2789,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
-    def _test_back2back_consistency(self, cut_half_channels=True):
+    def _test_back2back_consistency(self, test_channels, num_discard, cut_half_channels=True):
         """
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
@@ -2807,8 +2820,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         Aqf.failed("Tone not in correct channel: {}".format(quant_check[0]))
                         return False
                 elif (quant_check.shape[0] == 0):
-                    Aqf.failed("No tone found in quantiser output.")
-                    return False
+                    self.logger.warning("No tone found in quantiser output.")
+                    return 0
                 else:
                     Aqf.failed("More than one value found in quantiser "
                                "@ channels: {}".format(quant_check))
@@ -2827,19 +2840,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 return quant_power * no_accs
 
         heading("Spead Accumulation Back-to-Back Consistency")
-        self.Step("Randomly select a channel to test.")
-        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-        if cut_half_channels:
-            chan_sel = min(int(n_chans/2), self.n_chans_selected)
-        else:
-            chan_sel = self.n_chans_selected
-        #TODO: paramaterise num ch to test
-        test_channels = random.sample(range(n_chans)[self.start_channel+1:chan_sel], 20)
-        test_channels = sorted(test_channels)
-        test_channels = range(1,256)
-        #test_baseline = 0  # auto-corr
         self.Progress("Randomly selected test channels: %s" % (test_channels))
-        source_period_in_samples = n_chans * 2
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+        decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        source_period_in_samples = n_chans * 2 * decimation_factor
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         cw_scale = cw_scale/2
         # Reset the dsim and set fft_shifts and gains
@@ -2859,7 +2863,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         )
         ch_list = self.cam_sensors.ch_center_freqs
         ch_bw = ch_list[1]-ch_list[0]
+        num_prints = 3
+        print_cnt = 0
         for chan in test_channels:
+            if print_cnt < num_prints:
+                print_output = True
+            elif print_cnt == num_prints:
+                self.Progress("...")
+                print_output = False
+            elif print_cnt >= (len(test_channels)-num_prints):
+                print_output = True
+            else:
+                print_output = False
+            print_cnt+=1
             freq = ch_list[chan]
             try:
                 # Make dsim output periodic in FFT-length so that each FFT is identical
@@ -2872,18 +2888,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                           "that each FFT is identical, or cw0 does not equal cw1 freq.")
                 self.Error(errmsg, exc_info=True)
                 return False
-            Aqf.hop("Getting response for channel {} @ {:.3f} MHz.".format(chan, (this_source_freq / 1e6)))
-            expected_val = get_expected_acc_val(chan, cut_half_channels)
-            if not expected_val:
-                return False
+            if print_output:
+                Aqf.hop("Getting response for channel {} @ {:.3f} MHz."
+                        .format(chan, (this_source_freq / 1e6)))
+            else:
+                self.logger.info("Getting response for channel {} @ {:.3f} MHz."
+                        .format(chan, (this_source_freq / 1e6)))
+
             # Retry if correct data not received. This may be due to congestion on the receiver que
+            # Clear cue
+            #dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
+            dump = self.get_real_clean_dump(discard=7, quiet=True)
             for i in range(self.data_retries):
                 dumps_data = []
                 #chan_responses = []
-                # Clear cue and wait for one integration period
-                dump = self.get_real_clean_dump(discard=2, quiet=True)
                 if dump is not False:
-                    for dump_no in range(6):
+                    for dump_no in range(3):
                         this_freq_dump = self.get_real_clean_dump(quiet=True)
                         if this_freq_dump is not False:
                             this_freq_data = this_freq_dump["xeng_raw"]
@@ -2896,7 +2916,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         dumps_comp = np.diff(dumps_data, axis=0)
                         dumps_comp_max = np.max(dumps_comp)
                         if dumps_comp_max == 0: break
-                        self.Note('Dumps found to not be equal, trying again')
+                        self.Note('Dumps found to not be equal for channel {}, trying again'.format(chan))
                     except:
                         pass
 
@@ -2905,8 +2925,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error(errmsg, exc_info=True)
                 return False
 
-            msg = ("Subsequent SPEAD accumulations are identical.")
-            if not Aqf.equals(dumps_comp_max, 0, msg):
+            if dumps_comp_max == 0: 
+                msg = ("Subsequent SPEAD accumulations are identical.")
+                if print_output:
+                    self.Passed(msg)
+                else:
+                    self.logger.info(msg)
+            else:
                 Aqf.failed("Channels and baseline indexes where subsequent "
                         "accumulations are not identical: {}"
                         .format(np.where(np.sum(dumps_comp, axis=0))[0:2]))
@@ -2927,19 +2952,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #        normalise=False,
             #        caption=caption,
             #    )
+            expected_val = get_expected_acc_val(chan, cut_half_channels)
             if expected_val == 0:
                 # quantiser snapshot did not work, take expected as value in baseline 0
                 expected_val = np.max(magnetise(dumps_data[0][:,0,:]))
+            elif expected_val == False:
+                return False
             failed = False
-            num_print = 2
+            num_err_prints = 2
             for bline, idx in dict.items(self.get_baselines_lookup()):
                 baseline_dumps_mag = []
                 _dummy = [baseline_dumps_mag.append(magnetise(x[:,idx,:])) for x in dumps_data]
                 leak_check = np.where(np.sum(baseline_dumps_mag, axis=0) > 0)[0]
                 if len(leak_check) == 0:
-                    if num_print != 0:
-                        Aqf.failed("No tone found for baseline {} @ channel: {}".format(bline, chan))
-                        num_print -= 1
+                    if num_err_prints != 0:
+                        Aqf.note("No tone found for baseline {} @ channel: {}".format(bline, chan))
+                        num_err_print -= 1
                     else:
                         self.logger.error("No tone found for baseline {} @ channel: {}".format(bline, chan))
                     failed = True
@@ -2947,20 +2975,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     baseline_dumps_chval = np.asarray([np.max(x) for x in baseline_dumps_mag])
                     leak_check = leak_check + self.start_channel
                     if (leak_check.shape[0] != 1):
-                        if num_print != 0:
-                            Aqf.failed("More than one value found in baseline {} "
+                        if num_err_prints != 0:
+                            Aqf.note("More than one value found in baseline {} "
                                     "@ channels: {}".format(bline,leak_check))
-                            num_print -= 1
+                            num_err_prints -= 1
                         else:
                             self.logger.error("More than one value found in baseline {} "
                                     "@ channels: {}".format(bline,leak_check))
                         failed = True
                     elif leak_check[0] != chan:
-                        if num_print != 0:
-                            Aqf.failed("CW found in channel {} for baseline {}, "
+                        if num_err_prints != 0:
+                            Aqf.note("CW found in channel {} for baseline {}, "
                                     "but was expected in channel: {}."
                                     .format(leak_check[0], bline, chan))
-                            num_print -= 1
+                            num_err_prints -= 1
                         else:
                             self.logger.error("CW found in channel {} for baseline {}, "
                                     "but was expected in channel: {}."
@@ -2968,21 +2996,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         failed = True
                     check_vacc = np.where(np.round(baseline_dumps_chval,5) != np.round(expected_val,5))[0]
                     if len(check_vacc) != 0:
-                        if num_print != 0:
-                            Aqf.failed("Expected VACC value ({}) is not equal to "
+                        if num_err_prints != 0:
+                            Aqf.note("Expected VACC value ({}) is not equal to "
                                     "measured values for captured accumulations ({}) for baseline {}."
                                     .format(expected_val, baseline_dumps_chval, bline))
-                            num_print -= 1
+                            num_err_prints -= 1
                         else:
                             self.logger.error("Expected VACC value ({}) is not equal to "
                                     "measured values for captured accumulations ({}) for baseline {}."
                                     .format(expected_val, baseline_dumps_chval, bline))
                         failed = True
-            if num_print < 1:
+            if num_err_prints < 1:
                 Aqf.failed('More failures occured, but not printed, check log for output.')
             if not failed:
-                self.Passed("CW magnitude and location correct for all baselines, "
-                        "no leakage found.")
+                if print_output:
+                    self.Passed("CW magnitude and location correct for all baselines, "
+                            "no leakage found.")
+                else:
+                    self.logger.info("CW magnitude and location correct for all baselines, "
+                            "no leakage found.")
+                    
 
     def _test_freq_scan_consistency(self, test_chan, num_discard=4, threshold=1e-1):
         """This test confirms if the identical frequency scans produce equal results."""
@@ -3000,7 +3033,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         chan_responses = []
         scans = []
         initial_max_freq_list = []
-        source_period_in_samples = n_chans * 2
+        decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        source_period_in_samples = n_chans * 2 * decimation_factor
 
         try:
             test_dump = self.get_real_clean_dump(discard = num_discard)
@@ -3035,10 +3069,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 i + 1, len(requested_test_freqs), freq / 1e6
                             )
                         )
-                        self.dhost.sine_sources.sin_0.set(
+                        self.dhost.sine_sources.sin_corr.set(
                             frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples
                         )
-                        freq_val = self.dhost.sine_sources.sin_0.frequency
+                        freq_val = self.dhost.sine_sources.sin_corr.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
                             #TODO Check if 4 discards are enough.
@@ -3057,10 +3091,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 scan_i, i + 1, len(requested_test_freqs), freq / 1e6
                             )
                         )
-                        self.dhost.sine_sources.sin_0.set(
+                        self.dhost.sine_sources.sin_corr.set(
                             frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples
                         )
-                        freq_val = self.dhost.sine_sources.sin_0.frequency
+                        freq_val = self.dhost.sine_sources.sin_corr.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
                             this_freq_dump = self.get_real_clean_dump(discard = num_discard)
@@ -4007,6 +4041,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # acc_times = [acc_time/2, acc_time, acc_time*2]
         n_chans_selected = self.n_chans_selected
         n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+        decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        source_period_in_samples = n_chans * 2 * decimation_factor
         center_ch = int(n_chans/2)
         try:
             #TODO: Why is this not a sensor anymore?
@@ -4039,15 +4075,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
 
         self.Step(
-            "Configure Dsim output to be periodic to FFT-length: {}.".format(n_chans * 2)
+            "Configure Dsim output to be periodic to FFT-length: {}.".format(source_period_in_samples)
         )
         self.Note("Each FFT window will be identical.")
 
         try:
             # Make dsim output periodic in FFT-length so that each FFT is identical
-            self.dhost.sine_sources.sin_0.set(frequency=test_freq, scale=cw_scale, repeat_n=n_chans * 2)
-            self.dhost.sine_sources.sin_1.set(frequency=test_freq, scale=cw_scale, repeat_n=n_chans * 2)
-            assert self.dhost.sine_sources.sin_0.repeat == n_chans * 2
+            self.dhost.sine_sources.sin_corr.set(frequency=test_freq, scale=cw_scale, 
+                    repeat_n=source_period_in_samples)
+            assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
             time.sleep(1)
         except AssertionError:
             errmsg = "Failed to make the DEng output periodic in FFT-length so that each FFT is identical"
@@ -4074,7 +4110,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if (quant_check.shape[0] == 1):
                 Aqf.equals(quant_check[0], test_chan, "Tone found in correct channel.")
             elif (quant_check.shape[0] == 0):
-                Aqf.failed("No tone found in quantiser output.")
+                Aqf.failed("No tone found in quantiser output, test cannot continue.")
                 return
             else:
                 Aqf.failed("More than one value found in quantiser "
@@ -4118,7 +4154,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     expected_response = quant_power * no_accs
                     try:
-                        dump = self.get_real_clean_dump(discard=0.2)
+                        dump = self.get_real_clean_dump(discard=2)
                         baselines = self.get_baselines_lookup()
                         bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
@@ -5093,7 +5129,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 config_dir_name: [config_version, config_link, "None"],
             }
 
+        def md5(fname):
+            hash_md5 = hashlib.md5()
+            try:
+                with open(fname, "rb") as f:
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        hash_md5.update(chunk)
+                return hash_md5.hexdigest()
+            except IOError:
+                self.Failed("Could not find file: {}".format(fname))
+                return ("File not found")
+
         def get_gateware_info():
+            f_bitstream = self.cam_sensors.get_value('fengine_bitstream') 
+            x_bitstream = self.cam_sensors.get_value('xengine_bitstream') 
+            self.Progress("F-ENGINE (CBF) - M1200-0064:")
+            self.Progress("Bitstream filename: {}".format(f_bitstream))
+            self.Progress("Bitstream md5sum:   {}".format(md5(f_bitstream)))
+            self.Progress("X/B-ENGINE (CBF) - M1200-0067:")
+            self.Progress("Bitstream filename: {}".format(x_bitstream))
+            self.Progress("Bitstream md5sum:   {}".format(md5(x_bitstream)))
             try:
                 reply, informs = self.katcp_req.version_list()
                 self.assertTrue(reply.reply_ok())
@@ -5112,6 +5167,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         #_hash = "".join([i.replace("[", "").replace("]", "") for i in _hash if 40 < len(i) < 42])
                         #self.Progress("%s: %s" % (inform.arguments[0], _hash))
                         self.Progress("F-ENGINE (CBF) - M1200-0064:")
+                        
                         self.Progress(": ".join(inform.arguments))
                     elif [s for s in inform.arguments if "bengine-firmware" in s]:
                         pass
@@ -5121,11 +5177,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Progress("CMC CBF SCRIPTS : M1200-0048")
                 self.Progress("CORRELATOR MASTER CONTROLLER (CMC) : M1200-0012")
 
+        
         heading("CBF CMC Operating System.")
         self.Progress("CBF OS: %s | CMC OS P/N: M1200-0045" % " ".join(os.uname()))
 
         heading("CBF Software Packages Version Information.")
         self.Progress("CORRELATOR BEAMFORMER GATEWARE (CBF) : M1200-0041")
+
         get_gateware_info()
 
         heading("CBF Git Version Information.")
@@ -6000,7 +6058,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             #TODO different levels for beamforming and delay tests, seems not for 1k
-            #awgn_scale = awgn_scale*2
+            awgn_scale = awgn_scale*2
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -6240,7 +6298,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Reset quantiser gain
             bq_gain = self.set_beam_quant_gain(beam, 1)
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-            #awgn_scale = awgn_scale * 2
+            awgn_scale = awgn_scale*2
             dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                 freq=0, fft_shift=fft_shift, gain=gain
             )
