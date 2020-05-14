@@ -428,8 +428,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @array_release_x
     @slow
+    @array_release_x
     @instrument_1k
     @instrument_4k
     @aqf_vr("CBF.V.3.30")
@@ -2976,7 +2976,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     leak_check = leak_check + self.start_channel
                     if (leak_check.shape[0] != 1):
                         if num_err_prints != 0:
-                            Aqf.note("More than one value found in baseline {} "
+                            Aqf.failed("More than one value found in baseline {} "
                                     "@ channels: {}".format(bline,leak_check))
                             num_err_prints -= 1
                         else:
@@ -2985,7 +2985,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         failed = True
                     elif leak_check[0] != chan:
                         if num_err_prints != 0:
-                            Aqf.note("CW found in channel {} for baseline {}, "
+                            Aqf.failed("CW found in channel {} for baseline {}, "
                                     "but was expected in channel: {}."
                                     .format(leak_check[0], bline, chan))
                             num_err_prints -= 1
@@ -2997,13 +2997,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     check_vacc = np.where(np.round(baseline_dumps_chval,5) != np.round(expected_val,5))[0]
                     if len(check_vacc) != 0:
                         if num_err_prints != 0:
-                            Aqf.note("Expected VACC value ({}) is not equal to "
-                                    "measured values for captured accumulations ({}) for baseline {}."
-                                    .format(expected_val, baseline_dumps_chval, bline))
+                            Aqf.failed("Expected VACC value ({}) is not equal to "
+                                    "measured values for captured accumulations ({}) "
+                                    "for baseline {}, channel {}."
+                                    .format(expected_val, baseline_dumps_chval, bline, chan))
                             num_err_prints -= 1
                         else:
                             self.logger.error("Expected VACC value ({}) is not equal to "
-                                    "measured values for captured accumulations ({}) for baseline {}."
+                                    "measured values for captured accumulations ({}) "
+                                    "for baseline {}, channel {}."
                                     .format(expected_val, baseline_dumps_chval, bline))
                         failed = True
             if num_err_prints < 1:
@@ -6919,8 +6921,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         elif "32k" in self.instrument:
             pulse_step = 16*8
         #TODO Figure out betterway to find load lead time
-        #load_lead_time = 0.035
-        load_lead_time = 0.03
+        load_lead_time = 0.035
+        #load_lead_time = 0.03
         points_around_trg = 800
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
