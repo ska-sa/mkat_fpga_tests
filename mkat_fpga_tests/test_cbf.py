@@ -219,22 +219,29 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if self._dsim_set:
             self.Step("Configure a digitiser simulator to be used as input source to F-Engines.")
             self.Progress("Digitiser Simulator running on host: %s" % self.dhost.host)
-        try:
-            # This logic can be improved
-            if acc_time:
-                pass
-            elif n_ants == 64:
-                acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
-            else:
-                acc_time = 0.5
-                #acc_time = n_ants / 32.0
+        # This logic can be improved
+        if acc_time:
+            pass
+        elif n_ants == 64:
+            acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
+        else:
+            acc_time = 0.5
+            #acc_time = n_ants / 32.0
+        for i in range(self.data_retries):  
             reply, informs = self.katcp_req.accumulation_length(acc_time, timeout=acc_timeout)
+            if reply.reply_ok() == True:
+                acc_time = float(reply.arguments[-1])
+                self.Step("Set and confirm accumulation period via CAM interface.")
+                self.Progress("Accumulation time set to {:.3f} seconds".format(acc_time))
+                break
+        try:
             self.assertTrue(reply.reply_ok())
-            acc_time = float(reply.arguments[-1])
-            self.Step("Set and confirm accumulation period via CAM interface.")
-            self.Progress("Accumulation time set to {:.3f} seconds".format(acc_time))
-        except Exception as e:
-            self.Error("Failed to set accumulation time.", exc_info=True)
+        except AssertionError:
+            try:
+                if informs: pass
+            except UnboundLocalError:
+                informs = ''
+            self.Error("Failed to set accumulation time: {},{}".format(reply, informs), exc_info=True)
 
         if start_receiver:
             init_receiver = False
@@ -439,23 +446,31 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
         except AssertionError:
-            instrument_success = self.set_instrument()
+            instrument_success = self.set_instrument(
+                    acc_time = float(self.conf_file["instrument_params"]
+                            ["accumulation_time"]))
             if instrument_success:
                 heading("CBF Channelisation SFDR")
                 # If sfdr_ch_to_test is specified in the config file use that
                 # otherwise test all the selected channels
+                num_discard = int(self.conf_file["instrument_params"]["num_discards"])
                 n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
                     None))
                 if "107M32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test)
+                    self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test,
+                            num_discard=num_discard)
                 elif "54M32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test)
+                    self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test,
+                            num_discard=num_discard)
                 elif "32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test)  # Hz
+                    self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test,  # Hz
+                            num_discard=num_discard)
                 elif "4k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=250e3, no_channels=n_ch_to_test)  # Hz
+                    self._test_sfdr_peaks(req_chan_spacing=250e3, no_channels=n_ch_to_test,  # Hz
+                            num_discard=num_discard)
                 elif "1k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=1000e3, no_channels=n_ch_to_test)  # Hz
+                    self._test_sfdr_peaks(req_chan_spacing=1000e3, no_channels=n_ch_to_test,  # Hz
+                            num_discard=num_discard)
             else:
                 self.Failed(self.errmsg)
 
@@ -558,10 +573,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         and (self.start_channel == 0)):
                     check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                     check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    test_channels = random.sample(range(n_chans)[check_strt_ch:chan_sel], num_tst_chs)
+                    test_channels = random.sample(range(n_chans)[check_strt_ch:check_strt_ch+chan_sel], num_tst_chs)
                     test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
                 else:
-                    test_channels = random.sample(range(n_chans)[self.start_channel:chan_sel], num_tst_chs)
+                    test_channels = random.sample(range(n_chans)[self.start_channel:self.start_channel+chan_sel], num_tst_chs)
                     test_chan = random.choice(range(self.start_channel, 
                             self.start_channel+self.n_chans_selected))
                 test_channels = sorted(test_channels)
@@ -705,6 +720,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -898,7 +914,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @subset
     @array_release_x
     @beamforming
     @instrument_1k
@@ -2040,7 +2055,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             )
             
 
-    def _test_sfdr_peaks(self, req_chan_spacing, no_channels=None, 
+    def _test_sfdr_peaks(self, req_chan_spacing, no_channels=None, num_discard=5,
                          cutoff=53, plots_debug=False, log_power=True):
 
         """Test channel spacing and out-of-channel response
@@ -2245,6 +2260,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         except IndexError:
             chans_to_plot = ()
         print_cnt = 0
+        # Clear the que
+        this_freq_dump = self.get_real_clean_dump(discard=num_discard)
         for channel, channel_f0 in test_ch_and_freqs:
             if print_cnt < num_prints:
                 self.Progress(
@@ -2272,7 +2289,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
             for i in range(self.data_retries):  
-                this_freq_dump = self.get_real_clean_dump(discard=5)
+                this_freq_dump = self.get_real_clean_dump(discard=num_discard)
                 if this_freq_dump is not False:
                     break
                 self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
@@ -2293,17 +2310,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     # TODO: figure out if pipelining test could work
                     #print max_chan
                     if max_chan != ch:
-                        max_channels_errors.append((max_chan,ch))
+                        max_chan_val = this_freq_response[max_chan_rel]
+                        ch_val = this_freq_response[ch - self.start_channel]
+                        max_channels_errors.append((ch,ch_val,max_chan,max_chan_val))
 
                     # Find responses that are more than -cutoff relative to max
                     new_cutoff = np.max(loggerise(this_freq_response)) - cutoff
                     # TODO: Figure out what this was all about
                     # unwanted_cutoff = this_freq_response[max_chan] / 10 ** (new_cutoff / 100.0)
                     extra_responses = [
-                        i
-                        for i, resp in enumerate(loggerise(this_freq_response))
+                        (i + self.start_channel) for i, resp in enumerate(loggerise(this_freq_response))
                         #if i != max_chan and resp >= unwanted_cutoff
-                        if i != max_chan_rel and resp >= new_cutoff
+                        if (i != (ch - self.start_channel)) and (resp >= new_cutoff)
                     ]
                     if len(extra_responses) != 0:
                         extra_peaks.append((ch,extra_responses,this_freq_response))
@@ -2375,7 +2393,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             msg = ("The correct channels have peak responses for each frequency.")
             self.Passed(msg)
         else:
-            msg = ("The following channels do not have peak responses where expected: "
+            msg = ("The following channels do not have peak responses where expected [Channel under test, value, Channel where max val found, value]: "
                    "{}".format(max_channels_errors))
             self.Failed(msg)
 
@@ -2865,6 +2883,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         ch_bw = ch_list[1]-ch_list[0]
         num_prints = 3
         print_cnt = 0
+        # Clear cue
+        dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
         for chan in test_channels:
             if print_cnt < num_prints:
                 print_output = True
@@ -2897,8 +2917,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Retry if correct data not received. This may be due to congestion on the receiver que
             # Clear cue
-            #dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
-            dump = self.get_real_clean_dump(discard=7, quiet=True)
+            dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
             for i in range(self.data_retries):
                 dumps_data = []
                 #chan_responses = []
@@ -2967,7 +2986,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if len(leak_check) == 0:
                     if num_err_prints != 0:
                         Aqf.note("No tone found for baseline {} @ channel: {}".format(bline, chan))
-                        num_err_print -= 1
+                        num_err_prints -= 1
                     else:
                         self.logger.error("No tone found for baseline {} @ channel: {}".format(bline, chan))
                     failed = True
@@ -2997,7 +3016,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     check_vacc = np.where(np.round(baseline_dumps_chval,5) != np.round(expected_val,5))[0]
                     if len(check_vacc) != 0:
                         if num_err_prints != 0:
-                            Aqf.failed("Expected VACC value ({}) is not equal to "
+                            self.logger.error("Expected VACC value ({}) is not equal to "
                                     "measured values for captured accumulations ({}) "
                                     "for baseline {}, channel {}."
                                     .format(expected_val, baseline_dumps_chval, bline, chan))
@@ -3006,8 +3025,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             self.logger.error("Expected VACC value ({}) is not equal to "
                                     "measured values for captured accumulations ({}) "
                                     "for baseline {}, channel {}."
-                                    .format(expected_val, baseline_dumps_chval, bline))
-                        failed = True
+                                    .format(expected_val, baseline_dumps_chval, bline, chan))
+                        #failed = True
             if num_err_prints < 1:
                 Aqf.failed('More failures occured, but not printed, check log for output.')
             if not failed:
@@ -4451,7 +4470,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             dump_counts = 4
             #_rand_gen = self.cam_sensors.get_value("int_time") * np.random.rand() * dump_counts
             #phase_rate = (np.pi / 8.0) / _rand_gen
-            phase_rate = 0.2
+            phase_rate = 0.15
             delay_value = 0
             delay_rate = 0
             phase_offset = 0
@@ -6032,12 +6051,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             )
 
                         spikes = np.where(cap_db > expected*0.2)[0]
-                        if len(spikes == 1):
+                        if len(spikes) == 1:
                             msg = "No additional spikes found in sub spectrum."
                             self.logger.info(msg)
                             if local_substream % align_print_modulo == 0:
                                 self.Passed(msg)
-                        elif len(spikes == 0):
+                        elif len(spikes) == 0:
                             failed = True
                             self.Failed("No CW found in sub spectrum.")
                         else:
@@ -6316,12 +6335,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
             )
             self.Step("This test will take a long time... check log for progress.")
-            self.Step(
-                "Only 5 results will be printed, all {} substreams will be tested. "
-                "All errors will be displayed".format(substreams)
-            )
+            # Check if it is a narrow and instrument and if so don't test start and end
+            # of band:
+            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+            if decimation_factor != 1:
+                nb_notest_factor = 0.15
+                notest = int(round(substreams*0.15,0))
+                substreams_to_test = range(notest,substreams-notest)
+
+                self.Step(
+                    "Narrowband instrument detected, only 5 results will be printed, "
+                    "central {} substreams will be tested. "
+                    "All errors will be displayed".format(substreams-(notest*2)))
+            else:
+                substreams_to_test = range(0,substreams)
+                self.Step(
+                    "Only 5 results will be printed, all {} substreams will be tested. "
+                    "All errors will be displayed".format(substreams)
+                )
             aligned_failed = False
-            for substream in range(substreams):
+            for substream in substreams_to_test:
                 # Get substream start channel index
                 strt_ch_idx = substream * ch_per_substream
                 n_substrms_to_cap = 1
@@ -6339,7 +6372,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 freq = ch_list[cw_ch]
                 dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                         freq=freq)
-                time.sleep(0.5)
+                time.sleep(1)
                 if not dsim_set_success:
                     self.Failed("Failed to configure digitise simulator levels or set fft shift or gain.")
                     return False

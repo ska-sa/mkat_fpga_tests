@@ -28,6 +28,7 @@ import katcp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import corr2
 from casperfpga.utils import threaded_create_fpgas_from_hosts
 from corr2.data_stream import StreamAddress
 from Crypto.Cipher import AES
@@ -365,8 +366,6 @@ class UtilsClass(object):
                 ["max_beam_capture_time"])
         if capture_time < min_beam_cap_time: capture_time = min_beam_cap_time
         if capture_time > max_beam_cap_time: capture_time = max_beam_cap_time
-
-            
 
         # Create a katcp client to connect to katcpingest if one not specified
         if ingest_kcp_client is None:
@@ -921,6 +920,12 @@ class UtilsClass(object):
                             "cmd took {}s".format(fft_shift, cmd_time))
                     break
                 except AssertionError:
+                    try:
+                        if informs:
+                            pass
+                    except UnboundLocalError:
+                        informs = ''
+
                     if i == (retries-1):
                         self.logger.exception("Failed to set FFT shift after {} retries. "
                                 "reply: {}, informs: {}.".format(i, reply, informs))
@@ -957,6 +962,10 @@ class UtilsClass(object):
                     self.logger.info("Gains set successfully")
                     break
                 except AssertionError:
+                    try:
+                        if informs: pass
+                    except UnboundLocalError:
+                        informs = ''
                     if i == (retries-1):
                         self.logger.exception("Failed to set gains after {} retries. "
                                 "reply: {}, informs: {}.".format(i, reply, informs))
@@ -2625,6 +2634,12 @@ def init_dsim_sources(dhost):
 
     Also clear noise diode and adc over-range flags
     """
+    if not isinstance(dhost, corr2.dsimhost_fpga.FpgaDsimHost):
+        dhost = self.corr_fix.dhost
+        errmsg = "Failed to instantiate the dsim, investigate"
+        if not isinstance(dhost, corr2.dsimhost_fpga.FpgaDsimHost):
+            raise AssertionError(errmsg)
+
     # Reset flags
     LOGGER.info("Reset digitiser simulator to all Zeros")
     try:

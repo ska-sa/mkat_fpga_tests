@@ -151,21 +151,28 @@ class CorrelatorFixture(Logger.LoggingClass):
         if self._dhost is not None:
             return self._dhost
         else:
-            try:
-                self._dhost = FpgaDsimHost(
-                    self.dsim_conf["host"], config=self.dsim_conf, transport=SkarabTransport,
-                    #logger=self.logger
-                    )
-                self._dhost.get_system_information(filename=self.dsim_conf['bitstream'])
-            except Exception:
-                errmsg = "Digitiser Simulator failed to retrieve information"
-                self.logger.exception(errmsg)
-                sys.exit(errmsg)
-            else:
-                # Check if D-eng is running else start it.
-                if self._dhost.is_running() and self._dhost.test_connection():
-                    self.logger.info("D-Eng is already running.")
-                    return self._dhost
+            retries = 4
+            while True:
+                try:
+                    self._dhost = FpgaDsimHost(
+                        self.dsim_conf["host"], config=self.dsim_conf, transport=SkarabTransport,
+                        #logger=self.logger
+                        )
+                    self._dhost.get_system_information(filename=self.dsim_conf['bitstream'])
+                    break
+                except Exception as e:
+                    errmsg = ("Digitiser Simulator failed to retrieve information, "
+                            "{} retries left: {}".format(retires, e))
+                    self.logger.exception(errmsg)
+                    if retries ==0:
+                        sys.exit(errmsg)
+                    else:
+                        retries -=1
+            # Check if D-eng is running else start it.
+            if self._dhost.is_running() and self._dhost.test_connection():
+                self.logger.info("D-Eng is already running.")
+                return self._dhost
+
 
     @property
     def correlator(self):
