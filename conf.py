@@ -40,8 +40,8 @@ source_suffix = ".rst"
 # The encoding of source files.
 source_encoding = "utf-8"
 
-# The master toctree document.
-master_doc = "index"
+# The main toctree document.
+main_doc = "index"
 
 # General information about the project.
 project = u"MeerKAT Correlator-Beamformer"
@@ -242,7 +242,7 @@ latex_elements = {
 try:
     latex_documents = [
         (
-            master_doc,
+            main_doc,
             "%s" % _filename,
             u"%s %s" % (project, _document_type),
             u"Document Number: %s" % _document_number,
@@ -252,7 +252,7 @@ try:
 except NameError:
     latex_documents = [
         (
-            master_doc,
+            main_doc,
             "%s" % _filename,
             u"%s %s" % (project, _document_type),
             u"Document Number: ",

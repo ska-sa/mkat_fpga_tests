@@ -373,7 +373,7 @@ def do_dev_update(settings):
 def get_system_info():
     _system = os.uname()
     system = {"system_type": "", "site": "", "system_config": ""}
-    # system = {'systype': '', 'site': '', 'nodetype': 'jenkins_build_slave'}
+    # system = {'systype': '', 'site': '', 'nodetype': 'jenkins_build_subordinate'}
     system["sysname"] = os.uname()[1]
     # Backwards compatability.
     if _system[1].startswith("cmc"):
