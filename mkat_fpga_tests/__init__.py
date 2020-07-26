@@ -162,7 +162,7 @@ class CorrelatorFixture(Logger.LoggingClass):
                     break
                 except Exception as e:
                     errmsg = ("Digitiser Simulator failed to retrieve information, "
-                            "{} retries left: {}".format(retires, e))
+                            "{} retries left: {}".format(retries, e))
                     self.logger.exception(errmsg)
                     if retries ==0:
                         sys.exit(errmsg)
@@ -257,7 +257,8 @@ class CorrelatorFixture(Logger.LoggingClass):
                         )
                 except Exception:
                     errmsg = (
-                        "Failed to retrieve running array, ensure one has been created and running"
+                            "Failed to retrieve running array, reply: {}, informs: {}"
+                            .format(reply,informs)
                     )
                     self.logger.exception(errmsg)
                     sys.exit(errmsg)

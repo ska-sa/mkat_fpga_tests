@@ -199,12 +199,12 @@ class UtilsClass(object):
                     raise AssertionError
             return True
         except AssertionError:
-            self.logger.warning(errmsg)
+            self.logger.warning(errmsg, exc_info=True)
         except TypeError:
-            self.logger.exception("Object has no attributes")
+            self.logger.warning("Object has no attributes", exc_info=True)
             return False
         except Exception as e:
-            self.logger.exception("Exception occured during clearing of delays: {}".format(e))
+            self.logger.warning("Exception occured during clearing of delays: {}".format(e), exc_info=True)
         return False
 
     def start_katsdpingest_docker(

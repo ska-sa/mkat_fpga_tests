@@ -352,6 +352,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.addCleanup(gc.collect)
         return True
 
+    @subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -505,6 +506,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Test is being qualified by CBF.V.3.30")
 
 
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
@@ -583,7 +585,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # Remove chan 0 to avoid DC issues
                 if test_channels[0] == 0:
                     test_channels = test_channels[1:]
-                self._test_product_baselines(check_strt_ch, check_stop_ch)
+                self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
                 self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
@@ -637,7 +639,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @array_release_x
+    #@array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.7")
     @aqf_requirements("CBF-REQ-0096")
@@ -720,7 +722,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
 
-    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -914,7 +915,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
-    @array_release_x
+    #@array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -2504,7 +2505,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             Aqf.equals(vacc_offset, 1, msg)
             init_dsim_sources(self.dhost)
 
-    def _test_product_baselines(self, check_strt_ch=None, check_stop_ch=None):
+    def _test_product_baselines(self, check_strt_ch=None, check_stop_ch=None, num_discard=5):
         heading("CBF Baseline Correlation Products")
         # Setting DSIM to generate noise
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
@@ -2614,7 +2615,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Confirm that all baselines are present in correlator output."
         Aqf.is_true(all(baseline_is_present.values()), msg)
         for i in range(self.data_retries):  
-            test_data = self.get_real_clean_dump(discard=5)
+            test_data = self.get_real_clean_dump(discard=num_discard)
             if check_strt_ch and check_stop_ch:
                 test_data["xeng_raw"] = test_data["xeng_raw"][check_strt_ch:check_stop_ch,:,:]
             if test_data is not False:
@@ -2737,7 +2738,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 nonzero_inputs.add(inp)
                 expected_z_bls, expected_nz_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
                 for i in range(self.data_retries):  
-                    test_dump = self.get_real_clean_dump()
+                    test_dump = self.get_real_clean_dump(discard=num_discard)
                     if check_strt_ch and check_stop_ch:
                         test_dump["xeng_raw"] = (test_dump["xeng_raw"]
                                 [check_strt_ch:check_stop_ch,:,:])
@@ -2935,7 +2936,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         dumps_comp = np.diff(dumps_data, axis=0)
                         dumps_comp_max = np.max(dumps_comp)
                         if dumps_comp_max == 0: break
-                        self.Note('Dumps found to not be equal for channel {}, trying again'.format(chan))
+                        self.hop('Dumps found to not be equal for channel {}, trying again'.format(chan))
                     except:
                         pass
 
@@ -5355,7 +5356,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.logger.warning = (
                         "Substream start + substreams to process "
                         "is more than substreams available: {}. "
-                        "Fix in test configuration file".format(substeams)
+                        "Fix in test configuration file".format(substreams)
                     )
                 ticks_between_spectra = self.cam_sensors.get_value(
                     "antenna_channelised_voltage_n_samples_between_spectra"
@@ -6079,7 +6080,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             #TODO different levels for beamforming and delay tests, seems not for 1k
-            awgn_scale = awgn_scale*2
+            if "1k" in self.instrument:
+                #keep scal as is
+                pass
+            else:
+                awgn_scale = awgn_scale*2
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -6319,7 +6324,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Reset quantiser gain
             bq_gain = self.set_beam_quant_gain(beam, 1)
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-            awgn_scale = awgn_scale*2
+            if "1k" in self.instrument:
+                #keep scal as is
+                pass
+            else:
+                awgn_scale = awgn_scale*2
             dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                 freq=0, fft_shift=fft_shift, gain=gain
             )
@@ -6477,14 +6486,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
-                    "Fix in test configuration file".format(substeams)
+                    "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
                 self.logger.warning = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
-                    "Fix in test configuration file".format(substeams)
+                    "Fix in test configuration file".format(substreams)
                 )
                 n_substrms_to_cap_m = substreams - start_substream
             ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
@@ -6531,7 +6540,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # Setting DSIM to generate off center bin CW time sequence
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-        awgn_scale = awgn_scale*2
+        if "1k" in self.instrument:
+            #keep scal as is
+            pass
+        else:
+            awgn_scale = awgn_scale*2
         _capture_time = 0.1
         freq = ch_list[cw_ch] + center_bin_offset_freq
 
@@ -6740,14 +6753,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
-                    "Fix in test configuration file".format(substeams)
+                    "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
                 self.logger.warning = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
-                    "Fix in test configuration file".format(substeams)
+                    "Fix in test configuration file".format(substreams)
                 )
                 n_substrms_to_cap_m = substreams - start_substream
             ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
@@ -6954,9 +6967,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         elif "32k" in self.instrument:
             pulse_step = 16*8
         #TODO Figure out betterway to find load lead time
-        load_lead_time = 0.035
+        #load_lead_time = 0.035
         #load_lead_time = 0.03
-        points_around_trg = 800
+        load_lead_time = 0.015
+        points_around_trg = 1500
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
         if not load_lead_ts.is_integer():
@@ -6979,7 +6993,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 future_ts_array = []
                 # Start a beam capture, set pulses and capture data 
-                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
+                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, capture_time=1, start_only=True)
                 for pulse_cap in range(num_pulse_caps):
                     if pulse_cap == 0:
                         curr_ts = get_dsim_mcount(spectra_ref_mcount)
@@ -7013,7 +7027,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 trgt_spectra_idx.append(np.where(bf_ts > ts*8)[0][0] - 1)
             except IndexError:
-                self.Note('Target spectra not found for timestamp: {}'.format(ts))
+                Aqf.hop('Target spectra not found for timestamp: {}'.format(ts))
         # Check all timestamps makes sense
         ts_steps_found = [bf_ts[trgt_spectra_idx[x]]/8 - future_ts_array[x] for x in range(len(trgt_spectra_idx))]
         if False in set(np.equal(np.diff(ts_steps_found), -1*pulse_step)):
