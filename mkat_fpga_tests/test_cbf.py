@@ -208,8 +208,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.corr_fix.array_name,
                     self.instrument))
             #TODO: Add receiver back in
-            #if start_receiver:
-            #    self._systems_tests()
+            if start_receiver:
+                self._systems_tests()
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
             self.Error(errmsg, exc_info=True)
@@ -344,7 +344,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 # Run system tests before each test is ran
                 #TODO: Add systems test back in
-                #self.addCleanup(self._systems_tests)
+                self.addCleanup(self._systems_tests)
                 self.addCleanup(self.corr_fix.stop_x_data)
                 #if init_receiver:
                 #    self.addCleanup(self.receiver.stop)

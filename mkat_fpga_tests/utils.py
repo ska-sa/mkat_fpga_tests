@@ -1501,10 +1501,10 @@ class UtilsClass(object):
                 self.Note("The following number of sensors (%s) have `ERRORS`: %s" % (
                     len(_errored_sensors_.split(',')), _errored_sensors_))
                 # print('Following sensors have ERRORS: %s' % _errored_sensors_)
-            #if _warning_sensors_:
-            #    self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
-            #        len(_warning_sensors_.split(',')), _warning_sensors_))
-            #    # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
+            if _warning_sensors_:
+                self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
+                    len(_warning_sensors_.split(',')), _warning_sensors_))
+                # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
 
 
     def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True,
