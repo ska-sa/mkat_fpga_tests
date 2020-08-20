@@ -1472,6 +1472,7 @@ class UtilsClass(object):
                 for i in range(4):
                     try:
                         reply, informs = self.katcp_req.sensor_value()
+                        reply2, informs2 = self.katcp_req_sensors.senors_value()
                         self.assertTrue(reply.reply_ok())
                         break
                     except AssertionError:
@@ -1494,18 +1495,70 @@ class UtilsClass(object):
             _warning_sensors_ = ", ".join(
                 sorted(list(set([i.arguments[2] for i in informs if "warn" in i.arguments[-2]])))
             )
-        except Exception:
+            _errored_sensors2_ = ", ".join(
+                sorted(list(set([i.arguments[2] for i in informs2 if "error" in i.arguments[-2]])))
+            )
+            _warning_sensors2_ = ", ".join(
+                sorted(list(set([i.arguments[2] for i in informs2 if "warn" in i.arguments[-2]])))
+            )
+
+        except Exception as e:
             self.Note("Could not retrieve sensors via CAM interface.")
+            self.Note(e)
         else:
             if _errored_sensors_:
-                self.Note("The following number of sensors (%s) have `ERRORS`: %s" % (
+                self.Note("The following number of port sensors (%s) have `ERRORS`: %s" % (
                     len(_errored_sensors_.split(',')), _errored_sensors_))
-                # print('Following sensors have ERRORS: %s' % _errored_sensors_)
+                print('Following port sensors have ERRORS: %s' % _errored_sensors_)
             if _warning_sensors_:
-                self.Note("The following number of sensors (%s) have `WARNINGS`: %s" % (
+                self.Note("The following number of port sensors (%s) have `WARNINGS`: %s" % (
                     len(_warning_sensors_.split(',')), _warning_sensors_))
-                # print('Following sensors have WARNINGS: %s' % _warning_sensors_)
+                print('Following port sensors have WARNINGS: %s' % _warning_sensors_)
 
+            if _errored_sensors2_:
+                self.Note("The following number of sensorport sensors (%s) have `ERRORS`: %s" % (
+                    len(_errored_sensors2_.split(',')), _errored_sensors2_))
+                print('Following sensorport sensors have ERRORS: %s' % _errored_sensors2_)
+            if _warning_sensors2_:
+                self.Note("The following number of sensorport sensors (%s) have `WARNINGS`: %s" % (
+                    len(_warning_sensors2_.split(',')), _warning_sensors2_))
+                print('Following sensorport sensors have WARNINGS: %s' % _warning_sensors2_)
+
+            self.Note("Systems integrity test complete.")
+            es_list = _errored_sensors_.split(',')
+            wn_list = _warning_sensors_.split(',')
+            es2_list = _errored_sensors2_.split(',')
+            wn2_list = _warning_sensors2_.split(',')
+            with open('sensors.txt', 'a') as writer:
+                # writer.write( time.asctime( time.localtime(time.time())))
+                writer.write('\n' + '\n')
+                writer.write(self.id())
+                writer.write('\n')
+                writer.write('**ERROR SENSORS ON PORT**' + '\n')
+                # writer.write('\n')
+                for a in es_list:
+                    writer.write(time.asctime(time.localtime(time.time())) + a)
+                    # writer.write(a)
+                    writer.write('\n')
+                writer.write('**WARNING SENSORS ON PORT**' + '\n')
+                # writer.write('\n')
+                for a in wn_list:
+                    writer.write(time.asctime(time.localtime(time.time())) + a)
+                    # writer.write(a)
+                    writer.write('\n')
+                writer.write('**ERROR SENSORS ON SENSORPORT**' + '\n')
+                # writer.write('\n')
+                for a in es2_list:
+                    writer.write(time.asctime(time.localtime(time.time())) + a)
+                    # writer.write(a)
+                    writer.write('\n')
+                writer.write('**WARNING SENSORS ON SENSORPORT**' + '\n')
+                # writer.write('\n')
+                for a in wn2_list:
+                    writer.write(time.asctime(time.localtime(time.time())) + a)
+                    # writer.write(a)
+                    writer.write('\n')
+                # writer.write( time.asctime( time.localtime(time.time())))
 
     def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True,
                       awgn_scale_override=None,

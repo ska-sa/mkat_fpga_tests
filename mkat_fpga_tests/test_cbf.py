@@ -373,7 +373,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 Aqf.note("Instrument success for dummy test.")
                 # reply, informs = self.katcp_req.sensor_list(timed=60)
                 # IPython.embed()
-        Aqf.end(passed=True, message="End of IJ test.")
+        Aqf.end(passed=True, message="End of dummy test.")
 
     #################################################
 
