@@ -151,6 +151,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     # This needs proper testing
     def tearDown(self):
+        self._systems_tests()
         try:
             self.katcp_req = None
             assert not self.receiver
@@ -344,7 +345,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 # Run system tests before each test is ran
                 #TODO: Add systems test back in
-                self.addCleanup(self._systems_tests)
+                #self.addCleanup(self._systems_tests)
                 self.addCleanup(self.corr_fix.stop_x_data)
                 #if init_receiver:
                 #    self.addCleanup(self.receiver.stop)
