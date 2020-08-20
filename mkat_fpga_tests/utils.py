@@ -1472,7 +1472,7 @@ class UtilsClass(object):
                 for i in range(4):
                     try:
                         reply, informs = self.katcp_req.sensor_value()
-                        reply2, informs2 = self.katcp_req_sensors.senors_value()
+                        reply2, informs2 = self.katcp_req_sensors.sensor_value()
                         self.assertTrue(reply.reply_ok())
                         break
                     except AssertionError:
