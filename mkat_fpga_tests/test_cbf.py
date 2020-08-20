@@ -353,6 +353,30 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.addCleanup(gc.collect)
         return True
 
+    #################################################
+    def dummy_test(self):
+        my_procedure = '''
+          **Dummy Test Procedure**
+
+          1: Step one
+          2: Step two
+          3: Step three
+          4: Step four
+          '''
+
+        Aqf.procedure(my_procedure)
+        try:
+            assert evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if True:
+                Aqf.note("Instrument success for dummy test.")
+                # reply, informs = self.katcp_req.sensor_list(timed=60)
+                # IPython.embed()
+        Aqf.end(passed=True, message="End of IJ test.")
+
+    #################################################
+
     @subset
     @array_release_x
     @instrument_1k
