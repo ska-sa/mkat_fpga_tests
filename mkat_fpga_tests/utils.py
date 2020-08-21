@@ -1529,7 +1529,7 @@ class UtilsClass(object):
             es2_list = _errored_sensors2_.replace(' ','').split(',')
             wn2_list = _warning_sensors2_.replace(' ','').split(',')
             self.Note("Writing errors and warnings to sensor.log")
-            with open('sensors.log', 'w') as writer:
+            with open('sensors.log', 'a') as writer:
                 writer.write('\n')
                 writer.write(self.id())
                 writer.write('\n')
