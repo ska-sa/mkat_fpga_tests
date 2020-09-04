@@ -1466,6 +1466,13 @@ class UtilsClass(object):
 
     def _systems_tests(self):
         """Checking system stability before and after use"""
+        
+        def filter_msg(msgs):
+            msg_string = msgs
+            for f in self.filter_list:
+                msg_string = msg_string.replace(f, '')
+            return msg_string
+        
         try:
             self.Step("Checking systems integrity.")
             try:
@@ -1492,15 +1499,22 @@ class UtilsClass(object):
             _errored_sensors_ = ", ".join(
                 sorted(list(set([i.arguments[2] for i in informs if "error" in i.arguments[-2]])))
             )
-            _warning_sensors_ = ", ".join(
+            f_errored_sensors = filter_msg(_errored_sensors_)
+            
+	    _warning_sensors_ = ", ".join(
                 sorted(list(set([i.arguments[2] for i in informs if "warn" in i.arguments[-2]])))
             )
+            f_warning_sensors = filter_msg(_warning_sensors_)
+            
             _errored_sensors2_ = ", ".join(
                 sorted(list(set([i.arguments[2] for i in informs2 if "error" in i.arguments[-2]])))
             )
+            f_errored_sensors2 = filter_msg(_errored_sensors2_)
+            
             _warning_sensors2_ = ", ".join(
                 sorted(list(set([i.arguments[2] for i in informs2 if "warn" in i.arguments[-2]])))
             )
+            f_warning_sensors2 = filter_msg(_warning_sensors2_)
 
         except Exception as e:
             self.Note("Could not retrieve sensors via CAM interface.")
@@ -1509,59 +1523,57 @@ class UtilsClass(object):
             if _errored_sensors_:
                 self.Note("The following number of sensor 'ERRORS' on port have been reported (%s)" % (
                     len(_errored_sensors_.split(','))))
-                #print('Following port sensors have ERRORS: %s' % _errored_sensors_)
+            
             if _warning_sensors_:
                 self.Note("The following number of sensor 'WARNINGS' on port have been reported (%s) " % (
                     len(_warning_sensors_.split(','))))
-                #print('Following port sensors have WARNINGS: %s' % _warning_sensors_)
 
             if _errored_sensors2_:
                 self.Note("The following number of sensor `ERRORS` on sensorport have been reported (%s)" % (
                     len(_errored_sensors2_.split(','))))
-                #print('Following sensorport sensors have ERRORS: %s' % _errored_sensors2_)
+
             if _warning_sensors2_:
                 self.Note("The following number of sensor `WARNINGS` on sensorport have been reported (%s) " % (
                     len(_warning_sensors2_.split(','))))
-                #print('Following sensorport sensors have WARNINGS: %s' % _warning_sensors2_)
 
-            es_list = _errored_sensors_.replace(' ','').split(',')
-            wn_list = _warning_sensors_.replace(' ','').split(',')
-            es2_list = _errored_sensors2_.replace(' ','').split(',')
-            wn2_list = _warning_sensors2_.replace(' ','').split(',')
+            es_list = f_errored_sensors.replace(' ','').split(',')
+            wn_list = f_warning_sensors.replace(' ','').split(',')
+            es2_list = f_errored_sensors2.replace(' ','').split(',')
+            wn2_list = f_warning_sensors2.replace(' ','').split(',')
             self.Note("Writing errors and warnings to sensor.log")
-            with open('sensors.log', 'a') as writer:
-                writer.write('\n')
-                writer.write(self.id())
-                writer.write('\n')
-                writer.write('**SENSOR ERRORS ON PORT**' + '\n')
-		for a in es_list:
-		    if a:
-		        writer.write(str(datetime.now()) + ' ' + a + '\n')
-		    else:
-                        writer.write(str(datetime.now()) + ' No errors' + '\n')
-                
-		writer.write('**SENSOR WARNINGS ON PORT**' + '\n')
-                for a in wn_list:
-                    if a:
-		        writer.write(str(datetime.now()) + ' ' + a + '\n')
-		    else:
-                        writer.write(str(datetime.now()) + ' No errors' + '\n')
-                
-		writer.write('**SENSOR ERRORS ON SENSORPORT**' + '\n')
-                for a in es2_list:
-                    if a:
-		        writer.write(str(datetime.now()) + ' ' + a + '\n')
-		    else:
-                        writer.write(str(datetime.now()) + ' No errors' + '\n')
-                
-		writer.write('**SENSOR WARNINGS ON SENSORPORT**' + '\n')
-                for a in wn2_list:
-                    if a:
-		        writer.write(str(datetime.now()) + ' ' + a + '\n')
-		    else:
-                        writer.write(str(datetime.now()) + ' No errors' + '\n')
+            #import IPython
+	    #IPython.embed()
+            self.f.write('\n')
+            self.f.write(self.id())
+            self.f.write('\n')
+            self.f.write('FILTER LIST = ')
+            self.f.write(','.join(self.filter_list))
+            self.f.write('\n')
+            self.f.write('**SENSOR ERRORS ON PORT**' + '\n')
+	    for a in es_list:
+	        if a:
+		    self.f.write(str(datetime.now()) + ' ' + a + '\n')
+	
+            self.f.write('*********************************************\n\n')    
+	    self.f.write('**SENSOR WARNINGS ON PORT**' + '\n')
+            for a in wn_list:
+                if a:
+		    self.f.write(str(datetime.now()) + ' ' + a + '\n')
 
-            self.Note("Systems integrity test complete.")
+            self.f.write('*********************************************\n\n')    
+	    self.f.write('**SENSOR ERRORS ON SENSORPORT**' + '\n')
+            for a in es2_list:
+                if a:
+		    self.f.write(str(datetime.now()) + ' ' + a + '\n')
+                   
+            self.f.write('*********************************************\n\n')    
+	    self.f.write('**SENSOR WARNINGS ON SENSORPORT**' + '\n')
+            for a in wn2_list:
+                if a:
+		    self.f.write(str(datetime.now()) + ' ' + a + '\n')
+                  
+            self.f.write('*********************************************\n\n')
+        self.Note("Systems integrity test complete.")
 
     def _delays_setup(self, test_source_idx=(0,1), determine_start_time=True,
                       awgn_scale_override=None,

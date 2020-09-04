@@ -71,6 +71,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     _images_dir = os.path.join(cur_path, "docs/manual_tests_images")
     if os.path.exists(_csv_filename):
         csv_manual_tests = CSV_Reader(_csv_filename, set_index="Verification Event Number")
+    if os.path.exists("sensor.log"):
+        os.remove("sensor.log")
 
     def setUp(self):
         global SET_DSIM_EPOCH
@@ -80,6 +82,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self._dsim_set = False
         self.logs_path = None
         self.corr_fix = CorrelatorFixture(logLevel=self.logger.root.level)
+        #self.filter_list = ['fhost00.rx-unixtime', 'fhost01.rx-unixtime', 'fhost02.rx-unixtime', 'fhost03.ct.device-status', 'fhost03.ct.err-cnt1', 'fhost03.device-status', 'fhost03.rx-unixtime', 'fhost03.sync.device-status', 'fhost03.sync.resync-cnt']
+        self.filter_list = ['fhost00.rx-unixtime', 'fhost01.rx-unixtime','fhost00.cd.delay0-updating','fhost00.device-status']
+        self.f = open('sensor.log', 'a')
+        self.Note('sensor.log file opened.')
         try:
             self.logs_path = self.create_logs_directory()
             self.conf_file = self.corr_fix.test_config
@@ -152,6 +158,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     # This needs proper testing
     def tearDown(self):
         self._systems_tests()
+        self.f.close()
+        self.Note('sensor.log file closed.')
         try:
             self.katcp_req = None
             assert not self.receiver
@@ -345,7 +353,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 # Run system tests before each test is ran
                 #TODO: Add systems test back in
-                #self.addCleanup(self._systems_tests)
+                #self.addCleanup(self._systems_tests())
                 self.addCleanup(self.corr_fix.stop_x_data)
                 #if init_receiver:
                 #    self.addCleanup(self.receiver.stop)
@@ -372,7 +380,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if True:
                 Aqf.note("Instrument success for dummy test.")
                 # reply, informs = self.katcp_req.sensor_list(timed=60)
-                # IPython.embed()
         Aqf.end(passed=True, message="End of dummy test.")
 
     #################################################
