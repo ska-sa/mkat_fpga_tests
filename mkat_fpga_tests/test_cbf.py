@@ -24,6 +24,7 @@ import time
 import unittest
 import re
 import math
+import multiprocessing
 import hashlib
 from ast import literal_eval as evaluate
 from datetime import datetime
@@ -71,6 +72,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     _images_dir = os.path.join(cur_path, "docs/manual_tests_images")
     if os.path.exists(_csv_filename):
         csv_manual_tests = CSV_Reader(_csv_filename, set_index="Verification Event Number")
+    if os.path.exists("new_sensor.log"):
+        os.remove("new_sensor.log")
 
     def setUp(self):
         global SET_DSIM_EPOCH
@@ -209,7 +212,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.instrument))
             #TODO: Add receiver back in
             if start_receiver:
-                self._systems_tests()
+                #self._systems_tests()
+                pass
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
             self.Error(errmsg, exc_info=True)
@@ -344,13 +348,38 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 # Run system tests before each test is ran
                 #TODO: Add systems test back in
-                self.addCleanup(self._systems_tests)
+                #self.addCleanup(self._systems_tests)
                 self.addCleanup(self.corr_fix.stop_x_data)
                 #if init_receiver:
                 #    self.addCleanup(self.receiver.stop)
         self.addCleanup(executed_by)
         self.addCleanup(gc.collect)
         return True
+
+    #################################################
+    def dummy_test(self):
+        start_time = str(datetime.now()) 
+        my_procedure = '''
+          **Dummy Test Procedure**
+          1: Step one
+          2: Step two
+          3: Step three
+          4: Step four
+          '''
+
+        Aqf.procedure(my_procedure)
+        try:
+            assert evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if True:
+                Aqf.note("Instrument success for dummy test.")
+                # reply, informs = self.katcp_req.sensor_list(timed=60)
+        finally:
+            self.get_sensor_logs(start_time)
+        Aqf.end(passed=True, message="End of dummy test.")
+
+    #################################################    
 
     @subset
     @array_release_x
@@ -512,6 +541,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_vr("CBF.V.4.10")
     @aqf_requirements("CBF-REQ-0127")
     def test_lband_efficiency(self):
+        start_time = str(datetime.now())
         Aqf.procedure(TestProcedure.LBandEfficiency)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -521,6 +551,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self._test_efficiency()
             else:
                 self.Failed(self.errmsg)
+        finally:
+            self.get_sensor_logs(start_time)
 
 
     @array_release_x
@@ -528,6 +560,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_vr("CBF.V.A.IF")
     @aqf_requirements("TBD")
     def test_linearity(self):
+        start_time = str(datetime.now())
         Aqf.procedure(TestProcedure.Linearity)
         try:
             assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -546,6 +579,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self._test_linearity(test_channel=test_chan, max_steps=20)
             else:
                 self.Failed(self.errmsg)
+        finally:
+            self.get_sensor_logs(start_time)
 
 
 
@@ -8883,3 +8918,65 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                 return False
     #         else:
     #             return dump
+
+    def get_sensor_logs(self, start):
+         print 'GET SENSOR LOGS!!'
+         #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599226033.76_sensor_servlet.log'
+         #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300376.81_sensor_servlet.log'  #dummy 3.6M Aug 13 08:32 - 08:38
+         sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742673.1_sensor_servlet.log' #10/09/2020 
+    	 #servlet_log = '/var/log/corr/array0-bc8n856M32k_1599225945.85_servlet.log'
+         servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742585.11_servlet.log' #10/09/202
+         file_1 = open(sensor_servlet_log, 'r')
+         file_2 = open(servlet_log, 'r')
+    	 lines_1 = file_1.readlines()
+         lines_2 = file_2.readlines()
+    	 file_1.close()
+         file_2.close()
+         
+
+    	 with open('new_sensor.log', 'a') as writer:
+             #writer.write('Sensor servlet ' + str(datetime.now()) + '\n' + self.id() + '\n')
+             writer.write('Test method: ' + self.id() + '\n')
+             writer.write('Log file source: ' + sensor_servlet_log + '\n')
+             writer.write('                 ' + servlet_log + '\n')
+             writer.write('Start time: ' + start + '\n')
+             end = str(datetime.now())
+             writer.write('End time: ' + end + '\n')
+             writer.write('*Sensor servlet messages*' + '\n')
+             for l in lines_1:
+                 #end = str(datetime.now())
+                 #start = '2020-08-13 08:32'#dummy start time
+                 #end = '2020-08-13 08:38'#dummy end time
+                 #
+                 if int(start[11])==int(end[11]):
+                     pattern = "{0} [{1}][{2}-{3}]".format(start[:10], start[11], start[12], end[12])
+                 elif int(start[11])<int(end[11]):
+                     pattern = "{0} [{1}][{2}-9]|{0} [{3}][0-{4}]".format(start[:10], start[11], start[12], end[11], end[12])
+                 #
+                 if re.search(pattern, l):
+                 #if re.search('20\d\d-\d\d-\d\d 15:27', l):
+                 #if True:
+                     if re.search('Sensor warning|Sensor error', l):
+                         if re.search(' fhost', l):
+                             print l
+                             writer.write(l)
+
+             writer.write('*Servlet messages*' + '\n')
+             for l in lines_2:
+                 #end = str(datetime.now())
+                 #start = '2020-08-13 08:32'#dummy start time
+                 #end = '2020-08-13 08:38'#dummy end time
+                 #
+                 if int(start[11])==int(end[11]):
+                     pattern = "{0} [{1}][{2}-{3}]".format(start[:10], start[11], start[12], end[12])
+                 elif int(start[11])<int(end[11]):
+                     pattern = "{0} [{1}][{2}-9]|{0} [{3}][0-{4}]".format(start[:10], start[11], start[12], end[11], end[12])
+                 #
+                 if re.search(pattern, l):
+                 #if re.search('20\d\d-\d\d-\d\d 15:27', l):
+                 #if True:
+                     if re.search('Sensor warning|Sensor error', l):
+                         if re.search(' fhost', l):
+                             print l
+                             writer.write(l)
+             writer.write('----------End----------' + '\n')
