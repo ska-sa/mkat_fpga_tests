@@ -8920,63 +8920,73 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #             return dump
 
     def get_sensor_logs(self, start):
-         print 'GET SENSOR LOGS!!'
-         #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599226033.76_sensor_servlet.log'
-         #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300376.81_sensor_servlet.log'  #dummy 3.6M Aug 13 08:32 - 08:38
-         sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742673.1_sensor_servlet.log' #10/09/2020 
-    	 #servlet_log = '/var/log/corr/array0-bc8n856M32k_1599225945.85_servlet.log'
-         servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742585.11_servlet.log' #10/09/202
-         file_1 = open(sensor_servlet_log, 'r')
-         file_2 = open(servlet_log, 'r')
-    	 lines_1 = file_1.readlines()
-         lines_2 = file_2.readlines()
-    	 file_1.close()
-         file_2.close()
+        def str2unix(strtime):
+            tuple = strtime.timetuple()
+            unixtime = time.mktime(tuple)
+            return unixtime
+         
+        print 'GET SENSOR LOGS!!'
+        end = str(datetime.now())
+        sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155201.39_sensor_servlet.log'  #2020 Sep 15 09:33 ->...
+        servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155113.57_servlet.log'  #2020 Sep 15 09:31 ->...
+        #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300376.81_sensor_servlet.log'  #dummy 3.6M Aug 13 08:32 - 08:38
+        #servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300288.89_servlet.log'  #dummy 3.6M Aug 13 08:31 - 08:38
+        ##sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742673.1_sensor_servlet.log' #10/09/2020 
+        ##servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742585.11_servlet.log' #10/09/202
+        file_1 = open(sensor_servlet_log, 'r')
+        file_2 = open(servlet_log, 'r')
+    	lines_1 = file_1.readlines()
+        lines_2 = file_2.readlines()
+    	file_1.close()
+        file_2.close()
+
+        #start = '2020-09-15 09:34:00'#dummy start time
+        #end = '2020-09-15 09:45:00'#dummy end time
+
+        start_object = datetime.strptime(start[0:19], '%Y-%m-%d %H:%M:%S')
+        end_object = datetime.strptime(end[0:19], '%Y-%m-%d %H:%M:%S')
+        start_unix = str2unix(start_object)
+        end_unix = str2unix(end_object)
          
 
-    	 with open('new_sensor.log', 'a') as writer:
-             #writer.write('Sensor servlet ' + str(datetime.now()) + '\n' + self.id() + '\n')
-             writer.write('Test method: ' + self.id() + '\n')
-             writer.write('Log file source: ' + sensor_servlet_log + '\n')
-             writer.write('                 ' + servlet_log + '\n')
-             writer.write('Start time: ' + start + '\n')
-             end = str(datetime.now())
-             writer.write('End time: ' + end + '\n')
-             writer.write('*Sensor servlet messages*' + '\n')
-             for l in lines_1:
-                 #end = str(datetime.now())
-                 #start = '2020-08-13 08:32'#dummy start time
-                 #end = '2020-08-13 08:38'#dummy end time
-                 #
-                 if int(start[11])==int(end[11]):
-                     pattern = "{0} [{1}][{2}-{3}]".format(start[:10], start[11], start[12], end[12])
-                 elif int(start[11])<int(end[11]):
-                     pattern = "{0} [{1}][{2}-9]|{0} [{3}][0-{4}]".format(start[:10], start[11], start[12], end[11], end[12])
-                 #
-                 if re.search(pattern, l):
-                 #if re.search('20\d\d-\d\d-\d\d 15:27', l):
-                 #if True:
-                     if re.search('Sensor warning|Sensor error', l):
-                         if re.search(' fhost', l):
-                             print l
-                             writer.write(l)
+    	with open('new_sensor.log', 'a') as writer:
+            #writer.write('Sensor servlet ' + str(datetime.now()) + '\n' + self.id() + '\n')
+            writer.write('Test method: ' + self.id() + '\n')
+            writer.write('Log file source: ' + sensor_servlet_log + '\n')
+            writer.write('                 ' + servlet_log + '\n')
+            writer.write('Start time: ' + start + '\n')
+            writer.write('End time: ' + end + '\n')
+            
+            writer.write('*Sensor servlet messages*' + '\n')
+            for l in lines_1:
+                times = l[0:19]
+                try:
+                    times_object = datetime.strptime(times, '%Y-%m-%d %H:%M:%S')  # convert str to object
+                    times_unix = str2unix(times_object)  # convert object to unix str
+                except:
+                    times_unix = 0
+                if start_unix <= times_unix <= end_unix:
+                    if re.search('Sensor warning|Sensor error', l):
+                        if re.search('missing-pkts', l):
+                            print times, type(times)
+                            print times_unix, type(times_unix)
+                            writer.write(l + '\n')
+                            writer.write(str(times_unix) + '\n')
 
-             writer.write('*Servlet messages*' + '\n')
-             for l in lines_2:
-                 #end = str(datetime.now())
-                 #start = '2020-08-13 08:32'#dummy start time
-                 #end = '2020-08-13 08:38'#dummy end time
-                 #
-                 if int(start[11])==int(end[11]):
-                     pattern = "{0} [{1}][{2}-{3}]".format(start[:10], start[11], start[12], end[12])
-                 elif int(start[11])<int(end[11]):
-                     pattern = "{0} [{1}][{2}-9]|{0} [{3}][0-{4}]".format(start[:10], start[11], start[12], end[11], end[12])
-                 #
-                 if re.search(pattern, l):
-                 #if re.search('20\d\d-\d\d-\d\d 15:27', l):
-                 #if True:
-                     if re.search('Sensor warning|Sensor error', l):
-                         if re.search(' fhost', l):
-                             print l
-                             writer.write(l)
-             writer.write('----------End----------' + '\n')
+            writer.write('*Servlet messages*' + '\n')
+            for l in lines_2:
+                times = l[0:19]
+                try:
+                    times_object = datetime.strptime(times, '%Y-%m-%d %H:%M:%S')  # convert str to object
+                    times_unix = str2unix(times_object)  # convert object to unix str
+                except:
+                    times_unix = 0
+                if start_unix <= times_unix <= end_unix:
+                    if re.search('Sensor warning|Sensor error', l):
+                        if re.search('missing-pkts', l):
+                            print times, type(times)
+                            print times_unix, type(times_unix)
+                            writer.write(l + '\n')
+                            writer.write(str(times_unix) + '\n')
+
+            writer.write('----------End----------' + '\n')
