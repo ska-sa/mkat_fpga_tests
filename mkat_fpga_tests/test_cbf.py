@@ -151,6 +151,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Error(e, exe_info=True)
                 except Exception as e:
                     self.Error('{}'.format(e), exc_info=True)
+        self.start_time = str(datetime.now())
+        print '**self.start_time = ', self.start_time 
 
     # This needs proper testing
     def tearDown(self):
@@ -191,6 +193,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             del self.receiver
             #self.logger.info("Sleeping for 60 seconds to clean up memory.")
             #time.sleep(60)
+        self.end_time = str(datetime.now())
+        print '**self.end_time = ', self.end_time
+        print '**self.id = ', self.id
+        self.get_sensor_logs() 
 
 
     def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
@@ -357,6 +363,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         return True
 
     #################################################
+    #@ijtesting
     def dummy_test(self):
         start_time = str(datetime.now()) 
         my_procedure = '''
@@ -376,7 +383,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 Aqf.note("Instrument success for dummy test.")
                 # reply, informs = self.katcp_req.sensor_list(timed=60)
         finally:
-            self.get_sensor_logs(start_time)
+            #self.get_sensor_logs(start_time)
+            pass
         Aqf.end(passed=True, message="End of dummy test.")
 
     #################################################    
@@ -552,7 +560,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
         finally:
-            self.get_sensor_logs(start_time)
+            #self.get_sensor_logs(start_time)
+            pass
 
 
     @array_release_x
@@ -580,7 +589,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Failed(self.errmsg)
         finally:
-            self.get_sensor_logs(start_time)
+            #self.get_sensor_logs(start_time)
+            pass
 
 
 
@@ -8919,16 +8929,37 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #         else:
     #             return dump
 
-    def get_sensor_logs(self, start):
+    def get_sensor_logs(self):
         def str2unix(strtime):
             tuple = strtime.timetuple()
             unixtime = time.mktime(tuple)
             return unixtime
          
-        print 'GET SENSOR LOGS!!'
-        end = str(datetime.now())
-        sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155201.39_sensor_servlet.log'  #2020 Sep 15 09:33 ->...
-        servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155113.57_servlet.log'  #2020 Sep 15 09:31 ->...
+        filter_err_warn = 'Sensor warning|Sensor error'
+        #filter_names = 'missing-pkts|network-reorder.miss-err-cnt'
+        filter_names = '.'
+        self.Note('Reading logs!')
+        #end = str(datetime.now())
+                
+        list_of_files = glob.glob('/var/log/corr/*') # 
+        sorted_m_file = sorted(list_of_files, key=os.path.getmtime) # modified time
+        
+        if re.search("_sensor_servlet", sorted_m_file[-1]):
+            sensor_servlet_log = sorted_m_file[-1]
+        elif re.search("\d_servlet", sorted_m_file[-1]):
+            servlet_log = sorted_m_file[-1]
+        else:
+            print 'File not found.' 
+        
+        if re.search("\d_servlet", sorted_m_file[-2]):
+            servlet_log = sorted_m_file[-2]
+        elif re.search("_sensor_servlet", sorted_m_file[-2]):
+            sensor_servlet_log = sorted_m_file[-2]
+        else:
+            print 'File not found.' 
+            
+        #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155201.39_sensor_servlet.log'  #2020 Sep 15 09:33 ->...
+        #servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155113.57_servlet.log'  #2020 Sep 15 09:31 ->...
         #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300376.81_sensor_servlet.log'  #dummy 3.6M Aug 13 08:32 - 08:38
         #servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300288.89_servlet.log'  #dummy 3.6M Aug 13 08:31 - 08:38
         ##sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742673.1_sensor_servlet.log' #10/09/2020 
@@ -8943,10 +8974,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #start = '2020-09-15 09:34:00'#dummy start time
         #end = '2020-09-15 09:45:00'#dummy end time
 
-        start_object = datetime.strptime(start[0:19], '%Y-%m-%d %H:%M:%S')
-        end_object = datetime.strptime(end[0:19], '%Y-%m-%d %H:%M:%S')
+        start_object = datetime.strptime(self.start_time[0:19], '%Y-%m-%d %H:%M:%S')
+        end_object = datetime.strptime(self.end_time[0:19], '%Y-%m-%d %H:%M:%S')
         start_unix = str2unix(start_object)
         end_unix = str2unix(end_object)
+
+        # pstart = '2020-08-13 11:00:00'#dummy pause start time
+        # pend = '2020-08-13 11:20:00'  # dummy pause end time
+        # pstart_object = datetime.datetime.strptime(pstart, '%Y-%m-%d %H:%M:%S')
+        # pend_object = datetime.datetime.strptime(pend, '%Y-%m-%d %H:%M:%S')
+        # pstart_unix = str2unix(pstart_object)
+        # pend_unix = str2unix(pend_object)
          
 
     	with open('new_sensor.log', 'a') as writer:
@@ -8954,8 +8992,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             writer.write('Test method: ' + self.id() + '\n')
             writer.write('Log file source: ' + sensor_servlet_log + '\n')
             writer.write('                 ' + servlet_log + '\n')
-            writer.write('Start time: ' + start + '\n')
-            writer.write('End time: ' + end + '\n')
+            writer.write('Start time: ' + self.start_time + '\n')
+            writer.write('End time: ' + self.end_time + '\n')
+            #writer.write('Pause Start time: ' + pstart + '\n')
+            #writer.write('Pause End time: ' + pend + '\n')
+            writer.write('Filter: ' + filter_err_warn + ' , ' + filter_names + '\n')
             
             writer.write('*Sensor servlet messages*' + '\n')
             for l in lines_1:
@@ -8966,12 +9007,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 except:
                     times_unix = 0
                 if start_unix <= times_unix <= end_unix:
-                    if re.search('Sensor warning|Sensor error', l):
-                        if re.search('missing-pkts', l):
+                    if re.search(filter_err_warn, l):
+                        if re.search(filter_names, l):
                             print times, type(times)
                             print times_unix, type(times_unix)
                             writer.write(l + '\n')
-                            writer.write(str(times_unix) + '\n')
+                            #writer.write(str(times_unix) + '\n')
 
             writer.write('*Servlet messages*' + '\n')
             for l in lines_2:
@@ -8982,11 +9023,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 except:
                     times_unix = 0
                 if start_unix <= times_unix <= end_unix:
-                    if re.search('Sensor warning|Sensor error', l):
-                        if re.search('missing-pkts', l):
+                    if re.search(filter_err_warn, l):
+                        if re.search(filter_names, l):
                             print times, type(times)
                             print times_unix, type(times_unix)
                             writer.write(l + '\n')
-                            writer.write(str(times_unix) + '\n')
+                            #writer.write(str(times_unix) + '\n')
 
             writer.write('----------End----------' + '\n')
