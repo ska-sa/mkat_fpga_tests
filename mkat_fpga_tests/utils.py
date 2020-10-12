@@ -64,7 +64,7 @@ __all__ = ["all_nonzero_baselines", "AqfReporter", "baseline_checker", "complexi
     "ignored", "init_dsim_sources", "int2ip", "ip2int", "iterate_recursive_dict", "loggerise",
     "magnetise", "nonzero_baselines", "normalise", "normalised_magnitude", "Report_Images",
     "RetryError", "retryloop", "RunTestWithTimeout", "TestTimeout", "UtilsClass", "wipd",
-    "array_release_x", "subset", "beamforming", "zero_baselines"]
+    "array_release_x", "subset", "beamforming", "zero_baselines", "skipped_test"]
 
 
 class RetryError(Exception):
@@ -2427,6 +2427,9 @@ def Report_Images(image_list, caption_list=[""]):
         Aqf.image(image, caption)
 
 
+
+def skipped_test(f):
+    return attr('skipped_test')(f)
 
 def array_release_x(f):
     """
