@@ -198,8 +198,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.end_time = str(datetime.now()) # record end time of test method
         #print '**self.end_time = ', self.end_time
         #print '**self.id = ', self.id
-        #self.get_sensor_logs() # call method for parsing sensor logs 
-
+        try:
+            assert evaluate(os.getenv("SENSOR_LOGS", "False"))
+            self.Note("Sensor logs enabled.")
+            self.get_sensor_logs() # call method for parsing sensor logs
+        except AssertionError: 
+            self.Note("Sensor logs disabled.")
 
     def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
         #self.receiver = None
@@ -597,6 +601,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_lband_efficiency'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+            #Aqf.waived('Test waived')
         else:
             try:
                 assert eval(os.getenv("DRY_RUN", "False")) 
@@ -1125,6 +1130,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         else:
             self._test_global_manual("CBF.V.3.56")
 
+    @subset
     @skipped_test
     @array_release_x
     @manual_test
