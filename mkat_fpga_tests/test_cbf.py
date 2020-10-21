@@ -395,8 +395,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #################################################    
 
-    @skipped_test
-    @subset
+    #@tbd
+    #@skipped_test
+    #@subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -407,6 +408,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_channelisation'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -465,7 +469,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @instrument_32k
     @aqf_vr("CBF.V.3.30")
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
@@ -474,6 +480,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_channelisation_wideband_fine'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation_wideband_fine'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -487,7 +496,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @slow
     @array_release_x
     @instrument_1k
@@ -499,6 +510,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_channelisation_sfdr_peaks'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation_sfdr_peaks'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -531,7 +545,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @slow
     @instrument_32k
     @aqf_vr("CBF.V.3.30")
@@ -541,6 +557,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_channelisation_wideband_fine_sfdr_peaks'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation_wideband_fine_sfdr_peaks'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -554,7 +573,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
+    #@subset
     @generic_test
     @aqf_vr("CBF.V.3.46")
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
@@ -563,6 +584,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_power_consumption'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_power_consumption'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -589,8 +613,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ##self.get_sensor_logs(start_time)
             #pass
 
-    @skipped_test
-    @subset
+    #@tbd
+    #@skipped_test
+    #@subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
@@ -601,7 +626,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_lband_efficiency'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
-            #Aqf.waived('Test waived')
+        elif 'tbd' in test_CBF.__dict__['test_lband_efficiency'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert eval(os.getenv("DRY_RUN", "False")) 
@@ -615,7 +642,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -627,6 +655,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_linearity'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_linearity'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -646,7 +677,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
        #     	#self.get_sensor_logs(start_time)
        #     	pass
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.4")
@@ -656,6 +689,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_baseline_correlation_product'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_baseline_correlation_product'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -695,7 +731,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.3.62")
     @aqf_requirements("CBF-REQ-0238")
@@ -704,6 +742,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_imaging_data_product_set'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_imaging_data_product_set'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -714,7 +755,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.3.67")
     @aqf_requirements("CBF-REQ-0120")
@@ -723,6 +766,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_tied_array_aux_baseline_correlation_products'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_tied_array_aux_baseline_correlation_products'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -733,7 +779,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
+    #@subset
     @generic_test
     @aqf_vr("CBF.V.3.64")
     @aqf_requirements("CBF-REQ-0242")
@@ -742,6 +790,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_tied_array_voltage_data_product_set'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_tied_array_voltage_data_product_set'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -752,7 +803,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    # @tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.7")
@@ -762,6 +815,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_accumulation_length'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_accumulation_length'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -789,7 +845,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.9")
@@ -799,6 +857,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_gain_correction'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_gain_correction'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -809,7 +870,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.4.23")
     @aqf_requirements("CBF-REQ-0013")
@@ -818,6 +881,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_product_switch'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_product_switch'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -831,7 +897,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # else:
                 #     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.31")
@@ -841,6 +909,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_delay_phase_compensation_control'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_delay_phase_compensation_control'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -852,7 +923,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
@@ -862,6 +935,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_delay_phase_compensation_functional'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_delay_phase_compensation_functional'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -897,7 +973,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
+    #@subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
@@ -907,6 +985,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_report_configuration'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_report_configuration'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -917,7 +998,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.29")
@@ -927,6 +1010,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_systematic_error_reporting'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_systematic_error_reporting'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -937,7 +1023,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.28")
@@ -949,6 +1037,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_fault_detection'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_fault_detection'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -966,7 +1057,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.3.26")
     @aqf_requirements("CBF-REQ-0056", "CBF-REQ-0068", "CBF-REQ-0069")
@@ -975,6 +1068,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_monitor_sensors'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_monitor_sensors'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -986,7 +1082,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.38")
@@ -996,13 +1094,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_time_synchronisation'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_time_synchronisation'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
                 self._test_time_sync()
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.4.26")
     @aqf_requirements("CBF-REQ-0083", "CBF-REQ-0084", "CBF-REQ-0085", "CBF-REQ-0086", "CBF-REQ-0221")
@@ -1011,6 +1114,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_antenna_voltage_buffer'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_antenna_voltage_buffer'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -1021,7 +1127,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @beamforming
     @instrument_1k
@@ -1033,6 +1141,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_x_beamforming'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_x_beamforming'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -1046,7 +1157,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     #@array_release_x
     @beamforming
     @instrument_1k
@@ -1058,6 +1171,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_beamformer_efficiency'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_beamformer_efficiency'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert eval(os.getenv('DRY_RUN', 'False'))
@@ -1069,7 +1185,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #else:
                 #    Aqf.failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     #@array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
@@ -1081,6 +1198,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_y_beamforming_timeseries'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_y_beamforming_timeseries'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -1091,7 +1211,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    # @skipped_test
+    #@tbd
+    #@subset
+    #@skipped_test
     #@array_release_x
     @beamforming
     @instrument_1k
@@ -1102,6 +1224,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test_z_group_delay'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_z_group_delay'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
@@ -1119,7 +1244,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     # Perhaps, enlist all manual tests here with VE & REQ
 
-    @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @aqf_vr("CBF.V.3.56")
     @aqf_requirements("CBF-REQ-0228")
@@ -1127,11 +1253,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__subarray'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__subarray'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.56")
 
-    @subset
-    @skipped_test
+    #@tbd
+    #@skipped_test
     @array_release_x
     @manual_test
     @generic_test
@@ -1141,13 +1270,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__control'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__control'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.37")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.37*"))
             caption_list = ["Screenshot of the command executed and reply: CAM interface"]
             Report_Images(image_files, caption_list)
 
-    @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.1.11")
@@ -1156,10 +1289,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__procured_items_emc_certification'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__procured_items_emc_certification'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.1.11")
 
-    @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.3")
@@ -1170,10 +1307,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__states_and_modes_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__states_and_modes_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.3")
 
-    @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.77")
@@ -1182,10 +1323,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__full_functional_mode_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__full_functional_mode_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.77")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.15")
@@ -1194,10 +1339,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__power_supply_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__power_supply_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.15")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.16")
@@ -1206,10 +1355,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__safe_design_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__safe_design_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.16")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.17")
@@ -1218,10 +1371,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__lru_status_and_display_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__lru_status_and_display_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.17")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.18")
@@ -1230,6 +1387,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__cots_lru_status_and_display_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__cots_lru_status_and_display_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.18")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.18*"))
@@ -1240,7 +1400,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ]
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.19")
@@ -1249,10 +1410,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__interchangeability_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__interchangeability_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.19")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.20")
@@ -1261,10 +1426,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__periodic_maintenance_lru_storage_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__periodic_maintenance_lru_storage_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.20")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.21")
@@ -1273,10 +1442,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__lru_storage_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__lru_storage_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.21")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.22")
@@ -1285,10 +1458,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__item_handling_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__item_handling_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.22")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.23")
@@ -1297,6 +1474,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__item_marking_and_labelling_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__item_marking_and_labelling_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.23")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.23*"))
@@ -1314,7 +1494,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ]
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.24")
@@ -1323,10 +1504,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__use_of_cots_equipment_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__use_of_cots_equipment_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.24")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.25")
@@ -1335,6 +1520,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__logging_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__logging_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.25")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.25*"))
@@ -1342,7 +1530,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "Screenshot of the command executed via CAM interface (log-level)"] * len(image_files)
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.33")
@@ -1351,10 +1540,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__accumulator_dynamic_range_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__accumulator_dynamic_range_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.33")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.36")
@@ -1363,10 +1556,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__data_products_available_for_all_receivers_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__data_products_available_for_all_receivers_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.36")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.39")
@@ -1375,6 +1572,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__cooling_method_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__cooling_method_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.39")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.39*"))
@@ -1384,7 +1584,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 ]
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.40")
@@ -1393,10 +1594,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__humidity_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__humidity_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.40")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.41")
@@ -1405,10 +1610,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__storage_environment_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__storage_environment_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.41")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.42")
@@ -1417,10 +1626,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__temperature_range_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__[''].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.42")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.43")
@@ -1429,10 +1642,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__transportation_of_components_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__transportation_of_components_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.43")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.44")
@@ -1441,6 +1658,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__product_marking_environmentals_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__product_marking_environmentals_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.44")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.44*"))
@@ -1450,7 +1670,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ]
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.45")
@@ -1459,10 +1680,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__fail_safe_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__fail_safe_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.45")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.47")
@@ -1471,10 +1696,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__safe_physical_design_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__safe_physical_design_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.47")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.48")
@@ -1483,10 +1712,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__digitiser_cam_data_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__digitiser_cam_data_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.48")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.50")
@@ -1495,10 +1728,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__mtbf_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__mtbf_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.50")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.52")
@@ -1508,10 +1745,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__internal_interfaces_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__internal_interfaces_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.52")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.53")
@@ -1520,10 +1761,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__external_interfaces_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__external_interfaces_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.53")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.54")
@@ -1532,6 +1777,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__lru_replacement_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__lru_replacement_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.54")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.54*"))
@@ -1541,7 +1789,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ]
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @untested
     @manual_test
     @generic_test
@@ -1553,10 +1802,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__data_subscribers_link_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__data_subscribers_link_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.57")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.6.9")
@@ -1565,6 +1818,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__design_to_emc_sans_standard_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__design_to_emc_sans_standard_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.6.9")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.6.9*"))
@@ -1574,7 +1830,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ] * len(image_files)
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.6.10")
@@ -1583,13 +1840,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__design_standards_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__design_standards_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.6.10")
             image_files = sorted(glob.glob(self._images_dir + "/CBF.V.6.10*"))
             caption_list = ["CBF processing nodes contains an integrated power filter."]
             Report_Images(image_files, caption_list)
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.66")
@@ -1598,10 +1859,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__channelised_voltage_data_transfer_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__channelised_voltage_data_transfer_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.66")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.49")
@@ -1610,10 +1875,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__route_basic_spectrometer_data_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__route_basic_spectrometer_data_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.49")
 
-    # @skipped_test
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.58")
@@ -1622,6 +1891,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if 'skipped_test' in test_CBF.__dict__['test__subarray_data_product_set_ve'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__subarray_data_product_set_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
         else:
             self._test_global_manual("CBF.V.3.58")
 
