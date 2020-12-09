@@ -782,7 +782,8 @@ def generate_sphinx_docs(settings):
                     "Qualification", _system_type + "Qualification"
                 )
 
-                username = subprocess.check_output("git config --get user.name".split())
+                #username = subprocess.check_output("git config --get user.name".split())
+                username = 'jkns'
                 replaceAll(
                     latex_file,
                     "{Performed by}{}{}",

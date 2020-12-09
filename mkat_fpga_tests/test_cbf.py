@@ -352,7 +352,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.addCleanup(gc.collect)
         return True
 
-    @subset
+    #@subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -495,6 +495,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    @subset
     @generic_test
     @aqf_vr("CBF.V.3.46")
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
@@ -506,7 +507,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Test is being qualified by CBF.V.3.30")
 
 
-    @subset
+    #@subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
