@@ -1,0 +1,72 @@
+[FxCorrelator]
+max_fd = 1024
+monitor_loop_time = 1
+log_file_dir = /var/log/corr/
+katcp_port = 7147
+sample_rate_hz = 1714298408
+timestamp_bits = 48
+time_jitter_allowed = 0.5
+time_offset_allowed = 5
+switch_delay = 30
+spead_metapacket_ttl = 4
+source_products = baseband-voltage
+n_ants = 4
+default_timeout = 15
+sensor_poll_interval = 0.005
+
+[log-level]
+instrument = info
+[fengine]
+hosts = skarab020A43-01,skarab020426-01,skarab02080A-01,skarab020309-01
+bitstream = /srv/mkat_fpga/bitstreams/feng_nb/s_c107m32k.fpg
+f_per_fpga = 2
+source_mcast_ips = INPUT0,INPUT1,INPUT2,INPUT3,INPUT4,INPUT5,INPUT6,INPUT7
+n_input_streams_per_fengine = 8
+decimation_factor = 8
+sample_bits = 10
+n_chans = 32768
+fft_shift = 43604
+quant_bits = 8
+pfb_bits = 18
+pfb_group_delay=0
+default_eq_poly = 6000
+min_load_time = 0.15
+output_products = antenna-channelised-voltage
+output_destinations_base = 239.102.21.0:7148
+#source_names = LABEL0,LABEL1,LABEL2,LABEL3,LABEL4,LABEL5,LABEL6,LABEL7
+source_names = inp000x,inp000y,inp001x,inp001y,inp002x,inp002y,inp003x,inp003y
+
+[xengine]
+hosts = skarab020A1A-01
+bitstream = /srv/mkat_fpga/bitstreams/xeng_nb/s_b4a4x32kf_nb.fpg
+x_per_fpga = 4
+accumulation_len = 13
+xeng_accumulation_len = 256
+xeng_outbits = 32
+output_products = baseline-correlation-products
+output_destinations_base = 239.102.22.0:7148
+10gbe_pkt_gapsize = 65536
+
+[bengine]
+[beam0]
+output_products = tied-array-channelised-voltage.0x
+output_destinations_base = 239.102.23.0:7148
+stream_index = 0
+default_weight = 1.0
+beng_outbits = 8
+quant_gain = 0.5
+
+[beam1]
+output_products = tied-array-channelised-voltage.0y
+output_destinations_base = 239.102.24.0:7148
+stream_index = 1
+default_weight = 1.0
+beng_outbits = 8
+quant_gain = 0.5
+
+[dsimengine]
+sample_rate_hz = 1714298408
+bitstream = /srv/mkat_fpga/bitstreams/deng/s_deng_rev1_13_wide.fpg
+host = skarab020919-01
+pol0_destination_ips = 239.102.50.0+7:7148
+pol1_destination_ips = 239.102.50.8+7:7148
