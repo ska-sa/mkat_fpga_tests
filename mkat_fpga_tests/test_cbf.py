@@ -641,6 +641,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
 
     #@array_release_x
+    @subset
     @generic_test
     @aqf_vr("CBF.V.4.7")
     @aqf_requirements("CBF-REQ-0096")
