@@ -295,22 +295,24 @@ class CorrRx(threading.Thread, LoggingClass):
             self.running_event.wait(timeout)
         self.logger.info("SPEAD receiver started")
 
-    def _spead_stream(self, active_frames=3):
+    def _spead_stream(self, active_frames=2):
         """
         Spead stream initialisation with performance tuning added.
 
         """
+        #import IPython;IPython.embed()
         n_chans_per_substream = self.n_chans / self.NUM_XENG
         heap_data_size = (
-            np.dtype(np.complex64).itemsize * n_chans_per_substream * len(self.bls_ordering))
+            np.dtype(np.complex64).itemsize * n_chans_per_substream * len(eval(self.bls_ordering)))
 
         # It's possible for a heap from each X engine and a descriptor heap
         # per endpoint to all arrive at once. We assume that each xengine will
         # not overlap packets between heaps, and that there is enough of a gap
         # between heaps that reordering in the network is a non-issue.
         stream_xengs = ring_heaps = (
-            self.n_chans // n_chans_per_substream)
-        max_heaps = stream_xengs + 2 * self.n_xengs
+            (self.channels[1]+1) // n_chans_per_substream)
+        #max_heaps = stream_xengs + 2 * self.n_xengs
+        max_heaps = stream_xengs * 2
         # We need space in the memory pool for:
         # - live heaps (max_heaps, plus a newly incoming heap)
         # - ringbuffer heaps
@@ -321,8 +323,10 @@ class CorrRx(threading.Thread, LoggingClass):
         #   - frame being processed by ingest_session (which could be several, depending on
         #     latency of the pipeline, but assume 3 to be on the safe side)
         #memory_pool_heaps = ring_heaps + max_heaps + stream_xengs * (active_frames + 5)
-        #memory_pool_heaps = max_heaps + stream_xengs * (active_frames)
-        memory_pool_heaps = 70 #max_heaps + stream_xengs
+        #memory_pool_heaps = ring_heaps + max_heaps + stream_xengs * (active_frames)
+        memory_pool_heaps = max_heaps + stream_xengs
+        print('Max heaps: {}, ring heaps: {}, heap_data_size {}, memory_pool_heaps {}'.format(max_heaps,ring_heaps, heap_data_size, memory_pool_heaps))
+        #memory_pool_heaps = 40 #max_heaps + stream_xengs
         memory_pool = spead2.MemoryPool(2**14, heap_data_size + 2**9,
                                         memory_pool_heaps, memory_pool_heaps)
 

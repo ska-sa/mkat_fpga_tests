@@ -72,6 +72,64 @@ class RetryError(Exception):
 
 
 class UtilsClass(object):
+    
+    def current_dsim_mcount(self):
+        """
+            Return the current dsim mcount.
+        """
+        reg_size = 32
+        reg_size_max = pow(2, reg_size)
+        scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
+        threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
+        try:
+            dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()["data"]["reg"]
+            dsim_loc_msw = self.dhost.registers.local_time_msw.read()["data"]["reg"]
+            while (reg_size_max - dsim_loc_lsw < threems_in_200mhz_cnt):
+                dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()["data"]["reg"]
+                dsim_loc_msw = self.dhost.registers.local_time_msw.read()["data"]["reg"]
+        except Exception as e:
+            if not quiet:
+                self.Error(e, exc_info=True)
+            return False
+        else:
+            dsim_loc_time = dsim_loc_msw*reg_size_max + dsim_loc_lsw
+            dsim_mcount   = dsim_loc_time * 8
+            return dsim_mcount
+
+    def get_dump_after_mcount(self, mcount):
+        """
+            Discard dumps until dump timestamp is past mcount. 
+        """
+        dump_mcount = 0
+        while (dump_mcount < mcount): 
+            try:
+                data = self.receiver.data_queue.get()
+                self.assertIsInstance(data, dict)
+                dump_mcount = data["timestamp"]
+                print('Mcount delta: {}'.format(mcount - dump_mcount))
+            except AssertionError:
+                errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
+                if not quiet:
+                    self.Error(errmsg, exc_info=True)
+                return False
+            except Exception as e:
+                if not quiet:
+                    self.Error(e, exc_info=True)
+                return False
+        return data
+
+    def check_dsim_acc_offset(self):
+        scale_factor = self.cam_sensors.get_value("scale_factor_timestamp")
+        prev_data_mcount = 0
+        for i in range(10):
+            mcount = self.current_dsim_mcount()
+            data = self.receiver.data_queue.get()
+            data_mcount = data['timestamp']
+            if (prev_data_mcount == 0) or (prev_data_mcount == data_mcount):
+                data = self.receiver.data_queue.get()
+            Aqf.step("Current dump timestamp to dsim offset: {} s"
+                    "".format((mcount-data['timestamp'])/scale_factor))
+            prev_data_mcount = data_mcount
 
     def get_real_clean_dump(self, discard=0, quiet=False):
         """

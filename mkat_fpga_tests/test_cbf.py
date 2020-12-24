@@ -585,9 +585,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # Remove chan 0 to avoid DC issues
                 if test_channels[0] == 0:
                     test_channels = test_channels[1:]
+                #self.check_dsim_acc_offset()
+
                 self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                self._test_freq_scan_consistency(test_chan, num_discard)
+                #self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -2513,7 +2515,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             "Digitiser simulator configured to generate Gaussian noise, "
             "with scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
         )
-
         dsim_set_success = self.set_input_levels(
             awgn_scale=awgn_scale,
             freq=self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") / 2.0,
@@ -2523,6 +2524,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        else:
+            curr_mcount = self.current_dsim_mcount()
 
         # Does not make sense to change input labels anymore. These should be set at instrument initialisation
         #try:
@@ -2571,7 +2574,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Get bls ordering from get dump
         self.Step(
             "Get list of all possible baselines (including redundant baselines) present "
-            "in the correlator output from SPEAD accumulation"
+            "in the correlator output."
         )
 
         bls_ordering = evaluate(self.cam_sensors.get_value("bls_ordering"))
@@ -2615,7 +2618,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Confirm that all baselines are present in correlator output."
         Aqf.is_true(all(baseline_is_present.values()), msg)
         for i in range(self.data_retries):  
-            test_data = self.get_real_clean_dump(discard=num_discard)
+            # Dump till mcount change
+            #test_data = self.get_real_clean_dump(discard=num_discard)
+            test_data = self.get_dump_after_mcount(curr_mcount)
             if check_strt_ch and check_stop_ch:
                 test_data["xeng_raw"] = test_data["xeng_raw"][check_strt_ch:check_stop_ch,:,:]
             if test_data is not False:
@@ -2674,8 +2679,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step("Set all inputs gains to 'Zero', and confirm that output product is all-zero")
         set_zero_gains()
         read_zero_gains()
+        curr_mcount = self.current_dsim_mcount()
         for i in range(self.data_retries):  
-            test_data = self.get_real_clean_dump()
+            # Dump till mcount change
+            #test_data = self.get_real_clean_dump()
+            test_data = self.get_dump_after_mcount(curr_mcount)
             if check_strt_ch and check_stop_ch:
                 test_data["xeng_raw"] = test_data["xeng_raw"][check_strt_ch:check_stop_ch,:,:]
             if test_data is not False:
@@ -2728,6 +2736,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 reply, _ = self.katcp_req.gain(inp, old_eq)
                 self.assertTrue(reply.reply_ok())
+                curr_mcount = self.current_dsim_mcount()
             except AssertionError:
                 errmsg = "%s: Failed to set gain/eq of %s for input %s" % (str(reply), old_eq, inp)
                 self.Error(errmsg, exc_info=True)
@@ -2738,7 +2747,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 nonzero_inputs.add(inp)
                 expected_z_bls, expected_nz_bls = calc_zero_and_nonzero_baselines(nonzero_inputs)
                 for i in range(self.data_retries):  
-                    test_dump = self.get_real_clean_dump(discard=num_discard)
+                    #test_dump = self.get_real_clean_dump(discard=num_discard)
+                    test_dump = self.get_dump_after_mcount(curr_mcount)
                     if check_strt_ch and check_stop_ch:
                         test_dump["xeng_raw"] = (test_dump["xeng_raw"]
                                 [check_strt_ch:check_stop_ch,:,:])
@@ -2885,7 +2895,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         num_prints = 3
         print_cnt = 0
         # Clear cue
-        dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
+        # Dump till mcount change:
+        #dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
         for chan in test_channels:
             if print_cnt < num_prints:
                 print_output = True
@@ -2904,6 +2915,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         repeat_n=source_period_in_samples)
                 assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
                 this_source_freq = self.dhost.sine_sources.sin_corr.frequency
+                # Dump till mcount change
+                curr_mcount = self.current_dsim_mcount()
             except AssertionError:
                 errmsg = ("Failed to make the DEng output periodic in FFT-length so "
                           "that each FFT is identical, or cw0 does not equal cw1 freq.")
@@ -2918,27 +2931,31 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
             # Retry if correct data not received. This may be due to congestion on the receiver que
             # Clear cue
-            dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
+            # Dump till mcount change
+            #dump = self.get_real_clean_dump(discard=num_discard, quiet=True)
             for i in range(self.data_retries):
                 dumps_data = []
                 #chan_responses = []
-                if dump is not False:
-                    for dump_no in range(3):
-                        this_freq_dump = self.get_real_clean_dump(quiet=True)
-                        if this_freq_dump is not False:
-                            this_freq_data = this_freq_dump["xeng_raw"]
-                            dumps_data.append(this_freq_data)
-                            #this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
-                            #chan_responses.append(this_freq_response)
-                        else:
-                            break
-                    try:
-                        dumps_comp = np.diff(dumps_data, axis=0)
-                        dumps_comp_max = np.max(dumps_comp)
-                        if dumps_comp_max == 0: break
-                        self.hop('Dumps found to not be equal for channel {}, trying again'.format(chan))
-                    except:
-                        pass
+                # Dump till mcount change
+                #if dump is not False:
+                for dump_no in range(3):
+                    # Dump till mcount change
+                    #this_freq_dump = self.get_real_clean_dump(quiet=True)
+                    this_freq_dump = self.get_dump_after_mcount(curr_mcount)
+                    if this_freq_dump is not False:
+                        this_freq_data = this_freq_dump["xeng_raw"]
+                        dumps_data.append(this_freq_data)
+                        #this_freq_response = normalised_magnitude(this_freq_data[:, test_baseline, :])
+                        #chan_responses.append(this_freq_response)
+                    else:
+                        break
+                try:
+                    dumps_comp = np.diff(dumps_data, axis=0)
+                    dumps_comp_max = np.max(dumps_comp)
+                    if dumps_comp_max == 0: break
+                    self.hop('Dumps found to not be equal for channel {}, trying again'.format(chan))
+                except:
+                    pass
 
             if (i == self.data_retries-1) and ("dumps_comp" not in locals()):
                 errmsg = "SPEAD data not received."
