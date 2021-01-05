@@ -24,9 +24,12 @@ import time
 import unittest
 import re
 import math
+import multiprocessing
 import hashlib
 from ast import literal_eval as evaluate
 from datetime import datetime
+
+from nose.plugins.attrib import get_method_attr
 
 import corr2
 import katcp
@@ -71,6 +74,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     _images_dir = os.path.join(cur_path, "docs/manual_tests_images")
     if os.path.exists(_csv_filename):
         csv_manual_tests = CSV_Reader(_csv_filename, set_index="Verification Event Number")
+    if os.path.exists("new_sensor.log"):
+        os.remove("new_sensor.log")
 
     def setUp(self):
         global SET_DSIM_EPOCH
@@ -148,6 +153,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Error(e, exe_info=True)
                 except Exception as e:
                     self.Error('{}'.format(e), exc_info=True)
+        self.start_time = str(datetime.now()) # record start time of test method
+        #print '**self.start_time = ', self.start_time 
 
     # This needs proper testing
     def tearDown(self):
@@ -188,7 +195,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             del self.receiver
             #self.logger.info("Sleeping for 60 seconds to clean up memory.")
             #time.sleep(60)
-
+        self.end_time = str(datetime.now()) # record end time of test method
+        #print '**self.end_time = ', self.end_time
+        #print '**self.id = ', self.id
+        try:
+            assert evaluate(os.getenv("SENSOR_LOGS", "False"))
+            self.Note("Sensor logs enabled.")
+            self.get_sensor_logs() # call method for parsing sensor logs
+        except AssertionError: 
+            self.Note("Sensor logs disabled.")
 
     def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
         #self.receiver = None
@@ -209,7 +224,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.instrument))
             #TODO: Add receiver back in
             if start_receiver:
-                self._systems_tests()
+                #self._systems_tests()
+                pass
         except Exception:
             errmsg = "No running instrument on array: %s, Exiting...." % self.corr_fix.array_name
             self.Error(errmsg, exc_info=True)
@@ -344,7 +360,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 # Run system tests before each test is ran
                 #TODO: Add systems test back in
-                self.addCleanup(self._systems_tests)
+                #self.addCleanup(self._systems_tests)
                 self.addCleanup(self.corr_fix.stop_x_data)
                 #if init_receiver:
                 #    self.addCleanup(self.receiver.stop)
@@ -352,7 +368,36 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.addCleanup(gc.collect)
         return True
 
-    @subset
+    #################################################
+    #@ijtesting
+    def dummy_test(self):
+        start_time = str(datetime.now()) 
+        my_procedure = '''
+          **Dummy Test Procedure**
+          1: Step one
+          2: Step two
+          3: Step three
+          4: Step four
+          '''
+
+        Aqf.procedure(my_procedure)
+        try:
+            assert evaluate(os.getenv("DRY_RUN", "False"))
+        except AssertionError:
+            instrument_success = self.set_instrument()
+            if True:
+                Aqf.note("Instrument success for dummy test.")
+                # reply, informs = self.katcp_req.sensor_list(timed=60)
+        finally:
+            #self.get_sensor_logs(start_time)
+            pass
+        Aqf.end(passed=True, message="End of dummy test.")
+
+    #################################################    
+
+    #@tbd
+    #@skipped_test
+    #@subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -360,82 +405,100 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053", "CBF-REQ-0226", "CBF-REQ-0227", "CBF-REQ-0236" )
     def test_channelisation(self):
         Aqf.procedure(TestProcedure.Channelisation)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(
-                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
-            )
-            if instrument_success:
-                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and 
-                    (self.start_channel == 0)):
-                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
-                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+        if 'skipped_test' in test_CBF.__dict__['test_channelisation'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(
+                        acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
+                )
+                if instrument_success:
+                    n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and
+                        (self.start_channel == 0)):
+                        check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                        check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                        test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                    else:
+                        test_chan = random.choice(range(self.start_channel,
+                            self.start_channel+self.n_chans_selected))
+                    heading("CBF Channelisation")
+                    # Figure out what this value should really be for different integrations
+                    # 3 worked for CMC1 june 2019
+                    # TODO: automate this by checking how long data takes to travel through integrations
+                    num_discards = int(self.conf_file["instrument_params"]["num_discards"])
+                    smpl_per_ch  = int(self.conf_file["instrument_params"]["num_channelisation_samples"])
+                    if "107M32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=3265.38, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                            narrow_band="full"
+                        )
+                    elif "54M32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=1632.69, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                            narrow_band="half"
+                        )
+                    elif "32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=30000, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                        )
+                    elif "4k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=250e3, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                        )
+                    elif "1k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=1000e3, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                        )
                 else:
-                    test_chan = random.choice(range(self.start_channel, 
-                        self.start_channel+self.n_chans_selected))
-                heading("CBF Channelisation")
-                # Figure out what this value should really be for different integrations
-                # 3 worked for CMC1 june 2019
-                # TODO: automate this by checking how long data takes to travel through integrations
-                num_discards = int(self.conf_file["instrument_params"]["num_discards"])
-                smpl_per_ch  = int(self.conf_file["instrument_params"]["num_channelisation_samples"])
-                if "107M32k" in self.instrument:
-                    self._test_channelisation(
-                        test_chan, 
-                        req_chan_spacing=3265.38, num_discards=num_discards,
-                        samples_per_chan=smpl_per_ch,
-                        narrow_band="full"
-                    )
-                elif "54M32k" in self.instrument:
-                    self._test_channelisation(
-                        test_chan,
-                        req_chan_spacing=1632.69, num_discards=num_discards,
-                        samples_per_chan=smpl_per_ch,
-                        narrow_band="half"
-                    )
-                elif "32k" in self.instrument:
-                    self._test_channelisation(
-                        test_chan,
-                        req_chan_spacing=30000, num_discards=num_discards,
-                        samples_per_chan=smpl_per_ch,
-                    )
-                elif "4k" in self.instrument:
-                    self._test_channelisation(
-                        test_chan,
-                        req_chan_spacing=250e3, num_discards=num_discards,
-                        samples_per_chan=smpl_per_ch,
-                    )
-                elif "1k" in self.instrument:
-                    self._test_channelisation(
-                        test_chan,
-                        req_chan_spacing=1000e3, num_discards=num_discards,
-                        samples_per_chan=smpl_per_ch,
-                    )
-            else:
-                self.Failed(self.errmsg)
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @instrument_32k
     @aqf_vr("CBF.V.3.30")
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test_channelisation_wideband_fine(self):
         # Aqf.procedure(TestProcedure.Channelisation)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success and self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") >= 32768:
-                n_chans = self.n_chans_selected
-                test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
-                heading("CBF Channelisation Wideband Fine L-band")
-                self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_channelisation_wideband_fine'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation_wideband_fine'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success and self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") >= 32768:
+                    n_chans = self.n_chans_selected
+                    test_chan = random.choice(range(n_chans)[: self.n_chans_selected])
+                    heading("CBF Channelisation Wideband Fine L-band")
+                    self._test_channelisation(test_chan, no_channels=32768, req_chan_spacing=30e3)
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @slow
     @array_release_x
     @instrument_1k
@@ -444,139 +507,227 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test_channelisation_sfdr_peaks(self):
         Aqf.procedure(TestProcedure.ChannelisationSFDR)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(
-                    acc_time = float(self.conf_file["instrument_params"]
-                            ["accumulation_time"]))
-            if instrument_success:
-                heading("CBF Channelisation SFDR")
-                # If sfdr_ch_to_test is specified in the config file use that
-                # otherwise test all the selected channels
-                num_discard = int(self.conf_file["instrument_params"]["num_discards"])
-                n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
-                    None))
-                if "107M32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test,
-                            num_discard=num_discard)
-                elif "54M32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test,
-                            num_discard=num_discard)
-                elif "32k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test,  # Hz
-                            num_discard=num_discard)
-                elif "4k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=250e3, no_channels=n_ch_to_test,  # Hz
-                            num_discard=num_discard)
-                elif "1k" in self.instrument:
-                    self._test_sfdr_peaks(req_chan_spacing=1000e3, no_channels=n_ch_to_test,  # Hz
-                            num_discard=num_discard)
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_channelisation_sfdr_peaks'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation_sfdr_peaks'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(
+                        acc_time = float(self.conf_file["instrument_params"]
+                                ["accumulation_time"]))
+                if instrument_success:
+                    heading("CBF Channelisation SFDR")
+                    # If sfdr_ch_to_test is specified in the config file use that
+                    # otherwise test all the selected channels
+                    num_discard = int(self.conf_file["instrument_params"]["num_discards"])
+                    n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
+                        None))
+                    if "107M32k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=3265.38, no_channels=n_ch_to_test,
+                                num_discard=num_discard)
+                    elif "54M32k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test,
+                                num_discard=num_discard)
+                    elif "32k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test,  # Hz
+                                num_discard=num_discard)
+                    elif "4k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=250e3, no_channels=n_ch_to_test,  # Hz
+                                num_discard=num_discard)
+                    elif "1k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=1000e3, no_channels=n_ch_to_test,  # Hz
+                                num_discard=num_discard)
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @slow
     @instrument_32k
     @aqf_vr("CBF.V.3.30")
     @aqf_requirements("CBF-REQ-0126", "CBF-REQ-0047", "CBF-REQ-0046", "CBF-REQ-0043", "CBF-REQ-0053")
     def test_channelisation_wideband_fine_sfdr_peaks(self):
         # Aqf.procedure(TestProcedure.ChannelisationSFDR)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success and self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") >= 32768:
-                heading("CBF Channelisation Wideband Fine SFDR L-band")
-                n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
-                    self.n_chans_selected))
-                self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=n_ch_to_test)  # Hz
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_channelisation_wideband_fine_sfdr_peaks'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_channelisation_wideband_fine_sfdr_peaks'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success and self.cam_sensors.get_value("antenna_channelised_voltage_n_chans") >= 32768:
+                    heading("CBF Channelisation Wideband Fine SFDR L-band")
+                    n_ch_to_test = int(self.conf_file["instrument_params"].get("sfdr_ch_to_test",
+                        self.n_chans_selected))
+                    self._test_sfdr_peaks(required_chan_spacing=30e3, no_channels=n_ch_to_test)  # Hz
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@skipped_test
+    #@subset
     @generic_test
     @aqf_vr("CBF.V.3.46")
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
     def test_power_consumption(self):
         Aqf.procedure(TestProcedure.PowerConsumption)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            self.Step("Test is being qualified by CBF.V.3.30")
+        if 'skipped_test' in test_CBF.__dict__['test_power_consumption'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_power_consumption'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                self.Step("Test is being qualified by CBF.V.3.30")
 
+    #@subset
+    #@array_release_x
+    #@generic_test
+    #@aqf_vr("CBF.V.4.10")
+    #@aqf_requirements("CBF-REQ-0127")
+    #def test_lband_efficiency(self):
+        #start_time = str(datetime.now())
+        #Aqf.procedure(TestProcedure.LBandEfficiency)
+        #try:
+            #assert evaluate(os.getenv("DRY_RUN", "False"))
+        #except AssertionError:
+            #instrument_success = self.set_instrument(start_receiver=False)
+            #if instrument_success:
+                #self._test_efficiency()
+            #else:
+                #self.Failed(self.errmsg)
+        #finally:
+            ##self.get_sensor_logs(start_time)
+            #pass
 
-    @subset
+    #@tbd
+    #@skipped_test
+    #@subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.10")
     @aqf_requirements("CBF-REQ-0127")
     def test_lband_efficiency(self):
+    	start_time = str(datetime.now())
         Aqf.procedure(TestProcedure.LBandEfficiency)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(start_receiver=False)
-            if instrument_success:
-                self._test_efficiency()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_lband_efficiency'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_lband_efficiency'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert eval(os.getenv("DRY_RUN", "False")) 
+                self.Note('This is a dry run.')
+            except AssertionError:
+                self.Note('Set instrument.')
+                self.Note('Carry out test method.')
+                instrument_success = self.set_instrument(start_receiver=False)
+                if instrument_success:
+                    self._test_efficiency()
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.A.IF")
     @aqf_requirements("TBD")
     def test_linearity(self):
+        start_time = str(datetime.now())
         Aqf.procedure(TestProcedure.Linearity)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(
-                    float(self.conf_file["instrument_params"]["accumulation_time"]))
-            if instrument_success:
-                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                test_chan = random.choice(range(self.start_channel, 
-                        self.start_channel+self.n_chans_selected))
-                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) 
-                        and (self.start_channel == 0)):
-                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
-                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                self._test_linearity(test_channel=test_chan, max_steps=20)
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_linearity'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_linearity'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
+                if instrument_success:
+                    n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                    test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0)):
+                        check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                        check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                        test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                    self._test_linearity(test_channel=test_chan, max_steps=20)
+                else:
+                    self.Failed(self.errmsg)
+       # 	finally:
+       #     	#self.get_sensor_logs(start_time)
+       #     	pass
 
-
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.4")
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
     def test_baseline_correlation_product(self):
         Aqf.procedure(TestProcedure.BaselineCorrelation)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(
-                    float(self.conf_file["instrument_params"]["accumulation_time"]))
-            if instrument_success:
-                num_discard = int(self.conf_file["instrument_params"]["num_discards"])
-                num_tst_chs = int(self.conf_file["instrument_params"]["num_ch_to_test"])
-                quant_half_valid = eval(self.conf_file["instrument_params"]["quant_half_valid"])
-                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                if quant_half_valid:
-                    chan_sel = min(int(n_chans/2), self.n_chans_selected)
-                else:
-                    chan_sel = self.n_chans_selected
-                check_strt_ch = None
-                check_stop_ch = None
-                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
-                        and (self.start_channel == 0)):
-                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
-                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    test_channels = random.sample(range(n_chans)[check_strt_ch:check_strt_ch+chan_sel], num_tst_chs)
-                    test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+        if 'skipped_test' in test_CBF.__dict__['test_baseline_correlation_product'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_baseline_correlation_product'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(
+                        float(self.conf_file["instrument_params"]["accumulation_time"]))
+                if instrument_success:
+                    num_discard = int(self.conf_file["instrument_params"]["num_discards"])
+                    num_tst_chs = int(self.conf_file["instrument_params"]["num_ch_to_test"])
+                    quant_half_valid = eval(self.conf_file["instrument_params"]["quant_half_valid"])
+                    n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                    if quant_half_valid:
+                        chan_sel = min(int(n_chans/2), self.n_chans_selected)
+                    else:
+                        chan_sel = self.n_chans_selected
+                    check_strt_ch = None
+                    check_stop_ch = None
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                            and (self.start_channel == 0)):
+                        check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                        check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                        test_channels = random.sample(range(n_chans)[check_strt_ch:check_strt_ch+chan_sel], num_tst_chs)
+                        test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                    else:
+                        test_channels = random.sample(range(n_chans)[self.start_channel:self.start_channel+chan_sel], num_tst_chs)
+                        test_chan = random.choice(range(self.start_channel,
+                                self.start_channel+self.n_chans_selected))
+                    test_channels = sorted(test_channels)
+                    # Remove chan 0 to avoid DC issues
+                    if test_channels[0] == 0:
+                        test_channels = test_channels[1:]
+                    self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
+                    self._test_back2back_consistency(test_channels, num_discard)
+                    self._test_freq_scan_consistency(test_chan, num_discard)
+                    #self._test_spead_verify()
+                    #self._test_product_baseline_leakage()
                 else:
                     test_channels = random.sample(range(n_chans)[self.start_channel:self.start_channel+chan_sel], num_tst_chs)
                     test_chan = random.choice(range(self.start_channel, 
@@ -596,204 +747,301 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed(self.errmsg)
 
 
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.3.62")
     @aqf_requirements("CBF-REQ-0238")
     def test_imaging_data_product_set(self):
         Aqf.procedure(TestProcedure.ImagingDataProductSet)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_data_product(_baseline=True)
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_imaging_data_product_set'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_imaging_data_product_set'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._test_data_product(_baseline=True)
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.3.67")
     @aqf_requirements("CBF-REQ-0120")
     def test_tied_array_aux_baseline_correlation_products(self):
         Aqf.procedure(TestProcedure.TiedArrayAuxBaselineCorrelationProducts)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_data_product(_baseline=True, _tiedarray=True)
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_tied_array_aux_baseline_correlation_products'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_tied_array_aux_baseline_correlation_products'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._test_data_product(_baseline=True, _tiedarray=True)
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@skipped_test
+    #@subset
     @generic_test
     @aqf_vr("CBF.V.3.64")
     @aqf_requirements("CBF-REQ-0242")
     def test_tied_array_voltage_data_product_set(self):
         Aqf.procedure(TestProcedure.TiedArrayVoltageDataProductSet)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_data_product(_tiedarray=True)
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_tied_array_voltage_data_product_set'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_tied_array_voltage_data_product_set'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._test_data_product(_tiedarray=True)
+                else:
+                    self.Failed(self.errmsg)
 
-
-    #@array_release_x
+    # @tbd
+    #@subset
+    #@skipped_test
+    @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.7")
     @aqf_requirements("CBF-REQ-0096")
     def test_accumulation_length(self):
         Aqf.procedure(TestProcedure.VectorAcc)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                center_ch = int(n_chans/2)
-                if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
-                        and (self.start_channel == 0)):
-                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
-                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                    # TODO Quantiser snapshot only works below half the band
-                    #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                    test_chan = random.choice(range(n_chans)[check_strt_ch:center_ch])
+        if 'skipped_test' in test_CBF.__dict__['test_accumulation_length'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_accumulation_length'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+                    center_ch = int(n_chans/2)
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                            and (self.start_channel == 0)):
+                        check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                        check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                        # TODO Quantiser snapshot only works below half the band
+                        #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                        test_chan = random.choice(range(n_chans)[check_strt_ch:center_ch])
+                    else:
+                        #test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
+                        test_chan = random.choice(range(self.start_channel, center_ch))
+                    n_ants = int(self.cam_sensors.get_value("n_ants"))
+                    #TODO: figure out why this fails if not using 1 second
+                    self._test_vacc(
+                        test_chan,
+                        acc_time=(0.998 if self.cam_sensors.get_value("n_ants") == 4
+                                else 2 * n_ants / 32.0))
                 else:
-                    #test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
-                    test_chan = random.choice(range(self.start_channel, center_ch))
-                n_ants = int(self.cam_sensors.get_value("n_ants"))
-                #TODO: figure out why this fails if not using 1 second
-                self._test_vacc(
-                    test_chan,
-                    acc_time=(0.998 if self.cam_sensors.get_value("n_ants") == 4
-                            else 2 * n_ants / 32.0))
-            else:
-                self.Failed(self.errmsg)
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.4.9")
     @aqf_requirements("CBF-REQ-0119")
     def test_gain_correction(self):
         Aqf.procedure(TestProcedure.GainCorr)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_gain_correction()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_gain_correction'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_gain_correction'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._test_gain_correction()
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.4.23")
     @aqf_requirements("CBF-REQ-0013")
     def test_product_switch(self):
         Aqf.procedure(TestProcedure.ProductSwitching)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            self.Failed("This requirement is currently not being tested in this release.")
-            # _running_inst = which_instrument(self, instrument)
-            # instrument_success = self.set_instrument()
-            # if instrument_success:
-            #     with RunTestWithTimeout(300):
-            #         self._test_product_switch(instrument)
-            # else:
-            #     self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_product_switch'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_product_switch'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                self.Failed("This requirement is currently not being tested in this release.")
+                # _running_inst = which_instrument(self, instrument)
+                # instrument_success = self.set_instrument()
+                # if instrument_success:
+                #     with RunTestWithTimeout(300):
+                #         self._test_product_switch(instrument)
+                # else:
+                #     self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.31")
     @aqf_requirements("CBF-REQ-0066", "CBF-REQ-0072", "CBF-REQ-0077", "CBF-REQ-0110", "CBF-REQ-0200")
     def test_delay_phase_compensation_control(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation_Control)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_delays_control()
-                self.clear_all_delays()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_delay_phase_compensation_control'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_delay_phase_compensation_control'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._test_delays_control()
+                    self.clear_all_delays()
+                else:
+                    self.Failed(self.errmsg)
 
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.32")
     @aqf_requirements("CBF-REQ-0112", "CBF-REQ-0128", "CBF-REQ-0185", "CBF-REQ-0187", "CBF-REQ-0188")
     def test_delay_phase_compensation_functional(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            #instrument_success = self.set_instrument(acc_time=(0.5
-            #    if self.cam_sensors.sensors.n_ants.get_value() == 4
-            #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
-            inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
-            check_strt_ch = None
-            check_stop_ch = None
-            if ("107M32k" in inst) or ("54M32k" in inst):
-                instrument_success = self.set_instrument(2)
-                # If the full band is capture, set the part of band that should be checked
-                if self.start_channel == 0 and self.stop_channel == 32768:
-                    check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
-                    check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-            elif "32k" in inst:
-                instrument_success = self.set_instrument(4)
-            elif "4k" in inst:
-                instrument_success = self.set_instrument(2)
-            elif "1k" in inst:
-                instrument_success = self.set_instrument(1)
-            else:
-                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
-            if instrument_success:
-                self._test_delay_tracking(check_strt_ch,check_stop_ch)
-                self._test_delay_rate(check_strt_ch,check_stop_ch)
-                #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
-                self._test_phase_rate(check_strt_ch, check_stop_ch)
-                self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
-                self._test_delay_inputs(check_strt_ch, check_stop_ch)
-                self.clear_all_delays()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_delay_phase_compensation_functional'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_delay_phase_compensation_functional'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                #instrument_success = self.set_instrument(acc_time=(0.5
+                #    if self.cam_sensors.sensors.n_ants.get_value() == 4
+                #    else int(self.conf_file["instrument_params"]["delay_test_acc_time"])))
+                inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
+                check_strt_ch = None
+                check_stop_ch = None
+                if ("107M32k" in inst) or ("54M32k" in inst):
+                    instrument_success = self.set_instrument(2)
+                    # If the full band is capture, set the part of band that should be checked
+                    if self.start_channel == 0 and self.stop_channel == 32768:
+                        check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
+                        check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
+                elif "32k" in inst:
+                    instrument_success = self.set_instrument(4)
+                elif "4k" in inst:
+                    instrument_success = self.set_instrument(2)
+                elif "1k" in inst:
+                    instrument_success = self.set_instrument(1)
+                else:
+                    instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
+                if instrument_success:
+                    self._test_delay_tracking(check_strt_ch,check_stop_ch)
+                    self._test_delay_rate(check_strt_ch,check_stop_ch)
+                    #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
+                    self._test_phase_rate(check_strt_ch, check_stop_ch)
+                    self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
+                    self._test_delay_inputs(check_strt_ch, check_stop_ch)
+                    self.clear_all_delays()
+                else:
+                    self.Failed(self.errmsg)
 
+    #@tbd
+    #@skipped_test
+    #@subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
     @aqf_requirements("CBF-REQ-0178")
     def test_report_configuration(self):
         Aqf.procedure(TestProcedure.ReportConfiguration)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(start_receiver=False)
-            if instrument_success:
-                self._test_report_config()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_report_configuration'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_report_configuration'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver=False)
+                if instrument_success:
+                    self._test_report_config()
+                else:
+                    self.Failed(self.errmsg)
 
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.29")
     @aqf_requirements("CBF-REQ-0067")
     def test_systematic_error_reporting(self):
         Aqf.procedure(TestProcedure.PFBFaultDetection)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(start_receiver=False)
-            if instrument_success:
-                self._test_fft_overflow()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_systematic_error_reporting'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_systematic_error_reporting'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver=False)
+                if instrument_success:
+                    self._test_fft_overflow()
+                else:
+                    self.Failed(self.errmsg)
 
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.28")
@@ -802,65 +1050,102 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         Aqf.procedure(TestProcedure.ProcessingPipelineFaultDetection)
         Aqf.procedure(TestProcedure.MemoryFaultDetection)
         Aqf.procedure(TestProcedure.LinkFaultDetection)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(start_receiver=False)
-            if instrument_success:
-                self._test_network_link_error()
-                #self._test_memory_error()
-                #heading("Processing Pipeline Failures")
-                #self.Note("Test is being qualified by CBF.V.3.29")
-                #heading("HMC Memory errors")
-                #self.Note("See waiver")
-                #heading("Network Link errors")
-                #self.Note("See waiver")
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_fault_detection'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_fault_detection'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver=False)
+                if instrument_success:
+                    self._test_network_link_error()
+                    #self._test_memory_error()
+                    #heading("Processing Pipeline Failures")
+                    #self.Note("Test is being qualified by CBF.V.3.29")
+                    #heading("HMC Memory errors")
+                    #self.Note("See waiver")
+                    #heading("Network Link errors")
+                    #self.Note("See waiver")
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.3.26")
     @aqf_requirements("CBF-REQ-0056", "CBF-REQ-0068", "CBF-REQ-0069")
     def test_monitor_sensors(self):
         Aqf.procedure(TestProcedure.MonitorSensors)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._test_sensor_values()
-                # self._test_host_sensors_status()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_monitor_sensors'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_monitor_sensors'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._test_sensor_values()
+                    # self._test_host_sensors_status()
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.38")
     @aqf_requirements("CBF-REQ-0203")
     def test_time_synchronisation(self):
         Aqf.procedure(TestProcedure.TimeSync)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            self._test_time_sync()
+        if 'skipped_test' in test_CBF.__dict__['test_time_synchronisation'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_time_synchronisation'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                self._test_time_sync()
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     @generic_test
     @aqf_vr("CBF.V.4.26")
     @aqf_requirements("CBF-REQ-0083", "CBF-REQ-0084", "CBF-REQ-0085", "CBF-REQ-0086", "CBF-REQ-0221")
     def test_antenna_voltage_buffer(self):
         Aqf.procedure(TestProcedure.VoltageBuffer)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument()
-            if instrument_success:
-                self._small_voltage_buffer()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_antenna_voltage_buffer'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_antenna_voltage_buffer'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument()
+                if instrument_success:
+                    self._small_voltage_buffer()
+                else:
+                    self.Failed(self.errmsg)
 
+    #@tbd
+    #@subset
+    #@skipped_test
     @array_release_x
     @beamforming
     @instrument_1k
@@ -869,18 +1154,28 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
     def test_x_beamforming(self):
         Aqf.procedure(TestProcedure.Beamformer)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            #instrument_success = self.set_instrument(start_receiver = False)
-            instrument_success = self.set_instrument(start_receiver = False,
-                    acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
-            )
-            if instrument_success:
-                self._test_beamforming()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_x_beamforming'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_x_beamforming'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                #instrument_success = self.set_instrument(start_receiver = False)
+                instrument_success = self.set_instrument(start_receiver = False,
+                        acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
+                )
+                if instrument_success:
+                    self._test_beamforming()
+                else:
+                    self.Failed(self.errmsg)
 
+    #@tbd
+    #@subset
+    #@skipped_test
     #@array_release_x
     @beamforming
     @instrument_1k
@@ -889,16 +1184,25 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_requirements("CBF-REQ-0124")
     def test_beamformer_efficiency(self):
         Aqf.procedure(TestProcedure.BeamformerEfficiency)
-        try:
-            assert eval(os.getenv('DRY_RUN', 'False'))
-        except AssertionError:
-            self.Note("Test not implemented.")
-            #instrument_success = self.set_instrument()
-            #if instrument_success:
-            #    self._bf_efficiency()
-            #else:
-            #    Aqf.failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_beamformer_efficiency'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_beamformer_efficiency'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert eval(os.getenv('DRY_RUN', 'False'))
+            except AssertionError:
+                self.Note("Test not implemented.")
+                #instrument_success = self.set_instrument()
+                #if instrument_success:
+                #    self._bf_efficiency()
+                #else:
+                #    Aqf.failed(self.errmsg)
 
+    #@tbd
+    #@skipped_test
     #@array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
@@ -907,16 +1211,25 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_vr("CBF.V.A.IF")
     def test_y_beamforming_timeseries(self):
         Aqf.procedure(TestProcedure.TimeSeries)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(start_receiver = False)
-            if instrument_success:
-                self._test_beamforming_timeseries()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_y_beamforming_timeseries'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_y_beamforming_timeseries'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver = False)
+                if instrument_success:
+                    self._test_beamforming_timeseries()
+                else:
+                    self.Failed(self.errmsg)
 
-
+    #@tbd
+    #@subset
+    #@skipped_test
     #@array_release_x
     @beamforming
     @instrument_1k
@@ -924,14 +1237,21 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_vr("CBF.V.A.IF")
     def test_z_group_delay(self):
         Aqf.procedure(TestProcedure.GroupDelay)
-        try:
-            assert evaluate(os.getenv("DRY_RUN", "False"))
-        except AssertionError:
-            instrument_success = self.set_instrument(start_receiver = False)
-            if instrument_success:
-                self._test_group_delay()
-            else:
-                self.Failed(self.errmsg)
+        if 'skipped_test' in test_CBF.__dict__['test_z_group_delay'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_z_group_delay'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver = False)
+                if instrument_success:
+                    self._test_group_delay()
+                else:
+                    self.Failed(self.errmsg)
 
 
     # ---------------------------------------------------------------------------------------------------
@@ -940,30 +1260,59 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     # Perhaps, enlist all manual tests here with VE & REQ
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @aqf_vr("CBF.V.3.56")
     @aqf_requirements("CBF-REQ-0228")
     def test__subarray(self):
-        self._test_global_manual("CBF.V.3.56")
+        if 'skipped_test' in test_CBF.__dict__['test__subarray'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__subarray'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.56")
 
+    #@tbd
+    #@skipped_test
     @array_release_x
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.37")
     @aqf_requirements("CBF-REQ-0071", "CBF-REQ-0204")
     def test__control(self):
-        self._test_global_manual("CBF.V.3.37")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.37*"))
-        caption_list = ["Screenshot of the command executed and reply: CAM interface"]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__control'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__control'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.37")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.37*"))
+            caption_list = ["Screenshot of the command executed and reply: CAM interface"]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.1.11")
     @aqf_requirements("CBF-REQ-0137")
     def test__procured_items_emc_certification(self):
-        self._test_global_manual("CBF.V.1.11")
+        if 'skipped_test' in test_CBF.__dict__['test__procured_items_emc_certification'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__procured_items_emc_certification'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.1.11")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.3")
@@ -971,241 +1320,493 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_requirements("CBF-REQ-0011", "CBF-REQ-0012", "CBF-REQ-0014", "CBF-REQ-0016", "CBF-REQ-0017")
     @aqf_requirements("CBF-REQ-0027", "CBF-REQ-0064")
     def test__states_and_modes_ve(self):
-        self._test_global_manual("CBF.V.3.3")
+        if 'skipped_test' in test_CBF.__dict__['test__states_and_modes_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__states_and_modes_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.3")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.77")
     @aqf_requirements("CBF-REQ-0021")
     def test__full_functional_mode_ve(self):
-        self._test_global_manual("CBF.V.3.77")
+        if 'skipped_test' in test_CBF.__dict__['test__full_functional_mode_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__full_functional_mode_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.77")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.15")
     @aqf_requirements("CBF-REQ-0131", "CBF-REQ-0132", "CBF-REQ-0133")
     def test__power_supply_ve(self):
-        self._test_global_manual("CBF.V.3.15")
+        if 'skipped_test' in test_CBF.__dict__['test__power_supply_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__power_supply_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.15")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.16")
     @aqf_requirements("CBF-REQ-0199")
     def test__safe_design_ve(self):
-        self._test_global_manual("CBF.V.3.16")
+        if 'skipped_test' in test_CBF.__dict__['test__safe_design_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__safe_design_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.16")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.17")
     @aqf_requirements("CBF-REQ-0061")
     def test__lru_status_and_display_ve(self):
-        self._test_global_manual("CBF.V.3.17")
+        if 'skipped_test' in test_CBF.__dict__['test__lru_status_and_display_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__lru_status_and_display_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.17")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.18")
     @aqf_requirements("CBF-REQ-0197")
     def test__cots_lru_status_and_display_ve(self):
-        self._test_global_manual("CBF.V.3.18")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.18*"))
-        caption_list = [
-            "Mellanox SX1710 switches and status LEDs visible from front of rack.",
-            "Dell PowerEdge servers and status via front panel display visible.",
-            "AP8981 PDUs have status LEDs visible from the back of the rack.",
-        ]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__cots_lru_status_and_display_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__cots_lru_status_and_display_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.18")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.18*"))
+            caption_list = [
+                "Mellanox SX1710 switches and status LEDs visible from front of rack.",
+                "Dell PowerEdge servers and status via front panel display visible.",
+                "AP8981 PDUs have status LEDs visible from the back of the rack.",
+            ]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.19")
     @aqf_requirements("CBF-REQ-0182")
     def test__interchangeability_ve(self):
-        self._test_global_manual("CBF.V.3.19")
+        if 'skipped_test' in test_CBF.__dict__['test__interchangeability_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__interchangeability_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.19")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.20")
     @aqf_requirements("CBF-REQ-0168", "CBF-REQ-0171")
     def test__periodic_maintenance_lru_storage_ve(self):
-        self._test_global_manual("CBF.V.3.20")
+        if 'skipped_test' in test_CBF.__dict__['test__periodic_maintenance_lru_storage_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__periodic_maintenance_lru_storage_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.20")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.21")
     @aqf_requirements("CBF-REQ-0169", "CBF-REQ-0170", "CBF-REQ-0172", "CBF-REQ-0173")
     def test__lru_storage_ve(self):
-        self._test_global_manual("CBF.V.3.21")
+        if 'skipped_test' in test_CBF.__dict__['test__lru_storage_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__lru_storage_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.21")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.22")
     @aqf_requirements("CBF-REQ-0147", " CBF-REQ-0148")
     def test__item_handling_ve(self):
-        self._test_global_manual("CBF.V.3.22")
+        if 'skipped_test' in test_CBF.__dict__['test__item_handling_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__item_handling_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.22")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.23")
     @aqf_requirements("CBF-REQ-0152", "CBF-REQ-0153", "CBF-REQ-0154", "CBF-REQ-0155", "CBF-REQ-0184")
     def test__item_marking_and_labelling_ve(self):
-        self._test_global_manual("CBF.V.3.23")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.23*"))
-        caption_list = [
-            "Mellanox SX1710 - Supplier name and model number visible with switch installed in rack.",
-            "Dell PowerEdge servers - Supplier name, model number and serial number visible with "
-            "server installed in rack.",
-            "SKARAB Processing nodes.",
-            "All data switch port numbers are labelled.",
-            "All internal CBF cables are labelled.",
-            "All internal CBF cables are labelled.",
-            "HMC Mezzanine SRUs are labelled as specified but supplier name is obscured by heatsink",
-            "QSFP+ Mezzanine SRUs are labelled as specified",
-            "HMC mezzanine supplier name is obscured by heatsink.",
-        ]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__item_marking_and_labelling_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__item_marking_and_labelling_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.23")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.23*"))
+            caption_list = [
+                "Mellanox SX1710 - Supplier name and model number visible with switch installed in rack.",
+                "Dell PowerEdge servers - Supplier name, model number and serial number visible with "
+                "server installed in rack.",
+                "SKARAB Processing nodes.",
+                "All data switch port numbers are labelled.",
+                "All internal CBF cables are labelled.",
+                "All internal CBF cables are labelled.",
+                "HMC Mezzanine SRUs are labelled as specified but supplier name is obscured by heatsink",
+                "QSFP+ Mezzanine SRUs are labelled as specified",
+                "HMC mezzanine supplier name is obscured by heatsink.",
+            ]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.24")
     @aqf_requirements("CBF-REQ-0162")
     def test__use_of_cots_equipment_ve(self):
-        self._test_global_manual("CBF.V.3.24")
+        if 'skipped_test' in test_CBF.__dict__['test__use_of_cots_equipment_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__use_of_cots_equipment_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.24")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.25")
     @aqf_requirements("CBF-REQ-0060", "CBF-REQ-0177", "CBF-REQ-0196")
     def test__logging_ve(self):
-        self._test_global_manual("CBF.V.3.25")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.25*"))
-        caption_list = [
-            "Screenshot of the command executed via CAM interface (log-level)"] * len(image_files)
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__logging_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__logging_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.25")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.25*"))
+            caption_list = [
+                "Screenshot of the command executed via CAM interface (log-level)"] * len(image_files)
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.33")
     @aqf_requirements("CBF-REQ-0103")
     def test__accumulator_dynamic_range_ve(self):
-        self._test_global_manual("CBF.V.3.33")
+        if 'skipped_test' in test_CBF.__dict__['test__accumulator_dynamic_range_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__accumulator_dynamic_range_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.33")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.36")
     @aqf_requirements("CBF-REQ-0001")
     def test__data_products_available_for_all_receivers_ve(self):
-        self._test_global_manual("CBF.V.3.36")
+        if 'skipped_test' in test_CBF.__dict__['test__data_products_available_for_all_receivers_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__data_products_available_for_all_receivers_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.36")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.39")
     @aqf_requirements("CBF-REQ-0140")
     def test__cooling_method_ve(self):
-        self._test_global_manual("CBF.V.3.39")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.39*"))
-        caption_list = [
-            "Rear doors of all CBF racks are perforated",
-            "Front doors of all CBF racks are perforated"
-            ]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__cooling_method_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__cooling_method_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.39")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.39*"))
+            caption_list = [
+                "Rear doors of all CBF racks are perforated",
+                "Front doors of all CBF racks are perforated"
+                ]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.40")
     @aqf_requirements("CBF-REQ-0142", "CBF-REQ-0143")
     def test__humidity_ve(self):
-        self._test_global_manual("CBF.V.3.40")
+        if 'skipped_test' in test_CBF.__dict__['test__humidity_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__humidity_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.40")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.41")
     @aqf_requirements("CBF-REQ-0145")
     def test__storage_environment_ve(self):
-        self._test_global_manual("CBF.V.3.41")
+        if 'skipped_test' in test_CBF.__dict__['test__storage_environment_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__storage_environment_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.41")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.42")
     @aqf_requirements("CBF-REQ-0141")
     def test__temperature_range_ve(self):
-        self._test_global_manual("CBF.V.3.42")
+        if 'skipped_test' in test_CBF.__dict__['test__temperature_range_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__[''].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.42")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.43")
     @aqf_requirements("CBF-REQ-0146")
     def test__transportation_of_components_ve(self):
-        self._test_global_manual("CBF.V.3.43")
+        if 'skipped_test' in test_CBF.__dict__['test__transportation_of_components_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__transportation_of_components_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.43")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.44")
     @aqf_requirements("CBF-REQ-0156")
     def test__product_marking_environmentals_ve(self):
-        self._test_global_manual("CBF.V.3.44")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.44*"))
-        caption_list = [
-            "All equipment labels are still attached on {}".format(i.split("/")[-1].split(".jpg")[0])
-            for i in image_files
-        ]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__product_marking_environmentals_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__product_marking_environmentals_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.44")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.44*"))
+            caption_list = [
+                "All equipment labels are still attached on {}".format(i.split("/")[-1].split(".jpg")[0])
+                for i in image_files
+            ]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.45")
     @aqf_requirements("CBF-REQ-0158", "CBF-REQ-0160")
     def test__fail_safe_ve(self):
-        self._test_global_manual("CBF.V.3.45")
+        if 'skipped_test' in test_CBF.__dict__['test__fail_safe_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__fail_safe_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.45")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.47")
     @aqf_requirements("CBF-REQ-0161", "CBF-REQ-0186")
     def test__safe_physical_design_ve(self):
-        self._test_global_manual("CBF.V.3.47")
+        if 'skipped_test' in test_CBF.__dict__['test__safe_physical_design_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__safe_physical_design_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.47")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.48")
     @aqf_requirements("CBF-REQ-0107")
     def test__digitiser_cam_data_ve(self):
-        self._test_global_manual("CBF.V.3.48")
+        if 'skipped_test' in test_CBF.__dict__['test__digitiser_cam_data_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__digitiser_cam_data_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.48")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.50")
     @aqf_requirements("CBF-REQ-0149")
     def test__mtbf_ve(self):
-        self._test_global_manual("CBF.V.3.50")
+        if 'skipped_test' in test_CBF.__dict__['test__mtbf_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__mtbf_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.50")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.52")
     @aqf_requirements("CBF-REQ-0179", "CBF-REQ-0180", "CBF-REQ-0190", " CBF-REQ-0194")
     @aqf_requirements("CBF-REQ-0201", "CBF-REQ-0202")
     def test__internal_interfaces_ve(self):
-        self._test_global_manual("CBF.V.3.52")
+        if 'skipped_test' in test_CBF.__dict__['test__internal_interfaces_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__internal_interfaces_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.52")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.53")
     @aqf_requirements("CBF-REQ-0136", "CBF-REQ-0166")
     def test__external_interfaces_ve(self):
-        self._test_global_manual("CBF.V.3.53")
+        if 'skipped_test' in test_CBF.__dict__['test__external_interfaces_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__external_interfaces_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.53")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.54")
     @aqf_requirements("CBF-REQ-0150", "CBF-REQ-0151")
     def test__lru_replacement_ve(self):
-        self._test_global_manual("CBF.V.3.54")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.54*"))
-        caption_list = [
-            "LRU replacement: {}".format(i.split("/")[-1].split(".jpg")[0])
-            for i in image_files
-        ]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__lru_replacement_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__lru_replacement_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.54")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.3.54*"))
+            caption_list = [
+                "LRU replacement: {}".format(i.split("/")[-1].split(".jpg")[0])
+                for i in image_files
+            ]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @untested
     @manual_test
     @generic_test
@@ -1214,51 +1815,103 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     # @aqf_requirements("CBF-REQ-0195", "CBF-REQ-0230", "CBF-REQ-0231", "CBF-REQ-0232",)
     # @aqf_requirements("CBF-REQ-0233", "CBF-REQ-0235")
     def test__data_subscribers_link_ve(self):
-        self._test_global_manual("CBF.V.3.57")
+        if 'skipped_test' in test_CBF.__dict__['test__data_subscribers_link_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__data_subscribers_link_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.57")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.6.9")
     @aqf_requirements("CBF-REQ-0138")
     def test__design_to_emc_sans_standard_ve(self):
-        self._test_global_manual("CBF.V.6.9")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.6.9*"))
-        caption_list = [
-            "Cables are bundled separately but the separation distance is not more than "
-            "500mm due to space constraints in the racks."
-        ] * len(image_files)
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__design_to_emc_sans_standard_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__design_to_emc_sans_standard_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.6.9")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.6.9*"))
+            caption_list = [
+                "Cables are bundled separately but the separation distance is not more than "
+                "500mm due to space constraints in the racks."
+            ] * len(image_files)
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.6.10")
     @aqf_requirements("CBF-REQ-0139")
     def test__design_standards_ve(self):
-        self._test_global_manual("CBF.V.6.10")
-        image_files = sorted(glob.glob(self._images_dir + "/CBF.V.6.10*"))
-        caption_list = ["CBF processing nodes contains an integrated power filter."]
-        Report_Images(image_files, caption_list)
+        if 'skipped_test' in test_CBF.__dict__['test__design_standards_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__design_standards_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.6.10")
+            image_files = sorted(glob.glob(self._images_dir + "/CBF.V.6.10*"))
+            caption_list = ["CBF processing nodes contains an integrated power filter."]
+            Report_Images(image_files, caption_list)
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.66")
     @aqf_requirements("CBF-REQ-0223")
     def test__channelised_voltage_data_transfer_ve(self):
-        self._test_global_manual("CBF.V.3.66")
+        if 'skipped_test' in test_CBF.__dict__['test__channelised_voltage_data_transfer_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__channelised_voltage_data_transfer_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.66")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.49")
     @aqf_requirements("CBF-REQ-0224")
     def test__route_basic_spectrometer_data_ve(self):
-        self._test_global_manual("CBF.V.3.49")
+        if 'skipped_test' in test_CBF.__dict__['test__route_basic_spectrometer_data_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__route_basic_spectrometer_data_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.49")
 
+    #@tbd
+    #@skipped_test
     @manual_test
     @generic_test
     @aqf_vr("CBF.V.3.58")
     @aqf_requirements("CBF-REQ-0237")
     def test__subarray_data_product_set_ve(self):
-        self._test_global_manual("CBF.V.3.58")
+        if 'skipped_test' in test_CBF.__dict__['test__subarray_data_product_set_ve'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test__subarray_data_product_set_ve'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            self._test_global_manual("CBF.V.3.58")
 
     # ----------------------------------------------NOT TESTED-----------------------------------------
     # ---------------------------------------------------------------------------------------------------
@@ -8900,3 +9553,106 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                 return False
     #         else:
     #             return dump
+
+    def get_sensor_logs(self):
+        def str2unix(strtime):
+            tuple = strtime.timetuple()
+            unixtime = time.mktime(tuple)
+            return unixtime
+         
+        filter_err_warn = 'Sensor warning|Sensor error'
+        #filter_names = 'missing-pkts|network-reorder.miss-err-cnt'
+        filter_names = '.'
+        self.Note('Reading logs!')
+        #end = str(datetime.now())
+                
+        list_of_files = glob.glob('/var/log/corr/*') # 
+        sorted_m_file = sorted(list_of_files, key=os.path.getmtime) # modified time
+        
+        if re.search("_sensor_servlet", sorted_m_file[-1]):
+            sensor_servlet_log = sorted_m_file[-1]
+        elif re.search("\d_servlet", sorted_m_file[-1]):
+            servlet_log = sorted_m_file[-1]
+        else:
+            print 'File not found.' 
+        
+        if re.search("\d_servlet", sorted_m_file[-2]):
+            servlet_log = sorted_m_file[-2]
+        elif re.search("_sensor_servlet", sorted_m_file[-2]):
+            sensor_servlet_log = sorted_m_file[-2]
+        else:
+            print 'File not found.' 
+            
+        #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155201.39_sensor_servlet.log'  #2020 Sep 15 09:33 ->...
+        #servlet_log = '/var/log/corr/array0-bc8n856M32k_1600155113.57_servlet.log'  #2020 Sep 15 09:31 ->...
+        #sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300376.81_sensor_servlet.log'  #dummy 3.6M Aug 13 08:32 - 08:38
+        #servlet_log = '/var/log/corr/array0-bc8n856M32k_1597300288.89_servlet.log'  #dummy 3.6M Aug 13 08:31 - 08:38
+        ##sensor_servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742673.1_sensor_servlet.log' #10/09/2020 
+        ##servlet_log = '/var/log/corr/array0-bc8n856M32k_1599742585.11_servlet.log' #10/09/202
+        file_1 = open(sensor_servlet_log, 'r')
+        file_2 = open(servlet_log, 'r')
+    	lines_1 = file_1.readlines()
+        lines_2 = file_2.readlines()
+    	file_1.close()
+        file_2.close()
+
+        #start = '2020-09-15 09:34:00'#dummy start time
+        #end = '2020-09-15 09:45:00'#dummy end time
+
+        start_object = datetime.strptime(self.start_time[0:19], '%Y-%m-%d %H:%M:%S')
+        end_object = datetime.strptime(self.end_time[0:19], '%Y-%m-%d %H:%M:%S')
+        start_unix = str2unix(start_object)
+        end_unix = str2unix(end_object)
+
+        # pstart = '2020-08-13 11:00:00'#dummy pause start time
+        # pend = '2020-08-13 11:20:00'  # dummy pause end time
+        # pstart_object = datetime.datetime.strptime(pstart, '%Y-%m-%d %H:%M:%S')
+        # pend_object = datetime.datetime.strptime(pend, '%Y-%m-%d %H:%M:%S')
+        # pstart_unix = str2unix(pstart_object)
+        # pend_unix = str2unix(pend_object)
+         
+
+    	with open('new_sensor.log', 'a') as writer:
+            #writer.write('Sensor servlet ' + str(datetime.now()) + '\n' + self.id() + '\n')
+            writer.write('Test method: ' + self.id() + '\n')
+            writer.write('Log file source: ' + sensor_servlet_log + '\n')
+            writer.write('                 ' + servlet_log + '\n')
+            writer.write('Start time: ' + self.start_time + '\n')
+            writer.write('End time: ' + self.end_time + '\n')
+            #writer.write('Pause Start time: ' + pstart + '\n')
+            #writer.write('Pause End time: ' + pend + '\n')
+            writer.write('Filter: ' + filter_err_warn + ' , ' + filter_names + '\n')
+            
+            writer.write('*Sensor servlet messages*' + '\n')
+            for l in lines_1:
+                times = l[0:19]
+                try:
+                    times_object = datetime.strptime(times, '%Y-%m-%d %H:%M:%S')  # convert str to object
+                    times_unix = str2unix(times_object)  # convert object to unix str
+                except:
+                    times_unix = 0
+                if start_unix <= times_unix <= end_unix:
+                    if re.search(filter_err_warn, l):
+                        if re.search(filter_names, l):
+                            print times, type(times)
+                            print times_unix, type(times_unix)
+                            writer.write(l + '\n')
+                            #writer.write(str(times_unix) + '\n')
+
+            writer.write('*Servlet messages*' + '\n')
+            for l in lines_2:
+                times = l[0:19]
+                try:
+                    times_object = datetime.strptime(times, '%Y-%m-%d %H:%M:%S')  # convert str to object
+                    times_unix = str2unix(times_object)  # convert object to unix str
+                except:
+                    times_unix = 0
+                if start_unix <= times_unix <= end_unix:
+                    if re.search(filter_err_warn, l):
+                        if re.search(filter_names, l):
+                            print times, type(times)
+                            print times_unix, type(times_unix)
+                            writer.write(l + '\n')
+                            #writer.write(str(times_unix) + '\n')
+
+            writer.write('----------End----------' + '\n')

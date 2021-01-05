@@ -104,6 +104,8 @@ optional arguments:
                         with --quick to only generate the html of the test run
                         report
   --dev_update          Do pip install update and install latest packages
+  --sensor_logs         Generates a log report of the sensor errors and
+                        warnings occurred during the test run.
 ```
 
 ## Report Generation

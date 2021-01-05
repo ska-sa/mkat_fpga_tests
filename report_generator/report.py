@@ -569,7 +569,8 @@ class Report(object):
         """
         rft = self._requirements_from_tests()
         status = rft.get(req, {}).get('status', self.UNKNOWN).upper()
-        if demo and status not in ['WAIVED', 'NOT_TESTED']:
+        #if demo and status not in ['WAIVED', 'NOT_TESTED']:
+        if demo and status not in ['WAIVED', 'NOT_TESTED','TBD']:
             # For demo's we just say Exist, Not Tested or
             # say that it is WAIVED.
             #return 'Exists' if req in rft else 'Not Tested'
@@ -577,7 +578,8 @@ class Report(object):
         else:
             return (
                 "Test Not Implemented"
-                if status.title().replace('_', ' ') == "Not Tested"
+                #if status.title().replace('_', ' ') == "Not Tested" or "Tbd"
+                if status.title().replace('_', ' ') == "Not Tested" or status.title().replace('_', ' ') == "Tbd"
                 else status.title().replace('_', ' '))
 
     def _rst_summary(self, docproducer=None):

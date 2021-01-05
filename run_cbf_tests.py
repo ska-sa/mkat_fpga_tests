@@ -235,6 +235,14 @@ def option_parser():
         help="Release name/type",
     )
 
+    parser.add_argument(
+        "--sensor_logs",
+        dest="sensor_logs",
+        action="store_true",
+        default=False,
+        help="Generates a log report of the sensor errors and warnings occurred during the test run.",
+    )
+
     # parser.add_argument("--jenkins",
     #                   dest="jenkins",
     #                   action="store_true",
@@ -270,6 +278,10 @@ def run_command(settings, cmd, log_filename=None, stdout=False, stderr=False, sh
 
     if settings.get("dry_run") or settings.get('gen_qtp'):
         os.environ["DRY_RUN"] = "True"
+
+    if settings.get("sensor_logs"):
+        os.environ["SENSOR_LOGS"] = "True"
+
 
     if settings.get("manual_test"):
         os.environ["MANUAL_TEST"] = "True"
@@ -1427,6 +1439,7 @@ if __name__ == "__main__":
     )
     # TODO:
     # This logic needs to be improved
+    #import IPython;IPython.embed()
     settings.update(get_system_info())
     settings["process_core"] = True
     settings["gather_system_settings"] = True
