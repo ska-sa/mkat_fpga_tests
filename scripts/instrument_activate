@@ -39,6 +39,7 @@ CONFIGURE=${INSTRUMENT_OPTS:1:1}
 REPOCH=${INSTRUMENT_OPTS:2:1}
 MVACC=${INSTRUMENT_OPTS:3:1}
 
+#CONF_PATH_DIR=${6:-'../templates/'}
 CONF_PATH_DIR=${6:-'/etc/corr/templates/'}
 CONF_PATH=${CONF_PATH_DIR}${INSTRUMENT}
 #-------------------------------------------------------------------------------------------
