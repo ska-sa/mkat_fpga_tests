@@ -7,7 +7,8 @@ SENSORPORT=$(kcpcmd array-list | grep array-list | cut -f3 -d' ' | cut -f2 -d','
 
 export TESTVAR=$(kcpcmd -s localhost:$PORT sensor-value | grep weight)
 
-echo TESTVAR = $TESTVAR
+#echo TESTVAR = $TESTVAR
+echo $TESTVAR
 
 
 
