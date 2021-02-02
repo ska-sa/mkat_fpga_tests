@@ -2110,6 +2110,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        else:
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
         n_accs = self.cam_sensors.get_value("n_accs")
         bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
         self.Progress(
@@ -2152,7 +2154,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Channelisation frequency is within maximum tolerance of 1% of the channel spacing."
         Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
         for i in range(self.data_retries):  
-            initial_dump = self.get_real_clean_dump(discard=num_discards)
+            #initial_dump = self.get_real_clean_dump(discard=num_discards)
+            initial_dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
             if initial_dump is not False:
                 initial_freq_response = normalised_magnitude(initial_dump["xeng_raw"][:, test_baseline, :])
                 where_is_the_tone = np.argmax(initial_freq_response) + self.start_channel
@@ -2869,6 +2872,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        else:
+            curr_mcount = self.current_dsim_mcount()  #dump_after_mcount
 
         self.logger.info(
             "Capture an initial correlator SPEAD accumulation, determine the "
@@ -2917,7 +2922,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             chans_to_plot = ()
         print_cnt = 0
         # Clear the que
-        this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+        #this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+        this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
         for channel, channel_f0 in test_ch_and_freqs:
             if print_cnt < num_prints:
                 self.Progress(
@@ -3744,6 +3750,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
+            else:
+                curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             self.Step("Digitiser simulator configured to generate continuous wave")
             #TODO: this test does not sweep across the full l-band, should it?
             #self.Step(
@@ -3768,7 +3776,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
                             #TODO Check if 4 discards are enough.
-                            this_freq_dump = self.get_real_clean_dump(discard = num_discard)
+                            #this_freq_dump = self.get_real_clean_dump(discard = num_discard)
+                            this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -4727,6 +4736,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        else:
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
         test_input = self.cam_sensors.input_labels[0]
         eq_scaling = complex(gain)
         acc_times = [acc_time / 2, acc_time]
@@ -4846,7 +4857,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     expected_response = quant_power * no_accs
                     try:
-                        dump = self.get_real_clean_dump(discard=2)
+                        #dump = self.get_real_clean_dump(discard=2)
+                        dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
                         baselines = self.get_baselines_lookup()
                         bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
@@ -9388,9 +9400,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
+            else:
+                curr_mcount = self.current_dsim_mcount()  #dump_after_mcount
 
             try:
-                dump = self.get_real_clean_dump(discard=5)
+                #dump = self.get_real_clean_dump(discard=5)
+                dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
             except Queue.Empty:
                 errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                 self.Error(errmsg, exc_info=True)
