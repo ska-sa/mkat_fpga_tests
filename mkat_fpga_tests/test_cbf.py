@@ -397,7 +397,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -497,7 +497,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @slow
     @array_release_x
@@ -643,7 +643,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -678,7 +678,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
        #     	pass
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -820,7 +820,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     # @tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -3750,8 +3750,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
-            else:
-                curr_mcount = self.current_dsim_mcount() #dump_after_mcount
+            #else:
+            #    curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             self.Step("Digitiser simulator configured to generate continuous wave")
             #TODO: this test does not sweep across the full l-band, should it?
             #self.Step(
@@ -3772,6 +3772,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.dhost.sine_sources.sin_corr.set(
                             frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples
                         )
+                        curr_mcount = self.current_dsim_mcount() #dump_after_mcount
                         freq_val = self.dhost.sine_sources.sin_corr.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
@@ -4736,8 +4737,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
-        else:
-            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
+        #else:
+        #    curr_mcount = self.current_dsim_mcount() #dump_after_mcount
         test_input = self.cam_sensors.input_labels[0]
         eq_scaling = complex(gain)
         acc_times = [acc_time / 2, acc_time]
@@ -4786,6 +4787,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Make dsim output periodic in FFT-length so that each FFT is identical
             self.dhost.sine_sources.sin_corr.set(frequency=test_freq, scale=cw_scale, 
                     repeat_n=source_period_in_samples)
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
             time.sleep(1)
         except AssertionError:
