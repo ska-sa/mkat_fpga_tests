@@ -68,7 +68,8 @@ quant_gain = 0.5
 
 [dsimengine]
 sample_rate_hz = 1714298408
-bitstream = /srv/mkat_fpga/bitstreams/deng/s_deng_rev1_13_wide.fpg
+#bitstream = /srv/mkat_fpga/bitstreams/deng/s_deng_rev1_13_wide.fpg
+bitstream = /home/jkns/jenkins/workspace/mkat_fpga_git_pull/bitstreams/deng/s_deng_rev1_13_wide.fpg
 #host = skarab020919-01
 host = skarab020A43-01
 pol0_destination_ips = 239.103.0.0+7:7148
