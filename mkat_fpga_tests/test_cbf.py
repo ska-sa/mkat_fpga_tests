@@ -723,11 +723,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     # Remove chan 0 to avoid DC issues
                     if test_channels[0] == 0:
                         test_channels = test_channels[1:]
-                    self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
-                    self._test_back2back_consistency(test_channels, num_discard)
-                    self._test_freq_scan_consistency(test_chan, num_discard)
-                    #self._test_spead_verify()
-                    #self._test_product_baseline_leakage()
                 else:
                     test_channels = random.sample(range(n_chans)[self.start_channel:self.start_channel+chan_sel], num_tst_chs)
                     test_chan = random.choice(range(self.start_channel, 
@@ -740,7 +735,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                #self._test_freq_scan_consistency(test_chan, num_discard)
+                self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -846,12 +841,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             and (self.start_channel == 0)):
                         check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                        # TODO Quantiser snapshot only works below half the band
-                        #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                        test_chan = random.choice(range(n_chans)[check_strt_ch:center_ch])
+                        test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
                     else:
-                        #test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
-                        test_chan = random.choice(range(self.start_channel, center_ch))
+                        test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
                     n_ants = int(self.cam_sensors.get_value("n_ants"))
                     #TODO: figure out why this fails if not using 1 second
                     self._test_vacc(
@@ -3471,13 +3463,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
-    def _test_back2back_consistency(self, test_channels, num_discard, cut_half_channels=True):
+    def _test_back2back_consistency(self, test_channels, num_discard):
         """
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
         """
 
-        def get_expected_acc_val(test_chan, cut_half_channels=True):
+        def get_expected_acc_val(test_chan):
             try:
                 test_input = self.cam_sensors.input_labels[0]
                 reply, informs = self.katcp_req.quantiser_snapshot(test_input)
@@ -3494,8 +3486,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                 center_ch = int(n_chans/2)
                 quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
-                if cut_half_channels:
-                    quantiser_spectrum = quantiser_spectrum[0:center_ch]
                 quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
                 if (quant_check.shape[0] == 1):
                     if quant_check[0] != test_chan:
@@ -3642,10 +3632,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #        normalise=False,
             #        caption=caption,
             #    )
-            expected_val = get_expected_acc_val(chan, cut_half_channels)
+            expected_val = get_expected_acc_val(chan)
             if expected_val == 0:
                 # quantiser snapshot did not work, take expected as value in baseline 0
-                expected_val = np.max(magnetise(dumps_data[0][:,0,:]))
+                # expected_val = np.max(magnetise(dumps_data[0][:,0,:]))
+                # Quantiser fixed, this is an error
+                return False
             elif expected_val == False:
                 return False
             failed = False
@@ -4717,7 +4709,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if i.arguments[-2].lower() != "nominal":
                         self.Note(" contains a ".join(i.arguments[2:-1]))
 
-    def _test_vacc(self, test_chan, acc_time=0.998, cut_half_channels=True):
+    def _test_vacc(self, test_chan, acc_time=0.998):
         """Test vector accumulator"""
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         awgn_scale=0
@@ -4792,12 +4784,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return
         else:
             quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
-            if cut_half_channels:
-                #quantiser_spectrum = quantiser_spectrum[self.start_channel:center_ch]
-                quantiser_spectrum = quantiser_spectrum[0:center_ch]
-            #else:
-            #    quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
-
             quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
             if (quant_check.shape[0] == 1):
                 Aqf.equals(quant_check[0], test_chan, "Tone found in correct channel.")
@@ -4850,12 +4836,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         baselines = self.get_baselines_lookup()
                         bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
-                        if cut_half_channels:
-                            #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:center_ch]
-                            data = (dump["xeng_raw"][:, bl_idx, :])[0:center_ch]
-                        else:
-                            #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
-                            data = (dump["xeng_raw"][:, bl_idx, :])
+                        #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
+                        data = (dump["xeng_raw"][:, bl_idx, :])
                     except Exception:
                         errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                         self.Error(errmsg, exc_info=True)

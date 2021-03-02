@@ -96,7 +96,7 @@ class UtilsClass(object):
             dsim_mcount   = dsim_loc_time * 8
             return dsim_mcount
 
-    def get_dump_after_mcount(self, mcount):
+    def get_dump_after_mcount(self, mcount, quiet=False):
         """
             Discard dumps until dump timestamp is past mcount. 
         """
@@ -106,7 +106,7 @@ class UtilsClass(object):
                 data = self.receiver.data_queue.get()
                 self.assertIsInstance(data, dict)
                 dump_mcount = data["timestamp"]
-                print('Mcount delta: {}'.format(mcount - dump_mcount))
+                self.logger.info('Mcount delta: {}'.format(mcount - dump_mcount))
             except AssertionError:
                 errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
                 if not quiet:
