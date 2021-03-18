@@ -200,10 +200,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #print '**self.id = ', self.id
         try:
             assert evaluate(os.getenv("SENSOR_LOGS", "False"))
-            self.Note("Sensor logs enabled.")
+            print("Sensor logs enabled.")
             self.get_sensor_logs() # call method for parsing sensor logs
         except AssertionError: 
-            self.Note("Sensor logs disabled.")
+            print("Sensor logs disabled.")
 
     def set_instrument(self, acc_time=None, start_channel=None, stop_channel=None, start_receiver=True, **kwargs):
         #self.receiver = None
