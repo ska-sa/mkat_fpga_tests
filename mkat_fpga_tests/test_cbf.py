@@ -2242,6 +2242,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.logger.debug(_msg)
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             # self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
@@ -2255,7 +2256,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
+                #this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
+                this_freq_dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 failure_count += 1
