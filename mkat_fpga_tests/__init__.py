@@ -78,8 +78,14 @@ class CorrelatorFixture(Logger.LoggingClass):
         nose_test_config = {}
         self._correlator_started = not int(nose_test_config.get("start_correlator", False))
         self.test_config = self._test_config_file
-        # ToDo get array name from file...instead of test config file
-        self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
+        test_array_name = self.test_config['instrument_params']['subarray']
+        files = iglob(os.path.expanduser("/etc/corr/*"))
+        sorted_files = sorted(files, key=lambda t: os.stat(t).st_mtime)
+        conf_f_list = []
+        _dummy = [conf_f_list.append(f) for f in sorted_files if f.find(test_array_name) != -1]
+        self.config_filename = conf_f_list[-1]
+        # This code takes the latest config file
+        #self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument()
         try:
             if os.path.exists(self.config_filename):

@@ -20,6 +20,8 @@ if __name__ == "__main__":
     parser.add_option('-c', '--config_file', type=str, default=None,
                       help='Correlator config file to use, if ommitted CORR2INI '
                            'environment variable will be used.')
+    parser.add_option('-f', '--frequency', type=int, default=1712000000,
+                      help='DSIM clock frequency')
     opts, args = parser.parse_args()
     if opts.config_file:
         if os.path.isfile(opts.config_file):
@@ -52,7 +54,7 @@ if __name__ == "__main__":
 
     try:
         #20ms in clock ticks
-        ticks_20ms = 0.02 * 1712000000
+        ticks_20ms = 0.02 * opts.frequency
         ticks_20ms = pow(2, 32) - ticks_20ms
 
         def get_ts():
@@ -61,7 +63,7 @@ if __name__ == "__main__":
             lsw = lsw['data']['timestamp_lsw']
             msw = msw['data']['timestamp_msw']
             #Check that lsw is not within 20 ms of wrapping
-            if lsw > ticks_20ms:
+            if lsw < ticks_20ms:
                 return (msw << 32) + lsw
             else:
                 return False
@@ -95,6 +97,7 @@ if __name__ == "__main__":
         freq_ts_list = []
         delay = opts.time_delta
         print 'Estimating dsim clock frequency using direct register method with delay of {}'.format(delay)
+        import IPython;IPython.embed()
         while True:
             freq_ts = freq_get_ts(delay)
             freq_ts_list.append(freq_ts)
