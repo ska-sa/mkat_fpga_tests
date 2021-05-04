@@ -701,12 +701,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if instrument_success:
                     num_discard = int(self.conf_file["instrument_params"]["num_discards"])
                     num_tst_chs = int(self.conf_file["instrument_params"]["num_ch_to_test"])
-                    quant_half_valid = eval(self.conf_file["instrument_params"]["quant_half_valid"])
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                    if quant_half_valid:
-                        chan_sel = min(int(n_chans/2), self.n_chans_selected)
-                    else:
-                        chan_sel = self.n_chans_selected
+                    chan_sel = self.n_chans_selected
                     check_strt_ch = None
                     check_stop_ch = None
                     if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
@@ -3546,7 +3542,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
         source_period_in_samples = n_chans * 2 * decimation_factor
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-        cw_scale = cw_scale/2
+        #cw_scale = cw_scale/2
+        cw_scale = cw_scale/4
         # Reset the dsim and set fft_shifts and gains
         dsim_set_success = self.set_input_levels(
             awgn_scale=0, cw_scale=0, freq=0, fft_shift=fft_shift, gain=gain
@@ -4777,7 +4774,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 exc_info=True)
             return
 
-        delta_acc_t = self.cam_sensors.fft_period * internal_accumulations
+        decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        delta_acc_t = self.cam_sensors.fft_period * internal_accumulations * decimation_factor
         test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
         test_freq = self.cam_sensors.ch_center_freqs[test_chan]
         self.Step("Selected test input {} and test channel {} @ {:.3f} Mhz"
@@ -6774,6 +6772,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 pass
             else:
                 awgn_scale = awgn_scale*2
+            #awgn_scale = awgn_scale
+
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
