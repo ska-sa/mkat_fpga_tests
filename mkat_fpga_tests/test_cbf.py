@@ -7018,6 +7018,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 pass
             else:
                 awgn_scale = awgn_scale*2
+            # Check if it is a narrow and instrument and if so don't test start and end
+            # of band:
+            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+            if decimation_factor != 1:
+                # Lower cw power to prevent adjacent channels showing any signal
+                cw_scale = cw_scale/decimation_factor
             dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                 freq=0, fft_shift=fft_shift, gain=gain
             )
@@ -7033,9 +7039,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
             )
             self.Step("This test will take a long time... check log for progress.")
-            # Check if it is a narrow and instrument and if so don't test start and end
-            # of band:
-            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
             if decimation_factor != 1:
                 nb_notest_factor = 0.15
                 notest = int(round(substreams*0.15,0))
