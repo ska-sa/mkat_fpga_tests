@@ -2958,11 +2958,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
             self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
             # self.dhost.sine_sources.sin_corr.set(frequency=0, scale=0)
+            curr_mcount = self.current_dsim_mcount()
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
             for i in range(self.data_retries):  
-                this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+                #this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+                this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
                 if this_freq_dump is not False:
                     break
                 self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
@@ -3542,7 +3544,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
         source_period_in_samples = n_chans * 2 * decimation_factor
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
-        #cw_scale = cw_scale/2
+        #if decimation_factor != 1:
+        #    cw_scale = cw_scale/decimation_factor
+        #else:
         cw_scale = cw_scale/4
         # Reset the dsim and set fft_shifts and gains
         dsim_set_success = self.set_input_levels(
@@ -6032,7 +6036,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
                 #n_substrms_to_cap_m = int(frac_to_cap*substreams)
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-                start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+                #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+                # Algorithm now just pics the center of the band and substreams around that.
+                # This may lead to capturing issues. TODO: investigate
+                start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
                 if start_substream > (substreams - 1):
                     self.logger.warning = (
                         "Starting substream is larger than substreams available: {}. "
@@ -6416,7 +6423,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -6767,12 +6777,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             #TODO different levels for beamforming and delay tests, seems not for 1k
+            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
             if "1k" in self.instrument:
                 #keep scal as is
                 pass
+            elif decimation_factor != 1:
+                pass
             else:
                 awgn_scale = awgn_scale*2
-            #awgn_scale = awgn_scale
 
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
@@ -7018,12 +7030,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 pass
             else:
                 awgn_scale = awgn_scale*2
+
             # Check if it is a narrow and instrument and if so don't test start and end
             # of band:
             decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
-            if decimation_factor != 1:
+            #if decimation_factor != 1:
                 # Lower cw power to prevent adjacent channels showing any signal
-                cw_scale = cw_scale/decimation_factor
+                #cw_scale = cw_scale/decimation_factor
             dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                 freq=0, fft_shift=fft_shift, gain=gain
             )
@@ -7174,7 +7187,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -7438,7 +7454,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -7826,7 +7845,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -9782,15 +9804,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         def get_cw_val(pon=True):
             if pon:
                 self.Step("Dsim output scale: {}".format(output_scale))
-            freq = ch_list[test_channel]
-            freq = freq + freq_offset
             dsim_set_success = self.set_input_levels(
                 awgn_scale=awgn_scale,
                 cw_scale=cw_scale,
                 output_scale=output_scale,
-                freq=freq,
-                fft_shift=fft_shift,
-                gain=gain,
+                freq=freq
             )
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
@@ -9820,11 +9838,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         # Use CW from channelisation tests, but start higher to ensure saturation
-        cw_scale = cw_scale * 2
+        #cw_scale = cw_scale * 2
+        # put cw_scale at 1
+        cw_scale = 1
         if cw_scale > 1.0: cw_scale = 1.0
         ch_list = self.cam_sensors.ch_center_freqs
         center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
         freq_offset = (ch_list[1]-ch_list[0])*center_bin_offset
+        freq = ch_list[test_channel]
+        freq = freq + freq_offset
         inp = random.choice(self.cam_sensors.input_labels)
         Aqf.hop("Sampling input {}".format(inp))
         output_scale = 1.0
@@ -9846,6 +9868,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         output_start_scale = output_scale
         self.Step("Dsim generating CW: cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
                   cw_scale, awgn_scale, gain, fft_shift))
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=awgn_scale,
+            cw_scale=cw_scale,
+            output_scale=1,
+            fft_shift=fft_shift,
+            gain=gain,
+        )
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
         Aqf.hop("Testing channel {}".format(test_channel))
         output_power = []
         x_val_array = []
@@ -9862,15 +9894,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         min_cnt = min_cnt_val
         max_cnt = max_steps
         prev_val = get_cw_val(pon=False)
+        slope_found = False
         while min_cnt and max_cnt:
             curr_val = get_cw_val()
             if exp_y_lvl_lwr < curr_val < exp_y_lvl_upr:
                 exp_y_val = curr_val
                 exp_x_val = 20 * np.log10(output_scale)
             step = curr_val - prev_val
+            # check if a slope has been found
+            if step > 2:
+                slope_found = True
             if curr_val == 0:
                 break
-            if np.abs(step) < 0.1:
+            if np.abs(step) < 0.1 and slope_found:
                 min_cnt -= 1
             else:
                 min_cnt = min_cnt_val
@@ -9885,6 +9921,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 output_scale = output_scale - output_delta
             max_cnt -= 1
+        print('mincnt {}, maxcng {}'.format(min_cnt,max_cnt))    
         output_power = np.array(output_power)
         try:
             output_power_max = output_power.max()
