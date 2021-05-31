@@ -412,15 +412,15 @@ class UtilsClass(object):
             n_accs = self.cam_sensors.get_value("n_accs")
             heap_time = 256*int_time/n_accs
             num_heaps_to_cap = int(
-                    self.corr_fix._test_config_file["beamformer"]
+                    self.corr_fix._new_test_config_file["beamformer"]
                     ["number_of_heaps_to_cap"])
             capture_time = num_heaps_to_cap * heap_time
 
         min_beam_cap_time = float(
-                self.corr_fix._test_config_file["beamformer"]
+                self.corr_fix._new_test_config_file["beamformer"]
                 ["min_beam_capture_time"])
         max_beam_cap_time = float(
-                self.corr_fix._test_config_file["beamformer"]
+                self.corr_fix._new_test_config_file["beamformer"]
                 ["max_beam_capture_time"])
         if capture_time < min_beam_cap_time: capture_time = min_beam_cap_time
         if capture_time > max_beam_cap_time: capture_time = max_beam_cap_time
@@ -428,12 +428,12 @@ class UtilsClass(object):
         # Create a katcp client to connect to katcpingest if one not specified
         if ingest_kcp_client is None:
             if os.uname()[1] == "cmc2":
-                ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc2"]
+                ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_cmc2"]
             elif os.uname()[1] == "cmc3":
-                ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc3"]
+                ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_cmc3"]
             else:
-                ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node"]
-            ingst_nd_p = self.corr_fix._test_config_file["beamformer"]["ingest_node_port"]
+                ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node"]
+            ingst_nd_p = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_port"]
             try:
                 ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
                 ingest_kcp_client.setDaemon(True)
@@ -868,30 +868,30 @@ class UtilsClass(object):
         if (profile in ('noise','cw')):
             try:
                 if "54M32k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_cw_scale".format(profile)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_cw_scale".format(profile)]
+                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_fft_shift".format(profile)]
                 elif "107M32k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_cw_scale".format(profile)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_cw_scale".format(profile)]
+                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_fft_shift".format(profile)]
                 elif "1k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
                 elif "4k" in self.instrument:                                     
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
                 elif "32k" in self.instrument:
-                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
-                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
                 else:
                     msg = "Instrument not found: {}".format(self.instrument)
                     self.logger.exception(msg)
