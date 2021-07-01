@@ -575,7 +575,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @generic_test
     @aqf_vr("CBF.V.3.46")
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
@@ -862,7 +862,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -991,7 +991,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
