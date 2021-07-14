@@ -993,7 +993,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
