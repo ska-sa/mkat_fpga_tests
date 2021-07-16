@@ -83,6 +83,16 @@ class CorrelatorFixture(Logger.LoggingClass):
         #self.test_config = self._new_test_config_file
         self.new_test_config = self._new_test_config_file
         # ToDo get array name from file...instead of test config file
+#=======
+#        self.test_config = self._test_config_file
+#        test_array_name = self.test_config['instrument_params']['subarray']
+#        files = iglob(os.path.expanduser("/etc/corr/*"))
+#        sorted_files = sorted(files, key=lambda t: os.stat(t).st_mtime)
+#        conf_f_list = []
+#        _dummy = [conf_f_list.append(f) for f in sorted_files if f.find(test_array_name) != -1]
+#        self.config_filename = conf_f_list[-1]
+#        # This code takes the latest config file
+#>>>>>>> test_framework_updates
         #self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument()
         try:

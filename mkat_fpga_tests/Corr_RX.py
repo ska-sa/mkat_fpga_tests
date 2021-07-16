@@ -325,7 +325,9 @@ class CorrRx(threading.Thread, LoggingClass):
         #memory_pool_heaps = ring_heaps + max_heaps + stream_xengs * (active_frames + 5)
         #memory_pool_heaps = ring_heaps + max_heaps + stream_xengs * (active_frames)
         memory_pool_heaps = max_heaps + stream_xengs
-        print('Max heaps: {}, ring heaps: {}, heap_data_size {}, memory_pool_heaps {}'.format(max_heaps,ring_heaps, heap_data_size, memory_pool_heaps))
+        self.logger.info('Memory allocation of receiver: Max heaps: {}, ring heaps: {}, '
+            'heap_data_size {}, memory_pool_heaps {}'
+            .format(max_heaps,ring_heaps, heap_data_size, memory_pool_heaps))
         #memory_pool_heaps = 40 #max_heaps + stream_xengs
         memory_pool = spead2.MemoryPool(2**14, heap_data_size + 2**9,
                                         memory_pool_heaps, memory_pool_heaps)
