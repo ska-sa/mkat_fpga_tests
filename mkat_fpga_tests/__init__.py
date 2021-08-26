@@ -96,8 +96,15 @@ class CorrelatorFixture(Logger.LoggingClass):
                 self.dsim_conf = self.corr_config["dsimengine"]
                 self.xeng_product_name = self.corr_config["xengine"]["output_products"]
                 self.feng_product_name = self.corr_config["fengine"]["output_products"]
-                self.beam0_product_name = self.corr_config["beam0"]["output_products"]
-                self.beam1_product_name = self.corr_config["beam1"]["output_products"]
+                self.beam_product_name = []
+                has_beam_key = True
+                beam_num = 0
+                while has_beam_key:
+                    beam_section = "beam{}".format(beam_num)
+                    has_beam_key = self.corr_config.has_key(beam_section)
+                    if has_beam_key:
+                        self.beam_product_name.append(self.corr_config[beam_section]["output_products"])
+                    beam_num += 1
                 self.xeng_outbits = self.corr_config["xengine"]["xeng_outbits"]
             # This is if an instrument is not running, should not be neccessary
             #elif self.instrument is not None:
