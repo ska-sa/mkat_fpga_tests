@@ -72,6 +72,25 @@ def clear_all(c):
     for x in c.xhosts:
         x.clear_status()
 
+def get_quant_ss(offset = 0):
+    ss = f.snapshots.snap_quant0_ss
+    sdata = ss.read(offset=offset)['data']
+    compl = []
+    for ctr in range(0, len(sdata['real0'])):
+        compl.append(complex(sdata['real0'][ctr], sdata['imag0'][ctr]))
+        compl.append(complex(sdata['real1'][ctr], sdata['imag1'][ctr]))
+        compl.append(complex(sdata['real2'][ctr], sdata['imag2'][ctr]))
+        compl.append(complex(sdata['real3'][ctr], sdata['imag3'][ctr]))
+    compl_np = np.abs(np.asarray(compl))
+    max_val = compl_np.max()
+    max_idx = compl_np.argmax()
+    print'Offset: {}, Index: {}, Val: {}'.format(offset,max_idx,max_val)
+
+def quant_setup_spectrum():
+    ss = f.snapshots.snap_quant0_ss
+    ss.arm(man_trig=False, man_valid=False)
+    f.registers.quant_snap_ctrl.write(single_channel=0)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -121,5 +140,6 @@ if __name__ == "__main__":
 
     xhost = c.xhosts[0]
     x = c.xhosts[0]
+
     import IPython
     IPython.embed()

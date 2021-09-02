@@ -33,6 +33,7 @@ from nose.plugins.attrib import get_method_attr
 
 import corr2
 import katcp
+import h5py
 import matplotlib.pyplot as plt
 import ntplib
 import numpy as np
@@ -701,12 +702,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if instrument_success:
                     num_discard = int(self.conf_file["instrument_params"]["num_discards"])
                     num_tst_chs = int(self.conf_file["instrument_params"]["num_ch_to_test"])
-                    quant_half_valid = eval(self.conf_file["instrument_params"]["quant_half_valid"])
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                    if quant_half_valid:
-                        chan_sel = min(int(n_chans/2), self.n_chans_selected)
-                    else:
-                        chan_sel = self.n_chans_selected
+                    chan_sel = self.n_chans_selected
                     check_strt_ch = None
                     check_stop_ch = None
                     if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
@@ -723,11 +720,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     # Remove chan 0 to avoid DC issues
                     if test_channels[0] == 0:
                         test_channels = test_channels[1:]
-                    self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
-                    self._test_back2back_consistency(test_channels, num_discard)
-                    self._test_freq_scan_consistency(test_chan, num_discard)
-                    #self._test_spead_verify()
-                    #self._test_product_baseline_leakage()
                 else:
                     test_channels = random.sample(range(n_chans)[self.start_channel:self.start_channel+chan_sel], num_tst_chs)
                     test_chan = random.choice(range(self.start_channel, 
@@ -740,7 +732,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                #self._test_freq_scan_consistency(test_chan, num_discard)
+                self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -846,12 +838,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             and (self.start_channel == 0)):
                         check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
-                        # TODO Quantiser snapshot only works below half the band
-                        #test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
-                        test_chan = random.choice(range(n_chans)[check_strt_ch:center_ch])
+                        test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
+                        test_chan = 6000
                     else:
-                        #test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
-                        test_chan = random.choice(range(self.start_channel, center_ch))
+                        test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
                     n_ants = int(self.cam_sensors.get_value("n_ants"))
                     #TODO: figure out why this fails if not using 1 second
                     self._test_vacc(
@@ -1252,6 +1242,47 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self._test_group_delay()
                 else:
                     self.Failed(self.errmsg)
+
+    @array_release_x
+    @subset
+    @beamforming
+    @aqf_vr("CBF.V.A.IF")
+    def test_beam_delay(self):
+        Aqf.procedure(TestProcedure.GroupDelay)
+        if 'skipped_test' in test_CBF.__dict__['test_beam_delay'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_beam_delay'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver = False)
+                if instrument_success:
+                    self._test_beam_delay()
+                else:
+                    self.Failed(self.errmsg)
+    
+
+    #def test_beam_steering(self):
+    #    Aqf.procedure(TestProcedure.GroupDelay)
+    #    if 'skipped_test' in test_CBF.__dict__['test_beam_delay'].__dict__:
+    #        self.Note('Mark test as skipped.')
+    #        Aqf.skipped('Test skipped')
+    #    elif 'tbd' in test_CBF.__dict__['test_beam_delay'].__dict__:
+    #        self.Note('Mark test as tbd.')
+    #        Aqf.tbd('Test tbd')
+    #    else:
+    #        try:
+    #            assert evaluate(os.getenv("DRY_RUN", "False"))
+    #        except AssertionError:
+    #            instrument_success = self.set_instrument(start_receiver = False)
+    #            if instrument_success:
+    #                self._test_beam_steering()
+    #            else:
+    #                self.Failed(self.errmsg)
 
 
     # ---------------------------------------------------------------------------------------------------
@@ -2110,6 +2141,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        else:
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
         n_accs = self.cam_sensors.get_value("n_accs")
         bls_to_test = evaluate(self.cam_sensors.get_value("bls_ordering"))[test_baseline]
         self.Progress(
@@ -2152,7 +2185,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         msg = "Channelisation frequency is within maximum tolerance of 1% of the channel spacing."
         Aqf.in_range(chan_spacing, chan_spacing_tol[0], chan_spacing_tol[1], msg)
         for i in range(self.data_retries):  
-            initial_dump = self.get_real_clean_dump(discard=num_discards)
+            #initial_dump = self.get_real_clean_dump(discard=num_discards)
+            initial_dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
             if initial_dump is not False:
                 initial_freq_response = normalised_magnitude(initial_dump["xeng_raw"][:, test_baseline, :])
                 where_is_the_tone = np.argmax(initial_freq_response) + self.start_channel
@@ -2226,6 +2260,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.logger.debug(_msg)
 
             self.dhost.sine_sources.sin_0.set(frequency=freq, scale=cw_scale)
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             # self.dhost.sine_sources.sin_1.set(frequency=freq, scale=cw_scale)
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
 
@@ -2239,7 +2274,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 last_source_freq = this_source_freq
 
             try:
-                this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
+                #this_freq_dump = self.receiver.get_clean_dump(discard=num_discards)
+                this_freq_dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
                 self.assertIsInstance(this_freq_dump, dict)
             except AssertionError:
                 failure_count += 1
@@ -2869,6 +2905,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        else:
+            curr_mcount = self.current_dsim_mcount()  #dump_after_mcount
 
         self.logger.info(
             "Capture an initial correlator SPEAD accumulation, determine the "
@@ -2917,7 +2955,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             chans_to_plot = ()
         print_cnt = 0
         # Clear the que
-        this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+        #this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+        this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
         for channel, channel_f0 in test_ch_and_freqs:
             if print_cnt < num_prints:
                 self.Progress(
@@ -2941,11 +2980,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.dhost.sine_sources.sin_0.set(frequency=channel_f0, scale=cw_scale)
             self.dhost.sine_sources.sin_1.set(frequency=0, scale=0)
             # self.dhost.sine_sources.sin_corr.set(frequency=0, scale=0)
+            curr_mcount = self.current_dsim_mcount()
 
             this_source_freq = self.dhost.sine_sources.sin_0.frequency
             actual_test_freqs.append(this_source_freq)
             for i in range(self.data_retries):  
-                this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+                #this_freq_dump = self.get_real_clean_dump(discard=num_discard)
+                this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
                 if this_freq_dump is not False:
                     break
                 self.Error("Could not retrieve clean SPEAD accumulation", exc_info=True)
@@ -3471,13 +3512,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # dataFrame.T.to_csv('{}.csv'.format(self._testMethodName), encoding='utf-8')
 
-    def _test_back2back_consistency(self, test_channels, num_discard, cut_half_channels=True):
+    def _test_back2back_consistency(self, test_channels, num_discard):
         """
         This test confirms that back-to-back SPEAD accumulations with same frequency input are
         identical/bit-perfect.
         """
 
-        def get_expected_acc_val(test_chan, cut_half_channels=True):
+        def get_expected_acc_val(test_chan):
             try:
                 test_input = self.cam_sensors.input_labels[0]
                 reply, informs = self.katcp_req.quantiser_snapshot(test_input)
@@ -3494,8 +3535,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                 center_ch = int(n_chans/2)
                 quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
-                if cut_half_channels:
-                    quantiser_spectrum = quantiser_spectrum[0:center_ch]
                 quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
                 if (quant_check.shape[0] == 1):
                     if quant_check[0] != test_chan:
@@ -3527,7 +3566,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
         source_period_in_samples = n_chans * 2 * decimation_factor
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        #if decimation_factor != 1:
+        #    cw_scale = cw_scale/decimation_factor
+        #else:
         cw_scale = cw_scale/2
+        #cw_scale = cw_scale/8
         # Reset the dsim and set fft_shifts and gains
         dsim_set_success = self.set_input_levels(
             awgn_scale=0, cw_scale=0, freq=0, fft_shift=fft_shift, gain=gain
@@ -3642,10 +3685,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #        normalise=False,
             #        caption=caption,
             #    )
-            expected_val = get_expected_acc_val(chan, cut_half_channels)
+            expected_val = get_expected_acc_val(chan)
             if expected_val == 0:
                 # quantiser snapshot did not work, take expected as value in baseline 0
-                expected_val = np.max(magnetise(dumps_data[0][:,0,:]))
+                # expected_val = np.max(magnetise(dumps_data[0][:,0,:]))
+                # Quantiser fixed, this is an error
+                return False
             elif expected_val == False:
                 return False
             failed = False
@@ -3744,6 +3789,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
+            #else:
+            #    curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             self.Step("Digitiser simulator configured to generate continuous wave")
             #TODO: this test does not sweep across the full l-band, should it?
             #self.Step(
@@ -3764,11 +3811,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.dhost.sine_sources.sin_corr.set(
                             frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples
                         )
+                        curr_mcount = self.current_dsim_mcount() #dump_after_mcount
                         freq_val = self.dhost.sine_sources.sin_corr.frequency
                         try:
                             # this_freq_dump = self.receiver.get_clean_dump()
                             #TODO Check if 4 discards are enough.
-                            this_freq_dump = self.get_real_clean_dump(discard = num_discard)
+                            #this_freq_dump = self.get_real_clean_dump(discard = num_discard)
+                            this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -4194,7 +4243,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.logger.error("Phases not captured, retrying capture. TODO debug why this is neccessary.")
                 else:
                     break
-
             try:
                 if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
                     self.Failed("Phases are all zero")
@@ -4717,7 +4765,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if i.arguments[-2].lower() != "nominal":
                         self.Note(" contains a ".join(i.arguments[2:-1]))
 
-    def _test_vacc(self, test_chan, acc_time=0.998, cut_half_channels=True):
+    def _test_vacc(self, test_chan, acc_time=0.998):
         """Test vector accumulator"""
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         awgn_scale=0
@@ -4727,6 +4775,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if not dsim_set_success:
             self.Failed("Failed to configure digitise simulator levels")
             return False
+        #else:
+        #    curr_mcount = self.current_dsim_mcount() #dump_after_mcount
         test_input = self.cam_sensors.input_labels[0]
         eq_scaling = complex(gain)
         acc_times = [acc_time / 2, acc_time]
@@ -4750,7 +4800,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 exc_info=True)
             return
 
-        delta_acc_t = self.cam_sensors.fft_period * internal_accumulations
+        decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        delta_acc_t = self.cam_sensors.fft_period * internal_accumulations * decimation_factor
         test_acc_lens = [np.ceil(t / delta_acc_t) for t in acc_times]
         test_freq = self.cam_sensors.ch_center_freqs[test_chan]
         self.Step("Selected test input {} and test channel {} @ {:.3f} Mhz"
@@ -4775,6 +4826,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Make dsim output periodic in FFT-length so that each FFT is identical
             self.dhost.sine_sources.sin_corr.set(frequency=test_freq, scale=cw_scale, 
                     repeat_n=source_period_in_samples)
+            curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
             time.sleep(1)
         except AssertionError:
@@ -4792,12 +4844,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return
         else:
             quantiser_spectrum = np.array(evaluate(informs.arguments[-1]))
-            if cut_half_channels:
-                #quantiser_spectrum = quantiser_spectrum[self.start_channel:center_ch]
-                quantiser_spectrum = quantiser_spectrum[0:center_ch]
-            #else:
-            #    quantiser_spectrum = quantiser_spectrum[self.start_channel:self.stop_channel]
-
             quant_check = np.where(np.abs(quantiser_spectrum) > 0)[0]
             if (quant_check.shape[0] == 1):
                 Aqf.equals(quant_check[0], test_chan, "Tone found in correct channel.")
@@ -4846,16 +4892,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     )
                     expected_response = quant_power * no_accs
                     try:
-                        dump = self.get_real_clean_dump(discard=2)
+                        #dump = self.get_real_clean_dump(discard=2)
+                        dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
                         baselines = self.get_baselines_lookup()
                         bl_idx = baselines[test_input,test_input]
                         assert isinstance(dump, dict)
-                        if cut_half_channels:
-                            #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:center_ch]
-                            data = (dump["xeng_raw"][:, bl_idx, :])[0:center_ch]
-                        else:
-                            #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
-                            data = (dump["xeng_raw"][:, bl_idx, :])
+                        #data = (dump["xeng_raw"][:, bl_idx, :])[self.start_channel:self.stop_channel]
+                        data = (dump["xeng_raw"][:, bl_idx, :])
                     except Exception:
                         errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                         self.Error(errmsg, exc_info=True)
@@ -5475,7 +5518,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         random.shuffle(shuffled_labels)
         shuffled_labels = shuffled_labels[-4:]
         delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
-        for delayed_input in shuffled_labels:
+        #for delayed_input in shuffled_labels:
+        for delayed_input in input_labels:
             test_delay_val = random.randrange(self.cam_sensors.sample_period, step=0.83e-10, int=float)
             # test_delay_val = self.cam_sensors.sample_period  # Pi
             expected_phases = self.cam_sensors.ch_center_freqs * 2 * np.pi * test_delay_val
@@ -6015,7 +6059,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
                 #n_substrms_to_cap_m = int(frac_to_cap*substreams)
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-                start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+                #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+                # Algorithm now just pics the center of the band and substreams around that.
+                # This may lead to capturing issues. TODO: investigate
+                start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
                 if start_substream > (substreams - 1):
                     self.logger.warning = (
                         "Starting substream is larger than substreams available: {}. "
@@ -6135,10 +6182,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def _test_time_sync(self):
         self.Step("Request NTP pool address used.")
         try:
-            host_ip = "192.168.194.2"
+            host_ip = "10.97.64.1"
             ntp_offset = ntplib.NTPClient().request(host_ip, version=3).offset
         except ntplib.NTPException:
-            host_ip = "192.168.1.21"
+            host_ip = "katfs.kat.ac.za"
             ntp_offset = ntplib.NTPClient().request(host_ip, version=3).offset
         req_sync_time = 5e-3
         msg = (
@@ -6348,16 +6395,22 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             reply, informs = self.katcp_req.input_labels(*local_src_names)
             self.assertTrue(reply.reply_ok())
             labels = self.cam_sensors.input_labels
-            beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
-            # running_instrument = self.corr_fix.get_running_instrument()
-            # assert running_instrument is not False
-            # msg = 'Running instrument currently does not have beamforming capabilities.'
-            # assert running_instrument.endswith('4k'), msg
-            self.Step("Start capturing of %s and %s." % (beams[0], beams[1]))
-            reply, informs = self.katcp_req.capture_start(beams[0])
-            self.assertTrue(reply.reply_ok())
-            reply, informs = self.katcp_req.capture_start(beams[1])
-            self.assertTrue(reply.reply_ok())
+            beams = ["tied-array-channelised-voltage.0x", 
+                     "tied-array-channelised-voltage.0y",
+                     "tied-array-channelised-voltage.1x", 
+                     "tied-array-channelised-voltage.1y",
+                     "tied-array-channelised-voltage.2x", 
+                     "tied-array-channelised-voltage.2y",
+                     "tied-array-channelised-voltage.3x", 
+                     "tied-array-channelised-voltage.3y"]
+            running_instrument = self.corr_fix.get_running_instrument()
+            assert running_instrument is not False
+            msg = 'Running instrument currently does not have beamforming capabilities.'
+            assert running_instrument.endswith('4k'), msg
+            for bm in beams:
+                self.Step("Issueing capture start for {}.".format(bm))
+                reply, informs = self.katcp_req.capture_start(bm)
+                self.assertTrue(reply.reply_ok())
 
             # Get instrument parameters
             bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
@@ -6399,7 +6452,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -6559,14 +6615,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         # Save weights so that if the capture must be re-tried 
                         # weighs does not have to be set again and will be 
                         # available for referece level calculations
-                        #if retries == 1:
-                        #    beam_pol = beam[-1]
-                        #    saved_wgts = {}
-                        #    if beam_dict:
-                        #        for key in beam_dict:
-                        #            if key.find(beam_pol) != -1:
-                        #                saved_wgts[key] = beam_dict[key]
-
+                        if retries == 1:
+                            beam_pol = beam[-1]
+                            saved_wgts = {}
+                            if beam_dict:
+                                for key in beam_dict:
+                                    if key.find(beam_pol) != -1:
+                                        saved_wgts[key] = beam_dict[key]
 
                         bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(beam,
                             beam_dict, ingest_kcp_client) #, capture_time=1)
@@ -6750,11 +6805,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # Setting DSIM to generate noise
             awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
             #TODO different levels for beamforming and delay tests, seems not for 1k
+            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
             if "1k" in self.instrument:
                 #keep scal as is
                 pass
+            elif decimation_factor != 1:
+                pass
             else:
-                awgn_scale = awgn_scale*2
+                pass
+                #awgn_scale = awgn_scale*2
+
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
                 "Noise scale: {}, eq gain: {}, fft shift: {}".format(awgn_scale, gain, fft_shift)
@@ -6765,6 +6825,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
             time.sleep(1)
+
+            ants = self.cam_sensors.get_value("n_ants")
+            sampling_period = self.cam_sensors.sample_period
+            #delay_coefficients = ["sampling_period:0"]*ants
+            delay_coefficients = ["0:0"]*ants
+            try:
+                strt_time = time.time()
+                reply, _informs = self.katcp_req.beam_delays(beam, *delay_coefficients, timeout=130)
+                set_time = time.time() - strt_time
+                self.assertTrue(reply.reply_ok())
+            except Exception:
+                self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
+                    exc_info=True)
+            Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beam, set_time, reply))
 
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
@@ -6998,7 +7072,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #keep scal as is
                 pass
             else:
-                awgn_scale = awgn_scale*2
+                pass
+                #awgn_scale = awgn_scale*2
+                cw_scale = cw_scale/2
+
+            # Check if it is a narrow and instrument and if so don't test start and end
+            # of band:
+            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+            #if decimation_factor != 1:
+                # Lower cw power to prevent adjacent channels showing any signal
+                #cw_scale = cw_scale/decimation_factor
             dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                 freq=0, fft_shift=fft_shift, gain=gain
             )
@@ -7014,9 +7097,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
             )
             self.Step("This test will take a long time... check log for progress.")
-            # Check if it is a narrow and instrument and if so don't test start and end
-            # of band:
-            decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
             if decimation_factor != 1:
                 nb_notest_factor = 0.15
                 notest = int(round(substreams*0.15,0))
@@ -7152,7 +7232,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -7339,6 +7422,1079 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #                  ylabel='Beam Output',
             #                  xlabel='Samples')
 
+    def _test_beam_delay(self, beam_idx=0):
+        """
+
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        """
+
+        try:
+            output = subprocess.check_output(["docker", "run", "hello-world"])
+            self.logger.info(output)
+        except subprocess.CalledProcessError:
+            errmsg = "Cannot connect to the Docker daemon. Is the docker daemon running on this host?"
+            self.Failed(errmsg)
+            return False
+
+        try:
+            # Set custom source names
+            # local_src_names = self.cam_sensors.custom_input_labels
+            # reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            # self.assertTrue(reply.reply_ok())
+            # labels = reply.arguments[1:]
+            labels = self.cam_sensors.input_labels
+            beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
+            running_instrument = self.instrument
+            assert running_instrument is not False
+            # msg = 'Running instrument currently does not have beamforming capabilities.'
+            # assert running_instrument.endswith('1k'), msg
+            self.Step("Start capture on {}.".format(beams))
+            for beam in beams:
+                reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+                self.assertTrue(reply.reply_ok())
+            sync_time = self.cam_sensors.get_value("sync_time")
+
+            # Get instrument parameters
+            bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
+            nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+            ants = self.cam_sensors.get_value("n_ants")
+            ch_list = self.cam_sensors.ch_center_freqs
+            ch_bw = ch_list[1]-ch_list[0]
+            scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
+            reg_size = 32
+            reg_size_max = pow(2, reg_size)
+            threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
+            dsim_factor = float(
+                self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
+            substreams = self.cam_sensors.get_value("n_bengs")
+        except AssertionError:
+            self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+            return False
+        except Exception:
+            errmsg = "Exception"
+            self.Error(errmsg, exc_info=True)
+            return False
+
+        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Number of channels = {}".format(nr_ch))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+
+        ingst_nd_p = int(self.corr_fix._test_config_file["beamformer"]["ingest_node_port"])
+        ingest_kcp_client = []
+        beam_dict = {}
+        for idx, beam in enumerate(beams):
+            try:
+                beam_name = beam.replace("-", "_").replace(".", "_")
+                beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
+                beam_ip = beam_ip.split("+")[0]
+                start_beam_ip = beam_ip
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+                start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
+                if start_substream > (substreams - 1):
+                    self.logger.warning = (
+                        "Starting substream is larger than substreams available: {}. "
+                        "Fix in test configuration file".format(substreams)
+                    )
+                    start_substream = substreams - 1
+                if start_substream + n_substrms_to_cap_m > substreams:
+                    self.logger.warning = (
+                        "Substream start + substreams to process "
+                        "is more than substreams available: {}. "
+                        "Fix in test configuration file".format(substreams)
+                    )
+                    n_substrms_to_cap_m = substreams - start_substream
+                ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
+                assert isinstance(ticks_between_spectra, int)
+                spectra_per_heap = self.cam_sensors.get_value(beam_name + "_spectra_per_heap")
+                assert isinstance(spectra_per_heap, int)
+                ch_per_substream = self.cam_sensors.get_value(beam_name + "_n_chans_per_substream")
+                assert isinstance(ch_per_substream, int)
+            except AssertionError:
+                errmsg = "%s" % str(reply).replace("\_", " ")
+                self.Error(errmsg, exc_info=True)
+                return False
+            except Exception as e:
+                errmsg = "Exception: {}".format(e)
+                self.Error(errmsg, exc_info=True)
+                return False
+            # Compute the start IP address according to substream start index
+            beam_ip = int2ip(ip2int(beam_ip) + start_substream)
+            # Compute spectrum parameters
+            strt_ch_idx = start_substream * ch_per_substream
+            strt_ch = strt_ch_idx
+            stop_ch = strt_ch + ch_per_substream*n_substrms_to_cap_m
+            strt_freq = ch_list[strt_ch_idx] * dsim_factor
+            self.Step("Start a KAT SDP docker ingest node for beam captures")
+            if idx == 0:
+                stop_prev_docker = True
+                capture_dir = "/ramdisk/bm0"
+            else:
+                stop_prev_docker = False
+                capture_dir = "/ramdisk/bm1"
+            docker_status = self.start_katsdpingest_docker(
+                beam_ip,
+                beam_port,
+                n_substrms_to_cap_m,
+                nr_ch,
+                ticks_between_spectra,
+                ch_per_substream,
+                spectra_per_heap,
+                ingst_nd_p+idx,
+                stop_prev_docker,
+                capture_dir,
+             )
+            if docker_status:
+                self.Progress(
+                    "KAT SDP Ingest Node started. Capturing {} substream/s "
+                    "starting at {} for beam {} capturing into {}".format(n_substrms_to_cap_m, beam_ip, beam, capture_dir)
+                )
+            else:
+                self.Failed("KAT SDP Ingest Node failed to start")
+            # Create a katcp client to connect to katcpingest
+            if os.uname()[1] == "cmc2":
+                ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc2"]
+            elif os.uname()[1] == "cmc3":
+                ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc3"]
+            else:
+                ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node"]
+            _timeout = 10
+            try:
+                import katcp
+                ingst_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p+idx)
+                ingst_kcp_client.setDaemon(True)
+                ingst_kcp_client.start()
+                self.addCleanup(ingst_kcp_client.stop)
+                is_connected = ingst_kcp_client.wait_connected(_timeout)
+                if not is_connected:
+                    errmsg = "Could not connect to %s:%s, timed out." % (ingst_nd, ingst_nd_p)
+                    ingst_kcp_client.stop()
+                    raise RuntimeError(errmsg)
+            except Exception:
+                self.Error("Could not connect to katcp client", exc_info=True)
+            else:
+                ingest_kcp_client.append(ingst_kcp_client)
+
+            beam_quant_gain = 1
+            self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
+            self.set_beam_quant_gain(beam, beam_quant_gain)
+
+            beam_pol = beam[-1]
+            for label in labels:
+                if label.find(beam_pol) != -1:
+                    beam_dict[label] = 0.0
+
+            # Currently setting weights is broken
+            # self.Progress("Only one antenna gain is set to 1, the reset are set to zero")
+            ref_input = np.random.randint(ants)
+            ref_input = 0
+            # Find reference input label
+            for key in beam_dict:
+                if int(filter(str.isdigit, key)) == ref_input:
+                    ref_input_label = key
+                    break
+            self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
+            weight = 1.0
+            beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
+            _ = self.capture_beam_data(beam, beam_dict=beam_dict, only_update_weights=True)
+
+        def get_beam_data(beam_local, ingest_kcp_client_local, beamdata_dir):
+            #try:
+            #    bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(
+            #        beam=beam_local, ingest_kcp_client=ingest_kcp_client_local, stop_only=True
+            #    )
+            #except Exception as e:
+            #    errmsg = (
+            #        "Failed to capture beam data: Confirm that Docker container is "
+            #        "running and also confirm the igmp version = 2. Error message: {} ".format(e)
+            #    )
+            #    self.Error(errmsg, exc_info=True)
+            #    return False
+            try:
+                LOGGER.info("Getting latest beam data captured in %s" % beamdata_dir)
+                newest_f = max(glob.iglob("%s/*.h5" % beamdata_dir), key=os.path.getctime)
+                _timestamp = int(newest_f.split("/")[-1].split(".")[0])
+                newest_f_timestamp = time.strftime("%H:%M:%S", time.localtime(_timestamp))
+            except ValueError:
+                Aqf.failed("Failed to get the latest beamformer data")
+                return
+            else:
+                LOGGER.info(
+                    "Reading h5py data file(%s)[%s] and extracting the beam data.\n"
+                    % (newest_f, newest_f_timestamp)
+                )
+                with h5py.File(newest_f, "r") as fin:
+                    data = fin["Data"].values()
+                    for element in data:
+                        # if element.name.find('captured_timestamps') > -1:
+                        #     cap_ts = np.array(element.value)
+                        if element.name.find("bf_raw") > -1:
+                            bf_raw = np.array(element.value)
+                        elif element.name.find("timestamps") > -1:
+                            bf_ts = np.array(element.value)
+                        elif element.name.find("flags") > -1:
+                            bf_flags = np.array(element.value)
+                os.remove(newest_f)
+
+            flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
+            # self.Step('Finding missed heaps for all partitions.')
+            if flags.size == 0:
+                self.logger.warning("Beam data empty. Capture failed.")
+                return None, None
+            else:
+                for part in flags:
+                    missed_heaps = np.where(part > 0)[0]
+                    missed_perc = missed_heaps.size / part.size
+                    perc = 0.50
+                    if missed_perc > perc:
+                        self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
+                        self.logger.warning("Missed heaps = {}".format(missed_heaps))
+                        self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        return None, None
+            # Print missed heaps
+            idx = start_substream
+            for part in flags:
+                missed_heaps = np.where(part > 0)[0]
+                if missed_heaps.size > 0:
+                    self.logger.info("Missed heaps for substream {} at heap indexes {}".format(idx, missed_heaps))
+                idx += 1
+            # Combine all missed heap flags. These heaps will be discarded
+            flags = np.sum(flags, axis=0)
+            # Find longest run of uninterrupted data
+            # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
+            iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
+            absdiff = np.abs(np.diff(iszero))
+            # Runs start and end where absdiff is 1.
+            ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+            # Find max run
+            max_run = ranges[np.argmax(np.diff(ranges))]
+            bf_raw_strt = max_run[0] * spectra_per_heap
+            bf_raw_stop = max_run[1] * spectra_per_heap
+            bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
+            bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
+            return bf_raw, bf_ts
+
+        def load_dsim_impulse(load_timestamp):
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=2)
+            self.dhost.registers.src_sel_cntrl.write(src_sel_1=0)
+            self.dhost.registers.impulse_delay_correction.write(reg=16)
+            load_timestamp = load_timestamp
+            # lt_abs_t = datetime.fromtimestamp(
+            #    sync_time + load_timestamp / scale_factor_timestamp)
+            # curr_t = datetime.fromtimestamp(time.time())
+            # self.Progress('Current time      = {}:{}.{}'.format(curr_t.minute,
+            #                                            curr_t.second,
+            #                                            curr_t.microsecond))
+            # self.Progress('Impulse load time = {}:{}.{}'.format(lt_abs_t.minute,
+            #                                            lt_abs_t.second,
+            #                                            lt_abs_t.microsecond))
+            # if ((abs(curr_t.minute - lt_abs_t.minute) > 1) and
+            #    (abs(curr_t.second - lt_abs_t.second) > 1)):
+            #    self.Failed('Timestamp drift too big. Resynchronise digitiser simulator.')
+            # Digitiser simulator local clock factor of 8 slower
+            # (FPGA clock = sample clock / 8).
+
+            #load_timestamp = load_timestamp / 8.0
+            #if not load_timestamp.is_integer():
+            #    self.Failed("Timestamp received in accumulation not divisible" " by 8: {:.15f}".format(
+            #        load_timestamp))
+            load_timestamp = int(load_timestamp)
+            load_ts_lsw = load_timestamp & (reg_size_max-1)
+            load_ts_msw = load_timestamp >> reg_size
+
+            # dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()['data']['reg']
+            # dsim_loc_msw = self.dhost.registers.local_time_msw.read()['data']['reg']
+            # dsim_loc_time = dsim_loc_msw * pow(2,reg_size) + dsim_loc_lsw
+            # print 'timestamp difference: {}'.format((load_timestamp - dsim_loc_time)*8/dump['scale_factor_timestamp'])
+            self.dhost.registers.impulse_load_time_lsw.write(reg=load_ts_lsw)
+            self.dhost.registers.impulse_load_time_msw.write(reg=load_ts_msw)
+
+        def get_dsim_mcount(spectra_ref_mcount):
+            # Get the current mcount and shift it to the start of a spectra
+            while True:
+                dsim_loc_lsw = self.dhost.registers.local_time_lsw.read()["data"]["reg"]
+                dsim_loc_msw = self.dhost.registers.local_time_msw.read()["data"]["reg"]
+                if not(reg_size_max - dsim_loc_lsw < threems_in_200mhz_cnt):
+                    dsim_loc_time = dsim_loc_msw*reg_size_max + dsim_loc_lsw
+                    dsim_loc_time = dsim_loc_time * 8
+                    # Shift current dsim time to the edge of a spectra
+                    dsim_spectra_time = dsim_loc_time - (
+                            dsim_loc_time - spectra_ref_mcount) % ticks_between_spectra
+                    dsim_spectra_time = dsim_spectra_time/8.
+                    if not(dsim_spectra_time).is_integer():
+                        self.Failed("Dsim spectra time is not divisible by 8, dsim count has probably shifted, re-start test.")
+                        return False
+                    return dsim_spectra_time
+
+
+
+        ## Set a repeating CW pattern and delay the beam by on fft window to confirm the correct delay is applied.
+        #n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+        #decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        #source_period_in_samples = n_chans * 2 * decimation_factor
+        #awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        ##TODO: Figure out CW_scale for beam testing
+        #cw_scale = cw_scale/8
+        ## Reset the dsim and set fft_shifts and gains
+        #dsim_set_success = self.set_input_levels(
+        #    awgn_scale=0, cw_scale=0, freq=0, fft_shift=fft_shift, gain=gain
+        #)
+        #if not dsim_set_success:
+        #    self.Failed("Failed to configure digitise simulator levels")
+        #    return False
+        #self.Step(
+        #    "Digitiser simulator configured to generate periodic CW "
+        #    "with repeating samples equal to FFT-length {}) in order for each FFT to be "
+        #    "identical.".format(source_period_in_samples)
+        #)
+        ## TODO automate channel to fall within beam capture window
+        #chan = 2000
+        #ch_list = self.cam_sensors.ch_center_freqs
+        #center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
+        #freq_offset = (ch_list[1]-ch_list[0])*center_bin_offset
+        #freq = ch_list[chan]+freq_offset
+        #try:
+        #    # Make dsim output periodic in FFT-length so that each FFT is identical
+        #    self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=cw_scale, 
+        #            repeat_n=source_period_in_samples)
+        #    assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
+        #    this_source_freq = self.dhost.sine_sources.sin_corr.frequency
+        #    # Dump till mcount change
+        #    curr_mcount = self.current_dsim_mcount()
+        #except AssertionError:
+        #    errmsg = ("Failed to make the DEng output periodic in FFT-length so "
+        #              "that each FFT is identical, or cw0 does not equal cw1 freq.")
+        #    self.Error(errmsg, exc_info=True)
+        #    return False
+
+        #time.sleep(2)
+
+        #ants = self.cam_sensors.get_value("n_ants")
+        #delays = [0] * ants
+        #phases = [0] * ants
+        #num_samples = 20
+        #sampling_period = self.cam_sensors.sample_period
+        #fft_period = self.cam_sensors.fft_period
+        #delay_list = np.linspace(0, fft_period, num_samples)
+        #delay_delta = delay_list[1]
+
+        ## Zero delay coefficients before starting test
+        #delay_coefficients = ["0:0"]*ants
+        #for beam in beams:
+        #    strt_time = time.time()
+        #    reply, _informs = self.katcp_req.beam_delays(beam, *delay_coefficients)
+        #    set_time = time.time() - strt_time
+        #    print 'Beam: {}, Time to set: {}, Reply: {}'.format(beam, set_time, reply)
+
+        ## Bit perfect delay test
+        #b0_chan_values = []
+        #b1_chan_values = []
+        ##for num in range(num_samples+2):
+        #while False:
+        #    delay = delay_delta*num
+        #    phase = np.pi*0.1 * num
+        #    delays[2] = delay
+        #    phases[2] = phase
+        #    delay_coefficients = ["{}:0".format(dv) for dv in delays]
+        #    #delay_coefficients = ["0:{}".format(dv) for dv in phases]
+        #    #for beam in beams:
+        #    strt_time = time.time()
+        #    reply, _informs = self.katcp_req.beam_delays(beams[1], *delay_coefficients)
+        #    set_time = time.time() - strt_time
+        #    time.sleep(2)
+        #    print 'Beam: {}, Time to set: {}, Reply: {}'.format(beams[1], set_time, reply)
+        #    beam_retries = 5
+        #    while beam_retries > 0:
+        #        # Start a beam capture, set pulses and capture data 
+        #        _ = self.capture_beam_data(beams[0], ingest_kcp_client=ingest_kcp_client[0], start_only=True)
+        #        _ = self.capture_beam_data(beams[1], ingest_kcp_client=ingest_kcp_client[1], start_only=True)
+        #        time.sleep(0.5)
+        #        reply, informs = ingest_kcp_client[0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
+        #        reply, informs = ingest_kcp_client[1].blocking_request(katcp.Message.request("capture-done"), timeout=1)
+
+        #        b0_raw, b0_ts = get_beam_data(beams[0],ingest_kcp_client[0],"/ramdisk/bm0")
+        #        b1_raw, b1_ts = get_beam_data(beams[1],ingest_kcp_client[1],"/ramdisk/bm1")
+
+        #        if (np.all(b0_raw) is not None and 
+        #            np.all(b0_ts) is not None and
+        #            np.all(b1_raw) is not None and 
+        #            np.all(b1_ts) is not None):
+
+        #            # TODO: Hack, improve this logic, add exception management
+        #            b1_idx = int(len(b1_ts)/2)
+        #            try:
+        #                b0_idx = np.where(b0_ts == b1_ts[b1_idx])[0][0]
+        #            except IndexError: 
+        #                self.logger.warning('Did not find the same timestamp in both beams, '
+        #                    'retrying {} more times...'.format(beam_retries))
+        #                beam_retries -= 1
+        #            else:
+        #                break
+        #        else:
+        #            self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+        #            beam_retries -= 1
+        #    if beam_retries == 0:
+        #        self.Failed('Could not capture beam data.')
+        #        try:
+        #            # Restore DSIM
+        #            self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+        #            for igt_kcp_clnt in ingest_kcp_client:
+        #                igt_kcp_clnt.stop()
+        #        except BaseException:
+        #            pass
+        #        self.stop_katsdpingest_docker()
+        #        return False
+
+        #    b0_spectrum = b0_raw[:,b0_idx,:]
+        #    b1_spectrum = b1_raw[:,b1_idx,:]
+        #    b0_chan_val = np.asarray(b0_raw[chan,b0_idx,:])
+        #    b1_chan_val = np.asarray(b1_raw[chan,b1_idx,:])
+        #    b0_chan_values.append([b0_chan_val, num, delay])
+        #    b1_chan_values.append([b1_chan_val, num, delay])
+
+        #b0_chan_values = np.asarray(b0_chan_values)
+        #b1_chan_values = np.asarray(b1_chan_values)
+        #b0_raw_vals = b0_chan_values[:,0]
+        #b1_raw_vals = b1_chan_values[:,0]
+        #b0_cpx_vals = [x[0]+x[1]*1j for x in b0_raw_vals]
+        #b1_cpx_vals = [x[0]+x[1]*1j for x in b1_raw_vals]
+        #b0_ang_vals = np.angle(b0_cpx_vals)
+        #b1_ang_vals = np.angle(b1_cpx_vals)
+        # TODO Print this out properly
+
+        # Phase delay test
+        sampling_period = self.cam_sensors.sample_period
+        ants = self.cam_sensors.get_value("n_ants")
+        test_delays = [0, sampling_period, 1.5 * sampling_period, 2.2 * sampling_period]
+        test_phases = [0.5,1,1.5,2]
+        #test_delays = [i*sampling_period for i in range(20)]
+        test_delays_ns = map(lambda delay: delay * 1e9, test_delays)
+        exp_delays = []
+        for delay in test_delays:
+            dels = self.cam_sensors.ch_center_freqs * 2 * np.pi * delay
+            # For Narrowband remove the phase offset (because the center of the band is selected)
+            dels = dels - dels[0]
+            dels -= np.max(dels) / 2.0
+            exp_delays.append(dels[strt_ch:stop_ch])
+        expected_delays = zip(test_delays_ns, exp_delays)
+
+        # Zero delay coefficients before starting test
+        delay_coefficients = ["0:0"]*ants
+        Aqf.step("Setting all beam delays to zero")
+        for beam in beams:
+            strt_time = time.time()
+            try:
+                reply, _informs = self.katcp_req.beam_delays(beam, *delay_coefficients, timeout=130)
+                set_time = time.time() - strt_time
+                self.assertTrue(reply.reply_ok())
+            except Exception:
+                self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
+                    exc_info=True)
+        
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('noise')
+        # Reset the dsim and set fft_shifts and gains
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=awgn_scale*2, cw_scale=cw_scale, freq=0, fft_shift=fft_shift, gain=gain
+        )
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
+
+        spectra_average = 10000
+
+        def test_del_ph(delay_array, delay_test=True):
+            delays = [0] * ants
+            b0_spectra = []
+            b1_spectra = []
+            for delay in delay_array:
+                delays[ref_input] = delay
+                if delay_test:
+                    delay_coefficients = ["{}:0".format(dv) for dv in delays]
+                else:
+                    delay_coefficients = ["0:{}".format(dv) for dv in delays]
+
+                strt_time = time.time()
+                try:
+                    reply, _informs = self.katcp_req.beam_delays(beams[1], *delay_coefficients, timeout=130)
+                    curr_mcount = self.current_dsim_mcount()
+                    set_time = time.time() - strt_time
+                    self.assertTrue(reply.reply_ok())
+                except Exception:
+                    self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
+                        exc_info=True)
+                Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beams[1], set_time, reply))
+                beam_retries = 5
+                while beam_retries > 0:
+                    # Start a beam capture, set pulses and capture data 
+                    _ = self.capture_beam_data(beams[0], ingest_kcp_client=ingest_kcp_client[0], start_only=True)
+                    _ = self.capture_beam_data(beams[1], ingest_kcp_client=ingest_kcp_client[1], start_only=True)
+                    time.sleep(0.5)
+                    reply, informs = ingest_kcp_client[0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
+                    reply, informs = ingest_kcp_client[1].blocking_request(katcp.Message.request("capture-done"), timeout=1)
+
+                    b0_raw, b0_ts = get_beam_data(beams[0],ingest_kcp_client[0],"/ramdisk/bm0")
+                    b1_raw, b1_ts = get_beam_data(beams[1],ingest_kcp_client[1],"/ramdisk/bm1")
+
+                    if (np.all(b0_raw) is not None and 
+                        np.all(b0_ts) is not None and
+                        np.all(b1_raw) is not None and 
+                        np.all(b1_ts) is not None):
+
+                        try:
+                            if (b1_ts[0] > b0_ts[0]):
+                                b0_idx = int((b1_ts[0]-b0_ts[0])/self.cam_sensors.get_value('n_samples_between_spectra'))
+                            else:
+                                raise IndexError
+                            b1_idx_end = np.where(b0_ts[-1] == b1_ts)[0][0]
+                            if b1_idx_end < spectra_average:
+                                raise IndexError
+                        except IndexError: 
+                                self.logger.warning('Did not find the same timestamp in both beams, '
+                                    'retrying {} more times...'.format(beam_retries))
+                                beam_retries -= 1
+                        else:
+                            break
+                    else:
+                        self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                        beam_retries -= 1
+                if beam_retries == 0:
+                    self.Failed('Could not capture beam data.')
+                    try:
+                        # Restore DSIM
+                        self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+                        for igt_kcp_clnt in ingest_kcp_client:
+                            igt_kcp_clnt.stop()
+                    except BaseException:
+                        pass
+                    self.stop_katsdpingest_docker()
+                    return False
+
+                b0_cplx = []
+                b1_cplx = []
+                for idx in range(spectra_average):
+                    b0_cplx.append(complexise(b0_raw[:,b0_idx+idx,:]))
+                    b1_cplx.append(complexise(b1_raw[:,idx,:]))
+                b0_spectra.append(np.asarray(b0_cplx))
+                b1_spectra.append(np.asarray(b1_cplx))
+
+            b0_spectra = np.asarray(b0_spectra)    
+            b1_spectra = np.asarray(b1_spectra)    
+
+
+            b0_abs = np.abs(b0_spectra[1,:,:])
+            b0_avg = np.average(b0_abs, axis=0)
+            b1_abs = np.abs(b1_spectra[1,:,:])
+            b1_avg = np.average(b1_abs, axis=0)
+            
+            actual_phases = []
+            for idx in range(len(delay_array)):
+                b0_spec_cplx = b0_spectra[idx,:,:][:,strt_ch:stop_ch]
+                b1_spec_cplx = b1_spectra[idx,:,:][:,strt_ch:stop_ch]
+                b0_b1_angle = np.angle(b0_spec_cplx * b1_spec_cplx.conjugate())
+                actual_phases.append(np.average(b0_b1_angle, axis=0))
+            return actual_phases
+
+                
+        
+        no_chans = stop_ch - strt_ch
+        # Delay test
+        self.Step("Testing beam delay application.")
+        self.Step("Delays to be set: %s" % (test_delays))
+        actual_phases = test_del_ph(test_delays, True)
+        plot_title = "CBF Beam Steering Delay Application"
+        caption = (
+            "Actual and Expected Correlation Phase [Delay tracking].\n"
+            "Note: Dashed line indicates expected value and solid line "
+            "indicates measured value."
+        )
+        plot_filename = "{}/{}_test_beam_steering_delay.png".format(self.logs_path, self._testMethodName)
+        plot_units = "s"
+        dump_counts = len(actual_phases)
+        aqf_plot_phase_results(
+            no_chans, actual_phases, expected_delays, plot_filename, plot_title, plot_units, caption, 
+            dump_counts, start_channel=strt_ch
+            )
+
+        expected_delays_ = [phase for _rads, phase in expected_delays]
+        degree = float(self.corr_fix._test_config_file["beamformer"]
+                    ["delay_err_margin_degrees"])
+        decimal = len(str(degree).split(".")[-1])
+        try:
+            for i, delay in enumerate(test_delays):
+                delta_phase = actual_phases[i] - expected_delays_[i]
+                # Replace first value with average as DC component might skew results
+                delta_phase = [np.average(delta_phase)] + delta_phase[1:]
+                max_diff     = np.max(np.abs(delta_phase))
+                max_diff_deg = np.rad2deg(max_diff)
+
+                Aqf.less(
+                    max_diff_deg,
+                    degree,
+                    "Maximum difference ({:.3f} degrees "
+                    "{:.3f} rad) between expected phase "
+                    "and actual phase less than {} degree."
+                    "".format(max_diff_deg, max_diff, degree),
+                )
+                if i > 0:
+                    plot_filename="{}/{}_acc_{}_beam_steering_delay_error_vector.png".format(
+                        self.logs_path, self._testMethodName, i
+                    )
+                    caption = ("Offset vector between expected and measured phase (error vector). "
+                               "This plot is generated by subtracting the measured phase from the "
+                               "expected phase for a delay of {:1.2e}s".format(delay))
+                    aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, 
+                                      log_dynamic_range=None, plot_type="error_vector",
+                                      start_channel=strt_ch)
+
+            for count, (delay, exp_ph) in enumerate(expected_delays):
+                msg = (
+                    "Confirm that when a delay of {:.2f} clock "
+                    "cycle/s ({:.5f} ns) is introduced the expected phase change is "
+                    "within {} degree/s.".format(
+                        delay/(sampling_period*1e9), delay, degree
+                    )
+                )
+                try:
+                    Aqf.array_abs_error(
+                        actual_phases[count], exp_ph, msg, degree
+                    )
+                except Exception:
+                    Aqf.array_abs_error(
+                        actual_phases[count],
+                        exp_ph,
+                        msg,
+                        degree,
+                    )
+        except Exception as e:
+            self.Error("Error occurred: {}".format(e), exc_info=True)
+            return
+
+        # Phase test
+        self.Step("Testing beam phase offset.")
+        self.Step("Phase offset to be set: %s" % (test_phases))
+        expected_phases = []
+        for phase in test_phases:
+            expected_phases.append((phase,[phase]*no_chans))
+            
+        actual_phases = test_del_ph(test_phases, False)
+        plot_title = "CBF Beam Steering Phase Offset Application"
+        caption = (
+            "Actual and Expected Correlation Phase .\n"
+            "Note: Dashed line indicates expected value and solid line "
+            "indicates measured value."
+        )
+        plot_filename = "{}/{}_test_beam_steering_phase.png".format(self.logs_path, self._testMethodName)
+        plot_units = "rads"
+        dump_counts = len(actual_phases)
+        aqf_plot_phase_results(
+            no_chans, actual_phases, expected_phases, plot_filename, plot_title, plot_units, caption, 
+            dump_counts, start_channel=strt_ch
+            )
+
+        expected_phases_ = [phase for _rads, phase in expected_phases]
+        degree = float(self.corr_fix._test_config_file["beamformer"]
+                    ["delay_err_margin_degrees"])
+        decimal = len(str(degree).split(".")[-1])
+        try:
+            for i, phase in enumerate(test_phases):
+                delta_phase = actual_phases[i] - expected_phases_[i]
+                # Replace first value with average as DC component might skew results
+                delta_phase = [np.average(delta_phase)] + delta_phase[1:]
+                max_diff     = np.max(np.abs(delta_phase))
+                max_diff_deg = np.rad2deg(max_diff)
+
+                Aqf.less(
+                    max_diff_deg,
+                    degree,
+                    "Maximum difference ({:.3f} degrees "
+                    "{:.3f} rad) between expected phase "
+                    "and actual phase less than {} degree/s."
+                    "".format(max_diff_deg, max_diff, degree),
+                )
+                if i > 0:
+                    plot_filename="{}/{}_acc_{}_beam_steering_phase_error_vector.png".format(
+                        self.logs_path, self._testMethodName, i
+                    )
+                    caption = ("Offset vector between expected and measured phase (error vector). "
+                               "This plot is generated by subtracting the measured phase from the "
+                               "expected phase for a phase offset of {} radians".format(phase))
+                    aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, caption=caption, 
+                                      log_dynamic_range=None, plot_type="error_vector",
+                                      start_channel=strt_ch)
+
+            for count, exp_ph in enumerate(expected_phases_):
+                msg = (
+                    "Confirm that when a delay of {} radians "
+                    "is introduced the expected phase change is "
+                    "within {} degree/s.".format(phase, degree)
+                )
+                try:
+                    Aqf.array_abs_error(
+                        actual_phases[count], exp_ph, msg, degree
+                    )
+                except Exception:
+                    Aqf.array_abs_error(
+                        actual_phases[count],
+                        exp_ph,
+                        msg,
+                        degree,
+                    )
+        except Exception as e:
+            self.Error("Error occurred: {}".format(e), exc_info=True)
+            return
+        
+        #import IPython;IPython.embed()
+        # Close any KAT SDP ingest nodes
+        try:
+            # Restore DSIM
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+            for igt_kcp_clnt in ingest_kcp_client:
+                igt_kcp_clnt.stop()
+        except BaseException:
+            pass
+        self.stop_katsdpingest_docker()
+
+    def _test_beam_steering(self, beam_idx=0):
+        """
+
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        """
+
+        try:
+            output = subprocess.check_output(["docker", "run", "hello-world"])
+            self.logger.info(output)
+        except subprocess.CalledProcessError:
+            errmsg = "Cannot connect to the Docker daemon. Is the docker daemon running on this host?"
+            self.Failed(errmsg)
+            return False
+
+        try:
+            # Set custom source names
+            # local_src_names = self.cam_sensors.custom_input_labels
+            # reply, informs = self.corr_fix.katcp_rct.req.input_labels(*local_src_names)
+            # self.assertTrue(reply.reply_ok())
+            # labels = reply.arguments[1:]
+            labels = self.cam_sensors.input_labels
+            beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
+            running_instrument = self.instrument
+            assert running_instrument is not False
+            # msg = 'Running instrument currently does not have beamforming capabilities.'
+            # assert running_instrument.endswith('1k'), msg
+            self.Step("Start capture on %s and %s." % (beams[0], beams[1]))
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beams[0])
+            self.assertTrue(reply.reply_ok())
+            reply, informs = self.corr_fix.katcp_rct.req.capture_start(beams[1])
+            self.assertTrue(reply.reply_ok())
+            sync_time = self.cam_sensors.get_value("sync_time")
+
+            # Get instrument parameters
+            bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
+            nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+            ants = self.cam_sensors.get_value("n_ants")
+            ch_list = self.cam_sensors.ch_center_freqs
+            ch_bw = ch_list[1]-ch_list[0]
+            scale_factor_timestamp = self.cam_sensors.get_value("scale_factor_timestamp")
+            reg_size = 32
+            reg_size_max = pow(2, reg_size)
+            threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
+            dsim_factor = float(
+                self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
+            substreams = self.cam_sensors.get_value("n_bengs")
+        except AssertionError:
+            self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+            return False
+        except Exception:
+            errmsg = "Exception"
+            self.Error(errmsg, exc_info=True)
+            return False
+
+        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Number of channels = {}".format(nr_ch))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+
+        beam = beams[beam_idx]
+        try:
+            beam_name = beam.replace("-", "_").replace(".", "_")
+            beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
+            beam_ip = beam_ip.split("+")[0]
+            start_beam_ip = beam_ip
+            #if "1k" in self.instrument:
+            #    frac_to_cap = float(self.conf_file["beamformer"]["1k_band_to_capture"])
+            #elif "4k" in self.instrument:
+            #    frac_to_cap = float(self.conf_file["beamformer"]["4k_band_to_capture"])
+            #elif "32k" in self.instrument:
+            #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
+            #n_substrms_to_cap_m = int(frac_to_cap*substreams)
+            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
+            if start_substream > (substreams - 1):
+                self.logger.warning = (
+                    "Starting substream is larger than substreams available: {}. "
+                    "Fix in test configuration file".format(substreams)
+                )
+                start_substream = substreams - 1
+            if start_substream + n_substrms_to_cap_m > substreams:
+                self.logger.warning = (
+                    "Substream start + substreams to process "
+                    "is more than substreams available: {}. "
+                    "Fix in test configuration file".format(substreams)
+                )
+                n_substrms_to_cap_m = substreams - start_substream
+            ticks_between_spectra = self.cam_sensors.get_value("antenna_channelised_voltage_n_samples_between_spectra")
+            assert isinstance(ticks_between_spectra, int)
+            spectra_per_heap = self.cam_sensors.get_value(beam_name + "_spectra_per_heap")
+            assert isinstance(spectra_per_heap, int)
+            ch_per_substream = self.cam_sensors.get_value(beam_name + "_n_chans_per_substream")
+            assert isinstance(ch_per_substream, int)
+        except AssertionError:
+            errmsg = "%s" % str(reply).replace("\_", " ")
+            self.Error(errmsg, exc_info=True)
+            return False
+        except Exception as e:
+            errmsg = "Exception: {}".format(e)
+            self.Error(errmsg, exc_info=True)
+            return False
+        # Compute the start IP address according to substream start index
+        beam_ip = int2ip(ip2int(beam_ip) + start_substream)
+        # Compute spectrum parameters
+        strt_ch_idx = start_substream * ch_per_substream
+        strt_ch = strt_ch_idx
+        stop_ch = strt_ch + ch_per_substream*n_substrms_to_cap_m
+        strt_freq = ch_list[strt_ch_idx] * dsim_factor
+        self.Step("Start a KAT SDP docker ingest node for beam captures")
+        docker_status = self.start_katsdpingest_docker(
+            beam_ip,
+            beam_port,
+            n_substrms_to_cap_m,
+            nr_ch,
+            ticks_between_spectra,
+            ch_per_substream,
+            spectra_per_heap,
+        )
+        if docker_status:
+            self.Progress(
+                "KAT SDP Ingest Node started. Capturing {} substream/s "
+                "starting at {}".format(n_substrms_to_cap_m, beam_ip)
+            )
+        else:
+            self.Failed("KAT SDP Ingest Node failed to start")
+        # Create a katcp client to connect to katcpingest
+        if os.uname()[1] == "cmc2":
+            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc2"]
+        elif os.uname()[1] == "cmc3":
+            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc3"]
+        else:
+            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node"]
+        ingst_nd_p = self.corr_fix._test_config_file["beamformer"]["ingest_node_port"]
+        _timeout = 10
+        try:
+            import katcp
+            ingest_kcp_client = katcp.BlockingClient(ingst_nd, ingst_nd_p)
+            ingest_kcp_client.setDaemon(True)
+            ingest_kcp_client.start()
+            self.addCleanup(ingest_kcp_client.stop)
+            is_connected = ingest_kcp_client.wait_connected(_timeout)
+            if not is_connected:
+                errmsg = "Could not connect to %s:%s, timed out." % (ingst_nd, ingst_nd_p)
+                ingest_kcp_client.stop()
+                raise RuntimeError(errmsg)
+        except Exception:
+            self.Error("Could not connect to katcp client", exc_info=True)
+
+        beam_quant_gain = 1
+        self.Step("Set beamformer quantiser gain for selected beam to {}".format(beam_quant_gain))
+        self.set_beam_quant_gain(beam, beam_quant_gain)
+
+        beam_dict = {}
+        beam_pol = beam[-1]
+        for label in labels:
+            if label.find(beam_pol) != -1:
+                beam_dict[label] = 0.0
+
+        # Currently setting weights is broken
+        # self.Progress("Only one antenna gain is set to 1, the reset are set to zero")
+        #ref_input = np.random.randint(ants)
+        ref_input = 1
+        # Find reference input label
+        for key in beam_dict:
+            if int(filter(str.isdigit, key)) == ref_input:
+                ref_input_label = key
+                break
+        self.Step("{} used as a randomised reference input for this test".format(ref_input_label))
+        weight = 1.0
+        beam_dict = self.populate_beam_dict_idx(ref_input, weight, beam_dict)
+
+        def get_beam_data():
+            try:
+                bf_raw, bf_flags, bf_ts, in_wgts = self.capture_beam_data(
+                    beam, ingest_kcp_client=ingest_kcp_client, stop_only=True
+                )
+            except Exception as e:
+                errmsg = (
+                    "Failed to capture beam data: Confirm that Docker container is "
+                    "running and also confirm the igmp version = 2. Error message: {} ".format(e)
+                )
+                self.Error(errmsg, exc_info=True)
+                return False
+
+            flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
+            # self.Step('Finding missed heaps for all partitions.')
+            if flags.size == 0:
+                self.logger.warning("Beam data empty. Capture failed.")
+                return None, None
+            else:
+                for part in flags:
+                    missed_heaps = np.where(part > 0)[0]
+                    missed_perc = missed_heaps.size / part.size
+                    perc = 0.50
+                    if missed_perc > perc:
+                        self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
+                        self.logger.warning("Missed heaps = {}".format(missed_heaps))
+                        self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        return None, None
+            # Print missed heaps
+            idx = start_substream
+            for part in flags:
+                missed_heaps = np.where(part > 0)[0]
+                if missed_heaps.size > 0:
+                    self.logger.info("Missed heaps for substream {} at heap indexes {}".format(idx, missed_heaps))
+                idx += 1
+            # Combine all missed heap flags. These heaps will be discarded
+            flags = np.sum(flags, axis=0)
+            # Find longest run of uninterrupted data
+            # Create an array that is 1 where flags is 0, and pad each end with an extra 0.
+            iszero = np.concatenate(([0], np.equal(flags, 0).view(np.int8), [0]))
+            absdiff = np.abs(np.diff(iszero))
+            # Runs start and end where absdiff is 1.
+            ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+            # Find max run
+            max_run = ranges[np.argmax(np.diff(ranges))]
+            bf_raw_strt = max_run[0] * spectra_per_heap
+            bf_raw_stop = max_run[1] * spectra_per_heap
+            bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
+            bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
+            return bf_raw, bf_ts
+
+
+
+        # Set a repeating CW pattern and delay the beam by on fft window to confirm the correct delay is applied.
+        n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
+        decimation_factor = int(self.cam_sensors.get_value("decimation_factor"))
+        source_period_in_samples = n_chans * 2 * decimation_factor
+        awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
+        cw_scale = cw_scale/8
+        # Reset the dsim and set fft_shifts and gains
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=0, cw_scale=0, freq=0, fft_shift=fft_shift, gain=gain
+        )
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
+        self.Step(
+            "Digitiser simulator configured to generate periodic CW "
+            "with repeating samples equal to FFT-length {}) in order for each FFT to be "
+            "identical.".format(source_period_in_samples)
+        )
+        # TODO automate channel to fall within beam capture window
+        chan = 100
+        ch_list = self.cam_sensors.ch_center_freqs
+        center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
+        freq_offset = (ch_list[1]-ch_list[0])*center_bin_offset
+        freq = ch_list[chan]+freq_offset
+        try:
+            # Make dsim output periodic in FFT-length so that each FFT is identical
+            self.dhost.sine_sources.sin_corr.set(frequency=freq, scale=cw_scale, 
+                    repeat_n=source_period_in_samples)
+            assert self.dhost.sine_sources.sin_corr.repeat == source_period_in_samples
+            this_source_freq = self.dhost.sine_sources.sin_corr.frequency
+            # Dump till mcount change
+            curr_mcount = self.current_dsim_mcount()
+        except AssertionError:
+            errmsg = ("Failed to make the DEng output periodic in FFT-length so "
+                      "that each FFT is identical, or cw0 does not equal cw1 freq.")
+            self.Error(errmsg, exc_info=True)
+            return False
+
+        time.sleep(2)
+
+        ants = self.cam_sensors.get_value("n_ants")
+        delays = [0] * ants
+        phases = [0] * ants
+        sampling_period = self.cam_sensors.sample_period
+
+        #delay_jump = 32 * 2
+        #delay_jump = 1
+        #num_samples = int(source_period_in_samples/delay_jump)
+        num_samples = 30
+        spectral_mean_values = []
+        chan_values = []
+        for sample in range(num_samples):
+            delay = (sampling_period/5) * sample
+            phase = np.pi*0.01 * sample
+            #_dummy = [delays]
+            #for idx,val in enumerate(delays):
+            #    delays[idx] = delay
+            delays[2] = delay
+            phases[2] = phase
+            #delay_coefficients = ["{}:0".format(dv) for dv in delays]
+            delay_coefficients = ["0:{}".format(dv) for dv in phases]
+            reply, _informs = self.katcp_req.beam_delays(self.corr_fix.beam0_product_name, *delay_coefficients)
+            print reply
+            beam_retries = 5
+            while beam_retries > 0:
+                # Start a beam capture, set pulses and capture data 
+                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, capture_time=0.1, start_only=True)
+                time.sleep(0.2)
+                bf_raw, bf_ts = get_beam_data()
+                if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
+                    break
+                else:
+                    self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                    beam_retries -= 1
+            if beam_retries == 0:
+                self.Failed('Could not capture beam data.')
+                try:
+                    # Restore DSIM
+                    self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+                    if ingest_kcp_client:
+                        ingest_kcp_client.stop()
+                except BaseException:
+                    pass
+                self.stop_katsdpingest_docker()
+                return False
+
+            spectral_mean_val = np.sum(np.abs(complexise(bf_raw[strt_ch:stop_ch, 100, :]))) / (stop_ch - strt_ch)
+            chan_val = bf_raw[chan,100,:]
+            spectral_mean_values.append(spectral_mean_val)
+            chan_values.append(chan_val)
+            self.Step('Mean spectal value for beam capture is {}'.format(spectral_mean_val))
+        chan_cplx_values = np.abs(complexise(np.asarray(chan_values)))
+
+        import IPython;IPython.embed()
+
+#        # Close any KAT SDP ingest nodes
+        try:
+            # Restore DSIM
+            self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+            if ingest_kcp_client:
+                ingest_kcp_client.stop()
+        except BaseException:
+            pass
+        self.stop_katsdpingest_docker()
+
+
     def _test_group_delay(self, beam_idx=0):
         """
 
@@ -7419,7 +8575,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
             n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
-            start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
+            # Algorithm now just pics the center of the band and substreams around that.
+            # This may lead to capturing issues. TODO: investigate
+            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
                 self.logger.warning = (
                     "Starting substream is larger than substreams available: {}. "
@@ -9375,22 +10534,21 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         def get_cw_val(pon=True):
             if pon:
                 self.Step("Dsim output scale: {}".format(output_scale))
-            freq = ch_list[test_channel]
-            freq = freq + freq_offset
             dsim_set_success = self.set_input_levels(
                 awgn_scale=awgn_scale,
                 cw_scale=cw_scale,
                 output_scale=output_scale,
-                freq=freq,
-                fft_shift=fft_shift,
-                gain=gain,
+                freq=freq
             )
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
+            else:
+                curr_mcount = self.current_dsim_mcount()  #dump_after_mcount
 
             try:
-                dump = self.get_real_clean_dump(discard=5)
+                #dump = self.get_real_clean_dump(discard=5)
+                dump = self.get_dump_after_mcount(curr_mcount) #dump_after_mcount
             except Queue.Empty:
                 errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
                 self.Error(errmsg, exc_info=True)
@@ -9410,11 +10568,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         awgn_scale, cw_scale, gain, fft_shift = self.get_test_levels('cw')
         # Use CW from channelisation tests, but start higher to ensure saturation
-        cw_scale = cw_scale * 2
+        #cw_scale = cw_scale * 2
+        # put cw_scale at 1
+        cw_scale = 1
         if cw_scale > 1.0: cw_scale = 1.0
         ch_list = self.cam_sensors.ch_center_freqs
         center_bin_offset = float(self.conf_file["beamformer"]["center_bin_offset"])
         freq_offset = (ch_list[1]-ch_list[0])*center_bin_offset
+        freq = ch_list[test_channel]
+        freq = freq + freq_offset
         inp = random.choice(self.cam_sensors.input_labels)
         Aqf.hop("Sampling input {}".format(inp))
         output_scale = 1.0
@@ -9436,6 +10598,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         output_start_scale = output_scale
         self.Step("Dsim generating CW: cw scale: {}, awgn scale: {}, eq gain: {}, fft shift: {}".format(
                   cw_scale, awgn_scale, gain, fft_shift))
+        dsim_set_success = self.set_input_levels(
+            awgn_scale=awgn_scale,
+            cw_scale=cw_scale,
+            output_scale=1,
+            fft_shift=fft_shift,
+            gain=gain,
+        )
+        if not dsim_set_success:
+            self.Failed("Failed to configure digitise simulator levels")
+            return False
         Aqf.hop("Testing channel {}".format(test_channel))
         output_power = []
         x_val_array = []
@@ -9452,15 +10624,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         min_cnt = min_cnt_val
         max_cnt = max_steps
         prev_val = get_cw_val(pon=False)
+        slope_found = False
         while min_cnt and max_cnt:
             curr_val = get_cw_val()
             if exp_y_lvl_lwr < curr_val < exp_y_lvl_upr:
                 exp_y_val = curr_val
                 exp_x_val = 20 * np.log10(output_scale)
             step = curr_val - prev_val
+            # check if a slope has been found
+            if step > 2:
+                slope_found = True
             if curr_val == 0:
                 break
-            if np.abs(step) < 0.1:
+            if np.abs(step) < 0.1 and slope_found:
                 min_cnt -= 1
             else:
                 min_cnt = min_cnt_val
@@ -9475,11 +10651,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 output_scale = output_scale - output_delta
             max_cnt -= 1
+        print('mincnt {}, maxcng {}'.format(min_cnt,max_cnt))    
         output_power = np.array(output_power)
         try:
             output_power_max = output_power.max()
         except ValueError:
-            aqf.Failed("Zero power received in expected channel")
+            Aqf.Failed("Zero power received in expected channel")
             return
         output_power = output_power - output_power_max
         exp_y_val = exp_y_val - output_power_max

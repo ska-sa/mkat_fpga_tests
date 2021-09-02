@@ -78,8 +78,14 @@ class CorrelatorFixture(Logger.LoggingClass):
         nose_test_config = {}
         self._correlator_started = not int(nose_test_config.get("start_correlator", False))
         self.test_config = self._test_config_file
-        # ToDo get array name from file...instead of test config file
-        self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
+        test_array_name = self.test_config['instrument_params']['subarray']
+        files = iglob(os.path.expanduser("/etc/corr/*"))
+        sorted_files = sorted(files, key=lambda t: os.stat(t).st_mtime)
+        conf_f_list = []
+        _dummy = [conf_f_list.append(f) for f in sorted_files if f.find(test_array_name) != -1]
+        self.config_filename = conf_f_list[-1]
+        # This code takes the latest config file
+        #self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument()
         try:
             if os.path.exists(self.config_filename):
@@ -90,8 +96,15 @@ class CorrelatorFixture(Logger.LoggingClass):
                 self.dsim_conf = self.corr_config["dsimengine"]
                 self.xeng_product_name = self.corr_config["xengine"]["output_products"]
                 self.feng_product_name = self.corr_config["fengine"]["output_products"]
-                self.beam0_product_name = self.corr_config["beam0"]["output_products"]
-                self.beam1_product_name = self.corr_config["beam1"]["output_products"]
+                self.beam_product_name = []
+                has_beam_key = True
+                beam_num = 0
+                while has_beam_key:
+                    beam_section = "beam{}".format(beam_num)
+                    has_beam_key = self.corr_config.has_key(beam_section)
+                    if has_beam_key:
+                        self.beam_product_name.append(self.corr_config[beam_section]["output_products"])
+                    beam_num += 1
                 self.xeng_outbits = self.corr_config["xengine"]["xeng_outbits"]
             # This is if an instrument is not running, should not be neccessary
             #elif self.instrument is not None:

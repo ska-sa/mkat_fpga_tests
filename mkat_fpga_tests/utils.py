@@ -96,7 +96,7 @@ class UtilsClass(object):
             dsim_mcount   = dsim_loc_time * 8
             return dsim_mcount
 
-    def get_dump_after_mcount(self, mcount):
+    def get_dump_after_mcount(self, mcount, quiet=False):
         """
             Discard dumps until dump timestamp is past mcount. 
         """
@@ -106,7 +106,7 @@ class UtilsClass(object):
                 data = self.receiver.data_queue.get()
                 self.assertIsInstance(data, dict)
                 dump_mcount = data["timestamp"]
-                print('Mcount delta: {}'.format(mcount - dump_mcount))
+                self.logger.info('Mcount delta: {}'.format(mcount - dump_mcount))
             except AssertionError:
                 errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
                 if not quiet:
@@ -274,6 +274,9 @@ class UtilsClass(object):
         ticks_between_spectra=8192,
         channels_per_heap=256,
         spectra_per_heap=256,
+        kcp_port=2050,
+        stop_previous_ing = True,
+        capture_dir = "/ramdisk",
     ):
         """ Starts a katsdpingest docker containter. Kills any currently running instances.
 
@@ -291,7 +294,7 @@ class UtilsClass(object):
             "-d",
             "--net=host",
             "-v",
-            "/ramdisk:/ramdisk",
+            "{}:{}".format(capture_dir,capture_dir),
             "sdp-docker-registry.kat.ac.za:5000/katsdpingest:cbf_testing",
             "bf_ingest.py",
             "--cbf-spead={}+{}:{} ".format(beam_ip, partitions - 1, beam_port),
@@ -299,11 +302,13 @@ class UtilsClass(object):
             "--ticks-between-spectra={}".format(ticks_between_spectra),
             "--channels-per-heap={}".format(channels_per_heap),
             "--spectra-per-heap={}".format(spectra_per_heap),
-            "--file-base=/ramdisk",
+            "--file-base={}".format(capture_dir),
             "--log-level=DEBUG",
+            "--port={}".format(kcp_port),
         ]
 
-        self.stop_katsdpingest_docker()
+        if stop_previous_ing:
+            self.stop_katsdpingest_docker()
         try:
             LOGGER.info("Executing docker command to run KAT SDP injest node")
             output = subprocess.check_output(cmd)
@@ -374,6 +379,7 @@ class UtilsClass(object):
         capture_time=None,
         start_only=False,
         stop_only=False,
+        only_update_weights=False,
     ):
         """ Capture beamformer data
 
@@ -389,6 +395,12 @@ class UtilsClass(object):
             katcp client for ingest node, if None one will be created.
         capture_time:
             Number of seconds to capture beam data
+        start_only:
+            Only start a capture and return, capture_time will be ignored. Only returns a ingest_kcp_client handle
+        stop_only:
+            Only stop a capture and return data, this will fail if a capture was not started. Requires a ingest_kcp_client.
+        only_update_weights:
+            Only update beam weights, do not start or stop a capture
 
         Returns
         -------
@@ -399,12 +411,66 @@ class UtilsClass(object):
                 present
             bf_ts:
                 Expected timestamps
-            start_only:
-                Only start a capture and return, capture_time will be ignored. Only returns a ingest_kcp_client handle
-            stop_only:
-                Only stop a capture and return data, this will fail if a capture was not started. Requires a ingest_kcp_client.
 
         """
+        # Build new dictionary with only the requested beam keys:value pairs
+        # Put into an ordered list
+        in_wgts = {}
+        beam_pol = beam[-1]
+        if beam_dict:
+            for key in beam_dict:
+                if key.find(beam_pol) != -1:
+                    in_wgts[key] = beam_dict[key]
+
+            n_ants = self.cam_sensors.get_value("n_ants")
+            if len(in_wgts) != n_ants:
+                errmsg = "Number of weights in beam_dict does not equal number of antennas. Programmatic error."
+                Aqf.failed(errmsg)
+                LOGGER.error(errmsg)
+            weight_list = []
+            for key in sorted(in_wgts.iterkeys()):
+                weight_list.append(in_wgts[key])
+            Aqf.step("Weights to set: {}".format(weight_list))
+
+            Aqf.step(
+                "Setting input weights, this may take a long time, check log output for progress..."
+            )
+            try:
+                reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+                    beam, *weight_list, timeout=60
+                )
+                assert reply.reply_ok()
+            except AssertionError:
+                Aqf.failed("Beam weights not successfully set: {}".format(reply))
+            except Exception:
+                errmsg = "Failed to execute katcp requests"
+                Aqf.failed(errmsg)
+                LOGGER.exception(errmsg)
+            else:
+                LOGGER.info("{} weights set to {}".format(beam, reply.arguments[1:]))
+                Aqf.passed("Antenna input weights for {} set to: {}".format(beam, reply.arguments[1:]))
+            if only_update_weights:
+                return in_wgts
+
+            # Old method of setting weights
+            # print_list = ''
+            # for key in in_wgts:
+            #    LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
+            #        key))
+            #    try:
+            #        reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
+            #            beam, key, in_wgts[key])
+            #        assert reply.reply_ok()
+            #    except AssertionError:
+            #        Aqf.failed(
+            #            'Beam weights not successfully set: {}'.format(reply))
+            #    else:
+            #        LOGGER.info('Antenna input {} weight set to {}'.format(
+            #            key, reply.arguments[1]))
+            #        print_list += ('{}:{}, '.format(key, reply.arguments[1]))
+            #        in_wgts[key] = float(reply.arguments[1])
+            # Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
+
         beamdata_dir = "/ramdisk"
         _timeout = 60
         if not(capture_time):
@@ -448,62 +514,6 @@ class UtilsClass(object):
                 errmsg = "Failed to execute katcp request."
                 LOGGER.exception(errmsg)
                 Aqf.failed(errmsg)
-
-        # Build new dictionary with only the requested beam keys:value pairs
-        # Put into an ordered list
-        in_wgts = {}
-        beam_pol = beam[-1]
-        if beam_dict:
-            for key in beam_dict:
-                if key.find(beam_pol) != -1:
-                    in_wgts[key] = beam_dict[key]
-
-            n_ants = self.cam_sensors.get_value("n_ants")
-            if len(in_wgts) != n_ants:
-                errmsg = "Number of weights in beam_dict does not equal number of antennas. Programmatic error."
-                Aqf.failed(errmsg)
-                LOGGER.error(errmsg)
-            weight_list = []
-            for key in sorted(in_wgts.iterkeys()):
-                weight_list.append(in_wgts[key])
-            Aqf.step("Weights to set: {}".format(weight_list))
-
-            Aqf.step(
-                "Setting input weights, this may take a long time, check log output for progress..."
-            )
-            try:
-                reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
-                    beam, *weight_list, timeout=60
-                )
-                assert reply.reply_ok()
-            except AssertionError:
-                Aqf.failed("Beam weights not successfully set: {}".format(reply))
-            except Exception:
-                errmsg = "Failed to execute katcp requests"
-                Aqf.failed(errmsg)
-                LOGGER.exception(errmsg)
-            else:
-                LOGGER.info("{} weights set to {}".format(beam, reply.arguments[1:]))
-                Aqf.passed("Antenna input weights for {} set to: {}".format(beam, reply.arguments[1:]))
-
-            # Old method of setting weights
-            # print_list = ''
-            # for key in in_wgts:
-            #    LOGGER.info('Confirm that antenna input ({}) weight has been set to the desired weight.'.format(
-            #        key))
-            #    try:
-            #        reply, informs = self.corr_fix.katcp_rct.req.beam_weights(
-            #            beam, key, in_wgts[key])
-            #        assert reply.reply_ok()
-            #    except AssertionError:
-            #        Aqf.failed(
-            #            'Beam weights not successfully set: {}'.format(reply))
-            #    else:
-            #        LOGGER.info('Antenna input {} weight set to {}'.format(
-            #            key, reply.arguments[1]))
-            #        print_list += ('{}:{}, '.format(key, reply.arguments[1]))
-            #        in_wgts[key] = float(reply.arguments[1])
-            # Aqf.passed('Antenna input weights set to: {}'.format(print_list[:-2]))
 
         if not (stop_only):
             try:
