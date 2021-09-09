@@ -785,3 +785,58 @@ class CorrelatorFixture(Logger.LoggingClass):
                 self.logger.critical(msg)
                 return False
             return False
+
+    def check_ramdisk(self):
+        ramdisk_path = '/ramdisk/'
+        bm0_path = '/ramdisk/bm0/'
+        bm1_path = '/ramdisk/bm1/'
+
+        #if ramdisk directory exists, check if bm0 and bm1 directroy exists
+        if os.path.isdir(ramdisk_path):
+            print('{} already exists'.format(ramdisk_path))
+            #create bm0 directory if it does not exist
+            if not os.path.isdir(bm0_path):
+                print('creating {}'.format(bm0_path))
+                os.mkdir(bm0_path)
+            else:
+                print('{} already exists'.format(bm0_path))
+            #create bm1 directory if it does not exist
+            if not os.path.isdir(bm1_path):
+                print('creating {}'.format(bm1_path))
+                os.mkdir(bm1_path)
+            else:
+                print('{} already exists'.format(bm1_path))
+        #if ramdisk directory does not exist, create all 3 directories
+        else:
+            #create ramdisk directory
+            print('creating {}'.format(ramdisk_path))
+            os.mkdir(ramdisk_path)
+            #create bm0 directory
+            print('creating {}'.format(bm0_path))
+            os.mkdir(bm0_path)
+            #create bm1 directory
+            print('creating {}'.format(bm1_path))
+            os.mkdir(bm1_path)
+
+        def remove_h5_files(dir_name):
+            test = os.listdir(dir_name)
+            for item in test:
+                if item.endswith(".h5"):
+                    os.remove(os.path.join(dir_name, item))
+
+        #remove all *.h5 files
+        if glob('{}/*.h5'.format(ramdisk_path)):
+            print('Deleting files in {}'.format(ramdisk_path))
+            remove_h5_files(ramdisk_path)
+        else:
+            print('No .h5 files found in {}'.format(ramdisk_path))
+        if glob('{}/*.h5'.format(bm0_path)):
+            print('Deleting files in {}'.format(bm0_path))
+            remove_h5_files(bm0_path)
+        else:
+            print('No .h5 files found in {}'.format(bm0_path))
+        if glob('{}/*.h5'.format(bm1_path)):
+            print('Deleting files in {}'.format(bm1_path))
+            remove_h5_files(bm1_path)
+        else:
+            print('No .h5 files found in {}'.format(bm1_path))
