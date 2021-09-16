@@ -6395,23 +6395,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             reply, informs = self.katcp_req.input_labels(*local_src_names)
             self.assertTrue(reply.reply_ok())
             labels = self.cam_sensors.input_labels
-            beams = ["tied-array-channelised-voltage.0x", 
-                     "tied-array-channelised-voltage.0y",
-                     "tied-array-channelised-voltage.1x", 
-                     "tied-array-channelised-voltage.1y",
-                     "tied-array-channelised-voltage.2x", 
-                     "tied-array-channelised-voltage.2y",
-                     "tied-array-channelised-voltage.3x", 
-                     "tied-array-channelised-voltage.3y"]
+            reply, informs = self.katcp_req.capture_list()
+            self.assertTrue(reply.reply_ok())
+            beams = []
+            for msg in informs:
+                if 'tied' in msg.arguments[0]:
+                    beams.append(msg.arguments[0])
             running_instrument = self.corr_fix.get_running_instrument()
             assert running_instrument is not False
-            msg = 'Running instrument currently does not have beamforming capabilities.'
-            assert running_instrument.endswith('4k'), msg
+            #msg = 'Running instrument currently does not have beamforming capabilities.'
+            #assert running_instrument.endswith('4k'), msg
             for bm in beams:
                 self.Step("Issueing capture start for {}.".format(bm))
                 reply, informs = self.katcp_req.capture_start(bm)
                 self.assertTrue(reply.reply_ok())
-
             # Get instrument parameters
             bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
             nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
@@ -6836,9 +6833,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 set_time = time.time() - strt_time
                 self.assertTrue(reply.reply_ok())
             except Exception:
-                self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
+                self.logger.warn("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
                     exc_info=True)
-            Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beam, set_time, reply))
+            else:
+                Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beam, set_time, reply))
 
             # Only one antenna gain is set to 1, this will be used as the reference
             # input level
