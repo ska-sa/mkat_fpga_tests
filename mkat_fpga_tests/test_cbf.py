@@ -285,7 +285,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if not(stop_channel):
                         stop_channel = int(self.conf_file["instrument_params"].get("stop_channel", 1024))
                     if stop_channel > n_chans:
-                        self.logger.warning('Stop channels in config file is higher that available '
+                        self.logger.warn('Stop channels in config file is higher that available '
                                             'for this instrument. Setting to {}'.format(n_chans))
                         stop_channel = n_chans-1
                         
@@ -2192,7 +2192,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 where_is_the_tone = np.argmax(initial_freq_response) + self.start_channel
                 max_tone_val = np.max(initial_freq_response)
                 if where_is_the_tone == test_chan: break
-            self.logger.warning("CW not found, retrying capture.")
+            self.logger.warn("CW not found, retrying capture.")
         # 1) I think the channelisation tests might still be saturating.
         # Could you include a dBFS peak value in the output?
         # (take the peak auto correlation output value and divide it by the number of accumulations;
@@ -3320,7 +3320,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if test_data is not False:
                 z_baselines = zero_baselines(test_data["xeng_raw"])
                 if not(z_baselines): break
-            self.logger.warning("Baseslines with all-zero visibilites found, retrying capture.")
+            self.logger.warn("Baseslines with all-zero visibilites found, retrying capture.")
         #self.Step(
         #    "Expect all baselines and all channels to be " "non-zero with Digitiser Simulator set to output AWGN."
         #)
@@ -3383,7 +3383,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if test_data is not False:
                 nz_baselines = nonzero_baselines(test_data["xeng_raw"])
                 if not(nz_baselines): break
-            self.logger.warning("Baseslines with non-zero visibilites found, retrying capture.")
+            self.logger.warn("Baseslines with non-zero visibilites found, retrying capture.")
 
         if test_data is not False:
             Aqf.is_false(
@@ -3453,7 +3453,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         actual_z_bls_indices = zero_baselines(test_data)
                         actual_z_bls = set([tuple(bls_ordering[i]) for i in actual_z_bls_indices])
                         if (actual_nz_bls == expected_nz_bls) and (actual_z_bls == expected_z_bls): break
-                    self.logger.warning("Correct baselines with non-zero and zero visibilites not found, retrying capture.")
+                    self.logger.warn("Correct baselines with non-zero and zero visibilites not found, retrying capture.")
 
                 if test_dump is not False:
                     msg = "Baseline visibilities are non-zero with non-zero inputs"
@@ -3541,7 +3541,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         Aqf.failed("Tone not in correct channel: {}".format(quant_check[0]))
                         return False
                 elif (quant_check.shape[0] == 0):
-                    self.logger.warning("No tone found in quantiser output.")
+                    self.logger.warn("No tone found in quantiser output.")
                     return 0
                 else:
                     Aqf.failed("More than one value found in quantiser "
@@ -6064,13 +6064,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 # This may lead to capturing issues. TODO: investigate
                 start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
                 if start_substream > (substreams - 1):
-                    self.logger.warning = (
+                    self.logger.warn = (
                         "Starting substream is larger than substreams available: {}. "
                         "Fix in test configuration file".format(substreams)
                     )
                     start_substream = substreams - 1
                 if start_substream + n_substrms_to_cap_m > substreams:
-                    self.logger.warning = (
+                    self.logger.warn = (
                         "Substream start + substreams to process "
                         "is more than substreams available: {}. "
                         "Fix in test configuration file".format(substreams)
@@ -6457,13 +6457,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # This may lead to capturing issues. TODO: investigate
             start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
-                self.logger.warning = (
+                self.logger.warn = (
                     "Starting substream is larger than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                self.logger.warning = (
+                self.logger.warn = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
@@ -6642,7 +6642,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     flags = bf_flags[s_substream : s_substream + subs_to_cap]
                     # self.Step('Finding missed heaps for all partitions.')
                     if flags.size == 0:
-                        self.logger.warning("Beam data empty. Capture failed. Retrying...")
+                        self.logger.warn("Beam data empty. Capture failed. Retrying...")
                     else:
                         missed_err = False
                         for part in flags:
@@ -6650,9 +6650,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             missed_perc = missed_heaps.size / part.size
                             perc = 0.80
                             if missed_perc > perc:
-                                self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
-                                self.logger.warning("Missed heaps = {}".format(missed_heaps))
-                                self.logger.warning(
+                                self.logger.warn("Missed heap percentage = {}%".format(missed_perc * 100))
+                                self.logger.warn("Missed heaps = {}".format(missed_heaps))
+                                self.logger.warn(
                                     "Beam capture missed more than %s%% heaps. Retrying..." % (
                                         perc * 100))
                                 missed_err = True
@@ -7237,13 +7237,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # This may lead to capturing issues. TODO: investigate
             start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
-                self.logger.warning = (
+                self.logger.warn = (
                     "Starting substream is larger than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                self.logger.warning = (
+                self.logger.warn = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
@@ -7360,7 +7360,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
         # self.Step('Finding missed heaps for all partitions.')
         if flags.size == 0:
-            self.logger.warning("Beam data empty. Capture failed. Retrying...")
+            self.logger.warn("Beam data empty. Capture failed. Retrying...")
             self.Failed("Beam data empty. Capture failed. Retrying...")
         else:
             missed_err = False
@@ -7369,9 +7369,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 missed_perc = missed_heaps.size / part.size
                 perc = 0.50
                 if missed_perc > perc:
-                    self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
-                    self.logger.warning("Missed heaps = {}".format(missed_heaps))
-                    self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
+                    self.logger.warn("Missed heap percentage = {}%%".format(missed_perc * 100))
+                    self.logger.warn("Missed heaps = {}".format(missed_heaps))
+                    self.logger.warn("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
             # Print missed heaps
             idx = start_substream
             for part in flags:
@@ -7496,13 +7496,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
                 start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
                 if start_substream > (substreams - 1):
-                    self.logger.warning = (
+                    self.logger.warn = (
                         "Starting substream is larger than substreams available: {}. "
                         "Fix in test configuration file".format(substreams)
                     )
                     start_substream = substreams - 1
                 if start_substream + n_substrms_to_cap_m > substreams:
-                    self.logger.warning = (
+                    self.logger.warn = (
                         "Substream start + substreams to process "
                         "is more than substreams available: {}. "
                         "Fix in test configuration file".format(substreams)
@@ -7643,7 +7643,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
             # self.Step('Finding missed heaps for all partitions.')
             if flags.size == 0:
-                self.logger.warning("Beam data empty. Capture failed.")
+                self.logger.warn("Beam data empty. Capture failed.")
                 return None, None
             else:
                 for part in flags:
@@ -7651,9 +7651,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     missed_perc = missed_heaps.size / part.size
                     perc = 0.50
                     if missed_perc > perc:
-                        self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
-                        self.logger.warning("Missed heaps = {}".format(missed_heaps))
-                        self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        self.logger.warn("Missed heap percentage = {}%%".format(missed_perc * 100))
+                        self.logger.warn("Missed heaps = {}".format(missed_heaps))
+                        self.logger.warn("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
                         return None, None
             # Print missed heaps
             idx = start_substream
@@ -7829,13 +7829,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #            try:
         #                b0_idx = np.where(b0_ts == b1_ts[b1_idx])[0][0]
         #            except IndexError: 
-        #                self.logger.warning('Did not find the same timestamp in both beams, '
+        #                self.logger.warn('Did not find the same timestamp in both beams, '
         #                    'retrying {} more times...'.format(beam_retries))
         #                beam_retries -= 1
         #            else:
         #                break
         #        else:
-        #            self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+        #            self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
         #            beam_retries -= 1
         #    if beam_retries == 0:
         #        self.Failed('Could not capture beam data.')
@@ -7953,13 +7953,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             if b1_idx_end < spectra_average:
                                 raise IndexError
                         except IndexError: 
-                                self.logger.warning('Did not find the same timestamp in both beams, '
+                                self.logger.warn('Did not find the same timestamp in both beams, '
                                     'retrying {} more times...'.format(beam_retries))
                                 beam_retries -= 1
                         else:
                             break
                     else:
-                        self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                        self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
                         beam_retries -= 1
                 if beam_retries == 0:
                     self.Failed('Could not capture beam data.')
@@ -8240,13 +8240,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # This may lead to capturing issues. TODO: investigate
             start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
-                self.logger.warning = (
+                self.logger.warn = (
                     "Starting substream is larger than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                self.logger.warning = (
+                self.logger.warn = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
@@ -8352,7 +8352,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
             # self.Step('Finding missed heaps for all partitions.')
             if flags.size == 0:
-                self.logger.warning("Beam data empty. Capture failed.")
+                self.logger.warn("Beam data empty. Capture failed.")
                 return None, None
             else:
                 for part in flags:
@@ -8360,9 +8360,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     missed_perc = missed_heaps.size / part.size
                     perc = 0.50
                     if missed_perc > perc:
-                        self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
-                        self.logger.warning("Missed heaps = {}".format(missed_heaps))
-                        self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        self.logger.warn("Missed heap percentage = {}%%".format(missed_perc * 100))
+                        self.logger.warn("Missed heaps = {}".format(missed_heaps))
+                        self.logger.warn("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
                         return None, None
             # Print missed heaps
             idx = start_substream
@@ -8461,7 +8461,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
                     break
                 else:
-                    self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                    self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
                     beam_retries -= 1
             if beam_retries == 0:
                 self.Failed('Could not capture beam data.')
@@ -8580,13 +8580,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # This may lead to capturing issues. TODO: investigate
             start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
             if start_substream > (substreams - 1):
-                self.logger.warning = (
+                self.logger.warn = (
                     "Starting substream is larger than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
                 )
                 start_substream = substreams - 1
             if start_substream + n_substrms_to_cap_m > substreams:
-                self.logger.warning = (
+                self.logger.warn = (
                     "Substream start + substreams to process "
                     "is more than substreams available: {}. "
                     "Fix in test configuration file".format(substreams)
@@ -8692,7 +8692,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             flags = bf_flags[start_substream : start_substream + n_substrms_to_cap_m]
             # self.Step('Finding missed heaps for all partitions.')
             if flags.size == 0:
-                self.logger.warning("Beam data empty. Capture failed.")
+                self.logger.warn("Beam data empty. Capture failed.")
                 return None, None
             else:
                 for part in flags:
@@ -8700,9 +8700,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     missed_perc = missed_heaps.size / part.size
                     perc = 0.50
                     if missed_perc > perc:
-                        self.logger.warning("Missed heap percentage = {}%%".format(missed_perc * 100))
-                        self.logger.warning("Missed heaps = {}".format(missed_heaps))
-                        self.logger.warning("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
+                        self.logger.warn("Missed heap percentage = {}%%".format(missed_perc * 100))
+                        self.logger.warn("Missed heaps = {}".format(missed_heaps))
+                        self.logger.warn("Beam capture missed more than %s%% heaps. Retrying..." % (perc * 100))
                         return None, None
             # Print missed heaps
             idx = start_substream
@@ -8814,7 +8814,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 spectra_ref_mcount = bf_ts[-1]
             except IndexError:
                 beam_retries -= 1
-                self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
             else:
                 if not (spectra_ref_mcount / 8.0).is_integer():
                     self.Failed("Spectra reference mcount is not divisible" " by 8: {:.15f}".format(
@@ -8837,7 +8837,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if np.all(bf_raw) is not None and np.all(bf_ts) is not None:
                     break
                 else:
-                    self.logger.warning('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                    self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
                     beam_retries -= 1
         if beam_retries == 0:
             self.Failed('Could not capture beam data.')
@@ -8860,7 +8860,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Check all timestamps makes sense
         ts_steps_found = [bf_ts[trgt_spectra_idx[x]]/8 - future_ts_array[x] for x in range(len(trgt_spectra_idx))]
         if False in set(np.equal(np.diff(ts_steps_found), -1*pulse_step)):
-            self.logger.warning("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
+            self.logger.warn("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
         if False in set(np.greater(np.diff(trgt_spectra_idx), points_around_trg)):
             self.Failed("Not enough spectra around target to find response: {}".format(np.diff(trgt_spectra_idx)))
 
@@ -10721,7 +10721,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #                 discard += 1
     #         except AssertionError:
     #             errmsg = "Could not retrieve clean queued SPEAD accumulation."
-    #             self.logger.warning(errmsg)
+    #             self.logger.warn(errmsg)
     #         except Queue.Empty:
     #             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
     #             self.Error(errmsg, exc_info=True)
