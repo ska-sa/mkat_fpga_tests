@@ -1,0 +1,27 @@
+{
+    "Meta": {
+        "end": "2021-05-26 12:21:55.317196", 
+        "start": "2021-05-26 12:21:55.229817", 
+        "sys_args": [
+            "/usr/local/bin/nosetests", 
+            "-sv", 
+            "--logging-level=INFO", 
+            "--with-katreport", 
+            "mkat_fpga_tests/test_cbf.py:test_CBF.test_gain_correction"
+        ]
+    }, 
+    "nose.failure.Failure.runTest": {
+        "demo": false, 
+        "description": null, 
+        "err_obj": "(<type 'exceptions.AssertionError'>, AssertionError('\\n\\t\\tnose.failure.Failure.runTest\\n\\t\\tDid not reach the end of the test. Either the test did not end with Aqf.end() or there was a critical error.\\n\\t\\tTest failed because not all steps passed\\n\\t\\tnose.failure.Failure.runTest\\n\\t\\tNo module named test_cbf',), <traceback object at 0x3911290>)", 
+        "error_msg": "\n\t\tnose.failure.Failure.runTest\n\t\tDid not reach the end of the test. Either the test did not end with Aqf.end() or there was a critical error.\n\t\tTest failed because not all steps passed\n\t\tnose.failure.Failure.runTest\n\t\tNo module named test_cbf", 
+        "group": "Nose", 
+        "label": "Runtest", 
+        "requirements": [], 
+        "status": "error", 
+        "steps": {}, 
+        "success": false, 
+        "systems": {}, 
+        "tb": "<traceback object at 0x3911290>"
+    }
+}

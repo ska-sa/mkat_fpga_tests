@@ -88,9 +88,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.corr_fix = CorrelatorFixture(logLevel=self.logger.root.level)
         try:
             self.logs_path = self.create_logs_directory()
-            self.conf_file = self.corr_fix.test_config
+            self.conf_file = self.corr_fix.new_test_config
             self.corr_fix.katcp_client = self.conf_file["instrument_params"]["katcp_client"]
             self.data_retries = int(self.conf_file["instrument_params"]["data_retries"])
+            #import IPython; IPython.embed()
             self.katcp_req = self.corr_fix.katcp_rct.req
             self.assertIsInstance(self.katcp_req, katcp.resource_client.AttrMappingProxy)
             self.katcp_req_sensors = self.corr_fix.katcp_rct_sensor.req
@@ -223,6 +224,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "Currently running instrument %s-%s as per /etc/corr" % (
                     self.corr_fix.array_name,
                     self.instrument))
+            self.Progress("Test configuration as per %s" % (self.conf_file["instrument_params"]["conf_file"]))
             #TODO: Add receiver back in
             if start_receiver:
                 #self._systems_tests()
@@ -2782,7 +2784,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Start a power logger in a thread
         if log_power:
             try:
-                power_logger = PowerLogger(self.corr_fix._test_config_file)
+                power_logger = PowerLogger(self.corr_fix._new_test_config_file)
                 power_logger.start()
                 power_logger.setName("CBF Power Consumption")
                 self.addCleanup(power_logger.stop)
@@ -5729,7 +5731,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         """CBF Report configuration"""
         import spead2
         import casperfpga
-        test_config = self.corr_fix._test_config_file
+        test_config = self.corr_fix._new_test_config_file
 
         def git_revision_short_hash(mod_name=None, dir_name=None):
             return (
@@ -6516,12 +6518,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # Create a katcp client to connect to katcpingest
         if os.uname()[1] == "cmc2":
-            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc2"]
+            ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_cmc2"]
         elif os.uname()[1] == "cmc3":
-            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc3"]
+            ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_cmc3"]
         else:
-            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node"]
-        ingst_nd_p = self.corr_fix._test_config_file["beamformer"]["ingest_node_port"]
+            ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node"]
+        ingst_nd_p = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_port"]
         _timeout = 10
         try:
             import katcp

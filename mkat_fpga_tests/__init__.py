@@ -30,6 +30,8 @@ _cleanups = []
 """Callables that will be called in reverse order at package teardown. Stored as a tuples of (callable,
 args, kwargs)
 """
+
+
 def add_cleanup(_fn, *args, **kwargs):
     # print("Cleanup function: %s, %s, %s" % (_fn, args, kwargs))
     _cleanups.append((_fn, args, kwargs))
@@ -77,14 +79,20 @@ class CorrelatorFixture(Logger.LoggingClass):
         # Assume the correlator is already started if start_correlator is False
         nose_test_config = {}
         self._correlator_started = not int(nose_test_config.get("start_correlator", False))
-        self.test_config = self._test_config_file
-        test_array_name = self.test_config['instrument_params']['subarray']
-        files = iglob(os.path.expanduser("/etc/corr/*"))
-        sorted_files = sorted(files, key=lambda t: os.stat(t).st_mtime)
-        conf_f_list = []
-        _dummy = [conf_f_list.append(f) for f in sorted_files if f.find(test_array_name) != -1]
-        self.config_filename = conf_f_list[-1]
-        # This code takes the latest config file
+        self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
+        #self.test_config = self._new_test_config_file
+        self.new_test_config = self._new_test_config_file
+        # ToDo get array name from file...instead of test config file
+#=======
+#        self.test_config = self._test_config_file
+#        test_array_name = self.test_config['instrument_params']['subarray']
+#        files = iglob(os.path.expanduser("/etc/corr/*"))
+#        sorted_files = sorted(files, key=lambda t: os.stat(t).st_mtime)
+#        conf_f_list = []
+#        _dummy = [conf_f_list.append(f) for f in sorted_files if f.find(test_array_name) != -1]
+#        self.config_filename = conf_f_list[-1]
+#        # This code takes the latest config file
+#>>>>>>> test_framework_updates
         #self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
         self.array_name, self.instrument = self._get_instrument()
         try:
@@ -240,7 +248,7 @@ class CorrelatorFixture(Logger.LoggingClass):
     def katcp_rct(self):
         if self._katcp_rct is None:
             try:
-                katcp_prot = self.test_config["instrument_params"]["katcp_protocol"]
+                katcp_prot = self.new_test_config["instrument_params"]["katcp_protocol"]
                 _major, _minor, _flags = katcp_prot.split(",")
                 protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
                 self.logger.info("katcp protocol flags %s" % protocol_flags)
@@ -317,7 +325,7 @@ class CorrelatorFixture(Logger.LoggingClass):
     def katcp_rct_sensor(self):
         if self._katcp_rct_sensor is None:
             try:
-                katcp_prot = self.test_config["instrument_params"]["katcp_protocol"]
+                katcp_prot = self.new_test_config["instrument_params"]["katcp_protocol"]
                 _major, _minor, _flags = katcp_prot.split(",")
                 protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
                 self.logger.info("katcp protocol flags %s" % protocol_flags)
@@ -441,6 +449,7 @@ class CorrelatorFixture(Logger.LoggingClass):
             )
             return False
 
+    #@property
     def get_running_instrument(self):
         """
         Returns currently running instrument listed on the sensor(s)
@@ -597,6 +606,7 @@ class CorrelatorFixture(Logger.LoggingClass):
         Configuration file containing information such as dsim, pdu and dataswitch ip's
         return: Dict
         """
+
         try:
             assert os.uname()[1].startswith("dbelab")
         except AssertionError:
@@ -618,6 +628,128 @@ class CorrelatorFixture(Logger.LoggingClass):
         else:
             self.logger.error("Test config path: %s does not exist" % config_file)
             return False
+
+    @property
+    def _new_test_config_file(self):
+        """
+        Gets current running instrument from /etc/corr and uses this info to parse
+        the corresponding test config file
+        return: Dictionary containing parameters of test config file
+        """
+               
+        try:
+            running_instr = self.config_filename.split("/")[-1]
+            self.array_name, self.instrument = running_instr.split("-")
+            try:
+                assert "_" in self.instrument
+                self.instrument = self.instrument.split("_")[0]
+            except AssertionError:
+                pass
+
+            if (
+                self.instrument.startswith("bc") or self.instrument.startswith("c")
+            ) and self.array_name.startswith("array"):
+                self.logger.info("Currently running instrument %s as per /etc/corr" % self.instrument)
+                curr_inst = self.instrument
+        except Exception:
+            self.logger.exception("Could not retrieve information from config file")
+            sys.exit(1)
+        except ValueError:
+            self.logger.exception("Directory missing array config file.")
+            sys.exit(1)
+        ################
+        try:
+            assert os.uname()[1].startswith("dbelab")
+        except AssertionError:
+            if curr_inst.find('bc8n856M1k') != -1:  # if 'bc8n856M1k' is found in curr_inst for SITE
+                conf_path = "config/test_conf_site_bc8n856M1k.ini"
+            elif curr_inst.find('bc8n856M4k') != -1:
+                conf_path = "config/test_conf_site_bc8n856M4k.ini"
+            elif curr_inst.find('bc8n856M32k') != -1:
+                conf_path = "config/test_conf_site_bc8n856M32k.ini"
+            elif curr_inst.find('bc8n107M32k') != -1:
+                conf_path = "config/test_conf_site_bc8n107M32k.ini"
+            elif curr_inst.find('bc8n54M32k') != -1:
+                conf_path = "config/test_conf_site_bc8n54M32k.ini"
+            elif curr_inst.find('bc128n856M1k') != -1:  #
+                conf_path = "config/test_conf_site_bc128n856M1k.ini"
+            elif curr_inst.find('bc128n856M4k') != -1:
+                conf_path = "config/test_conf_site_bc128n856M4k.ini"
+            elif curr_inst.find('bc128n856M32k') != -1:
+                conf_path = "config/test_conf_site_bc128n856M32k.ini"
+            elif curr_inst.find('bc128n107M32k') != -1:
+                conf_path = "config/test_conf_site_bc128n107M32k.ini"
+            elif curr_inst.find('bc128n54M32k') != -1:
+                conf_path = "config/test_conf_site_bc128n54M32k.ini"
+            elif curr_inst.find('bc16n856M1k') != -1:
+                conf_path = "config/test_conf_site_bc16n856M1k.ini"
+            elif curr_inst.find('bc16n856M4k') != -1:
+                conf_path = "config/test_conf_site_bc16n856M4k.ini"
+            elif curr_inst.find('bc16n856M32k') != -1:
+                conf_path = "config/test_conf_site_bc16n856M32k.ini"
+            elif curr_inst.find('bc16n107M32k') != -1:
+                conf_path = "config/test_conf_site_bc16n107M32k.ini"
+            elif curr_inst.find('bc16n54M32k') != -1:
+                conf_path = "config/test_conf_site_bc16n54M32k.ini"
+            elif curr_inst.find('bc32n856M1k') != -1:  #
+                conf_path = "config/test_conf_site_bc32n856M1k.ini"
+            elif curr_inst.find('bc32n856M4k') != -1:
+                conf_path = "config/test_conf_site_bc32n856M4k.ini"
+            elif curr_inst.find('bc32n856M32k') != -1:
+                conf_path = "config/test_conf_site_bc32n856M32k.ini"
+            elif curr_inst.find('bc32n107M32k') != -1:
+                conf_path = "config/test_conf_site_bc32n107M32k.ini"
+            elif curr_inst.find('bc32n54M32k') != -1:
+                conf_path = "config/test_conf_site_bc32n54M32k.ini"
+            elif curr_inst.find('bc64n856M1k') != -1:
+                conf_path = "config/test_conf_site_bc64n856M1k.ini"
+            elif curr_inst.find('bc64n856M4k') != -1:
+                conf_path = "config/test_conf_site_bc64n856M4k.ini"
+            elif curr_inst.find('bc64n856M32k') != -1:
+                conf_path = "config/test_conf_site_bc64n856M32k.ini"
+            elif curr_inst.find('bc64n107M32k') != -1:
+                conf_path = "config/test_conf_site_bc64n107M32k.ini"
+            elif curr_inst.find('bc64n54M32k') != -1:
+                conf_path = "config/test_conf_site_bc64n54M32k.ini"
+            else:
+                conf_path = "config/test_conf_site_default.ini"
+        else:
+            if curr_inst.find('bc8n856M1k') != -1:  # if 'bc8n856M1k' is found in curr_inst for LAB
+                conf_path = "config/test_conf_lab_bc8n856M1k.ini"
+            elif curr_inst.find('bc8n856M4k') != -1:
+                conf_path = "config/test_conf_lab_bc8n856M4k.ini"
+            elif curr_inst.find('bc8n856M32k') != -1:
+                conf_path = "config/test_conf_lab_bc8n856M32k.ini"
+            elif curr_inst.find('bc8n107M1k') != -1:
+                conf_path = "config/test_conf_lab_bc8n107M1k.ini"
+            elif curr_inst.find('bc8n107M4k') != -1:
+                conf_path = "config/test_conf_lab_bc8n107M4k.ini"
+            elif curr_inst.find('bc8n107M32k') != -1:
+                conf_path = "config/test_conf_lab_bc8n107M32k.ini"
+            elif curr_inst.find('bc8n54M1k') != -1:
+                conf_path = "config/test_conf_lab_bc8n54M1k.ini"
+            elif curr_inst.find('bc8n54M4k') != -1:
+                conf_path = "config/test_conf_lab_bc8n54M4k.ini"
+            elif curr_inst.find('bc8n54M32k') != -1:
+                conf_path = "config/test_conf_lab_bc8n54M32k.ini"
+            else:
+                conf_path = "config/test_conf_lab_default.ini"
+
+        path, _ = os.path.split(__file__)
+        path, _ = os.path.split(path)
+        config_file = os.path.join(path, conf_path)
+        if os.path.isfile(config_file) or os.path.exists(config_file):
+            try:
+                config = parse_ini_file(config_file)
+                return config
+            except (IOError, ValueError, TypeError):
+                errmsg = "Failed to read test config file %s, Test will exit" % (config_file)
+                self.logger.exception(errmsg)
+                return False
+        else:
+            self.logger.error("Test config path: %s does not exist" % config_file)
+            return False
+
 
     @property
     def get_multicast_ips(self):
@@ -720,7 +852,7 @@ class CorrelatorFixture(Logger.LoggingClass):
 
                 instrument_param = [
                     int(i)
-                    for i in self.test_config["instrument_params"]["instrument_param"]
+                    for i in self.new_test_config["instrument_params"]["instrument_param"]
                     if i != ","
                 ]
                 self.logger.info(

@@ -38,6 +38,7 @@ clean:
 	rm -rf ".git/index.lock" || true;
 	git checkout -- docs/* || true;
 	rm -rf -- *.csv *.png *.html || true;
+	rm -R ./katreport/*.npy || true;
 
 superclean: clean
 	rm -rf -- .venv || true;

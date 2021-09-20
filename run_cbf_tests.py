@@ -796,7 +796,7 @@ def generate_sphinx_docs(settings):
 
                 #username = 'jkns'
                 #username = subprocess.check_output("git config --get user.name".split())
-                username = subprocess.check_output("whoami")
+                username = subprocess.check_output("whoami") # name of current user in Linux
                 if username is "alec":
                     username = "A. Rust"
                 else:
