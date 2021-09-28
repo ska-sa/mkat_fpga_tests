@@ -973,7 +973,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if instrument_success:
                     self._test_delay_tracking(check_strt_ch,check_stop_ch)
                     self._test_delay_rate(check_strt_ch,check_stop_ch)
-                    #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
+                    ##self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
                     self._test_phase_rate(check_strt_ch, check_stop_ch)
                     self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
                     self._test_delay_inputs(check_strt_ch, check_stop_ch)
@@ -5217,7 +5217,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 actual_phases = [phases for phases, response in actual_data]
 
             except TypeError:
-                errmsg = "Could not retrieve actual delay rate data. Aborting test: Exception: {}".format(e)
+                errmsg = "Could not retrieve actual delay rate data. Aborting test"
                 self.Error(errmsg, exc_info=True)
                 return
             else:
@@ -6756,7 +6756,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     # This happend if a capture was re-tried:
                     if in_wgts == {}: in_wgts = saved_wgts.copy()
-                    delta = 0.2
+                    delta = int(self.corr_fix._test_config_file["beamformer"]["beamweight_error_margin"])
                     expected = np.sum([inp_ref_lvl * in_wgts[key] for key in in_wgts]) * beam_quant_gain
                     expected = 20 * np.log10(expected)
 
