@@ -1248,7 +1248,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @beamforming
     @aqf_vr("CBF.V.A.IF")
     def test_beam_delay(self):
-        Aqf.procedure(TestProcedure.GroupDelay)
+        Aqf.procedure(TestProcedure.BeamDelay)
         if 'skipped_test' in test_CBF.__dict__['test_beam_delay'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
@@ -7446,7 +7446,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # self.assertTrue(reply.reply_ok())
             # labels = reply.arguments[1:]
             labels = self.cam_sensors.input_labels
-            beams = ["tied-array-channelised-voltage.0x", "tied-array-channelised-voltage.0y"]
+            reply, informs = self.katcp_req.capture_list()
+            self.assertTrue(reply.reply_ok())
+            all_beams = []
+            for msg in informs:
+                if 'tied' in msg.arguments[0]:
+                    all_beams.append(msg.arguments[0])
+            bm0_idx = random.randint(0, len(all_beams)-1)
+            bm1_idx = random.choice([i for i in range(0,len(all_beams)) if i not in [bm0_idx]])
+            beams = [all_beams[bm0_idx],all_beams[bm1_idx]]
             running_instrument = self.instrument
             assert running_instrument is not False
             # msg = 'Running instrument currently does not have beamforming capabilities.'
@@ -7877,7 +7885,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # For Narrowband remove the phase offset (because the center of the band is selected)
             dels = dels - dels[0]
             dels -= np.max(dels) / 2.0
-            exp_delays.append(dels[strt_ch:stop_ch])
+            wrapped_dels = (dels + np.pi) % (2 * np.pi) - np.pi
+            exp_delays.append(wrapped_dels)
+
         expected_delays = zip(test_delays_ns, exp_delays)
 
         # Zero delay coefficients before starting test
@@ -7990,19 +8000,47 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             
             actual_phases = []
             for idx in range(len(delay_array)):
-                b0_spec_cplx = b0_spectra[idx,:,:][:,strt_ch:stop_ch]
-                b1_spec_cplx = b1_spectra[idx,:,:][:,strt_ch:stop_ch]
+                b0_spec_cplx = b0_spectra[idx,:,:][:,:]
+                b1_spec_cplx = b1_spectra[idx,:,:][:,:]
                 b0_b1_angle = np.angle(b0_spec_cplx * b1_spec_cplx.conjugate())
+                #b0_b1_angle = np.angle(b0_spec_cplx.conjugate() * b1_spec_cplx)
                 actual_phases.append(np.average(b0_b1_angle, axis=0))
             return actual_phases
 
                 
         
+       # def substreams_to_capture(lbeam, lbeam_ip, lsubstrms_to_cap, lbeam_port):
+       #     """ Set ingest node capture substreams """
+       #     try:
+       #         self.logger.info(
+       #             "Setting ingest node to capture beam, substreams: {}, {}+{}:{}".format(
+       #                 lbeam, lbeam_ip, lsubstrms_to_cap - 1, lbeam_port
+       #             )
+       #         )
+       #         reply, informs = ingest_kcp_client.blocking_request(
+       #             katcp.Message.request(
+       #                 "substreams-to-capture", "{}+{}:{}".format(
+       #                     lbeam_ip, lsubstrms_to_cap - 1, lbeam_port)
+       #             ),
+       #             timeout=_timeout,
+       #         )
+       #         self.assertTrue(reply.reply_ok())
+       #     except Exception:
+       #         errmsg = "Failed to issues ingest node capture-init: {}".format(str(reply))
+       #         self.Error(errmsg, exc_info=True)
+       # strt_ch_idx = substream * ch_per_substream
+       # n_substrms_to_cap = 1
+       # # Compute the start IP address according to substream
+       # beam_ip = int2ip(ip2int(start_beam_ip) + substream)
+       # substreams_to_capture(beam, beam_ip, n_substrms_to_cap, beam_port)
+       # boop
+
         no_chans = stop_ch - strt_ch
         # Delay test
         self.Step("Testing beam delay application.")
         self.Step("Delays to be set: %s" % (test_delays))
-        actual_phases = test_del_ph(test_delays, True)
+        actual_phases = np.asarray(test_del_ph(test_delays, True))[:,strt_ch:stop_ch]
+        expected_delays_slice = [(_rads, phase[strt_ch:stop_ch]) for _rads, phase in expected_delays]
         plot_title = "CBF Beam Steering Delay Application"
         caption = (
             "Actual and Expected Correlation Phase [Delay tracking].\n"
@@ -8013,11 +8051,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         plot_units = "s"
         dump_counts = len(actual_phases)
         aqf_plot_phase_results(
-            no_chans, actual_phases, expected_delays, plot_filename, plot_title, plot_units, caption, 
+            no_chans, actual_phases, expected_delays_slice, plot_filename, plot_title, plot_units, caption, 
             dump_counts, start_channel=strt_ch
             )
 
-        expected_delays_ = [phase for _rads, phase in expected_delays]
+        expected_delays_ = [phase for _rads, phase in expected_delays_slice]
         degree = float(self.corr_fix._test_config_file["beamformer"]
                     ["delay_err_margin_degrees"])
         decimal = len(str(degree).split(".")[-1])
@@ -8048,7 +8086,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                       log_dynamic_range=None, plot_type="error_vector",
                                       start_channel=strt_ch)
 
-            for count, (delay, exp_ph) in enumerate(expected_delays):
+            for count, (delay, exp_ph) in enumerate(expected_delays_slice):
                 msg = (
                     "Confirm that when a delay of {:.2f} clock "
                     "cycle/s ({:.5f} ns) is introduced the expected phase change is "
@@ -8076,9 +8114,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.Step("Phase offset to be set: %s" % (test_phases))
         expected_phases = []
         for phase in test_phases:
-            expected_phases.append((phase,[phase]*no_chans))
+            expected_phases.append((phase,[phase*-1]*no_chans))
             
-        actual_phases = test_del_ph(test_phases, False)
+        actual_phases = np.asarray(test_del_ph(test_phases, False))[:,strt_ch:stop_ch]    
         plot_title = "CBF Beam Steering Phase Offset Application"
         caption = (
             "Actual and Expected Correlation Phase .\n"

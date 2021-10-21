@@ -608,6 +608,28 @@ class TestProcedure:
         return _description
 
     @property
+    def BeamDelay(self):
+        _description = """
+        **Beamformer Steering Functionality**
+
+        1. Configure a digitiser simulator to be used as input source to F-Engines
+        2. Configure a digitiser simulator to generate correlated Gaussian noise
+        3. Set a predetermined accumulation period
+            - Confirm it has been set via CAM interface.
+        4. Retrieve current instrument parameters.
+        5. Select two beams randomly from the set of advertised beam data products.
+        6. Request beamformer level adjust gain
+        7. Set inputs to desired weights and,
+            - Confirm that the input weight has been set to the desired weight.
+        8. Capture beam tied-array data.
+        9. Multiply the un-delayed beam with the complex conjugate of the delayed beam and calculate the angle of the resulting vector.
+        10. Calculate expected value of the phase slope for the selected delay value. 
+        11. Confirm that the expected phase slope matches the measured phase slope withing specified margin.
+        12. Repeat steps 8 to 11 for phase offset.
+        """
+        return _description
+
+    @property
     def StateAndModes(self):
         _description = """
         State and Modes
