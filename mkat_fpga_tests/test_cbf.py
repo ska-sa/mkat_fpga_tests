@@ -1251,6 +1251,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @aqf_vr("CBF.V.A.IF")
     def test_beam_delay(self):
         Aqf.procedure(TestProcedure.BeamDelay)
+        try:
+            reply, informs = self.katcp_req.capture_list()
+            self.assertTrue(reply.reply_ok())
+            beams = []
+            for msg in informs:
+                if 'tied' in msg.arguments[0]:
+                    beams.append(msg.arguments[0])
+        except AssertionError:
+            self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+            return False
         if 'skipped_test' in test_CBF.__dict__['test_beam_delay'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
