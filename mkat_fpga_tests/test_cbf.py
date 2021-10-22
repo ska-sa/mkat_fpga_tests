@@ -7891,7 +7891,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Phase delay test
         sampling_period = self.cam_sensors.sample_period
         ants = self.cam_sensors.get_value("n_ants")
-        test_delays = [0, sampling_period, 1.5 * sampling_period, 2.2 * sampling_period]
+        if "1k" in self.instrument:
+            test_delays = [0, 2*sampling_period, 2*1.5 * sampling_period, 2*2.2 * sampling_period]
+        else:
+            test_delays = [0, sampling_period, 1.5 * sampling_period, 2.2 * sampling_period]
         test_phases = [0.5,1,1.5,2]
         #test_delays = [i*sampling_period for i in range(20)]
         test_delays_ns = map(lambda delay: delay * 1e9, test_delays)
