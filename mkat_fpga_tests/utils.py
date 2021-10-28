@@ -878,30 +878,30 @@ class UtilsClass(object):
         if (profile in ('noise','cw')):
             try:
                 if "54M32k" in self.instrument:
-                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_cw_scale".format(profile)]
-                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbh_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_fft_shift".format(profile)]
                 elif "107M32k" in self.instrument:
-                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_cw_scale".format(profile)]
-                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}32knbf_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_fft_shift".format(profile)]
                 elif "1k" in self.instrument:
-                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
-                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}1k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}1k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}1k_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}1k_fft_shift".format(profile)]
                 elif "4k" in self.instrument:                                     
-                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
-                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}4k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}4k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}4k_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}4k_fft_shift".format(profile)]
                 elif "32k" in self.instrument:
-                    awgn_scale = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
-                    cw_scale   = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
-                    gain       = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_gain{}".format(profile, int_time)]
-                    fft_shift  = self.corr_fix._new_test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
+                    awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32k_awgn_scale".format(profile)]
+                    cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32k_cw_scale".format(profile)]
+                    gain       = self.corr_fix._test_config_file["instrument_params"]["{}32k_gain{}".format(profile, int_time)]
+                    fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32k_fft_shift".format(profile)]
                 else:
                     msg = "Instrument not found: {}".format(self.instrument)
                     self.logger.exception(msg)

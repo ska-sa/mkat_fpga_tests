@@ -88,7 +88,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         self.corr_fix = CorrelatorFixture(logLevel=self.logger.root.level)
         try:
             self.logs_path = self.create_logs_directory()
-            self.conf_file = self.corr_fix.new_test_config
+            self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client = self.conf_file["instrument_params"]["katcp_client"]
             self.data_retries = int(self.conf_file["instrument_params"]["data_retries"])
             #import IPython; IPython.embed()
@@ -224,7 +224,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 "Currently running instrument %s-%s as per /etc/corr" % (
                     self.corr_fix.array_name,
                     self.instrument))
-            self.Progress("Test configuration as per %s" % (self.conf_file["instrument_params"]["conf_file"]))
+            #self.Progress("Test configuration as per %s" % (self.conf_file["instrument_params"]["conf_file"]))
             #TODO: Add receiver back in
             if start_receiver:
                 #self._systems_tests()
@@ -238,14 +238,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if self._dsim_set:
             self.Step("Configure a digitiser simulator to be used as input source to F-Engines.")
             self.Progress("Digitiser Simulator running on host: %s" % self.dhost.host)
-        # This logic can be improved
         if acc_time:
             pass
-        elif n_ants == 64:
-            acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
+	elif ("bc8" in self.instrument) or ("bc16" in self.instrument) or ("bc32" in self.instrument):
+            acc_time = float(self.conf_file["instrument_params"]["accumulation_time_4-16ant"])
+	#elif ("bc128n107M" in self.instrument) or ("bc128n54M" in self.instrument):
+	#    acc_time = float(self.conf_file["instrument_params"]["accumulation_time_64ant_nb"])
+	elif ("bc128" in self.instrument) and ("32k" in self.instrument):
+            acc_time = float(self.conf_file["instrument_params"]["accumulation_time_64ant_32k"])
+	elif ("bc64" in self.instrument) or ("bc128" in self.instrument):
+            acc_time = float(self.conf_file["instrument_params"]["accumulation_time_32-64ant"])
         else:
             acc_time = 0.5
-            #acc_time = n_ants / 32.0
+
         for i in range(self.data_retries):  
             reply, informs = self.katcp_req.accumulation_length(acc_time, timeout=acc_timeout)
             if reply.reply_ok() == True:
@@ -283,18 +288,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     katcp_port = int(self.corr_fix.katcp_rct.port)
                     self.Step("Connected to katcp on %s" % katcp_ip)
                     if not(start_channel):
-                        start_channel = int(self.conf_file["instrument_params"].get("start_channel", 0))
+                        #if ("bc128n107M" in self.instrument) or ("bc128n54M" in self.instrument):
+                        #    start_channel = int(self.conf_file["instrument_params"].get("start_channel_64ant_nb", 0))
+			if ("bc128" in self.instrument) and ("32k" in self.instrument):
+                            start_channel = int(self.conf_file["instrument_params"].get("start_channel_64ant_32k", 0))
+                        else:
+                            start_channel = int(self.conf_file["instrument_params"].get("start_channel", 0))
                     if not(stop_channel):
-                        stop_channel = int(self.conf_file["instrument_params"].get("stop_channel", 1024))
+                        if ("bc128" in self.instrument) and ("32k" in self.instrument):
+                            stop_channel = int(self.conf_file["instrument_params"].get("stop_channel_64ant_32k", 32767))
+                        elif ("1k" in self.instrument):
+                            stop_channel = int(self.conf_file["instrument_params"].get("stop_channel_1k", 1024))
+                        elif ("4k" in self.instrument):
+                            stop_channel = int(self.conf_file["instrument_params"].get("stop_channel_4k", 4096))
+                        elif ("32k" in self.instrument):
+                            stop_channel = int(self.conf_file["instrument_params"].get("stop_channel_32k", 32767))
                     if stop_channel > n_chans:
                         self.logger.warn('Stop channels in config file is higher that available '
                                             'for this instrument. Setting to {}'.format(n_chans))
                         stop_channel = n_chans-1
                         
-                    #elif n_ants == 64 and n_chans == 32768:
-                    #    stop_channel = int(self.conf_file["instrument_params"].get("stop_channel", 2047))
-                    #else:
-                    #    stop_channel = n_chans
                     self.Note(
                         "Requesting SPEAD receiver to capture %s channels from %s to %s on port %s."
                         % (stop_channel - start_channel + 1, start_channel, stop_channel, data_output_port)
@@ -418,9 +431,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
-                instrument_success = self.set_instrument(
-                        acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
-                )
+                instrument_success = self.set_instrument()
                 if instrument_success:
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                     if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and
@@ -520,9 +531,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
-                instrument_success = self.set_instrument(
-                        acc_time = float(self.conf_file["instrument_params"]
-                                ["accumulation_time"]))
+                instrument_success = self.set_instrument()
                 if instrument_success:
                     heading("CBF Channelisation SFDR")
                     # If sfdr_ch_to_test is specified in the config file use that
@@ -665,7 +674,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
-                instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
+                instrument_success = self.set_instrument()
                 if instrument_success:
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                     test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
@@ -699,8 +708,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
-                instrument_success = self.set_instrument(
-                        float(self.conf_file["instrument_params"]["accumulation_time"]))
+                instrument_success = self.set_instrument()
                 if instrument_success:
                     num_discard = int(self.conf_file["instrument_params"]["num_discards"])
                     num_tst_chs = int(self.conf_file["instrument_params"]["num_ch_to_test"])
@@ -969,7 +977,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 elif "1k" in inst:
                     instrument_success = self.set_instrument(1)
                 else:
-                    instrument_success = self.set_instrument(float(self.conf_file["instrument_params"]["accumulation_time"]))
+                    instrument_success = self.set_instrument()
                 if instrument_success:
                     self._test_delay_tracking(check_strt_ch,check_stop_ch)
                     self._test_delay_rate(check_strt_ch,check_stop_ch)
@@ -1156,10 +1164,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
-                #instrument_success = self.set_instrument(start_receiver = False)
-                instrument_success = self.set_instrument(start_receiver = False,
-                        acc_time = float(self.conf_file["instrument_params"]["accumulation_time"])
-                )
+                instrument_success = self.set_instrument(start_receiver = False)
                 if instrument_success:
                     self._test_beamforming()
                 else:
@@ -2787,7 +2792,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         # Start a power logger in a thread
         if log_power:
             try:
-                power_logger = PowerLogger(self.corr_fix._new_test_config_file)
+                power_logger = PowerLogger(self.corr_fix._test_config_file)
                 power_logger.start()
                 power_logger.setName("CBF Power Consumption")
                 self.addCleanup(power_logger.stop)
@@ -5734,7 +5739,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         """CBF Report configuration"""
         import spead2
         import casperfpga
-        test_config = self.corr_fix._new_test_config_file
+        test_config = self.corr_fix._test_config_file
 
         def git_revision_short_hash(mod_name=None, dir_name=None):
             return (
@@ -6067,14 +6072,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
                 beam_ip = beam_ip.split("+")[0]
                 start_beam_ip = beam_ip
-                #if "1k" in self.instrument:
-                #    frac_to_cap = float(self.conf_file["beamformer"]["1k_band_to_capture"])
-                #elif "4k" in self.instrument:
-                #    frac_to_cap = float(self.conf_file["beamformer"]["4k_band_to_capture"])
-                #elif "32k" in self.instrument:
-                #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
                 #n_substrms_to_cap_m = int(frac_to_cap*substreams)
-                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+#################################################################################################
+                if "bc8" in self.instrument:
+                    n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_4ant"])
+                elif "bc16" in self.instrument:
+                    n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_8ant"])
+                elif "bc32" in self.instrument:
+                    n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_16ant"])
+                elif "bc64" in self.instrument:
+                    n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
+                elif "bc128" in self.instrument:
+                    n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+###################################################################################################
                 #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
                 # Algorithm now just pics the center of the band and substreams around that.
                 # This may lead to capturing issues. TODO: investigate
@@ -6464,7 +6474,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #elif "32k" in self.instrument:
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+###################################################
+            if "bc8" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_4ant"])
+            elif "bc16" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_8ant"])
+            elif "bc32" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_16ant"])
+            elif "bc64" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
+            elif "bc128" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+###################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
             # This may lead to capturing issues. TODO: investigate
@@ -6521,12 +6542,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         # Create a katcp client to connect to katcpingest
         if os.uname()[1] == "cmc2":
-            ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_cmc2"]
+            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc2"]
         elif os.uname()[1] == "cmc3":
-            ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_cmc3"]
+            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node_cmc3"]
         else:
-            ingst_nd = self.corr_fix._new_test_config_file["beamformer"]["ingest_node"]
-        ingst_nd_p = self.corr_fix._new_test_config_file["beamformer"]["ingest_node_port"]
+            ingst_nd = self.corr_fix._test_config_file["beamformer"]["ingest_node"]
+        ingst_nd_p = self.corr_fix._test_config_file["beamformer"]["ingest_node_port"]
         _timeout = 10
         try:
             import katcp
@@ -7245,7 +7266,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #elif "32k" in self.instrument:
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+##################################################################
+            if "bc8" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_4ant"])
+            elif "bc16" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_8ant"])
+            elif "bc32" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_16ant"])
+            elif "bc64" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
+            elif "bc128" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+##################################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
             # This may lead to capturing issues. TODO: investigate
@@ -7697,7 +7729,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
                     beam_ip = beam_ip.split("+")[0]
                     start_beam_ip = beam_ip
-                    n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+#########################################################################
+                    if "bc8" in self.instrument:
+                        n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_4ant"])
+                    elif "bc16" in self.instrument:
+                        n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_8ant"])
+                    elif "bc32" in self.instrument:
+                        n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_16ant"])
+                    elif "bc64" in self.instrument:
+                        n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
+                    elif "bc128" in self.instrument:
+                        n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+#########################################################################
                     start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
                     if start_substream > (substreams - 1):
                         self.logger.warn = (
@@ -8090,7 +8133,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #elif "32k" in self.instrument:
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+####################################################################
+            if "bc8" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_4ant"])
+            elif "bc16" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_8ant"])
+            elif "bc32" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_16ant"])
+            elif "bc64" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
+            elif "bc128" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+####################################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
             # This may lead to capturing issues. TODO: investigate
@@ -8430,7 +8484,18 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #elif "32k" in self.instrument:
             #    frac_to_cap = float(self.conf_file["beamformer"]["32k_band_to_capture"])
             #n_substrms_to_cap_m = int(frac_to_cap*substreams)
-            n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap"])
+#####################################################################
+            if "bc8" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_4ant"])
+            elif "bc16" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_8ant"])
+            elif "bc32" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_16ant"])
+            elif "bc64" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
+            elif "bc128" in self.instrument:
+                n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+#####################################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
             # This may lead to capturing issues. TODO: investigate

@@ -80,8 +80,8 @@ class CorrelatorFixture(Logger.LoggingClass):
         nose_test_config = {}
         self._correlator_started = not int(nose_test_config.get("start_correlator", False))
         self.config_filename = max(iglob("/etc/corr/*-*"), key=os.path.getctime)
-        #self.test_config = self._new_test_config_file
-        self.new_test_config = self._new_test_config_file
+        self.test_config = self._test_config_file
+        #self.new_test_config = self._new_test_config_file
         # ToDo get array name from file...instead of test config file
 #=======
 #        self.test_config = self._test_config_file
@@ -248,7 +248,7 @@ class CorrelatorFixture(Logger.LoggingClass):
     def katcp_rct(self):
         if self._katcp_rct is None:
             try:
-                katcp_prot = self.new_test_config["instrument_params"]["katcp_protocol"]
+                katcp_prot = self.test_config["instrument_params"]["katcp_protocol"]
                 _major, _minor, _flags = katcp_prot.split(",")
                 protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
                 self.logger.info("katcp protocol flags %s" % protocol_flags)
@@ -325,7 +325,7 @@ class CorrelatorFixture(Logger.LoggingClass):
     def katcp_rct_sensor(self):
         if self._katcp_rct_sensor is None:
             try:
-                katcp_prot = self.new_test_config["instrument_params"]["katcp_protocol"]
+                katcp_prot = self.test_config["instrument_params"]["katcp_protocol"]
                 _major, _minor, _flags = katcp_prot.split(",")
                 protocol_flags = ProtocolFlags(int(_major), int(_minor), _flags)
                 self.logger.info("katcp protocol flags %s" % protocol_flags)
@@ -852,7 +852,7 @@ class CorrelatorFixture(Logger.LoggingClass):
 
                 instrument_param = [
                     int(i)
-                    for i in self.new_test_config["instrument_params"]["instrument_param"]
+                    for i in self.test_config["instrument_params"]["instrument_param"]
                     if i != ","
                 ]
                 self.logger.info(
