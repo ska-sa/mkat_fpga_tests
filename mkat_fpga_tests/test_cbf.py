@@ -238,16 +238,32 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if self._dsim_set:
             self.Step("Configure a digitiser simulator to be used as input source to F-Engines.")
             self.Progress("Digitiser Simulator running on host: %s" % self.dhost.host)
+        #Stop all data streams    
+        try:
+            reply, informs = self.katcp_req.capture_list()
+            self.assertTrue(reply.reply_ok())
+            all_streams = []
+            for msg in informs:
+                if ('tied' or 'baseline') in msg.arguments[0]:
+                    all_streams.append(msg.arguments[0])
+            for stream in all_streams:
+                reply, informs = self.corr_fix.katcp_rct.req.capture_stop(stream)
+                self.assertTrue(reply.reply_ok())
+        except AssertionError:
+            self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+            return False
+
+        #Set accumulation time
         if acc_time:
             pass
-	elif ("bc8" in self.instrument) or ("bc16" in self.instrument) or ("bc32" in self.instrument):
-            acc_time = float(self.conf_file["instrument_params"]["accumulation_time_4-16ant"])
-	#elif ("bc128n107M" in self.instrument) or ("bc128n54M" in self.instrument):
-	#    acc_time = float(self.conf_file["instrument_params"]["accumulation_time_64ant_nb"])
-	elif ("bc128" in self.instrument) and ("32k" in self.instrument):
-            acc_time = float(self.conf_file["instrument_params"]["accumulation_time_64ant_32k"])
-	elif ("bc64" in self.instrument) or ("bc128" in self.instrument):
-            acc_time = float(self.conf_file["instrument_params"]["accumulation_time_32-64ant"])
+        elif ("bc8" in self.instrument) or ("bc16" in self.instrument) or ("bc32" in self.instrument):
+                acc_time = float(self.conf_file["instrument_params"]["accumulation_time_4-16ant"])
+        #elif ("bc128n107M" in self.instrument) or ("bc128n54M" in self.instrument):
+        #    acc_time = float(self.conf_file["instrument_params"]["accumulation_time_64ant_nb"])
+        elif ("bc128" in self.instrument) and ("32k" in self.instrument):
+                acc_time = float(self.conf_file["instrument_params"]["accumulation_time_64ant_32k"])
+        elif ("bc64" in self.instrument) or ("bc128" in self.instrument):
+                acc_time = float(self.conf_file["instrument_params"]["accumulation_time_32-64ant"])
         else:
             acc_time = 0.5
 
@@ -6431,10 +6447,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             assert running_instrument is not False
             #msg = 'Running instrument currently does not have beamforming capabilities.'
             #assert running_instrument.endswith('4k'), msg
-            for bm in beams:
-                self.Step("Issueing capture start for {}.".format(bm))
-                reply, informs = self.katcp_req.capture_start(bm)
-                self.assertTrue(reply.reply_ok())
             # Get instrument parameters
             bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth")
             nr_ch = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
@@ -6585,6 +6597,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error(errmsg, exc_info=True)
 
         for beam in beams:
+            try:
+                self.Step("Issueing capture start for {}.".format(beam))
+                reply, informs = self.katcp_req.capture_start(beam)
+                self.assertTrue(reply.reply_ok())
+            except AssertionError:
+                self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+                return False
             beam_name = beam.replace("-", "_").replace(".", "_")
             beam_ip, beam_port = self.cam_sensors.get_value(beam_name + "_destination").split(":")
             beam_ip = beam_ip.split("+")[0]
@@ -7192,6 +7211,13 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             else:
                 self.Passed("All beamformer substreams correctly aligned.")
 
+            try:
+                reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+                self.assertTrue(reply.reply_ok())
+            except AssertionError:
+                self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+                return False
+
         # Close any KAT SDP ingest nodes
         try:
             if ingest_kcp_client:
@@ -7514,10 +7540,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #beams = [all_beams[bm0_idx],all_beams[bm1_idx]]
             running_instrument = self.instrument
             assert running_instrument is not False
-            self.Step("Start capture on {}.".format(all_beams))
-            for beam in all_beams:
-                reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
-                self.assertTrue(reply.reply_ok())
             sync_time = self.cam_sensors.get_value("sync_time")
 
             # Get instrument parameters
@@ -7720,6 +7742,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             return actual_phases
 
         for beams in beam_pairs:
+            self.Step("Start capture on {}.".format(beams))
+            try:
+                for beam in beams:
+                    reply, informs = self.corr_fix.katcp_rct.req.capture_start(beam)
+                    self.assertTrue(reply.reply_ok())
+            except AssertionError:
+                self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+                return False
             ingst_nd_p = int(self.corr_fix._test_config_file["beamformer"]["ingest_node_port"])
             ingest_kcp_client = []
             beam_dict = {}
@@ -8046,6 +8076,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             except Exception as e:
                 self.Error("Error occurred: {}".format(e), exc_info=True)
                 return
+
+            self.Step("Stop capture on {}.".format(beams))
+            try:
+                for beam in beams:
+                    reply, informs = self.corr_fix.katcp_rct.req.capture_stop(beam)
+                    self.assertTrue(reply.reply_ok())
+            except AssertionError:
+                self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
+                return False
         
             # Close any KAT SDP ingest nodes
             try:
