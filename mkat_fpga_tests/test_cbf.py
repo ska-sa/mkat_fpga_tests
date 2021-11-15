@@ -7648,10 +7648,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         return False
                     return dsim_spectra_time
 
-        def test_del_ph(delay_array, delay_test=True):
+        def test_del_ph(delay_array, _exp_phases, strt_ch, stop_ch, delay_test=True):
             delays = [0] * ants
             b0_spectra = []
             b1_spectra = []
+            actual_phases = []
+            cnt = 0
             for delay in delay_array:
                 delays[ref_input] = delay
                 if delay_test:
@@ -7669,76 +7671,97 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
                         exc_info=True)
                 Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beams[1], set_time, reply))
-                beam_retries = 5
-                while beam_retries > 0:
-                    # Start a beam capture, set pulses and capture data 
-                    _ = self.capture_beam_data(beams[0], ingest_kcp_client=ingest_kcp_client[0], start_only=True)
-                    _ = self.capture_beam_data(beams[1], ingest_kcp_client=ingest_kcp_client[1], start_only=True)
-                    time.sleep(0.5)
-                    reply, informs = ingest_kcp_client[0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
-                    reply, informs = ingest_kcp_client[1].blocking_request(katcp.Message.request("capture-done"), timeout=1)
+                cap_retries = 3
+                while True:
+                    beam_retries = 5
+                    while beam_retries > 0:
+                        # Start a beam capture, set pulses and capture data 
+                        _ = self.capture_beam_data(beams[0], ingest_kcp_client=ingest_kcp_client[0], start_only=True)
+                        _ = self.capture_beam_data(beams[1], ingest_kcp_client=ingest_kcp_client[1], start_only=True)
+                        time.sleep(0.5)
+                        reply, informs = ingest_kcp_client[0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
+                        reply, informs = ingest_kcp_client[1].blocking_request(katcp.Message.request("capture-done"), timeout=1)
 
-                    b0_raw, b0_ts = get_beam_data(beams[0],ingest_kcp_client[0],"/ramdisk/bm0")
-                    b1_raw, b1_ts = get_beam_data(beams[1],ingest_kcp_client[1],"/ramdisk/bm1")
+                        b0_raw, b0_ts = get_beam_data(beams[0],ingest_kcp_client[0],"/ramdisk/bm0")
+                        b1_raw, b1_ts = get_beam_data(beams[1],ingest_kcp_client[1],"/ramdisk/bm1")
 
-                    if (np.all(b0_raw) is not None and 
-                        np.all(b0_ts) is not None and
-                        np.all(b1_raw) is not None and 
-                        np.all(b1_ts) is not None):
+                        if (np.all(b0_raw) is not None and 
+                            np.all(b0_ts) is not None and
+                            np.all(b1_raw) is not None and 
+                            np.all(b1_ts) is not None):
 
-                        try:
-                            if (b1_ts[0] > b0_ts[0]):
-                                b0_idx = int((b1_ts[0]-b0_ts[0])/self.cam_sensors.get_value('n_samples_between_spectra'))
+                            try:
+                                if (b1_ts[0] > b0_ts[0]):
+                                    b0_idx = int((b1_ts[0]-b0_ts[0])/self.cam_sensors.get_value('n_samples_between_spectra'))
+                                else:
+                                    raise IndexError
+                                b1_idx_end = np.where(b0_ts[-1] == b1_ts)[0][0]
+                                if b1_idx_end < spectra_average:
+                                    raise IndexError
+                            except IndexError: 
+                                    self.logger.warn('Did not find the same timestamp in both beams, '
+                                        'retrying {} more times...'.format(beam_retries))
+                                    beam_retries -= 1
                             else:
-                                raise IndexError
-                            b1_idx_end = np.where(b0_ts[-1] == b1_ts)[0][0]
-                            if b1_idx_end < spectra_average:
-                                raise IndexError
-                        except IndexError: 
-                                self.logger.warn('Did not find the same timestamp in both beams, '
-                                    'retrying {} more times...'.format(beam_retries))
-                                beam_retries -= 1
+                                break
                         else:
-                            break
+                            self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                            beam_retries -= 1
+                    if beam_retries == 0:
+                        self.Failed('Could not capture beam data.')
+                        try:
+                            # Restore DSIM
+                            self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
+                            for igt_kcp_clnt in ingest_kcp_client:
+                                igt_kcp_clnt.stop()
+                        except BaseException:
+                            pass
+                        self.stop_katsdpingest_docker()
+                        return False
+
+                    b0_cplx = []
+                    b1_cplx = []
+                    for idx in range(spectra_average):
+                        b0_cplx.append(complexise(b0_raw[:,b0_idx+idx,:]))
+                        b1_cplx.append(complexise(b1_raw[:,idx,:]))
+                    b0_cplx = np.asarray(b0_cplx)
+                    b1_cplx = np.asarray(b1_cplx)
+                    b0_b1_angle = np.angle(b0_cplx * b1_cplx.conjugate())
+                    b0_b1_angle = np.average(b0_b1_angle, axis=0)
+                    #check that the capture is good:
+                    degree = float(self.corr_fix._test_config_file["beamformer"]
+                                ["delay_err_margin_degrees"])
+                    delta_phase = np.asarray(_exp_phases[cnt]) - b0_b1_angle[strt_ch:stop_ch]
+                    # Replace first value with average as DC component might skew results
+                    delta_phase  = [np.average(delta_phase)] + delta_phase[1:]
+                    max_diff     = np.max(np.abs(delta_phase))
+                    max_diff_deg = np.rad2deg(max_diff)
+                    if (max_diff_deg > degree) and (cap_retries > 0):
+                        cap_retries -= 1
+                        self.logger.warn('Bad beam data captured, retrying {} more times...'.format(cap_retries))
                     else:
-                        self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
-                        beam_retries -= 1
-                if beam_retries == 0:
-                    self.Failed('Could not capture beam data.')
-                    try:
-                        # Restore DSIM
-                        self.dhost.registers.src_sel_cntrl.write(src_sel_0=0)
-                        for igt_kcp_clnt in ingest_kcp_client:
-                            igt_kcp_clnt.stop()
-                    except BaseException:
-                        pass
-                    self.stop_katsdpingest_docker()
-                    return False
+                        actual_phases.append(b0_b1_angle)
+                        cnt += 1
+                        break
 
-                b0_cplx = []
-                b1_cplx = []
-                for idx in range(spectra_average):
-                    b0_cplx.append(complexise(b0_raw[:,b0_idx+idx,:]))
-                    b1_cplx.append(complexise(b1_raw[:,idx,:]))
-                b0_spectra.append(np.asarray(b0_cplx))
-                b1_spectra.append(np.asarray(b1_cplx))
+                #b0_spectra.append(np.asarray(b0_cplx))
+                #b1_spectra.append(np.asarray(b1_cplx))
+            #import IPython;IPython.embed()
 
-            b0_spectra = np.asarray(b0_spectra)    
-            b1_spectra = np.asarray(b1_spectra)    
+            #b0_spectra = np.asarray(b0_spectra)    
+            #b1_spectra = np.asarray(b1_spectra)    
 
-
-            b0_abs = np.abs(b0_spectra[1,:,:])
-            b0_avg = np.average(b0_abs, axis=0)
-            b1_abs = np.abs(b1_spectra[1,:,:])
-            b1_avg = np.average(b1_abs, axis=0)
+            #b0_abs = np.abs(b0_spectra[1,:,:])
+            #b0_avg = np.average(b0_abs, axis=0)
+            #b1_abs = np.abs(b1_spectra[1,:,:])
+            #b1_avg = np.average(b1_abs, axis=0)
             
-            actual_phases = []
-            for idx in range(len(delay_array)):
-                b0_spec_cplx = b0_spectra[idx,:,:][:,:]
-                b1_spec_cplx = b1_spectra[idx,:,:][:,:]
-                b0_b1_angle = np.angle(b0_spec_cplx * b1_spec_cplx.conjugate())
-                #b0_b1_angle = np.angle(b0_spec_cplx.conjugate() * b1_spec_cplx)
-                actual_phases.append(np.average(b0_b1_angle, axis=0))
+            #actual_phases = []
+            #for idx in range(len(delay_array)):
+            #    b0_spec_cplx = b0_spectra[idx,:,:][:,:]
+            #    b1_spec_cplx = b1_spectra[idx,:,:][:,:]
+            #    b0_b1_angle = np.angle(b0_spec_cplx * b1_spec_cplx.conjugate())
+            #    actual_phases.append(np.average(b0_b1_angle, axis=0))
             return actual_phases
 
         for beams in beam_pairs:
@@ -7924,11 +7947,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
 
             no_chans = stop_ch - strt_ch
+            expected_delays_slice = [(_rads, phase[strt_ch:stop_ch]) for _rads, phase in expected_delays]
+            expected_delays_ = [phase for _rads, phase in expected_delays_slice]
             # Delay test
             self.Step("Testing beam delay application.")
             self.Step("Delays to be set: %s" % (test_delays))
-            actual_phases = np.asarray(test_del_ph(test_delays, True))[:,strt_ch:stop_ch]
-            expected_delays_slice = [(_rads, phase[strt_ch:stop_ch]) for _rads, phase in expected_delays]
+            try:
+                actual_phases = np.asarray(test_del_ph(test_delays, expected_delays_, strt_ch, stop_ch, True))[:,strt_ch:stop_ch]
+            except IndexError:
+                self.Error("Beam data could not be captured. Halting test.", exc_info=True)
+                break
             plot_title = ("CBF Beam Steering Delay Application.\nReference beam: {}, Delayed beam: {}"
                 "".format(beams[0].split('.')[-1],beams[1].split('.')[-1]))
             caption = (
@@ -7944,7 +7972,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 dump_counts, start_channel=strt_ch
                 )
 
-            expected_delays_ = [phase for _rads, phase in expected_delays_slice]
             degree = float(self.corr_fix._test_config_file["beamformer"]
                         ["delay_err_margin_degrees"])
             decimal = len(str(degree).split(".")[-1])
@@ -8004,10 +8031,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step("Testing beam phase offset.")
             self.Step("Phase offset to be set: %s" % (test_phases))
             expected_phases = []
+            exp_phases = []
             for phase in test_phases:
                 expected_phases.append((phase,[phase*-1]*no_chans))
+                exp_phases.append([phase*-1]*no_chans)
                 
-            actual_phases = np.asarray(test_del_ph(test_phases, False))[:,strt_ch:stop_ch]    
+            actual_phases = np.asarray(test_del_ph(test_phases, exp_phases, strt_ch, stop_ch, False))[:,strt_ch:stop_ch]
             plot_title = ("CBF Beam Steering Phase Offest Application.\nReference beam: {}, Delayed beam: {}"
                 "".format(beams[0].split('.')[-1],beams[1].split('.')[-1]))
             caption = (
