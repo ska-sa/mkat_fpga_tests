@@ -6100,6 +6100,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
                 elif "bc128" in self.instrument:
                     n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+                if "1k" in self.instrument:
+                    n_substrms_to_cap_m = int(n_substrms_to_cap_m/2)
 ###################################################################################################
                 #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
                 # Algorithm now just pics the center of the band and substreams around that.
@@ -6497,6 +6499,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
             elif "bc128" in self.instrument:
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+            if "1k" in self.instrument:
+                n_substrms_to_cap_m = int(n_substrms_to_cap_m/2)
 ###################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
@@ -7303,6 +7307,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
             elif "bc128" in self.instrument:
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+            if "1k" in self.instrument:
+                n_substrms_to_cap_m = int(n_substrms_to_cap_m/2)
 ##################################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
@@ -7671,7 +7677,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
                         exc_info=True)
                 Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beams[1], set_time, reply))
-                cap_retries = 3
+                cap_retries = 5
                 while True:
                     beam_retries = 5
                     while beam_retries > 0:
@@ -7793,6 +7799,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
                     elif "bc128" in self.instrument:
                         n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+                    if "1k" in self.instrument:
+                        n_substrms_to_cap_m = int(n_substrms_to_cap_m/2)
 #########################################################################
                     start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
                     if start_substream > (substreams - 1):
@@ -8036,7 +8044,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 expected_phases.append((phase,[phase*-1]*no_chans))
                 exp_phases.append([phase*-1]*no_chans)
                 
-            actual_phases = np.asarray(test_del_ph(test_phases, exp_phases, strt_ch, stop_ch, False))[:,strt_ch:stop_ch]
+            try:
+                actual_phases = np.asarray(test_del_ph(test_phases, exp_phases, strt_ch, stop_ch, False))[:,strt_ch:stop_ch]
+            except IndexError:
+                self.Error("Beam data could not be captured. Halting test.", exc_info=True)
+                break
             plot_title = ("CBF Beam Steering Phase Offest Application.\nReference beam: {}, Delayed beam: {}"
                 "".format(beams[0].split('.')[-1],beams[1].split('.')[-1]))
             caption = (
@@ -8212,6 +8224,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
             elif "bc128" in self.instrument:
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+            if "1k" in self.instrument:
+                n_substrms_to_cap_m = int(n_substrms_to_cap_m/2)
 ####################################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
@@ -8563,6 +8577,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_32ant"])
             elif "bc128" in self.instrument:
                 n_substrms_to_cap_m = int(self.conf_file["beamformer"]["substreams_to_cap_64ant"])
+            if "1k" in self.instrument:
+                n_substrms_to_cap_m = int(n_substrms_to_cap_m/2)
 #####################################################################
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
