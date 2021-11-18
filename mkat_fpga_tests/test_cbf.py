@@ -306,7 +306,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     if not(start_channel):
                         #if ("bc128n107M" in self.instrument) or ("bc128n54M" in self.instrument):
                         #    start_channel = int(self.conf_file["instrument_params"].get("start_channel_64ant_nb", 0))
-			if ("bc128" in self.instrument) and ("32k" in self.instrument):
+                        if ("bc128" in self.instrument) and ("32k" in self.instrument):
                             start_channel = int(self.conf_file["instrument_params"].get("start_channel_64ant_32k", 0))
                         else:
                             start_channel = int(self.conf_file["instrument_params"].get("start_channel", 0))
@@ -988,10 +988,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                 elif "32k" in inst:
                     instrument_success = self.set_instrument(4)
+                elif ("4k" and "128") in inst:
+                    instrument_success = self.set_instrument(2, start_channel = 1024, stop_channel = 3071)
                 elif "4k" in inst:
-                    instrument_success = self.set_instrument(2)
-                elif "1k" in inst:
                     instrument_success = self.set_instrument(1)
+                elif ("1k" and "128") in inst:
+                    instrument_success = self.set_instrument(1, start_channel = 256, stop_channel = 767)
                 else:
                     instrument_success = self.set_instrument()
                 if instrument_success:
