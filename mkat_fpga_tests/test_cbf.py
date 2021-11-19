@@ -999,7 +999,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if instrument_success:
                     self._test_delay_tracking(check_strt_ch,check_stop_ch)
                     self._test_delay_rate(check_strt_ch,check_stop_ch)
-                    ##self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
+                    #self._test_delay_rate(check_strt_ch, check_stop_ch, delay_rate_mult=[16], awgn_scale=0.01, gain=500)
                     self._test_phase_rate(check_strt_ch, check_stop_ch)
                     self._test_phase_offset(check_strt_ch, check_stop_ch, gain_multiplier=2)
                     self._test_delay_inputs(check_strt_ch, check_stop_ch)
@@ -5546,7 +5546,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         heading(msg)
         self.Step(
             "The test will sweep through four(4) randomly selected baselines, select and "
-            "set a delay value, Confirm if the delay set is as expected."
+            "set a delay value, Confirm if the delay set is as expected. Only a few results will be printed, "
+            "all errors will be printed."
         )
         setup_data = self._delays_setup()
         num_inputs = len(self.cam_sensors.input_labels)
@@ -5558,6 +5559,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         shuffled_labels = shuffled_labels[-4:]
         delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
         #for delayed_input in shuffled_labels:
+        label_len = len(input_labels)
+        strt_prnt = 2
+        stop_prnt = label_len - strt_prnt
+        prnt_idx = 0
         for delayed_input in input_labels:
             test_delay_val = random.randrange(self.cam_sensors.sample_period, step=0.83e-10, int=float)
             # test_delay_val = self.cam_sensors.sample_period  # Pi
@@ -5569,16 +5574,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             delays = [0] * num_inputs
             # Get index for input to delay
             test_source_idx = input_labels.index(delayed_input)
-            self.Step("Selected input to test: {}".format(delayed_input))
+            if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                self.Step("Selected input to test: {}".format(delayed_input))
+            else:
+                self.logger.info("Selected input to test: {}".format(delayed_input))
             delays[test_source_idx] = test_delay_val
-            self.Step("Randomly selected delay value ({}) relative to sampling period".format(test_delay_val))
+            if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                self.Step("Randomly selected delay value ({}) relative to sampling period".format(test_delay_val))
+            else:
+                self.logger.info("Randomly selected delay value ({}) relative to sampling period".format(test_delay_val))
             delay_coefficients = ["{},0:0,0".format(dv) for dv in delays]
-            self.Progress("Delay coefficients: %s" % delay_coefficients)
+            if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                self.Progress("Delay coefficients: %s" % delay_coefficients)
+            else:
+                self.logger.info("Delay coefficients: %s" % delay_coefficients)
             try:
                 reply, _informs = self.katcp_req.delays(self.corr_fix.feng_product_name, 
                             time.time() + delay_load_lead_time, *delay_coefficients)
                 self.assertTrue(reply.reply_ok())
                 time.sleep(delay_load_lead_time)
+                curr_mcount = self.current_dsim_mcount()
             except Exception as e:
                 self.Failed("Error occured: {}".format(e))
                 return
@@ -5590,7 +5605,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     dly_applied, act_dly_coeff = self._confirm_delays(delay_coefficients,
                                                                       err_margin = delay_resolution_req)
                     if dly_applied:
-                        self.Passed("Delays where successfully applied on input: {}".format(delayed_input))
+                        if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                            self.Passed("Delays where successfully applied on input: {}".format(delayed_input))
+                        else:
+                            self.logger.info("Delays where successfully applied on input: {}".format(delayed_input))
                         break
                     elif timeout == 0:
                         self.Error("Delays could not be applied to reqested input {}.".format(delayed_input))
@@ -5598,18 +5616,27 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     else:
                         timeout -= 1
             try:
-                self.Step(
-                    "Getting SPEAD accumulation containing "
-                    "the change in delay(s) on input: %s." % (test_source_idx)
-                )
-                #TODO: figure out when the delay is applied and use less dumps
-                dump = self.receiver.get_clean_dump(discard=9)
+                if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                    self.Step(
+                        "Getting SPEAD accumulation containing "
+                        "the change in delay(s) on input: %s." % (test_source_idx)
+                    )
+                else:
+                    self.logger.info(
+                        "Getting SPEAD accumulation containing "
+                        "the change in delay(s) on input: %s." % (test_source_idx)
+                    )
+                dump = self.get_dump_after_mcount(curr_mcount)
+                #dump = self.receiver.get_clean_dump(discard=9)
             except Exception:
                 self.Error("Could not retrieve clean SPEAD accumulation: Queue is Empty.",
                     exc_info=True)
             else:
                 sorted_bls = self.get_baselines_lookup(dump, sorted_lookup=True)
-                self.Step("Maximum expected delay: %s" % np.max(expected_phases))
+                if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                    self.Step("Maximum expected delay: %s" % np.max(expected_phases))
+                else:
+                    self.logger.info("Maximum expected delay: %s" % np.max(expected_phases))
                 for b_line in sorted_bls:
                     b_line_val = b_line[1]
                     b_line_dump = dump["xeng_raw"][:, b_line_val, :]
@@ -5622,9 +5649,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         stop_idx = check_stop_ch
                     if (delayed_input in b_line[0]) and b_line[0] != (delayed_input, delayed_input):
                         msg = "Confirm baseline(s) {} expected delay.".format(b_line[0])
-                        Aqf.array_abs_error(
-                            np.abs(b_line_phase[strt_idx:stop_idx]), np.abs(expected_phases[strt_idx:stop_idx]), msg, phase_resolution_req
-                        )
+                        if (prnt_idx < strt_prnt) or (prnt_idx > stop_prnt): 
+                            Aqf.array_abs_error(
+                                np.abs(b_line_phase[strt_idx:stop_idx]), np.abs(expected_phases[strt_idx:stop_idx]), msg, phase_resolution_req
+                            )
+                        else:
+                            max_diff = np.max(np.abs(np.abs(b_line_phase[strt_idx:stop_idx]) - 
+                                np.abs(expected_phases[strt_idx:stop_idx])))
+                            if max_diff > phase_resolution_req:
+                                Aqf.array_abs_error(
+                                    np.abs(b_line_phase[strt_idx:stop_idx]), np.abs(expected_phases[strt_idx:stop_idx]), msg, phase_resolution_req
+                                )
                     else:
                         # TODO What should the maximum expeced be here?
                         if b_line_phase_max > phase_resolution_req:
@@ -5633,6 +5668,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 "maximum error value = {} rads".format(b_line[0], b_line_val, b_line_phase_max)
                             )
                             self.Failed(desc)
+            if (prnt_idx == strt_prnt):
+                self.Step("\n\nDelay values applied to correct inputs testing continuing...\n")
+            prnt_idx += 1
 
 
 
