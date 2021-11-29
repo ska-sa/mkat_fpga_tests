@@ -18,6 +18,7 @@ nosetests.xml
 .noseids
 
 # sphinx-droppings
+docs/Cover_Page/Cover_Page.tex
 /build
 build
 /katreport
