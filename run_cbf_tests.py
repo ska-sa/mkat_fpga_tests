@@ -607,23 +607,23 @@ def generate_sphinx_docs(settings):
                 "QTR": "M1200-0000-060",
                 "bc8n856M1k": [
                     "M1200-0000-060-06",
-                    "4 Antenna System running in Wideband Coarse (1K) mode",
+                    "4 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc16n856M1k": [
                     "M1200-0000-060-07",
-                    "8 Antenna System running in Wideband Coarse (1K) mode",
+                    "8 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc32n856M1k": [
                     "M1200-0000-060-08",
-                    "16 Antenna System running in Wideband Coarse (1K) mode",
+                    "16 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc64n856M1k": [
                     "M1200-0000-060-09",
-                    "32 Antenna System running in Wideband Coarse (1K) mode",
+                    "32 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc128n856M1k": [
                     "M1200-0000-060-10",
-                    "64 Antenna System running in Wideband Coarse (1K) mode",
+                    "64 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
 
 
@@ -655,19 +655,19 @@ def generate_sphinx_docs(settings):
                 ],
                 "bc16n856M32k": [
                     "M1200-0000-060-17",
-                    "16 Antenna System running in Wideband Fine (32K) mode",
+                    "8 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc32n856M32k": [
                     "M1200-0000-060-18",
-                    "32 Antenna System running in Wideband Fine (32K) mode",
+                    "16 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc64n856M32k": [
                     "M1200-0000-060-19",
-                    "64 Antenna System running in Wideband Fine (32K) mode",
+                    "32 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc128n856M32k": [
                     "M1200-0000-060-20",
-                    "128 Antenna System running in Wideband Fine (32K) mode",
+                    "64 Antenna System running in Wideband Fine (32K) mode",
                 ],
 
 
@@ -677,19 +677,19 @@ def generate_sphinx_docs(settings):
                 ],
                 "bc16n107M32k": [
                     "M1200-0000-060-22",
-                    "16 Antenna System running in Narrowband Full Fine (32K) mode",
+                    "8 Antenna System running in Narrowband Full Fine (32K) mode",
                 ],
                 "bc32n107M32k": [
                     "M1200-0000-060-23",
-                    "32 Antenna System running in Narrowband Full Fine (32K) mode",
+                    "16 Antenna System running in Narrowband Full Fine (32K) mode",
                 ],
                 "bc64n107M32k": [
                     "M1200-0000-060-24",
-                    "64 Antenna System running in Narrowband Full Fine (32K) mode",
+                    "32 Antenna System running in Narrowband Full Fine (32K) mode",
                 ],
                 "bc128n107M32k": [
                     "M1200-0000-060-25",
-                    "128 Antenna System running in Narrowband Full Fine (32K) mode",
+                    "64 Antenna System running in Narrowband Full Fine (32K) mode",
                 ],
 
                 
@@ -699,81 +699,81 @@ def generate_sphinx_docs(settings):
                 ],
                 "bc16n54M32k": [
                     "M1200-0000-060-27",
-                    "16 Antenna System running in Narrowband Half Fine (32K) mode",
+                    "8 Antenna System running in Narrowband Half Fine (32K) mode",
                 ],
                 "bc32n54M32k": [
                     "M1200-0000-060-28",
-                    "32 Antenna System running in Narrowband Half Fine (32K) mode",
+                    "16 Antenna System running in Narrowband Half Fine (32K) mode",
                 ],
                 "bc64n54M32k": [
                     "M1200-0000-060-29",
-                    "64 Antenna System running in Narrowband Half Fine (32K) mode",
+                    "32 Antenna System running in Narrowband Half Fine (32K) mode",
                 ],
                 "bc128n54M32k": [
                     "M1200-0000-060-30",
-                    "128 Antenna System running in Narrowband Half Fine (32K) mode",
+                    "64 Antenna System running in Narrowband Half Fine (32K) mode",
                 ],
 ########################################
                 "bc8n544M1k": [
-                    "M1200-0000-060-xx",
-                    "4 Antenna System running in Wideband Coarse (1K) mode",
+                    "M1200-0000-061-06",
+                    "4 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc16n544M1k": [
-                    "M1200-0000-060-xx",
-                    "8 Antenna System running in Wideband Coarse (1K) mode",
+                    "M1200-0000-061-07",
+                    "8 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc32n544M1k": [
-                    "M1200-0000-060-xx",
-                    "16 Antenna System running in Wideband Coarse (1K) mode",
+                    "M1200-0000-061-08",
+                    "16 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc64n544M1k": [
-                    "M1200-0000-060-xx",
-                    "32 Antenna System running in Wideband Coarse (1K) mode",
+                    "M1200-0000-061-09",
+                    "32 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
                 "bc128n544M1k": [
-                    "M1200-0000-060-xx",
-                    "64 Antenna System running in Wideband Coarse (1K) mode",
+                    "M1200-0000-061-10",
+                    "64 Antenna System running in Pulsar Timing Channelisation (1K) mode",
                 ],
 
                 "bc8n544M4k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-11",
                     "4 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc16n544M4k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-12",
                     "8 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc32n544M4k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-13",
                     "16 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc64n544M4k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-14",
                     "32 Antenna System running in Wideband Coarse (4K) mode",
                 ],
                 "bc128n544M4k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-15",
                     "64 Antenna System running in Wideband Coarse (4K) mode",
                 ],
 
                 "bc8n544M32k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-16",
                     "4 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc16n544M32k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-17",
                     "16 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc32n544M32k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-18",
                     "32 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc64n544M32k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-19",
                     "64 Antenna System running in Wideband Fine (32K) mode",
                 ],
                 "bc128n544M32k": [
-                    "M1200-0000-060-xx",
+                    "M1200-0000-061-20",
                     "128 Antenna System running in Wideband Fine (32K) mode",
                 ],
 
