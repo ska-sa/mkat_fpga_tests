@@ -713,6 +713,71 @@ def generate_sphinx_docs(settings):
                     "M1200-0000-060-30",
                     "128 Antenna System running in Narrowband Half Fine (32K) mode",
                 ],
+########################################
+                "bc8n544M1k": [
+                    "M1200-0000-060-xx",
+                    "4 Antenna System running in Wideband Coarse (1K) mode",
+                ],
+                "bc16n544M1k": [
+                    "M1200-0000-060-xx",
+                    "8 Antenna System running in Wideband Coarse (1K) mode",
+                ],
+                "bc32n544M1k": [
+                    "M1200-0000-060-xx",
+                    "16 Antenna System running in Wideband Coarse (1K) mode",
+                ],
+                "bc64n544M1k": [
+                    "M1200-0000-060-xx",
+                    "32 Antenna System running in Wideband Coarse (1K) mode",
+                ],
+                "bc128n544M1k": [
+                    "M1200-0000-060-xx",
+                    "64 Antenna System running in Wideband Coarse (1K) mode",
+                ],
+
+                "bc8n544M4k": [
+                    "M1200-0000-060-xx",
+                    "4 Antenna System running in Wideband Coarse (4K) mode",
+                ],
+                "bc16n544M4k": [
+                    "M1200-0000-060-xx",
+                    "8 Antenna System running in Wideband Coarse (4K) mode",
+                ],
+                "bc32n544M4k": [
+                    "M1200-0000-060-xx",
+                    "16 Antenna System running in Wideband Coarse (4K) mode",
+                ],
+                "bc64n544M4k": [
+                    "M1200-0000-060-xx",
+                    "32 Antenna System running in Wideband Coarse (4K) mode",
+                ],
+                "bc128n544M4k": [
+                    "M1200-0000-060-xx",
+                    "64 Antenna System running in Wideband Coarse (4K) mode",
+                ],
+
+                "bc8n544M32k": [
+                    "M1200-0000-060-xx",
+                    "4 Antenna System running in Wideband Fine (32K) mode",
+                ],
+                "bc16n544M32k": [
+                    "M1200-0000-060-xx",
+                    "16 Antenna System running in Wideband Fine (32K) mode",
+                ],
+                "bc32n544M32k": [
+                    "M1200-0000-060-xx",
+                    "32 Antenna System running in Wideband Fine (32K) mode",
+                ],
+                "bc64n544M32k": [
+                    "M1200-0000-060-xx",
+                    "64 Antenna System running in Wideband Fine (32K) mode",
+                ],
+                "bc128n544M32k": [
+                    "M1200-0000-060-xx",
+                    "128 Antenna System running in Wideband Fine (32K) mode",
+                ],
+
+########################################
             },
         }
         _filename = os.path.join(
