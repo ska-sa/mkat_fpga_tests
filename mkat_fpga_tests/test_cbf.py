@@ -91,7 +91,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.conf_file = self.corr_fix.test_config
             self.corr_fix.katcp_client = self.conf_file["instrument_params"]["katcp_client"]
             self.data_retries = int(self.conf_file["instrument_params"]["data_retries"])
-            #import IPython; IPython.embed()
             self.katcp_req = self.corr_fix.katcp_rct.req
             self.assertIsInstance(self.katcp_req, katcp.resource_client.AttrMappingProxy)
             self.katcp_req_sensors = self.corr_fix.katcp_rct_sensor.req
@@ -113,11 +112,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.dhost = self.corr_fix.dhost
             if not isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost):
                 raise AssertionError(errmsg)
-            #TODO: this needs to be modified for UHF and Sband
-            self.dsim_factor = (float(self.conf_file["instrument_params"]["sample_freq"]) 
-                                / 
-                                self.cam_sensors.get_value("scale_factor_timestamp"))
-
+            elif ("856" or "107" or "54") in self.corr_fix.instrument:
+                nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_l"])
+            elif ("875" or "109" or "55") in self.corr_fix.instrument:
+                nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_s"])
+            elif ("544" or "68" or "34") in self.corr_fix.instrument:
+                nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_u"])
+            self.dsim_factor = (nominal_sample_freq 
+                / self.cam_sensors.get_value("scale_factor_timestamp"))
         except Exception:
             self.Error(errmsg, exc_info=True)
             sys.exit(errmsg)
@@ -162,6 +164,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     def tearDown(self):
         try:
             self.katcp_req = None
+            assert not self.receiver
+        except AssertionError:
+            self.logger.info("Cleaning up the receiver!!!!")
+            assert not self.receiver
+        except AssertionError:
+            self.logger.info("Cleaning up the receiver!!!!")
             assert not self.receiver
         except AssertionError:
             self.logger.info("Cleaning up the receiver!!!!")
@@ -6106,9 +6114,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 ants = self.cam_sensors.get_value("n_ants")
                 ch_list = self.cam_sensors.ch_center_freqs
                 ch_bw = ch_list[1]-ch_list[0]
-                dsim_factor = float(self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
-                    "scale_factor_timestamp"
-                )
                 substreams = self.cam_sensors.get_value("n_xengs")
             except AssertionError:
                 errmsg = "%s" % str(reply).replace("\_", " ")
@@ -6118,9 +6123,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Error("Error occurred", exc_info=True)
                 return False
 
-            self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+            self.Progress("Bandwidth = {}Hz".format(bw * self.dsim_factor))
             self.Progress("Number of channels = {}".format(nr_ch))
-            self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+            self.Progress("Channel spacing = {}Hz".format(ch_bw * self.dsim_factor))
 
             beam = beams[0]
             try:
@@ -6179,7 +6184,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             beam_ip = int2ip(ip2int(beam_ip) + start_substream)
             # Compute spectrum parameters
             strt_ch_idx = start_substream * ch_per_substream
-            strt_freq = ch_list[strt_ch_idx] * dsim_factor
+            strt_freq = ch_list[strt_ch_idx] * self.dsim_factor
             self.Step("Start a KAT SDP docker ingest node for beam captures")
             docker_status = self.start_katsdpingest_docker(
                 beam_ip,
@@ -6495,10 +6500,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1] - ch_list[0]
-            dsim_factor = float(
-                self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
-                "scale_factor_timestamp"
-            )
             substreams = self.cam_sensors.get_value("n_xengs")
             # For substream alignment test only print out 5 results
             align_print_modulo = int(substreams / 4)
@@ -6510,9 +6511,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error("Error Occurred", exc_info=True)
             return False
 
-        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Bandwidth = {}Hz".format(bw * self.dsim_factor))
         self.Progress("Number of channels = {}".format(nr_ch))
-        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * self.dsim_factor))
 
         beam = beams[0]
         try:
@@ -6577,7 +6578,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         beam_ip = int2ip(ip2int(beam_ip) + start_substream)
         # Compute spectrum parameters
         strt_ch_idx = start_substream * ch_per_substream
-        strt_freq = ch_list[strt_ch_idx] * dsim_factor
+        strt_freq = ch_list[strt_ch_idx] * self.dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
         docker_status = self.start_katsdpingest_docker(
             beam_ip,
@@ -7307,9 +7308,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             ants = self.cam_sensors.get_value("n_ants")
             ch_list = self.cam_sensors.ch_center_freqs
             ch_bw = ch_list[1]-ch_list[0]
-            dsim_factor = float(self.conf_file["instrument_params"]["sample_freq"]) / self.cam_sensors.get_value(
-                "scale_factor_timestamp"
-            )
             substreams = self.cam_sensors.get_value("n_xengs")
         except AssertionError:
             errmsg = "%s" % str(reply).replace("\_", " ")
@@ -7319,9 +7317,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error("Error Occurred", exc_info=True)
             return False
 
-        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Bandwidth = {}Hz".format(bw * self.dsim_factor))
         self.Progress("Number of channels = {}".format(nr_ch))
-        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * self.dsim_factor))
 
         beam = beams[beam_idx]
         try:
@@ -7385,7 +7383,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         beam_ip = int2ip(ip2int(beam_ip) + start_substream)
         # Compute spectrum parameters
         strt_ch_idx = start_substream * ch_per_substream
-        strt_freq = ch_list[strt_ch_idx] * dsim_factor
+        strt_freq = ch_list[strt_ch_idx] * self.dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
         docker_status = self.start_katsdpingest_docker(
             beam_ip,
@@ -7598,8 +7596,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             reg_size = 32
             reg_size_max = pow(2, reg_size)
             threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
-            dsim_factor = float(
-                self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
             substreams = self.cam_sensors.get_value("n_bengs")
         except AssertionError:
             self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
@@ -7609,9 +7605,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
             return False
 
-        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Bandwidth = {}Hz".format(bw * self.dsim_factor))
         self.Progress("Number of channels = {}".format(nr_ch))
-        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * self.dsim_factor))
 
 
         def get_beam_data(beam_local, ingest_kcp_client_local, beamdata_dir):
@@ -7876,7 +7872,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 strt_ch_idx = start_substream * ch_per_substream
                 strt_ch = strt_ch_idx
                 stop_ch = strt_ch + ch_per_substream*n_substrms_to_cap_m
-                strt_freq = ch_list[strt_ch_idx] * dsim_factor
+                strt_freq = ch_list[strt_ch_idx] * self.dsim_factor
                 self.Step("Start a KAT SDP docker ingest node for beam captures")
                 if idx == 0:
                     stop_prev_docker = True
@@ -8225,8 +8221,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             reg_size = 32
             reg_size_max = pow(2, reg_size)
             threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
-            dsim_factor = float(
-                self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
             substreams = self.cam_sensors.get_value("n_bengs")
         except AssertionError:
             self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
@@ -8236,9 +8230,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
             return False
 
-        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Bandwidth = {}Hz".format(bw * self.dsim_factor))
         self.Progress("Number of channels = {}".format(nr_ch))
-        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * self.dsim_factor))
 
         beam = beams[beam_idx]
         try:
@@ -8304,7 +8298,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         strt_ch_idx = start_substream * ch_per_substream
         strt_ch = strt_ch_idx
         stop_ch = strt_ch + ch_per_substream*n_substrms_to_cap_m
-        strt_freq = ch_list[strt_ch_idx] * dsim_factor
+        strt_freq = ch_list[strt_ch_idx] * self.dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
         docker_status = self.start_katsdpingest_docker(
             beam_ip,
@@ -8578,8 +8572,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             reg_size = 32
             reg_size_max = pow(2, reg_size)
             threems_in_200mhz_cnt = 0.03*scale_factor_timestamp/8
-            dsim_factor = float(
-                self.conf_file["instrument_params"]["sample_freq"]) / scale_factor_timestamp
             substreams = self.cam_sensors.get_value("n_bengs")
         except AssertionError:
             self.Error("Seems like there was an issue executing katcp requests", exc_info=True)
@@ -8589,9 +8581,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Error(errmsg, exc_info=True)
             return False
 
-        self.Progress("Bandwidth = {}Hz".format(bw * dsim_factor))
+        self.Progress("Bandwidth = {}Hz".format(bw * self.dsim_factor))
         self.Progress("Number of channels = {}".format(nr_ch))
-        self.Progress("Channel spacing = {}Hz".format(ch_bw * dsim_factor))
+        self.Progress("Channel spacing = {}Hz".format(ch_bw * self.dsim_factor))
 
         beam = beams[beam_idx]
         try:
@@ -8657,7 +8649,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         strt_ch_idx = start_substream * ch_per_substream
         strt_ch = strt_ch_idx
         stop_ch = strt_ch + ch_per_substream*n_substrms_to_cap_m
-        strt_freq = ch_list[strt_ch_idx] * dsim_factor
+        strt_freq = ch_list[strt_ch_idx] * self.dsim_factor
         self.Step("Start a KAT SDP docker ingest node for beam captures")
         docker_status = self.start_katsdpingest_docker(
             beam_ip,
@@ -10823,12 +10815,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
         start_object = datetime.strptime(self.start_time[0:19], '%Y-%m-%d %H:%M:%S')
         end_object = datetime.strptime(self.end_time[0:19], '%Y-%m-%d %H:%M:%S')
-        start_unix = str2unix(start_object)
-        end_unix = str2unix(end_object)
-
-        # pstart = '2020-08-13 11:00:00'#dummy pause start time
-        # pend = '2020-08-13 11:20:00'  # dummy pause end time
-        # pstart_object = datetime.datetime.strptime(pstart, '%Y-%m-%d %H:%M:%S')
         # pend_object = datetime.datetime.strptime(pend, '%Y-%m-%d %H:%M:%S')
         # pstart_unix = str2unix(pstart_object)
         # pend_unix = str2unix(pend_object)
