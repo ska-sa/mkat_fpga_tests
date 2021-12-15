@@ -437,7 +437,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -477,33 +477,53 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             test_chan,
                             req_chan_spacing=3265.38, num_discards=num_discards,
                             samples_per_chan=smpl_per_ch,
-                            narrow_band="full"
+                            narrow_band="full", freq_band='lband'
                         )
                     elif "54M32k" in self.instrument:
                         self._test_channelisation(
                             test_chan,
                             req_chan_spacing=1632.69, num_discards=num_discards,
                             samples_per_chan=smpl_per_ch,
-                            narrow_band="half"
+                            narrow_band="half", freq_band='lband'
                         )
-                    elif "32k" in self.instrument:
+                    elif "856M32k" in self.instrument:
                         self._test_channelisation(
                             test_chan,
                             req_chan_spacing=30000, num_discards=num_discards,
-                            samples_per_chan=smpl_per_ch,
+                            samples_per_chan=smpl_per_ch, freq_band='lband'
                         )
-                    elif "4k" in self.instrument:
+                    elif "856M4k" in self.instrument:
                         self._test_channelisation(
                             test_chan,
                             req_chan_spacing=250e3, num_discards=num_discards,
-                            samples_per_chan=smpl_per_ch,
+                            samples_per_chan=smpl_per_ch, freq_band='lband'
                         )
-                    elif "1k" in self.instrument:
+                    elif "856M1k" in self.instrument:
                         self._test_channelisation(
                             test_chan,
                             req_chan_spacing=1000e3, num_discards=num_discards,
-                            samples_per_chan=smpl_per_ch,
+                            samples_per_chan=smpl_per_ch, freq_band='lband'
                         )
+###########################
+                    elif "544M32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=19350, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch, freq_band='uhf'
+                        )
+                    elif "544M4k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=250e3, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch, freq_band='uhf'
+                        )
+                    elif "544M1k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=1000e3, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch, freq_band='uhf'
+                        )
+##########################
                 else:
                     self.Failed(self.errmsg)
 
@@ -611,7 +631,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    @subset
+    #@subset
     @generic_test
     @aqf_vr("CBF.V.3.46")
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
@@ -1277,7 +1297,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     @array_release_x
-    @subset
+    #@subset
     @beamforming
     @aqf_vr("CBF.V.A.IF")
     def test_beam_delay(self):
@@ -2143,19 +2163,23 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #################################################################
 
     def _test_channelisation(self, test_chan=1500, req_chan_spacing=None, 
-            num_discards=5, samples_per_chan=60, narrow_band = None):
+            num_discards=5, samples_per_chan=60, narrow_band = None, freq_band ='lband'):
         # Get baseline 0 data, i.e. auto-corr of m000h
         test_baseline = 0
-        if narrow_band == 'full':
+        if narrow_band == 'full' and freq_band == 'lband':
             # [CBF-REQ-0236]
             min_bandwidth_req = 107e6
-        elif narrow_band == 'half':
+        elif narrow_band == 'half' and freq_band == 'lband':
             # [CBF-REQ-0236]
             min_bandwidth_req = 53.5e6
+        elif freq_band == 'uhf':
+            # [CBF-REQ-0050]
+            min_bandwidth_req = 435e6
         else:
             # [CBF-REQ-0053]
             min_bandwidth_req = 770e6
         nominal_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") * self.dsim_factor
+        import IPython; IPython.embed()
         # [CBF-REQ-0126] CBF channel isolation
         cutoff = 53  # dB
         # Placeholder of actual frequencies that the signal generator produces
