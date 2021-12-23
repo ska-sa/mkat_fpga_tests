@@ -165,12 +165,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             self.katcp_req = None
             assert not self.receiver
-        except AssertionError:
-            self.logger.info("Cleaning up the receiver!!!!")
-            assert not self.receiver
-        except AssertionError:
-            self.logger.info("Cleaning up the receiver!!!!")
-            assert not self.receiver
+        #except AssertionError:
+        #    self.logger.info("Cleaning up the receiver!!!!")
+        #    assert not self.receiver
+        #except AssertionError:
+        #    self.logger.info("Cleaning up the receiver!!!!")
+        #    assert not self.receiver
         except AssertionError:
             self.logger.info("Cleaning up the receiver!!!!")
             #add_cleanup(self.receiver.stop)
@@ -2179,7 +2179,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             # [CBF-REQ-0053]
             min_bandwidth_req = 770e6
         nominal_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") * self.dsim_factor
-        import IPython; IPython.embed()
         # [CBF-REQ-0126] CBF channel isolation
         cutoff = 53  # dB
         # Placeholder of actual frequencies that the signal generator produces
