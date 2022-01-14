@@ -740,12 +740,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @generic_test
     @aqf_vr("CBF.V.4.4")
     @aqf_requirements("CBF-REQ-0087", "CBF-REQ-0225", "CBF-REQ-0104")
-    def test_baseline_correlation_product(self):
+    def test_c_baseline_correlation_product(self):
         Aqf.procedure(TestProcedure.BaselineCorrelation)
-        if 'skipped_test' in test_CBF.__dict__['test_baseline_correlation_product'].__dict__:
+        if 'skipped_test' in test_CBF.__dict__['test_c_baseline_correlation_product'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
-        elif 'tbd' in test_CBF.__dict__['test_baseline_correlation_product'].__dict__:
+        elif 'tbd' in test_CBF.__dict__['test_c_baseline_correlation_product'].__dict__:
             self.Note('Mark test as tbd.')
             Aqf.tbd('Test tbd')
         else:
@@ -1198,12 +1198,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @instrument_4k
     @aqf_vr("CBF.V.3.34")
     @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
-    def test_x_beamforming(self):
+    def test_beamforming(self):
         Aqf.procedure(TestProcedure.Beamformer)
-        if 'skipped_test' in test_CBF.__dict__['test_x_beamforming'].__dict__:
+        if 'skipped_test' in test_CBF.__dict__['test_beamforming'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
-        elif 'tbd' in test_CBF.__dict__['test_x_beamforming'].__dict__:
+        elif 'tbd' in test_CBF.__dict__['test_beamforming'].__dict__:
             self.Note('Mark test as tbd.')
             Aqf.tbd('Test tbd')
         else:
