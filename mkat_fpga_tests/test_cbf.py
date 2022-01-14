@@ -524,6 +524,26 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             samples_per_chan=smpl_per_ch, freq_band='uhf'
                         )
 ##########################
+                    # req_chan_spacing chosen to be the same as L-band
+                    elif "875M32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=30000, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch, freq_band='sband'
+                        )
+                    elif "875M4k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=250e3, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch, freq_band='sband'
+                        )
+                    elif "875M1k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=1000e3, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch, freq_band='sband'
+                        )
+#########################
                 else:
                     self.Failed(self.errmsg)
 
@@ -2175,10 +2195,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         elif freq_band == 'uhf':
             # [CBF-REQ-0050]
             min_bandwidth_req = 435e6
+            # sband REQ TBD
+        elif freq_band == 'sband':
+            min_bandwidth_req = 790e6 #(for now use -10% of total bandwidth)
         else:
             # [CBF-REQ-0053]
             min_bandwidth_req = 770e6
         nominal_bw = self.cam_sensors.get_value("antenna_channelised_voltage_bandwidth") * self.dsim_factor
+<<<<<<< HEAD
+=======
+        #import IPython; IPython.embed()
+>>>>>>> d6c6dbe65162ad1392101503f93f79a1de4ebf3a
         # [CBF-REQ-0126] CBF channel isolation
         cutoff = 53  # dB
         # Placeholder of actual frequencies that the signal generator produces
