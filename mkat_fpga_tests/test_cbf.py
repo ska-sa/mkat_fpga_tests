@@ -719,7 +719,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    @subset
+    #@subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -755,7 +755,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
        #     	pass
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -805,9 +805,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_channels = test_channels[1:]
                 #self.check_dsim_acc_offset()
 
-                self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
+                #self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                self._test_freq_scan_consistency(test_chan, num_discard)
+                #self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -1058,7 +1058,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    @subset
+    #@subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
@@ -1318,7 +1318,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     @array_release_x
-    @subset
+    #@subset
     @beamforming
     @aqf_vr("CBF.V.A.IF")
     def test_beam_delay(self):
@@ -3655,6 +3655,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 no_accs = self.cam_sensors.get_value("baseline_correlation_products_n_accs")
                 return quant_power * no_accs
 
+        self.Note('F-engine SKARABS:\n' +  self.corr_fix.corr_config['fengine']['hosts'])
+        self.Note('X-engine SKARABS:\n' + self.corr_fix.corr_config['xengine']['hosts'])
         heading("Spead Accumulation Back-to-Back Consistency")
         self.Progress("Randomly selected test channels: %s" % (test_channels))
         n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
