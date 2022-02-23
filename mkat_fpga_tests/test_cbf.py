@@ -1058,7 +1058,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @array_release_x
     @generic_test
     @aqf_vr("CBF.V.3.27")
@@ -3829,12 +3829,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     check_vacc = np.where(np.round(baseline_dumps_chval,5) != np.round(expected_val,5))[0]
                     if len(check_vacc) != 0:
                         if num_err_prints != 0:
+                            self.Note("Expected VACC value ({}) is not equal to "
+                                    "measured values for captured accumulations ({}) "
+                                    "for baseline {}, channel {}."
+                                    .format(expected_val, baseline_dumps_chval, bline, chan))
                             self.logger.error("Expected VACC value ({}) is not equal to "
                                     "measured values for captured accumulations ({}) "
                                     "for baseline {}, channel {}."
                                     .format(expected_val, baseline_dumps_chval, bline, chan))
                             num_err_prints -= 1
                         else:
+                            self.Note("Expected VACC value ({}) is not equal to "
+                                    "measured values for captured accumulations ({}) "
+                                    "for baseline {}, channel {}."
+                                    .format(expected_val, baseline_dumps_chval, bline, chan))
                             self.logger.error("Expected VACC value ({}) is not equal to "
                                     "measured values for captured accumulations ({}) "
                                     "for baseline {}, channel {}."
