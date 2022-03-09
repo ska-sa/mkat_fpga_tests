@@ -13,6 +13,7 @@ from __future__ import division
 
 import gc
 import glob
+import json
 import os
 import Queue
 import random
@@ -31,6 +32,7 @@ from datetime import datetime
 
 from nose.plugins.attrib import get_method_attr
 
+import casperfpga
 import corr2
 import katcp
 import h5py
@@ -719,7 +721,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    @subset
+    #@subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -1318,7 +1320,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     @array_release_x
-    @subset
+    #@subset
     @beamforming
     @aqf_vr("CBF.V.A.IF")
     def test_beam_delay(self):
@@ -6009,15 +6011,94 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 self.Failed("Could not find file: {}".format(fname))
                 return ("File not found")
 
+        def fpg_compile_parameters(bitstream_path):
+            """Verify compile parameters in fpg/bitstream file are correct.
+
+            Parameters
+            ----------
+
+            bitstream_path : str
+                Absolute path of fpg/bitstream file
+
+            """
+            with open('compile_parameters.json', 'r') as json_file:
+                json_dict = json.load(json_file)
+            bitstream_filename = os.path.basename(bitstream_path)
+            fpg_param = casperfpga.casperfpga.parse_fpg(bitstream_path)[0]['77777']
+
+            if re.search('s_c', bitstream_filename): #f-engine bitstreams
+                try:
+                    self.Progress("Compile Parameters of %s:" % (bitstream_filename))
+                    fft_stages_default = int(json_dict[bitstream_filename]['fft_stages'])
+                    n_bits_xengs_default = int(json_dict[bitstream_filename]['n_bits_xengs'])
+                    
+                    fft_stages_fpg = int(fpg_param['fft_stages'])
+                    n_bits_xengs_fpg = int(fpg_param['n_bits_xengs'])
+                    
+                    self.Progress("fft_stages = %s (%s)" % (fft_stages_fpg, fft_stages_default))
+                    self.Progress("n_bits_xengs = %s (%s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
+
+                    self.assertEqual(fft_stages_fpg, fft_stages_default, 'fft_stages parameter incorrect.')
+                    self.assertEqual(n_bits_xengs_fpg, n_bits_xengs_default, 'n_bits_xengs parameter incorrect.')
+                except AssertionError:
+                    self.Failed("FPG runtime compile parameters are incorrect.")
+            elif re.search('s_b', bitstream_filename): #x/b-engine bitstreams 
+                if re.search('_nb|_54', bitstream_filename): #narrowband x/b-engine bitstreams
+                    try:
+                        self.Progress("Compile Parameters of %s:" % (bitstream_filename))
+                        fft_stages_default = int(json_dict[bitstream_filename]['fft_stages'])
+                        n_bits_xengs_default = int(json_dict[bitstream_filename]['n_bits_xengs']) 
+                        n_bits_ants_default = int(json_dict[bitstream_filename]['n_bits_ants'])
+                        
+                        fft_stages_fpg = int(fpg_param['fft_stages'])
+                        n_bits_xengs_fpg = int(fpg_param['n_bits_xengs'])
+                        n_bits_ants_fpg = int(fpg_param['n_bits_ants'])
+                        
+                        self.Progress("fft_stages = %s (%s)" % (fft_stages_fpg, fft_stages_default))
+                        self.Progress("n_bits_xengs = %s (%s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
+                        self.Progress("n_bits_ants = %s (%s)" % (n_bits_ants_fpg, n_bits_ants_default))
+                        
+                        self.assertEqual(fft_stages_fpg, fft_stages_default, 'fft_stages parameter incorrect.')
+                        self.assertEqual(n_bits_xengs_fpg, n_bits_xengs_default, 'n_bits_xengs parameter incorrect.')
+                        self.assertEqual(n_bits_ants_fpg, n_bits_ants_default, 'n_bits_ants parameter incorrect.')
+                    except AssertionError:
+                        self.Failed("FPG runtime compile parameters are incorrect.")
+                elif not re.search('_nb|_54', bitstream_filename): #wideband x/b-engine bitstreams
+                    try:
+                        self.Progress("Compile Parameters of %s:" % (bitstream_filename))
+                        fft_stages_default = int(json_dict[bitstream_filename]['fft_stages'])
+                        n_bits_xengs_default = int(json_dict[bitstream_filename]['n_bits_xengs'])
+                        n_bits_ants_default = int(json_dict[bitstream_filename]['n_bits_ants'])
+                        n_bits_beams_default = int(json_dict[bitstream_filename]['n_bits_beams'])
+                        
+                        fft_stages_fpg = int(fpg_param['fft_stages'])
+                        n_bits_xengs_fpg = int(fpg_param['n_bits_xengs'])
+                        n_bits_ants_fpg = int(fpg_param['n_bits_ants'])
+                        n_bits_beams_fpg = int(fpg_param['n_bits_beams'])
+
+                        self.Progress("fft_stages = %s (%s)" % (fft_stages_fpg, fft_stages_default))
+                        self.Progress("n_bits_xengs = %s (%s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
+                        self.Progress("n_bits_ants = %s (%s)" % (n_bits_ants_fpg, n_bits_ants_default))
+                        self.Progress("n_bits_beams = %s (%s)" % (n_bits_beams_fpg, n_bits_beams_default))
+
+                        self.assertEqual(fft_stages_fpg, fft_stages_default, 'fft_stages parameter incorrect.')
+                        self.assertEqual(n_bits_xengs_fpg, n_bits_xengs_default, 'n_bits_xengs parameter incorrect.')
+                        self.assertEqual(n_bits_ants_fpg, n_bits_ants_default, 'n_bits_ants parameter incorrect.')
+                        self.assertEqual(n_bits_beams_fpg, n_bits_beams_default, 'n_bits_beams parameter incorrect.')
+                    except AssertionError:
+                        self.Failed("FPG runtime compile parameters are incorrect.")
+
         def get_gateware_info():
             f_bitstream = self.cam_sensors.get_value('fengine_bitstream') 
             x_bitstream = self.cam_sensors.get_value('xengine_bitstream') 
             self.Progress("F-ENGINE (CBF) - M1200-0064:")
             self.Progress("Bitstream filename: {}".format(f_bitstream))
             self.Progress("Bitstream md5sum:   {}".format(md5(f_bitstream)))
+            fpg_compile_parameters(f_bitstream);
             self.Progress("X/B-ENGINE (CBF) - M1200-0067:")
             self.Progress("Bitstream filename: {}".format(x_bitstream))
             self.Progress("Bitstream md5sum:   {}".format(md5(x_bitstream)))
+            fpg_compile_parameters(x_bitstream);
             try:
                 reply, informs = self.katcp_req.version_list()
                 self.assertTrue(reply.reply_ok())
