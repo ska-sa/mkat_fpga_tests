@@ -577,6 +577,32 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
+    #@skipped_test
+    @subset
+    @array_release_x
+    @generic_test
+    @aqf_vr("CBF.V.3.27")
+    @aqf_requirements("CBF-REQ-0178")
+    def test_c_report_configuration(self):
+        Aqf.procedure(TestProcedure.ReportConfiguration)
+        if 'skipped_test' in test_CBF.__dict__['test_c_report_configuration'].__dict__:
+            self.Note('Mark test as skipped.')
+            Aqf.skipped('Test skipped')
+        elif 'tbd' in test_CBF.__dict__['test_c_report_configuration'].__dict__:
+            self.Note('Mark test as tbd.')
+            Aqf.tbd('Test tbd')
+        else:
+            try:
+                assert evaluate(os.getenv("DRY_RUN", "False"))
+            except AssertionError:
+                instrument_success = self.set_instrument(start_receiver=False)
+                if instrument_success:
+                    self._test_report_config()
+                else:
+                    self.Failed(self.errmsg)
+
+
+    #@tbd
     #@subset
     #@skipped_test
     @slow
@@ -653,7 +679,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@subset
+    @subset
     @generic_test
     @aqf_vr("CBF.V.3.46")
     @aqf_requirements("CBF-REQ-0164", "CBF-REQ-0191")
@@ -721,7 +747,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -929,7 +955,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -1058,30 +1084,30 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 else:
                     self.Failed(self.errmsg)
 
-    #@tbd
-    #@skipped_test
-    @subset
-    @array_release_x
-    @generic_test
-    @aqf_vr("CBF.V.3.27")
-    @aqf_requirements("CBF-REQ-0178")
-    def test_report_configuration(self):
-        Aqf.procedure(TestProcedure.ReportConfiguration)
-        if 'skipped_test' in test_CBF.__dict__['test_report_configuration'].__dict__:
-            self.Note('Mark test as skipped.')
-            Aqf.skipped('Test skipped')
-        elif 'tbd' in test_CBF.__dict__['test_report_configuration'].__dict__:
-            self.Note('Mark test as tbd.')
-            Aqf.tbd('Test tbd')
-        else:
-            try:
-                assert evaluate(os.getenv("DRY_RUN", "False"))
-            except AssertionError:
-                instrument_success = self.set_instrument(start_receiver=False)
-                if instrument_success:
-                    self._test_report_config()
-                else:
-                    self.Failed(self.errmsg)
+    ##@tbd
+    ##@skipped_test
+    #@subset
+    #@array_release_x
+    #@generic_test
+    #@aqf_vr("CBF.V.3.27")
+    #@aqf_requirements("CBF-REQ-0178")
+    #def test_report_configuration(self):
+    #    Aqf.procedure(TestProcedure.ReportConfiguration)
+    #    if 'skipped_test' in test_CBF.__dict__['test_report_configuration'].__dict__:
+    #        self.Note('Mark test as skipped.')
+    #        Aqf.skipped('Test skipped')
+    #    elif 'tbd' in test_CBF.__dict__['test_report_configuration'].__dict__:
+    #        self.Note('Mark test as tbd.')
+    #        Aqf.tbd('Test tbd')
+    #    else:
+    #        try:
+    #            assert evaluate(os.getenv("DRY_RUN", "False"))
+    #        except AssertionError:
+    #            instrument_success = self.set_instrument(start_receiver=False)
+    #            if instrument_success:
+    #                self._test_report_config()
+    #            else:
+    #                self.Failed(self.errmsg)
 
     #@tbd
     #@subset
@@ -1109,7 +1135,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -1320,7 +1346,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     @array_release_x
-    #@subset
+    @subset
     @beamforming
     @aqf_vr("CBF.V.A.IF")
     def test_beam_delay(self):
@@ -6035,13 +6061,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     fft_stages_fpg = int(fpg_param['fft_stages'])
                     n_bits_xengs_fpg = int(fpg_param['n_bits_xengs'])
                     
-                    self.Progress("fft_stages = %s (%s)" % (fft_stages_fpg, fft_stages_default))
-                    self.Progress("n_bits_xengs = %s (%s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
+                    self.Progress("fft_stages = %s (expected: %s)" % (fft_stages_fpg, fft_stages_default))
+                    self.Progress("n_bits_xengs = %s (expected: %s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
 
                     self.assertEqual(fft_stages_fpg, fft_stages_default, 'fft_stages parameter incorrect.')
                     self.assertEqual(n_bits_xengs_fpg, n_bits_xengs_default, 'n_bits_xengs parameter incorrect.')
+                    return True
                 except AssertionError:
                     self.Failed("FPG runtime compile parameters are incorrect.")
+                    return False
             elif re.search('s_b', bitstream_filename): #x/b-engine bitstreams 
                 if re.search('_nb|_54', bitstream_filename): #narrowband x/b-engine bitstreams
                     try:
@@ -6054,15 +6082,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         n_bits_xengs_fpg = int(fpg_param['n_bits_xengs'])
                         n_bits_ants_fpg = int(fpg_param['n_bits_ants'])
                         
-                        self.Progress("fft_stages = %s (%s)" % (fft_stages_fpg, fft_stages_default))
-                        self.Progress("n_bits_xengs = %s (%s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
-                        self.Progress("n_bits_ants = %s (%s)" % (n_bits_ants_fpg, n_bits_ants_default))
+                        self.Progress("fft_stages = %s (expected: %s)" % (fft_stages_fpg, fft_stages_default))
+                        self.Progress("n_bits_xengs = %s (expected: %s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
+                        self.Progress("n_bits_ants = %s (expected: %s)" % (n_bits_ants_fpg, n_bits_ants_default))
                         
                         self.assertEqual(fft_stages_fpg, fft_stages_default, 'fft_stages parameter incorrect.')
                         self.assertEqual(n_bits_xengs_fpg, n_bits_xengs_default, 'n_bits_xengs parameter incorrect.')
                         self.assertEqual(n_bits_ants_fpg, n_bits_ants_default, 'n_bits_ants parameter incorrect.')
+                        return True
                     except AssertionError:
                         self.Failed("FPG runtime compile parameters are incorrect.")
+                        return False
                 elif not re.search('_nb|_54', bitstream_filename): #wideband x/b-engine bitstreams
                     try:
                         self.Progress("Compile Parameters of %s:" % (bitstream_filename))
@@ -6076,17 +6106,19 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         n_bits_ants_fpg = int(fpg_param['n_bits_ants'])
                         n_bits_beams_fpg = int(fpg_param['n_bits_beams'])
 
-                        self.Progress("fft_stages = %s (%s)" % (fft_stages_fpg, fft_stages_default))
-                        self.Progress("n_bits_xengs = %s (%s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
-                        self.Progress("n_bits_ants = %s (%s)" % (n_bits_ants_fpg, n_bits_ants_default))
-                        self.Progress("n_bits_beams = %s (%s)" % (n_bits_beams_fpg, n_bits_beams_default))
+                        self.Progress("fft_stages = %s (expected: %s)" % (fft_stages_fpg, fft_stages_default))
+                        self.Progress("n_bits_xengs = %s (expected: %s)" % (n_bits_xengs_fpg, n_bits_xengs_default))
+                        self.Progress("n_bits_ants = %s (expected: %s)" % (n_bits_ants_fpg, n_bits_ants_default))
+                        self.Progress("n_bits_beams = %s (expected: %s)" % (n_bits_beams_fpg, n_bits_beams_default))
 
                         self.assertEqual(fft_stages_fpg, fft_stages_default, 'fft_stages parameter incorrect.')
                         self.assertEqual(n_bits_xengs_fpg, n_bits_xengs_default, 'n_bits_xengs parameter incorrect.')
                         self.assertEqual(n_bits_ants_fpg, n_bits_ants_default, 'n_bits_ants parameter incorrect.')
                         self.assertEqual(n_bits_beams_fpg, n_bits_beams_default, 'n_bits_beams parameter incorrect.')
+                        return True
                     except AssertionError:
                         self.Failed("FPG runtime compile parameters are incorrect.")
+                        return False
 
         def get_gateware_info():
             f_bitstream = self.cam_sensors.get_value('fengine_bitstream') 
@@ -6094,11 +6126,17 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Progress("F-ENGINE (CBF) - M1200-0064:")
             self.Progress("Bitstream filename: {}".format(f_bitstream))
             self.Progress("Bitstream md5sum:   {}".format(md5(f_bitstream)))
-            fpg_compile_parameters(f_bitstream);
+            feng_parameters = fpg_compile_parameters(f_bitstream);
             self.Progress("X/B-ENGINE (CBF) - M1200-0067:")
             self.Progress("Bitstream filename: {}".format(x_bitstream))
             self.Progress("Bitstream md5sum:   {}".format(md5(x_bitstream)))
-            fpg_compile_parameters(x_bitstream);
+            xeng_parameters = fpg_compile_parameters(x_bitstream);
+            if feng_parameters and xeng_parameters:
+                print "All parameters passed!"
+                sys.exit("FPG runtime compile parameters are incorrect. Halting test.")
+            else:
+                print "Parameters incorrect!"
+                sys.exit("FPG runtime compile parameters are incorrect. Halting test.")
             try:
                 reply, informs = self.katcp_req.version_list()
                 self.assertTrue(reply.reply_ok())
