@@ -21,7 +21,7 @@
      },
      "s_c856m32k.fpg": {
        "fft_stages":"16",
-       "n_bits_xengs":"4"
+       "n_bits_xengs":"8"
      },
      "s_b4a4x32kf.fpg": {
        "fft_stages":"16",
