@@ -438,7 +438,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    @subset
+    #@subset
     @array_release_x
     @instrument_1k
     @instrument_4k
@@ -720,7 +720,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    #@subset
+    @subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -739,6 +739,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
+                heading("CBF Linearity")
                 instrument_success = self.set_instrument()
                 if instrument_success:
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
@@ -927,7 +928,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Failed(self.errmsg)
 
     #@tbd
-    @subset
+    #@subset
     #@skipped_test
     @array_release_x
     @generic_test
@@ -1357,6 +1358,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 assert evaluate(os.getenv("DRY_RUN", "False"))
                 
             except AssertionError:
+                heading("Beamformer Steering Functionality")
                 instrument_success = self.set_instrument(start_receiver = False)
                 if instrument_success:
                     self._test_beam_delay()
