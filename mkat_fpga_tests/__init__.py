@@ -58,6 +58,17 @@ def teardown_package():
         except BaseException:
             RuntimeError("Exception calling cleanup fn")
 
+def _ping(host):
+    try:
+        response = subprocess.check_output(
+            ['ping', '-c', '1', host],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+    except subprocess.CalledProcessError:
+        response = None
+    return response
+
 
 class CorrelatorFixture(Logger.LoggingClass):
 
@@ -172,23 +183,34 @@ class CorrelatorFixture(Logger.LoggingClass):
         if self._dhost is not None:
             return self._dhost
         else:
-            retries = 4
+            retries = 10
+            ping_retries = 10
             while True:
                 try:
+                    #Check that the dsim host is alive
+                    response = _ping(self.dsim_conf["host"])
+                    assert response
+                    assert (response.find("0% packet loss") != -1)
                     self._dhost = FpgaDsimHost(
                         self.dsim_conf["host"], config=self.dsim_conf, transport=SkarabTransport,
-                        #logger=self.logger
                         )
                     self._dhost.get_system_information(filename=self.dsim_conf['bitstream'])
                     break
+                except AssertionError:
+                    self.logger.warn("Cannot ping skarab, backing off and trying again")
+                    if ping_retries == 0:
+                        sys.exit(errmsg)
+                    else:
+                        time.sleep(60)
+                        ping_retries -= 1
                 except Exception as e:
                     errmsg = ("Digitiser Simulator failed to retrieve information, "
                             "{} retries left: {}".format(retries, e))
                     self.logger.exception(errmsg)
-                    if retries ==0:
+                    if retries == 0:
                         sys.exit(errmsg)
                     else:
-                        retries -=1
+                        retries -= 1
             # Check if D-eng is running else start it.
             if self._dhost.is_running() and self._dhost.test_connection():
                 self.logger.info("D-Eng is already running.")
