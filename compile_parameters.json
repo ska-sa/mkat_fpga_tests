@@ -1,0 +1,162 @@
+{
+     "s_c856m1k.fpg": {
+       "fft_stages":"11",
+       "n_bits_xengs":"8"
+     },
+     "s_b4a4x1kf.fpg": {
+       "fft_stages":"11",
+       "n_bits_xengs":"4",
+       "n_bits_beams":"2",
+       "n_bits_ants": "2"
+     },
+     "s_c856m4k.fpg": {
+       "fft_stages":"13",
+       "n_bits_xengs":"8"
+     },
+     "s_b4a4x4kf.fpg": {
+       "fft_stages":"13",
+       "n_bits_xengs":"4",
+       "n_bits_beams":"2",
+       "n_bits_ants": "2"
+     },
+     "s_c856m32k.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"8"
+     },
+     "s_b4a4x32kf.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"4",
+       "n_bits_beams":"2",
+       "n_bits_ants": "2"
+     },
+     "s_c107m32k.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"4"
+     },
+     "s_b4a4x32kf_nb.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"2",
+       "n_bits_ants": "2"
+     },
+     "s_c53m32k.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"4"
+     },
+     "s_b4a4x32kf_54.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"2",
+       "n_bits_ants": "2"
+     },
+     "s_b8a4x1kf.fpg": {
+       "fft_stages":"11",
+       "n_bits_xengs":"5",
+       "n_bits_beams":"2",
+       "n_bits_ants": "3"
+     },
+     "s_b8a4x4kf.fpg": {
+       "fft_stages":"13",
+       "n_bits_xengs":"5",
+       "n_bits_beams":"2",
+       "n_bits_ants": "3"
+     },
+     "s_b8a4x32kf.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"5",
+       "n_bits_beams":"2",
+       "n_bits_ants": "3"
+     },
+     "s_b8a4x32kf_nb.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"2",
+       "n_bits_ants": "3"
+     },
+     "s_b8a4x32kf_54.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"2",
+       "n_bits_ants": "3"
+     },
+     "s_b16a4x1kf.fpg": {
+       "fft_stages":"11",
+       "n_bits_xengs":"6",
+       "n_bits_beams":"2",
+       "n_bits_ants": "4"
+     },
+     "s_b16a4x4kf.fpg": {
+       "fft_stages":"13",
+       "n_bits_xengs":"6",
+       "n_bits_beams":"2",
+       "n_bits_ants": "4"
+     },
+     "s_b16a4x32kf.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"6",
+       "n_bits_beams":"2",
+       "n_bits_ants": "4"
+     },
+     "s_b16a4x32kf_nb.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"3",
+       "n_bits_ants": "4"
+     },
+     "s_b16a4x32kf_54.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"2",
+       "n_bits_ants": "4"
+     },
+     "s_b32a4x1kf.fpg": {
+       "fft_stages":"11",
+       "n_bits_xengs":"7",
+       "n_bits_beams":"2",
+       "n_bits_ants": "5"
+     },
+     "s_b32a4x4kf.fpg": {
+       "fft_stages":"13",
+       "n_bits_xengs":"7",
+       "n_bits_beams":"2",
+       "n_bits_ants": "5"
+     },
+     "s_b32a4x32kf.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"7",
+       "n_bits_beams":"2",
+       "n_bits_ants": "5"
+     },
+     "s_b32a4x32kf_nb.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"4",
+       "n_bits_ants": "5"
+     },
+     "s_b32a4x32kf_54.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"3",
+       "n_bits_ants": "5"
+     },
+     "s_b64a4x1kf.fpg": {
+       "fft_stages":"11",
+       "n_bits_xengs":"8",
+       "n_bits_beams":"2",
+       "n_bits_ants": "6"
+     },
+     "s_b64a4x4kf.fpg": {
+       "fft_stages":"13",
+       "n_bits_xengs":"8",
+       "n_bits_beams":"2",
+       "n_bits_ants": "6"
+     },
+     "s_b64a4x32kf.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"8",
+       "n_bits_beams":"2",
+       "n_bits_ants": "6"
+     },
+     "s_b64a4x32kf_nb.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"5",
+       "n_bits_ants": "6"
+     },
+     "s_b64a4x32kf_54.fpg": {
+       "fft_stages":"16",
+       "n_bits_xengs":"4",
+       "n_bits_ants": "6"
+     }
+}
