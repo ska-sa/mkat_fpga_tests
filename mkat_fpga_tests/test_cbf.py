@@ -1328,7 +1328,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @instrument_1k
     @instrument_4k
     @aqf_vr("CBF.V.3.34")
-    @aqf_requirements("CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0123", "CBF-REQ-0183")
+    @aqf_requirements("CBF-REQ-0076", "CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0122", "CBF-REQ-0123", "CBF-REQ-0183", "CBF-REQ-0220")
     def test_beamforming(self):
         Aqf.procedure(TestProcedure.Beamformer)
         if 'skipped_test' in test_CBF.__dict__['test_beamforming'].__dict__:
@@ -1431,7 +1431,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @array_release_x
     #@subset
     @beamforming
-    @aqf_vr("CBF.V.A.IF")
+    @aqf_vr("CBF.V.3.34")
+    @aqf_requirements("CBF-REQ-0076", "CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0122", "CBF-REQ-0123", "CBF-REQ-0183", "CBF-REQ-0220")
     def test_beam_delay(self):
         Aqf.procedure(TestProcedure.BeamDelay)
         try:
