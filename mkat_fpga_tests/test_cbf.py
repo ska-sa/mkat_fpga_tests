@@ -1350,7 +1350,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #@tbd
     #@subset
     #@skipped_test
-    #@array_release_x
+    @array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -1377,7 +1377,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@tbd
     #@skipped_test
-    #@array_release_x
+    @array_release_x
     @beamforming
     # @wipd  # Test still under development, Alec will put it under test_informal
     @instrument_1k
@@ -1404,7 +1404,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #@tbd
     #@subset
     #@skipped_test
-    #@array_release_x
+    @array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
