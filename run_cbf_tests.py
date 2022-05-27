@@ -825,7 +825,7 @@ def generate_sphinx_docs(settings):
                 else:
                     with open('docs/rev_status.json','r') as f: # get rev status no. from json file
                         data = json.load(f)
-                        _document_rel = data[settings.get("system_type", "Unknown")]
+                        _document_rel = data[settings.get("system_type", "Unknown").split('_')[0]]
             except Exception:
                 logger.exception("Error retrieving QTR revision status")
                 _document_rel = "X"
