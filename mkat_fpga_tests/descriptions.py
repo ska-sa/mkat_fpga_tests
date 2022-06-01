@@ -617,15 +617,21 @@ class TestProcedure:
         3. Set a predetermined accumulation period
             - Confirm it has been set via CAM interface.
         4. Retrieve current instrument parameters.
-        5. Select two beams randomly from the set of advertised beam data products.
-        6. Request beamformer level adjust gain
-        7. Set inputs to desired weights and,
-            - Confirm that the input weight has been set to the desired weight.
-        8. Capture beam tied-array data.
-        9. Multiply the un-delayed beam with the complex conjugate of the delayed beam and calculate the angle of the resulting vector.
-        10. Calculate expected value of the phase slope for the selected delay value. 
-        11. Confirm that the expected phase slope matches the measured phase slope withing specified margin.
-        12. Repeat steps 8 to 11 for phase offset.
+        5. Select two beams randomly from the set of advertised beam data products. One reference beam and one beam under test.
+        6. Set beamformer level and adjust gain to 1 for both beams.
+        7. Set weight to 1 for the first antenna and 0 for the rest for both beams.
+            - Confirm that the input weight has been set correctly.
+        8. Beam capture and test procedure:
+            a. Set beam delay and phase to zero for the reference beam and to the required value for the beam under test.
+            b. Capture beam tied-array data
+            c. Multiply the un-delayed beam with the complex conjugate of the delayed beam and calculate the angle of the resulting vector.
+            d. Calculate expected value of the phase slope for the selected delay value.
+            e. Confirm that the expected phase slope matches the measured phase slope within specified margin.
+        9. Repeat the beam capture and test procedure for the following scenarios:
+            a. Beam delay resolution: Set beam delay in steps of the required resolution to verify beam delay resolution is achieved.
+            b. Set a beam delay larger than the sampling period and verify.
+            c. Beam phase resolution: Set beam phase in steps of the required phase to verify beam phase resolution is achieved.
+            d. Set a beam phase of larger than 1 radian and verify.
         """
         return _description
 
