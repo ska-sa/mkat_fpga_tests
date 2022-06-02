@@ -906,9 +906,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_channels = test_channels[1:]
                 #self.check_dsim_acc_offset()
 
-                self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
+                #self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                self._test_freq_scan_consistency(test_chan, num_discard)
+                #self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -3856,7 +3856,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     dumps_comp = np.diff(dumps_data, axis=0)
                     dumps_comp_max = np.max(dumps_comp)
                     if dumps_comp_max == 0: break
-                    self.hop('Dumps found to not be equal for channel {}, trying again'.format(chan))
+                    Aqf.hop('Dumps found to not be equal for channel {}, trying again'.format(chan))
                 except:
                     pass
 
@@ -8027,6 +8027,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if num_cap_runs_mod: 
                     num_capture_runs += 1
                 cap_phases = np.asarray([])
+                num_prints = 3
+                print_cnt = 0
                 for cap in range(num_capture_runs):
                     while True:
                         if (cap == num_capture_runs-1) and num_cap_runs_mod:
@@ -8102,12 +8104,30 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             cap_retries -= 1
                             self.logger.warn('Bad beam data captured, retrying {} more times...'.format(cap_retries))
                         else:
-                            if delay_test:
-                                self.Step('Capturing channels {} to {}, capture {} of {} for applied delay of {} ns/s'
-                                        ''.format(strt_ch,stop_ch,cap,num_capture_runs,delay))
+                            if print_cnt < num_prints:
+                                print_output = True
+                            elif print_cnt == num_prints:
+                                Aqf.hop("...")
+                                print_output = False
+                            elif print_cnt >= (num_capture_runs-num_prints):
+                                print_output = True
                             else:
-                                self.Step('Capturing channels {} to {}, capture {} of {} for applied phase offset of {} radians'
-                                        ''.format(strt_ch,stop_ch,cap,num_capture_runs,delay))
+                                print_output = False
+                            print_cnt+=1
+                            if delay_test:
+                                if print_output:
+                                    Aqf.hop('Capturing channels {} to {}, capture {} of {} for applied delay of {} ns/s'
+                                            ''.format(strt_ch,stop_ch,cap,num_capture_runs,delay))
+                                else:
+                                    self.logger.info('Capturing channels {} to {}, capture {} of {} for applied delay of {} ns/s'
+                                            ''.format(strt_ch,stop_ch,cap,num_capture_runs,delay))
+                            else:
+                                if print_output:
+                                    Aqf.hop('Capturing channels {} to {}, capture {} of {} for applied phase offset of {} radians'
+                                            ''.format(strt_ch,stop_ch,cap,num_capture_runs,delay))
+                                else:
+                                    self.logger.info('Capturing channels {} to {}, capture {} of {} for applied phase offset of {} radians'
+                                            ''.format(strt_ch,stop_ch,cap,num_capture_runs,delay))
                             cap_phases = np.concatenate((cap_phases, b0_b1_angle[strt_ch:stop_ch]),axis=0)
                             break
 
