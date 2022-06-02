@@ -1404,7 +1404,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #@tbd
     #@subset
     #@skipped_test
-    #@array_release_x
+    @array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
