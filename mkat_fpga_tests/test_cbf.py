@@ -1421,6 +1421,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
+                heading("Group Delay")
                 instrument_success = self.set_instrument(start_receiver = False)
                 if instrument_success:
                     self._test_group_delay()
