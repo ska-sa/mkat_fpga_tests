@@ -564,6 +564,7 @@ def generate_sphinx_docs(settings):
 
        katreport/cbf_timescale_unlinked_qualification_results.rst
        katreport/katreport_system.rst
+       katreport/appendix.rst
     """
 
     def verbose_cmd_exec(log_level, cmd):

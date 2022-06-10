@@ -1165,6 +1165,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.clear_all_delays()
                 else:
                     self.Failed(self.errmsg)
+                self.Note("Refer to Appendix for analysis of delay tracking performance.")
 
     #@tbd
     #@skipped_test
@@ -1430,7 +1431,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@skipped_test
     @array_release_x
-    #@subset
+    @subset
     @beamforming
     @aqf_vr("CBF.V.3.34")
     @aqf_requirements("CBF-REQ-0076", "CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0122", "CBF-REQ-0123", "CBF-REQ-0183", "CBF-REQ-0220")
@@ -1466,7 +1467,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self._test_beam_delay()
                 else:
                     self.Failed(self.errmsg)
-    
+                self.Note("Refer to Appendix for analysis of beam steering performance.")
 
     #def test_beam_steering(self):
     #    Aqf.procedure(TestProcedure.GroupDelay)
