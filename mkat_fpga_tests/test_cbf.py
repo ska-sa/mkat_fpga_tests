@@ -1342,6 +1342,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))
             except AssertionError:
+                heading("Beamformer Functionality")
                 instrument_success = self.set_instrument(start_receiver = False)
                 if instrument_success:
                     self._test_beamforming()
@@ -1431,7 +1432,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
     #@skipped_test
     @array_release_x
-    @subset
+    #@subset
     @beamforming
     @aqf_vr("CBF.V.3.34")
     @aqf_requirements("CBF-REQ-0076", "CBF-REQ-0094", "CBF-REQ-0117", "CBF-REQ-0118", "CBF-REQ-0122", "CBF-REQ-0123", "CBF-REQ-0183", "CBF-REQ-0220")
@@ -1454,8 +1455,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Note('Mark test as tbd.')
             Aqf.tbd('Test tbd')
         elif len(beams) < 3:
-            self.Note('Current running instrument does not contain multiple beams. Mark test as skipped.')
-            Aqf.skipped('Test skipped')
+            self.Note('Current running instrument does not contain multiple beams. Skipping beam delay test.')
         else:
             try:
                 assert evaluate(os.getenv("DRY_RUN", "False"))

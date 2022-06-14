@@ -541,31 +541,60 @@ def generate_sphinx_docs(settings):
     """
     # ------------------------------------------------------
     # QTR Index data file
-    _Index_QTR = """
-    .. toctree::
-       :maxdepth: 5
-       :hidden:
+
+    if os.path.exists('katreport/appendix.rst'):
+        _Index_QTR = """
+        .. toctree::
+           :maxdepth: 5
+           :hidden:
 
 
-    .. _kattests:
+        .. _kattests:
 
-    .. _conventions: http://sphinx.pocoo.org/rest.html
+        .. _conventions: http://sphinx.pocoo.org/rest.html
 
-    .. role:: red
-    .. role:: darkred
-    .. role:: fuchsia
-    .. role:: orange
-    .. role:: blue
-    .. role:: green
-    .. role:: yellow
+        .. role:: red
+        .. role:: darkred
+        .. role:: fuchsia
+        .. role:: orange
+        .. role:: blue
+        .. role:: green
+        .. role:: yellow
 
-    .. toctree::
-       :glob:
+        .. toctree::
+           :glob:
 
-       katreport/cbf_timescale_unlinked_qualification_results.rst
-       katreport/katreport_system.rst
-       katreport/appendix.rst
-    """
+           katreport/cbf_timescale_unlinked_qualification_results.rst
+           katreport/katreport_system.rst
+           katreport/appendix.rst
+        """
+        logger.info("Appendix included in QTR.")
+    else:
+        _Index_QTR = """
+        .. toctree::
+           :maxdepth: 5
+           :hidden:
+
+
+        .. _kattests:
+
+        .. _conventions: http://sphinx.pocoo.org/rest.html
+
+        .. role:: red
+        .. role:: darkred
+        .. role:: fuchsia
+        .. role:: orange
+        .. role:: blue
+        .. role:: green
+        .. role:: yellow
+
+        .. toctree::
+           :glob:
+
+           katreport/cbf_timescale_unlinked_qualification_results.rst
+           katreport/katreport_system.rst
+        """
+        logger.info("Appendix omitted in QTR.")
 
     def verbose_cmd_exec(log_level, cmd):
         if settings.get("log_level") == log_level:
