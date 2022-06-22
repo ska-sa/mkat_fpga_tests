@@ -1010,7 +1010,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if instrument_success:
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                     center_ch = int(n_chans/2)
-                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument) or ("68M32k" in self.instrument) or ("34M32k" in self.instrument))
                             and (self.start_channel == 0)):
                         check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
@@ -1130,7 +1130,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 inst = self.cam_sensors.get_value("instrument_state").split("_")[0]
                 check_strt_ch = None
                 check_stop_ch = None
-                if ("107M32k" in inst) or ("54M32k" in inst):
+                if ("107M32k" in inst) or ("54M32k" in inst) or ("68M32k" in inst) or ("34M32k" in inst):
                     instrument_success = self.set_instrument(2)
                     # If the full band is capture, set the part of band that should be checked
                     if self.start_channel == 0 and self.stop_channel == 32768:
@@ -6550,7 +6550,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         test_input = random.choice(self.cam_sensors.input_labels)
         self.Step("Randomly selected input to test: %s" % (test_input))
         n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-        if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+        if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument) or ("68M32k" in self.instrument) or ("34M32k" in self.instrument))
                 and (self.start_channel == 0)):
             check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
             check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
