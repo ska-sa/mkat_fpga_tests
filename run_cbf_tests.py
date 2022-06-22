@@ -796,6 +796,46 @@ def generate_sphinx_docs(settings):
                     "M1200-0000-061-20",
                     "128 Antenna System running in Wideband Fine (32K) mode",
                 ],
+                "bc8n68M32k": [
+                    "M1200-0000-061-21",
+                    "4 Antenna System running in Narrowband Full Fine (32K) mode",
+                ],
+                "bc16n68M32k": [
+                    "M1200-0000-061-22",
+                    "8 Antenna System running in Narrowband Full Fine (32K) mode",
+                ],
+                "bc32n68M32k": [
+                    "M1200-0000-061-23",
+                    "16 Antenna System running in Narrowband Full Fine (32K) mode",
+                ],
+                "bc64n68M32k": [
+                    "M1200-0000-061-24",
+                    "32 Antenna System running in Narrowband Full Fine (32K) mode",
+                ],
+                "bc128n68M32k": [
+                    "M1200-0000-061-25",
+                    "64 Antenna System running in Narrowband Full Fine (32K) mode",
+                ],
+                "bc8n34M32k": [
+                    "M1200-0000-061-26",
+                    "4 Antenna System running in Narrowband Half Fine (32K) mode",
+                ],
+                "bc16n34M32k": [
+                    "M1200-0000-061-27",
+                    "8 Antenna System running in Narrowband Half Fine (32K) mode",
+                ],
+                "bc32n34M32k": [
+                    "M1200-0000-061-28",
+                    "16 Antenna System running in Narrowband Half Fine (32K) mode",
+                ],
+                "bc64n34M32k": [
+                    "M1200-0000-061-29",
+                    "32 Antenna System running in Narrowband Half Fine (32K) mode",
+                ],
+                "bc128n34M32k": [
+                    "M1200-0000-061-30",
+                    "64 Antenna System running in Narrowband Half Fine (32K) mode",
+                ],
 
 ########################################
             },
