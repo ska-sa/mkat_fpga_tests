@@ -877,12 +877,12 @@ class UtilsClass(object):
         int_time = '_'+ int_time[0] + '_' + int_time[1]
         if (profile in ('noise','cw')):
             try:
-                if "54M32k" in self.instrument:
+                if ("54M32k" in self.instrument) or ("34M32k" in self.instrument):
                     awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_awgn_scale".format(profile)]
                     cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_cw_scale".format(profile)]
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_gain{}".format(profile, int_time)]
                     fft_shift  = self.corr_fix._test_config_file["instrument_params"]["{}32knbh_fft_shift".format(profile)]
-                elif "107M32k" in self.instrument:
+                elif ("107M32k" in self.instrument) or ("68M32k" in self.instrument):
                     awgn_scale = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_awgn_scale".format(profile)]
                     cw_scale   = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_cw_scale".format(profile)]
                     gain       = self.corr_fix._test_config_file["instrument_params"]["{}32knbf_gain{}".format(profile, int_time)]

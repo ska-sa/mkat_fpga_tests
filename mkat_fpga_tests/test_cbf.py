@@ -6573,8 +6573,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         try:
             initial_dump = self.receiver.get_clean_dump(discard=_discards)
             self.assertIsInstance(initial_dump, dict)
-            assert np.any(initial_dump["xeng_raw"])
-        except Exception:
+            if not np.any(initial_dump["xeng_raw"]):
+                errmsg = "Captured data all zeros. Check DSIM input."
+                self.Error(errmsg, exc_info=True)
+                return
+        except AssertionError:
             errmsg = "Could not retrieve clean SPEAD accumulation, as Queue is Empty."
             self.Error(errmsg, exc_info=True)
             return
