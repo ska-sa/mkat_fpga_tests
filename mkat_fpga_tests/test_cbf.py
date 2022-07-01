@@ -125,11 +125,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.dhost = self.corr_fix.dhost
             if not isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost):
                 raise AssertionError(errmsg)
-            elif "856" or "107" or "54" in self.corr_fix.instrument:
+            elif ("856" in self.corr_fix.instrument) or ("107" in self.corr_fix.instrument) or ("54" in self.corr_fix.instrument):
                 nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_l"])
-            elif "875" or "109" or "55" in self.corr_fix.instrument:
+            elif ("875" in self.corr_fix.instrument) or ("109" in self.corr_fix.instrument) or ("55" in self.corr_fix.instrument):
                 nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_s"])
-            elif "544" or "68" or "34" in self.corr_fix.instrument:
+            elif ("544" in self.corr_fix.instrument) or ("68" in self.corr_fix.instrument) or ("34" in self.corr_fix.instrument):
                 nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_u"])
             self.dsim_factor = (nominal_sample_freq 
                 / self.cam_sensors.get_value("scale_factor_timestamp"))
@@ -559,7 +559,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 instrument_success = self.set_instrument()
                 if instrument_success:
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
-                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument) or ("68M32k" in self.instrument) or ("34M32k" in self.instrument)) and
                         (self.start_channel == 0)):
                         check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
@@ -606,6 +606,20 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             samples_per_chan=smpl_per_ch, freq_band='lband'
                         )
 ###########################
+                    elif "68M32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=2075.2, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                            narrow_band="full", freq_band='uhf'
+                        )
+                    elif "34M32k" in self.instrument:
+                        self._test_channelisation(
+                            test_chan,
+                            req_chan_spacing=1037.6, num_discards=num_discards,
+                            samples_per_chan=smpl_per_ch,
+                            narrow_band="half", freq_band='uhf'
+                        )
                     elif "544M32k" in self.instrument:
                         self._test_channelisation(
                             test_chan,
@@ -709,6 +723,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                 num_discard=num_discard)
                     elif "54M32k" in self.instrument:
                         self._test_sfdr_peaks(req_chan_spacing=1632.69, no_channels=n_ch_to_test,
+                                num_discard=num_discard)
+                    elif "68M32k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=2075.2, no_channels=n_ch_to_test,
+                                num_discard=num_discard)
+                    elif "34M32k" in self.instrument:
+                        self._test_sfdr_peaks(req_chan_spacing=1037.6, no_channels=n_ch_to_test,
                                 num_discard=num_discard)
                     elif "32k" in self.instrument:
                         self._test_sfdr_peaks(req_chan_spacing=31250, no_channels=n_ch_to_test,  # Hz
@@ -844,7 +864,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 if instrument_success:
                     n_chans = self.cam_sensors.get_value("antenna_channelised_voltage_n_chans")
                     test_chan = random.choice(range(self.start_channel, self.start_channel+self.n_chans_selected))
-                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument)) and (self.start_channel == 0)):
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument) or ("68M32k" in self.instrument) or ("34M32k" in self.instrument)) and (self.start_channel == 0)):
                         check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
                         test_chan = random.choice(range(n_chans)[check_strt_ch:check_stop_ch])
@@ -882,7 +902,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     chan_sel = self.n_chans_selected
                     check_strt_ch = None
                     check_stop_ch = None
-                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument))
+                    if ((("107M32k" in self.instrument) or ("54M32k" in self.instrument) or ("68M32k" in self.instrument) or ("34M32k" in self.instrument))
                             and (self.start_channel == 0)):
                         check_strt_ch = int(self.conf_file["instrument_params"].get("check_start_channel", 0))
                         check_stop_ch = int(self.conf_file["instrument_params"].get("check_stop_channel", 0))
@@ -2308,6 +2328,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         elif narrow_band == 'half' and freq_band == 'lband':
             # [CBF-REQ-0236]
             min_bandwidth_req = 53.5e6
+        elif narrow_band == 'full' and freq_band == 'uhf':
+            # [CBF-REQ-0243]
+            min_bandwidth_req = 68e6
+        elif narrow_band == 'half' and freq_band == 'uhf':
+            # [CBF-REQ-0236]
+            min_bandwidth_req = 34e6
         elif freq_band == 'uhf':
             # [CBF-REQ-0050]
             min_bandwidth_req = 435e6
@@ -8874,7 +8900,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.Step('Mean spectal value for beam capture is {}'.format(spectral_mean_val))
         chan_cplx_values = np.abs(complexise(np.asarray(chan_values)))
 
-        import IPython;IPython.embed()
 
 #        # Close any KAT SDP ingest nodes
         try:
