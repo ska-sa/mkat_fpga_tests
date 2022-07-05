@@ -1106,12 +1106,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @generic_test
     @aqf_vr("CBF.V.3.31")
     @aqf_requirements("CBF-REQ-0066", "CBF-REQ-0072", "CBF-REQ-0077", "CBF-REQ-0110", "CBF-REQ-0200")
-    def test_delay_phase_compensation_control(self):
+    def test_a_delay_phase_compensation_control(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation_Control)
-        if 'skipped_test' in test_CBF.__dict__['test_delay_phase_compensation_control'].__dict__:
+        if 'skipped_test' in test_CBF.__dict__['test_a_delay_phase_compensation_control'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
-        elif 'tbd' in test_CBF.__dict__['test_delay_phase_compensation_control'].__dict__:
+        elif 'tbd' in test_CBF.__dict__['test_a_delay_phase_compensation_control'].__dict__:
             self.Note('Mark test as tbd.')
             Aqf.tbd('Test tbd')
         else:
@@ -1132,12 +1132,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     @generic_test
     @aqf_vr("CBF.V.3.32")
     @aqf_requirements("CBF-REQ-0112", "CBF-REQ-0128", "CBF-REQ-0185", "CBF-REQ-0187", "CBF-REQ-0188")
-    def test_delay_phase_compensation_functional(self):
+    def test_a_delay_phase_compensation_functional(self):
         Aqf.procedure(TestProcedure.CBF_Delay_Phase_Compensation)
-        if 'skipped_test' in test_CBF.__dict__['test_delay_phase_compensation_functional'].__dict__:
+        if 'skipped_test' in test_CBF.__dict__['test_a_delay_phase_compensation_functional'].__dict__:
             self.Note('Mark test as skipped.')
             Aqf.skipped('Test skipped')
-        elif 'tbd' in test_CBF.__dict__['test_delay_phase_compensation_functional'].__dict__:
+        elif 'tbd' in test_CBF.__dict__['test_a_delay_phase_compensation_functional'].__dict__:
             self.Note('Mark test as tbd.')
             Aqf.tbd('Test tbd')
         else:
@@ -1166,6 +1166,15 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     instrument_success = self.set_instrument(1, start_channel = 256, stop_channel = 767)
                 else:
                     instrument_success = self.set_instrument()
+                # Remove previous delay tracking data files
+                dl_fn = "/".join([self._katreport_dir, r"delay_*"])
+                ph_fn = "/".join([self._katreport_dir, r"phase_*"])
+                del_files = glob.glob(dl_fn)+glob.glob(ph_fn)
+                try: 
+                    for f in del_files:
+                        os.remove(f)
+                except OSError:
+                    pass
                 if instrument_success:
                     delay_mult = self.corr_fix._test_config_file["delay_req"]["test_delay_multipliers"].split(",")
                     delays = [float(x)* self.cam_sensors.sample_period for x in delay_mult]
@@ -2641,7 +2650,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         chan_responses = np.array(chan_responses)
         fn = "/".join([self._katreport_dir, r"channelisation_raw_data.npz"])
         with open(fn, 'w') as f:
-            np.savez(f, test_freqs=actual_test_freqs, response=chan_responses)
+            np.savez_compressed(f, test_freqs=actual_test_freqs, response=chan_responses)
         df = self.cam_sensors.delta_f
         try:
             rand_chan_response = len(chan_responses[random.randrange(len(chan_responses))])
@@ -3306,7 +3315,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if band_shape_sweep:
             fn = "/".join([self._katreport_dir, r"band_shape_sweep.npz"])
             with open(fn, 'w') as f:
-                np.savez(f, 
+                np.savez_compressed(f, 
                         channels = band_shape_chans,
                         freqs    = band_shape_ch_freq,
                         response = band_shape_resp
@@ -4463,9 +4472,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         # # actual_channel_responses = zip(test_delays, chan_responses)
                         # # return zip(actual_phases_list, actual_channel_responses)
                         actual_phases_list.append(phases)
-                fn = "/".join([self._katreport_dir, r"delay_tracking_bl_{}.npy".format(setup_data["baseline_index"])])
+                fn = "/".join([self._katreport_dir, r"delay_tracking_bl_{}.npz".format(setup_data["baseline_index"])])
                 with open(fn, 'w') as f:
-                    np.save(f, raw_data)
+                    np.savez_compressed(f, raw_data=raw_data)
                 return actual_phases_list
 
             expected_phases = get_expected_phases()
@@ -5251,7 +5260,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 )
 
                 try:
-                    fn = "/".join([self._katreport_dir, r"delay_rate_bl_{}_{}.npy".format(setup_data["baseline_index"], str(delay_rate))])
+                    fn = "/".join([self._katreport_dir, r"delay_rate_bl_{}_{}.npz".format(setup_data["baseline_index"], str(delay_rate))])
                     actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                     actual_phases = [phases for phases, response in actual_data]
                 except TypeError:
@@ -5432,7 +5441,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 % (delay_rate, delay_value, phase_offset, phase_rate)
             )
             try:
-                fn = "/".join([self._katreport_dir, r"phase_rate_bl_{}.npy".format(setup_data["baseline_index"])])
+                fn = "/".join([self._katreport_dir, r"phase_rate_bl_{}.npz".format(setup_data["baseline_index"])])
                 actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
 
@@ -5626,7 +5635,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 % (delay_rate, delay_value, phase_offset, phase_rate))
 
             try:
-                fn = "/".join([self._katreport_dir, r"phase_offset_bl_{}.npy".format(setup_data["baseline_index"])])
+                fn = "/".join([self._katreport_dir, r"phase_offset_bl_{}.npz".format(setup_data["baseline_index"])])
                 actual_data, raw_captures = self._get_actual_data(setup_data, dump_counts, delay_coefficients, save_filename=fn)
                 actual_phases = [phases for phases, response in actual_data]
                 #TODO Get set phase offset value and calculate expected accordingly
@@ -7787,8 +7796,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             bf_raw = bf_raw[:, bf_raw_strt:bf_raw_stop, :]
             bf_ts = bf_ts[bf_raw_strt:bf_raw_stop]
 
-            fn = "/".join([self._katreport_dir, r"beamforming_timeseries_data"])
-            np.save(fn, bf_raw)
+            fn = "/".join([self._katreport_dir, r"beamforming_timeseries_data.npz"])
+            np.save_compressed(fn, bf_raw=bf_raw)
             # return True
             from bf_time_analysis import analyse_beam_data
 
@@ -9290,6 +9299,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         if False in set(np.equal(np.diff(ts_steps_found), -1*pulse_step)):
             self.logger.warn("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
         if False in set(np.greater(np.diff(trgt_spectra_idx), points_around_trg)):
+            import IPython;IPython.embed()
             self.Failed("Not enough spectra around target to find response: {}".format(np.diff(trgt_spectra_idx)))
 
         out_func = []

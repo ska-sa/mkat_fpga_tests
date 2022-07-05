@@ -1908,7 +1908,7 @@ class UtilsClass(object):
 
         if save_filename:
             with open(save_filename, 'w') as f:
-                np.save(f, fringe_dumps)
+                np.savez_compressed(f, fringe_dumps=fringe_dumps)
 
         chan_resp = []
         phases = []
@@ -2001,10 +2001,10 @@ class UtilsClass(object):
         # Cut the selected channel slice
         wrapped_results = wrapped_results[:,self.start_channel:self.stop_channel]
         if save_filename:
-            save_filename = save_filename[:-4] + "_exp.npy"
+            save_filename = save_filename[:-4] + "_exp.npz"
             Aqf.hop('Saving raw delay data: {}'.format(save_filename.split('/')[-1]))
             with open(save_filename, 'w') as f:
-                np.save(f, wrapped_results)
+                np.savez_compressed(f, wrapped_results, wrapped_results)
 
         if (fringe_offset or fringe_rate) != 0:
             fringe_phase = [np.abs((np.min(phase) + np.max(phase)) / 2.0) for phase in fringe_data]
