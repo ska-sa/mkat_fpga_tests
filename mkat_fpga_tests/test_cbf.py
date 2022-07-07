@@ -6726,7 +6726,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         else:
                             pass
                 count += 1
-                if count == 10:
+                if count == 20:
                     self.Failed("Gains to change output power by less than 1 and more than 6 dB " "could not be found.")
                     found = True
 
