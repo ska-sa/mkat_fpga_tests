@@ -926,9 +926,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_channels = test_channels[1:]
                 #self.check_dsim_acc_offset()
 
-                #self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
+                self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                #self._test_freq_scan_consistency(test_chan, num_discard)
+                self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
