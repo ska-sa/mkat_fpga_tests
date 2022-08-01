@@ -125,11 +125,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             self.dhost = self.corr_fix.dhost
             if not isinstance(self.dhost, corr2.dsimhost_fpga.FpgaDsimHost):
                 raise AssertionError(errmsg)
-            elif ("856" in self.corr_fix.instrument) or ("107" in self.corr_fix.instrument) or ("54" in self.corr_fix.instrument):
+            elif ("856M" in self.corr_fix.instrument) or ("107M" in self.corr_fix.instrument) or ("54M" in self.corr_fix.instrument):
                 nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_l"])
-            elif ("875" in self.corr_fix.instrument) or ("109" in self.corr_fix.instrument) or ("55" in self.corr_fix.instrument):
+            elif ("875M" in self.corr_fix.instrument) or ("109M" in self.corr_fix.instrument) or ("55M" in self.corr_fix.instrument):
                 nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_s"])
-            elif ("544" in self.corr_fix.instrument) or ("68" in self.corr_fix.instrument) or ("34" in self.corr_fix.instrument):
+            elif ("544M" in self.corr_fix.instrument) or ("68M" in self.corr_fix.instrument) or ("34M" in self.corr_fix.instrument):
                 nominal_sample_freq = float(self.conf_file["instrument_params"]["sample_freq_u"])
             self.dsim_factor = (nominal_sample_freq 
                 / self.cam_sensors.get_value("scale_factor_timestamp"))
@@ -6727,7 +6727,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         else:
                             pass
                 count += 1
-                if count == 10:
+                if count == 20:
                     self.Failed("Gains to change output power by less than 1 and more than 6 dB " "could not be found.")
                     found = True
 
