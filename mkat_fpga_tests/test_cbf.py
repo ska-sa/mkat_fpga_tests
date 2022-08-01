@@ -926,9 +926,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     test_channels = test_channels[1:]
                 #self.check_dsim_acc_offset()
 
-                #self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
+                self._test_product_baselines(check_strt_ch, check_stop_ch, num_discard)
                 self._test_back2back_consistency(test_channels, num_discard)
-                #self._test_freq_scan_consistency(test_chan, num_discard)
+                self._test_freq_scan_consistency(test_chan, num_discard)
                 #self._test_spead_verify()
                 #self._test_product_baseline_leakage()
             else:
@@ -1435,7 +1435,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
     #@tbd
     #@subset
     #@skipped_test
-    @array_release_x
+    #@array_release_x
     @beamforming
     @instrument_1k
     @instrument_4k
@@ -3987,6 +3987,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     "for baseline {}, channel {}."
                                     .format(expected_val, baseline_dumps_chval, bline, chan))
                         #failed = True
+                        #import IPython;IPyhton.embed()
             if num_err_prints < 1:
                 Aqf.failed('More failures occured, but not printed, check log for output.')
             if not failed:
@@ -5378,7 +5379,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         #        caption=caption,
                         #    )
                     plot_units = "rads"
-                    plot_title = "Delay rate {:1.1f} pn/s ".format(
+                    plot_title = "Delay rate {:1.1f} ps/s ".format(
                         delay_rate * 1e12)
                     plot_filename = "{}/{}_delay_rate.png".format(self.logs_path, self._testMethodName)
                     caption = (
@@ -8406,8 +8407,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 for i, delay in enumerate(test_delays):
                     delta_phase = actual_phases[i] - expected_delays_[i]
-                    # Replace first value with average as DC component might skew results
-                    delta_phase = [np.average(delta_phase)] + delta_phase[1:]
+                    # Replace first 5 values as DC component might skew results
+                    delta_phase  = np.concatenate(([delta_phase[5]]*5, delta_phase[5:]))
                     max_diff     = np.max(np.abs(delta_phase))
                     max_diff_deg = np.rad2deg(max_diff)
 
@@ -8421,6 +8422,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                "{:.3f} rad) between expected phase "
                                "and actual phase less than {} degree/s."
                                "".format(max_diff_deg, max_diff, degree))
+                        #if max_diff_deg > degree:
+                        #import IPython;IPython.embed()
 
                     Aqf.less(
                         max_diff_deg,
@@ -8439,6 +8442,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, plot_title, caption=caption, 
                                           log_dynamic_range=None, plot_type="error_vector",
                                           start_channel=0)#strt_ch)
+                import IPython;IPython.embed()
 
                 for count, (delay, exp_ph) in enumerate(expected_delays):
                     msg = (
@@ -8500,8 +8504,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             try:
                 for i, phase in enumerate(test_phases):
                     delta_phase = actual_phases[i] - expected_phases_[i]
-                    # Replace first value with average as DC component might skew results
-                    delta_phase = [np.average(delta_phase)] + delta_phase[1:]
+                    # Replace first 5 values as DC component might skew results
+                    delta_phase  = np.concatenate(([delta_phase[5]]*5, delta_phase[5:]))
                     max_diff     = np.max(np.abs(delta_phase))
                     max_diff_deg = np.rad2deg(max_diff)
 
@@ -8515,6 +8519,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                "{:.3f} rad) between expected phase "
                                "and actual phase less than {} degree/s."
                                "".format(max_diff_deg, max_diff, degree))
+                    if max_diff_deg > degree:
+                        import IPython;IPython.embed()
 
                     Aqf.less(
                         max_diff_deg,
@@ -9015,7 +9021,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             #start_substream = int(self.conf_file["beamformer"]["start_substream_idx"])
             # Algorithm now just pics the center of the band and substreams around that.
             # This may lead to capturing issues. TODO: investigate
-            start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
+            #start_substream = int(substreams/2) - int(n_substrms_to_cap_m/2)
+            start_substream = 0
             if start_substream > (substreams - 1):
                 self.logger.warn = (
                     "Starting substream is larger than substreams available: {}. "
@@ -9231,12 +9238,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         elif "4k" in self.instrument:
             pulse_step = 4*8
         elif "32k" in self.instrument:
-            pulse_step = 16*8
+            #pulse_step = 16*8
+            pulse_step = 32*8
         #TODO Figure out betterway to find load lead time
         #load_lead_time = 0.035
         #load_lead_time = 0.03
         load_lead_time = 0.015
         points_around_trg = 1500
+        #points_around_trg = 500
         load_lead_mcount = ticks_between_spectra * int(load_lead_time * scale_factor_timestamp / ticks_between_spectra)
         load_lead_ts     = load_lead_mcount/8.
         if not load_lead_ts.is_integer():
@@ -9259,7 +9268,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
 
                 future_ts_array = []
                 # Start a beam capture, set pulses and capture data 
-                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, capture_time=1, start_only=True)
+                _ = self.capture_beam_data(beam, ingest_kcp_client=ingest_kcp_client, start_only=True)
                 for pulse_cap in range(num_pulse_caps):
                     if pulse_cap == 0:
                         curr_ts = get_dsim_mcount(spectra_ref_mcount)
@@ -9296,10 +9305,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 Aqf.hop('Target spectra not found for timestamp: {}'.format(ts))
         # Check all timestamps makes sense
         ts_steps_found = [bf_ts[trgt_spectra_idx[x]]/8 - future_ts_array[x] for x in range(len(trgt_spectra_idx))]
+        #import IPython;IPython.embed()
         if False in set(np.equal(np.diff(ts_steps_found), -1*pulse_step)):
             self.logger.warn("Timestamps steps do not match those requested: {}".format(np.diff(ts_steps_found)))
         if False in set(np.greater(np.diff(trgt_spectra_idx), points_around_trg)):
-            import IPython;IPython.embed()
             self.Failed("Not enough spectra around target to find response: {}".format(np.diff(trgt_spectra_idx)))
 
         out_func = []
