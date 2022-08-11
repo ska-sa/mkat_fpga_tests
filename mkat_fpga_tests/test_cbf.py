@@ -4332,6 +4332,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
         #ref_idx = random.choice(range(0,tst_idx) + range(tst_idx+1, num_inputs))
         setup_data = self._delays_setup(test_source_idx=(tst_idx,0), determine_start_time=False)
         if setup_data:
+            curr_mcount = self.current_dsim_mcount()
             delay_load_lead_time = float(self.conf_file['instrument_params']['delay_load_lead_time'])
             int_time = self.cam_sensors.get_value("int_time")
             delay_load_lead_intg = math.ceil(delay_load_lead_time / int_time)
@@ -4449,7 +4450,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                             % (_num_discards, setup_data["test_source"], setup_data["baseline_index"])
                         )
                         self.logger.info("Getting dump...")
-                        dump = self.receiver.get_clean_dump(discard=_num_discards)
+                        #dump = self.receiver.get_clean_dump(discard=_num_discards)
+                        dump = self.get_dump_after_mcount(curr_mcount)
                         if not(self._confirm_delays(delay_coefficients, 
                                                     err_margin = float(self.conf_file["delay_req"]["delay_resolution"]))[0]):
                             self.Error('Requested delay was not set, check output of logfile.')
@@ -6605,7 +6607,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "KATCP Reply: %s" % (test_input, nominal_gain, reply))
             return False
 
-        _discards = 5
+        _discards = 8
         try:
             initial_dump = self.receiver.get_clean_dump(discard=_discards)
             self.assertIsInstance(initial_dump, dict)
