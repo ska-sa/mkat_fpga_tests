@@ -7193,7 +7193,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #keep scal as is
                 pass
             elif decimation_factor != 1:
-                pass
+                awgn_scale = awgn_scale*2
             else:
                 pass
                 #awgn_scale = awgn_scale*2
