@@ -7455,6 +7455,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if "1k" in self.instrument:
                 #keep scal as is
                 pass
+            elif decimation_factor != 1:
+                awgn_scale = cw_scale*2
             else:
                 pass
                 #awgn_scale = awgn_scale*2
