@@ -3986,8 +3986,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                     "measured values for captured accumulations ({}) "
                                     "for baseline {}, channel {}."
                                     .format(expected_val, baseline_dumps_chval, bline, chan))
-                        #failed = True
-                        #import IPython;IPyhton.embed()
             if num_err_prints < 1:
                 Aqf.failed('More failures occured, but not printed, check log for output.')
             if not failed:
@@ -4481,14 +4479,14 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             expected_phases = get_expected_phases()
             for i in range(self.data_retries):
                 actual_phases = get_actual_phases()
-                if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+                if set([float(0)]) in [set(i) for i in actual_phases[2:]]:
                     self.logger.error("Phases are all zero, retrying capture. TODO debug why this is neccessary.")
                 elif not actual_phases:
                     self.logger.error("Phases not captured, retrying capture. TODO debug why this is neccessary.")
                 else:
                     break
             try:
-                if set([float(0)]) in [set(i) for i in actual_phases[1:]]:
+                if set([float(0)]) in [set(i) for i in actual_phases[2:]]:
                     self.Failed("Phases are all zero")
                 elif not actual_phases:
                     self.Failed("Phases were not captured")
@@ -6605,7 +6603,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     "KATCP Reply: %s" % (test_input, nominal_gain, reply))
             return False
 
-        _discards = 5
+        _discards = 8
         try:
             initial_dump = self.receiver.get_clean_dump(discard=_discards)
             self.assertIsInstance(initial_dump, dict)
@@ -8081,11 +8079,12 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         substreams_to_capture(ingest_kcp_client[1], start_substream, substrms_to_cap)
                         strt_ch = start_substream * ch_per_substream
                         stop_ch = strt_ch + ch_per_substream*substrms_to_cap
-                        beam_retries = 5
+                        beam_retries = 15
                         while beam_retries > 0:
                             _ = self.capture_beam_data(beams[0], ingest_kcp_client=ingest_kcp_client[0][0], start_only=True)
                             _ = self.capture_beam_data(beams[1], ingest_kcp_client=ingest_kcp_client[1][0], start_only=True)
-                            time.sleep(0.1)
+                            #time.sleep(0.1)
+                            time.sleep(0.2)
                             reply, informs = ingest_kcp_client[0][0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
                             reply, informs = ingest_kcp_client[1][0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
 
@@ -8110,9 +8109,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                             'retrying {} more times...'.format(beam_retries))
                                         beam_retries -= 1
                                 else:
+                                    time.sleep(5)
                                     beam_retries = -1
                             else:
                                 self.logger.warn('Beam capture failed, retrying {} more times...'.format(beam_retries))
+                                time.sleep(5)
                                 beam_retries -= 1
                         if beam_retries == 0:
                             self.Failed('Could not capture beam data.')
@@ -8422,7 +8423,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                "{:.3f} rad) between expected phase "
                                "and actual phase less than {} degree/s."
                                "".format(max_diff_deg, max_diff, degree))
-                        #if max_diff_deg > degree:
+                    #if max_diff_deg > degree:
                         #import IPython;IPython.embed()
 
                     Aqf.less(
@@ -8442,7 +8443,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         aqf_plot_channels(np.rad2deg(delta_phase), plot_filename, plot_title, caption=caption, 
                                           log_dynamic_range=None, plot_type="error_vector",
                                           start_channel=0)#strt_ch)
-                import IPython;IPython.embed()
 
                 for count, (delay, exp_ph) in enumerate(expected_delays):
                     msg = (
@@ -8519,8 +8519,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                                "{:.3f} rad) between expected phase "
                                "and actual phase less than {} degree/s."
                                "".format(max_diff_deg, max_diff, degree))
-                    if max_diff_deg > degree:
-                        import IPython;IPython.embed()
+                    #if max_diff_deg > degree:
+                        #import IPython;IPython.embed()
 
                     Aqf.less(
                         max_diff_deg,
