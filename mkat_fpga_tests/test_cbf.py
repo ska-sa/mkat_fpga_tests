@@ -4032,8 +4032,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
-            #else:
-            #    curr_mcount = self.current_dsim_mcount() #dump_after_mcount
             self.Step("Digitiser simulator configured to generate continuous wave")
             #TODO: this test does not sweep across the full l-band, should it?
             #self.Step(
@@ -4057,9 +4055,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         curr_mcount = self.current_dsim_mcount() #dump_after_mcount
                         freq_val = self.dhost.sine_sources.sin_corr.frequency
                         try:
-                            # this_freq_dump = self.receiver.get_clean_dump()
-                            #TODO Check if 4 discards are enough.
-                            #this_freq_dump = self.get_real_clean_dump(discard = num_discard)
                             this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
@@ -4078,10 +4073,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         self.dhost.sine_sources.sin_corr.set(
                             frequency=freq, scale=cw_scale, repeat_n=source_period_in_samples
                         )
+                        curr_mcount = self.current_dsim_mcount() #dump_after_mcount
                         freq_val = self.dhost.sine_sources.sin_corr.frequency
                         try:
-                            # this_freq_dump = self.receiver.get_clean_dump()
-                            this_freq_dump = self.get_real_clean_dump(discard = num_discard)
+                            this_freq_dump = self.get_dump_after_mcount(curr_mcount)  #dump_after_mcount
                             assert isinstance(this_freq_dump, dict)
                         except Exception:
                             errmsg = "Could not retrieve clean SPEAD accumulation: Queue is Empty."
@@ -7193,7 +7188,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #keep scal as is
                 pass
             elif decimation_factor != 1:
-                awgn_scale = awgn_scale*2
+                #awgn_scale = awgn_scale*2
+                pass
             else:
                 pass
                 #awgn_scale = awgn_scale*2
@@ -7207,7 +7203,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if not dsim_set_success:
                 self.Failed("Failed to configure digitise simulator levels")
                 return False
-            time.sleep(1)
+            if decimation_factor != 1:
+                time.sleep(3)
+            else:
+                time.sleep(1)
 
             ants = self.cam_sensors.get_value("n_ants")
             sampling_period = self.cam_sensors.sample_period
@@ -7455,8 +7454,9 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             if "1k" in self.instrument:
                 #keep scal as is
                 pass
-            elif decimation_factor != 1:
-                awgn_scale = cw_scale*2
+            #elif decimation_factor != 1:
+                #awgn_scale = cw_scale*2
+            #    pass
             else:
                 pass
                 #awgn_scale = awgn_scale*2
@@ -7517,7 +7517,10 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 freq = ch_list[cw_ch]
                 dsim_set_success = self.set_input_levels(awgn_scale=awgn_scale, cw_scale=cw_scale,
                         freq=freq)
-                time.sleep(1)
+                if decimation_factor != 1:
+                    time.sleep(3)
+                else:
+                    time.sleep(1)
                 if not dsim_set_success:
                     self.Failed("Failed to configure digitise simulator levels or set fft shift or gain.")
                     return False
