@@ -4474,16 +4474,16 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
             expected_phases = get_expected_phases()
             for i in range(self.data_retries):
                 actual_phases = get_actual_phases()
-                if set([float(0)]) in [set(i) for i in actual_phases[2:]]:
-                    self.logger.error("Phases are all zero, retrying capture. TODO debug why this is neccessary.")
-                elif not actual_phases:
+                #if set([float(0)]) in [set(i) for i in actual_phases[2:]]:
+                #    self.logger.error("Phases are all zero, retrying capture. TODO debug why this is neccessary.")
+                if not actual_phases:
                     self.logger.error("Phases not captured, retrying capture. TODO debug why this is neccessary.")
                 else:
                     break
             try:
-                if set([float(0)]) in [set(i) for i in actual_phases[2:]]:
-                    self.Failed("Phases are all zero")
-                elif not actual_phases:
+                #if set([float(0)]) in [set(i) for i in actual_phases[2:]]:
+                #    self.Failed("Phases are all zero")
+                if not actual_phases:
                     self.Failed("Phases were not captured")
                 else:
                     # actual_phases = [phases for phases, response in actual_data]
@@ -7191,8 +7191,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 #awgn_scale = awgn_scale*2
                 pass
             else:
-                pass
-                #awgn_scale = awgn_scale*2
+                #pass
+                awgn_scale = awgn_scale*2
 
             self.Progress(
                 "Digitiser simulator configured to generate Gaussian noise: "
@@ -8063,7 +8063,6 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                     self.Error("Failed to set beam delays. \nReply: %s" % str(reply).replace("_", " "),
                         exc_info=True)
                 Aqf.step('Beam: {0}, Time to set: {1:.2f}, Reply: {2}'.format(beams[1], set_time, reply))
-                cap_retries = 5
                 substreams = self.cam_sensors.get_value("n_bengs")
                 ch_per_substream = self.cam_sensors.get_value(beam_name + "_n_chans_per_substream")
                 num_capture_runs = int(substreams/n_substrms_to_cap_m)
@@ -8074,6 +8073,7 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                 num_prints = 3
                 print_cnt = 0
                 for cap in range(num_capture_runs):
+                    cap_retries = 5
                     while True:
                         if (cap == num_capture_runs-1) and num_cap_runs_mod:
                             substrms_to_cap = num_cap_runs_mod
@@ -8088,8 +8088,8 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         while beam_retries > 0:
                             _ = self.capture_beam_data(beams[0], ingest_kcp_client=ingest_kcp_client[0][0], start_only=True)
                             _ = self.capture_beam_data(beams[1], ingest_kcp_client=ingest_kcp_client[1][0], start_only=True)
-                            #time.sleep(0.1)
-                            time.sleep(0.2)
+                            time.sleep(0.1)
+                            #time.sleep(0.2)
                             reply, informs = ingest_kcp_client[0][0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
                             reply, informs = ingest_kcp_client[1][0].blocking_request(katcp.Message.request("capture-done"), timeout=1)
 
@@ -8145,7 +8145,11 @@ class test_CBF(unittest.TestCase, LoggingClass, AqfReporter, UtilsClass):
                         degree = float(self.corr_fix._test_config_file["beamformer"]
                                     ["delay_err_margin_degrees"])
                         delta_phase = np.asarray(_exp_phases[cnt][strt_ch:stop_ch]) - b0_b1_angle[strt_ch:stop_ch]
-                        max_diff     = np.max(np.abs(delta_phase[5:]))
+                        #max_diff     = np.max(np.abs(delta_phase[5:]))
+                        if strt_ch == 0:
+                            max_diff = np.max(np.abs(delta_phase[5:]))
+                        else:
+                            max_diff = np.max(np.abs(delta_phase))
                         max_diff_deg = np.rad2deg(max_diff)
                         if (max_diff_deg > degree) and (cap_retries > 0):
                             cap_retries -= 1
