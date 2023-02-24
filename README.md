@@ -104,6 +104,7 @@ optional arguments:
                         with --quick to only generate the html of the test run
                         report
   --dev_update          Do pip install update and install latest packages
+  --revision REVISION   Specify QTR revision status number.
   --sensor_logs         Generates a log report of the sensor errors and
                         warnings occurred during the test run.
 ```
@@ -114,6 +115,10 @@ For documentation we used [Sphinx](http://www.sphinx-doc.org/en/master/) and [la
 
 *   See: [README.md](docs/Cover_Page/README.md)
 *   See: [run_cbf_tests.py](https://github.com/ska-sa/mkat_fpga_tests/blob/devel/run_cbf_tests.py#L471)
+
+The requirements for the qualification is pulled into the qualification test report from the MeerKAT.xml CORE file. Ensure that the lastest version of the CORE.xml file is copied to `/usr/local/src/core_export` on the host machine or to `./supplemental` in the local repository.
+ 
+The revision status number for each qualification test report is stored in `./docs/rev_status.json` and must be updated in order for any changes in the revision status to relfect in the QTR. The `--revision` argument may also be used to specify any other revision status number.
 
 ## TODO
 
